@@ -16,6 +16,7 @@ import {
   Activity
 } from 'lucide-react';
 import packageJson from '../../package.json';
+import Logo from './Logo';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: Home, single: true },
@@ -206,11 +207,11 @@ export default function Layout() {
         {/* Header with logo and collapse toggle */}
         <div className={`flex items-center justify-between p-4 border-b border-port-border`}>
           <div className={`flex items-center gap-2 ${collapsed ? 'lg:hidden' : ''}`}>
-            <span className="text-xl">🚀</span>
+            <Logo size={24} className="text-port-accent" />
             <span className="text-port-accent font-semibold whitespace-nowrap">PortOS</span>
           </div>
           {collapsed && (
-            <span className="hidden lg:block text-xl">🚀</span>
+            <Logo size={24} className="hidden lg:block text-port-accent" />
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
@@ -255,7 +256,7 @@ export default function Layout() {
             <Menu size={24} />
           </button>
           <div className="flex items-center gap-2">
-            <span className="text-xl">🚀</span>
+            <Logo size={24} className="text-port-accent" />
             <span className="font-bold text-port-accent">PortOS</span>
           </div>
           <div className="w-10" /> {/* Spacer for centering */}

@@ -34,28 +34,9 @@ pm2 logs
 - [x] M5: AI providers + headless executor
 - [x] M6: Dev tools (history, command runner)
 
-### Code Guidelines
-- **No `window.alert` or `window.confirm`** - Use inline confirmation components or toast notifications for better UX
-- Favor functional components and hooks over class components
-- Use Tailwind for all styling
-- **Linkable routes for all views** - Tabbed pages, sub-pages, edit/add forms should have distinct URL routes (e.g., `/devtools/history`, `/devtools/processes`) so users can bookmark and share links
-
-### Git Workflow
-- **`dev`** - Development branch, all features branch from here
-- **`main`** - Production branch, releases only
-
-### Versioning (Major.Release.Build)
-- **Major** - Manually incremented for breaking changes
-- **Release** (minor) - Auto-incremented when merging dev → main
-- **Build** (patch) - Auto-incremented on every successful dev CI run
-
-**Automated Flow:**
-1. Push to `dev` → CI runs tests → on success, auto-bump patch (0.2.0 → 0.2.1)
-2. Create PR from `dev` to `main` → CI runs tests
-3. Merge PR → Release workflow:
-   - Tags current version (v0.2.5)
-   - Creates GitHub release with changelog
-   - Preps dev for next release (0.2.5 → 0.3.0)
+### Documentation
+- [Contributing Guide](./docs/CONTRIBUTING.md) - Code guidelines, git workflow
+- [Versioning & Releases](./docs/VERSIONING.md) - Version format, release process
 
 ---
 

@@ -7,19 +7,24 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-
-    # Only run if the commit message doesn't already contain [skip release]
-    if: "!contains(github.event.head_commit.message, '[skip release]')"
+    # Skip version bump commits
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Use Node.js 20.x
         uses: actions/setup-node@v4
         with:
           node-version: 20.x
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Get version from package.json
         id: package-version
@@ -41,8 +46,8 @@ jobs:
           # Get the previous tag or use initial commit
           PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)
 
-          # Generate changelog from commits
-          CHANGELOG=$(git log $PREV_TAG..HEAD --pretty=format:"- %s" --no-merges | head -50)
+          # Generate changelog from commits (exclude [skip ci] commits)
+          CHANGELOG=$(git log $PREV_TAG..HEAD --pretty=format:"- %s" --no-merges | grep -v "\[skip ci\]" | head -50)
 
           # Handle multiline output
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
@@ -72,3 +77,31 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prep dev branch for next release
+        if: steps.tag-check.outputs.exists == 'false'
+        run: |
+          # Get current version
+          CURRENT_VERSION=${{ steps.package-version.outputs.version }}
+
+          # Split into parts
+          MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
+          MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
+
+          # Increment minor, reset patch to 0
+          NEW_MINOR=$((MINOR + 1))
+          NEW_VERSION="$MAJOR.$NEW_MINOR.0"
+
+          # Checkout dev branch
+          git fetch origin dev
+          git checkout dev
+
+          # Update package.json files
+          npm version $NEW_VERSION --no-git-tag-version
+          cd client && npm version $NEW_VERSION --no-git-tag-version && cd ..
+          cd server && npm version $NEW_VERSION --no-git-tag-version && cd ..
+
+          # Commit and push
+          git add package.json package-lock.json client/package.json server/package.json
+          git commit -m "build: prep v$NEW_VERSION for next release [skip ci]"
+          git push origin dev

@@ -43,12 +43,19 @@ pm2 logs
 ### Git Workflow
 - **`dev`** - Development branch, all features branch from here
 - **`main`** - Production branch, releases only
-- **Release Process**:
-  1. Work on `dev` branch (or feature branches merged to `dev`)
-  2. Create PR from `dev` to `main`
-  3. CI runs tests on PR
-  4. On merge, GitHub Action creates a release with version from `package.json`
-- Bump version in `package.json` before merging to `main`
+
+### Versioning (Major.Release.Build)
+- **Major** - Manually incremented for breaking changes
+- **Release** (minor) - Auto-incremented when merging dev → main
+- **Build** (patch) - Auto-incremented on every successful dev CI run
+
+**Automated Flow:**
+1. Push to `dev` → CI runs tests → on success, auto-bump patch (0.2.0 → 0.2.1)
+2. Create PR from `dev` to `main` → CI runs tests
+3. Merge PR → Release workflow:
+   - Tags current version (v0.2.5)
+   - Creates GitHub release with changelog
+   - Preps dev for next release (0.2.5 → 0.3.0)
 
 ---
 

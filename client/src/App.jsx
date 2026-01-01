@@ -7,6 +7,7 @@ import CreateApp from './pages/CreateApp';
 import Templates from './pages/Templates';
 import AIProviders from './pages/AIProviders';
 import DevTools from './pages/DevTools';
+import PromptManager from './pages/PromptManager';
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="devtools" element={<Navigate to="/devtools/history" replace />} />
         <Route path="devtools/:tab" element={<DevTools />} />
         <Route path="ai" element={<AIProviders />} />
+        <Route path="prompts" element={<PromptManager />} />
         <Route path="create" element={<CreateApp />} />
         <Route path="templates" element={<Templates />} />
         <Route path="*" element={<Navigate to="/" replace />} />

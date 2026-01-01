@@ -35,7 +35,7 @@ pm2 logs
 - [x] M6: Dev tools (history, command runner)
 - [ ] M7: App templates (create from templates, template management)
 - [ ] M8: Prompt manager (customizable AI prompts, variables, stages)
-- [ ] M9: Streaming import detection (websocket updates, progressive discovery)
+- [x] M9: Streaming import detection (websocket updates, progressive discovery)
 
 ### Documentation
 - [Contributing Guide](./docs/CONTRIBUTING.md) - Code guidelines, git workflow

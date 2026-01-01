@@ -15,6 +15,7 @@ import providersRoutes from './routes/providers.js';
 import runsRoutes from './routes/runs.js';
 import historyRoutes from './routes/history.js';
 import commandsRoutes from './routes/commands.js';
+import promptsRoutes from './routes/prompts.js';
 import { initSocket } from './services/socket.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -59,6 +60,7 @@ app.use('/api/providers', providersRoutes);
 app.use('/api/runs', runsRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/commands', commandsRoutes);
+app.use('/api/prompts', promptsRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {

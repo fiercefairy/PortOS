@@ -31,7 +31,14 @@ const navItems = [
       { to: '/devtools/processes', label: 'Processes', icon: Activity }
     ]
   },
-  { to: '/ai', label: 'AI Providers', icon: Bot, single: true },
+  {
+    label: 'AI Config',
+    icon: Bot,
+    children: [
+      { to: '/ai', label: 'Providers', icon: Bot },
+      { to: '/prompts', label: 'Prompts', icon: FileText }
+    ]
+  },
   { to: '/create', label: 'Add App', icon: PlusCircle, single: true }
 ];
 

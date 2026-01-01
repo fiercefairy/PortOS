@@ -60,5 +60,6 @@ port-error: #ef4444
 - **dev**: Active development (auto-bumps patch on CI pass)
 - **main**: Production releases only
 - PR `dev → main` creates tagged release and preps next version
+- **Use `/gitup` to push** - The dev branch receives auto version bump commits from CI. Always use `git pull --rebase --autostash && git push` (or `/gitup`) instead of plain `git push`.
 
 See `docs/VERSIONING.md` for details.

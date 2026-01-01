@@ -32,38 +32,9 @@ export default function CreateApp() {
     api.getActiveProvider().then(p => setHasAiProvider(!!p)).catch(() => {});
   }, []);
 
-  // Validate path on blur
-  const handlePathBlur = async () => {
-    if (!repoPath) {
-      setPathValid(null);
-      return;
-    }
-
-    setDetecting(true);
-    const result = await api.detectRepo(repoPath).catch(() => ({ valid: false }));
-    setPathValid(result.valid);
-    setDetecting(false);
-
-    if (result.valid) {
-      // Apply basic detection
-      if (result.packageJson?.name && !name) {
-        setName(result.packageJson.name);
-      }
-      if (result.startCommands?.length > 0 && startCommands === 'npm run dev') {
-        setStartCommands(result.startCommands.join('\n'));
-      }
-      if (result.detectedPorts?.vite && !uiPort) {
-        setUiPort(String(result.detectedPorts.vite));
-      }
-      if (result.detectedPorts?.main && !apiPort) {
-        setApiPort(String(result.detectedPorts.main));
-      }
-    }
-  };
-
   // AI-powered detection
   const handleAiDetect = async () => {
-    if (!repoPath || !pathValid) return;
+    if (!repoPath) return;
 
     setError(null);
     setAiDetecting(true);
@@ -90,6 +61,45 @@ export default function CreateApp() {
     if (d.apiPort) setApiPort(String(d.apiPort));
     if (d.startCommands?.length > 0) setStartCommands(d.startCommands.join('\n'));
     if (d.pm2ProcessNames?.length > 0) setPm2Names(d.pm2ProcessNames.join(', '));
+  };
+
+  // Import button handler - validates path, then runs AI detection if available
+  const handleImport = async () => {
+    if (!repoPath) return;
+
+    setError(null);
+
+    // First validate the path
+    if (pathValid === null) {
+      setDetecting(true);
+      const result = await api.detectRepo(repoPath).catch(() => ({ valid: false }));
+      setPathValid(result.valid);
+      setDetecting(false);
+
+      if (!result.valid) {
+        setError('Invalid directory path');
+        return;
+      }
+
+      // Apply basic detection
+      if (result.packageJson?.name && !name) {
+        setName(result.packageJson.name);
+      }
+      if (result.startCommands?.length > 0 && startCommands === 'npm run dev') {
+        setStartCommands(result.startCommands.join('\n'));
+      }
+      if (result.detectedPorts?.vite && !uiPort) {
+        setUiPort(String(result.detectedPorts.vite));
+      }
+      if (result.detectedPorts?.main && !apiPort) {
+        setApiPort(String(result.detectedPorts.main));
+      }
+    }
+
+    // Then run AI detection if provider is available
+    if (hasAiProvider) {
+      await handleAiDetect();
+    }
   };
 
   // Submit form
@@ -132,49 +142,35 @@ export default function CreateApp() {
         {/* Path Input */}
         <div className="bg-port-card border border-port-border rounded-xl p-6">
           <label className="block text-sm text-gray-400 mb-2">Project Directory</label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={repoPath}
-              onChange={(e) => { setRepoPath(e.target.value); setPathValid(null); setDetected(null); }}
-              onBlur={handlePathBlur}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  if (pathValid && hasAiProvider) {
-                    handleAiDetect();
-                  } else if (!pathValid) {
-                    handlePathBlur();
-                  }
-                }
-              }}
-              placeholder="/Users/you/projects/my-app"
-              className="flex-1 px-4 py-3 bg-port-bg border border-port-border rounded-lg text-white focus:border-port-accent focus:outline-none font-mono"
-            />
-            {hasAiProvider && pathValid && (
-              <button
-                type="button"
-                onClick={handleAiDetect}
-                disabled={aiDetecting}
-                className="px-4 py-3 bg-port-accent hover:bg-port-accent/80 text-white rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
-              >
-                {aiDetecting ? 'Detecting...' : 'Detect with AI'}
-              </button>
-            )}
-          </div>
+          <input
+            type="text"
+            value={repoPath}
+            onChange={(e) => { setRepoPath(e.target.value); setPathValid(null); setDetected(null); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleImport();
+              }
+            }}
+            placeholder="/Users/you/projects/my-app"
+            className="w-full px-4 py-3 bg-port-bg border border-port-border rounded-lg text-white focus:border-port-accent focus:outline-none font-mono"
+          />
 
           {detecting && (
             <p className="mt-2 text-sm text-gray-500">Validating path...</p>
+          )}
+
+          {aiDetecting && (
+            <p className="mt-2 text-sm text-port-accent">Detecting project configuration with AI...</p>
           )}
 
           {pathValid === false && (
             <p className="mt-2 text-sm text-port-error">Invalid directory path</p>
           )}
 
-          {pathValid === true && !detected && (
+          {pathValid === true && !detected && !aiDetecting && (
             <p className="mt-2 text-sm text-port-success">
               Valid project directory
-              {hasAiProvider && ' — click "Detect with AI" for smart configuration'}
             </p>
           )}
 
@@ -190,6 +186,25 @@ export default function CreateApp() {
               </p>
             </div>
           )}
+
+          {/* Action Buttons - Always visible */}
+          <div className="flex gap-3 mt-4">
+            <button
+              type="button"
+              onClick={() => navigate('/templates')}
+              className="flex-1 px-6 py-3 bg-port-border hover:bg-port-border/80 text-white rounded-lg transition-colors"
+            >
+              Create from Template
+            </button>
+            <button
+              type="button"
+              onClick={handleImport}
+              disabled={!repoPath || detecting || aiDetecting}
+              className="flex-1 px-6 py-3 bg-port-accent hover:bg-port-accent/80 text-white rounded-lg transition-colors disabled:opacity-50"
+            >
+              {detecting ? 'Validating...' : aiDetecting ? 'Detecting...' : 'Import'}
+            </button>
+          </div>
         </div>
 
         {/* App Details */}
@@ -281,32 +296,32 @@ export default function CreateApp() {
           </div>
         )}
 
-        {/* Submit */}
+        {/* Submit - only shown after detection */}
         {pathValid && (
           <div className="flex justify-between items-center">
             <button
               type="button"
-              onClick={() => navigate(-1)}
+              onClick={() => {
+                setPathValid(null);
+                setDetected(null);
+                setName('');
+                setDescription('');
+                setUiPort('');
+                setApiPort('');
+                setStartCommands('npm run dev');
+                setPm2Names('');
+              }}
               className="px-4 py-2 text-gray-400 hover:text-white"
             >
-              Cancel
+              Reset
             </button>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => navigate('/templates')}
-                className="px-6 py-3 bg-port-accent hover:bg-port-accent/80 text-white rounded-lg transition-colors"
-              >
-                Create from Template
-              </button>
-              <button
-                type="submit"
-                disabled={!name || submitting}
-                className="px-6 py-3 bg-port-success hover:bg-port-success/80 text-white rounded-lg transition-colors disabled:opacity-50"
-              >
-                {submitting ? 'Importing...' : 'Import App'}
-              </button>
-            </div>
+            <button
+              type="submit"
+              disabled={!name || submitting}
+              className="px-6 py-3 bg-port-success hover:bg-port-success/80 text-white rounded-lg transition-colors disabled:opacity-50"
+            >
+              {submitting ? 'Saving...' : 'Save App'}
+            </button>
           </div>
         )}
       </form>

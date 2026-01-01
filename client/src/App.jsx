@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Apps from './pages/Apps';
 import Logs from './pages/Logs';
 import CreateApp from './pages/CreateApp';
+import Templates from './pages/Templates';
 import AIProviders from './pages/AIProviders';
 import DevTools from './pages/DevTools';
 
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="devtools/:tab" element={<DevTools />} />
         <Route path="ai" element={<AIProviders />} />
         <Route path="create" element={<CreateApp />} />
+        <Route path="templates" element={<Templates />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

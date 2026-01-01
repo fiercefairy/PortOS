@@ -33,6 +33,7 @@ pm2 logs
 - [x] M4: App wizard (register existing + create new)
 - [x] M5: AI providers + headless executor
 - [x] M6: Dev tools (history, command runner)
+- [ ] M7: App templates (create from templates, template management)
 
 ### Documentation
 - [Contributing Guide](./docs/CONTRIBUTING.md) - Code guidelines, git workflow
@@ -136,3 +137,46 @@ Scaffold a new project from template:
 | GET /api/commands/allowed | List allowed commands |
 | GET /api/commands/processes | List PM2 processes |
 | POST /api/detect/ai | AI-powered app detection |
+| GET /api/templates | List available templates |
+| POST /api/templates/create | Create app from template |
+| POST /api/templates | Add custom template |
+| DELETE /api/templates/:id | Delete custom template |
+
+---
+
+## M7: App Templates (Planned)
+
+Templates allow creating new apps from pre-configured project structures.
+
+### Built-in Template: PortOS Stack
+The default template mirrors this application's architecture:
+- Express.js API server
+- React + Vite frontend
+- Tailwind CSS styling
+- Collapsible navigation layout
+- PM2 ecosystem configuration
+- GitHub Actions CI/CD workflows
+- Auto-versioning system
+
+### Features
+1. **Template Selection**: Browse available templates with feature descriptions
+2. **App Creation**: Scaffold new project with chosen name and target directory
+3. **Custom Templates**: Register additional templates from local paths
+4. **Template Management**: View, edit, delete custom templates
+
+### Pages
+- `/templates` - Template browser and app creation
+- `/templates/new` - Register custom template
+
+### Template Structure
+Templates are stored in `./data/templates/` with:
+- `manifest.json` - Template metadata and feature list
+- Source files to copy when creating new app
+
+### API Endpoints
+| Route | Description |
+|-------|-------------|
+| GET /api/templates | List all templates |
+| POST /api/templates | Add custom template |
+| POST /api/templates/create | Create app from template |
+| DELETE /api/templates/:id | Remove custom template |

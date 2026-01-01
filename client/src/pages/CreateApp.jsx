@@ -125,7 +125,7 @@ export default function CreateApp() {
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white">Add App</h1>
-        <p className="text-gray-500">Register an existing project with PortOS</p>
+        <p className="text-gray-500">Import an existing project or create a new one from a template</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -138,6 +138,16 @@ export default function CreateApp() {
               value={repoPath}
               onChange={(e) => { setRepoPath(e.target.value); setPathValid(null); setDetected(null); }}
               onBlur={handlePathBlur}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (pathValid && hasAiProvider) {
+                    handleAiDetect();
+                  } else if (!pathValid) {
+                    handlePathBlur();
+                  }
+                }
+              }}
               placeholder="/Users/you/projects/my-app"
               className="flex-1 px-4 py-3 bg-port-bg border border-port-border rounded-lg text-white focus:border-port-accent focus:outline-none font-mono"
             />
@@ -281,13 +291,22 @@ export default function CreateApp() {
             >
               Cancel
             </button>
-            <button
-              type="submit"
-              disabled={!name || submitting}
-              className="px-6 py-3 bg-port-success hover:bg-port-success/80 text-white rounded-lg transition-colors disabled:opacity-50"
-            >
-              {submitting ? 'Registering...' : 'Register App'}
-            </button>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => navigate('/templates')}
+                className="px-6 py-3 bg-port-accent hover:bg-port-accent/80 text-white rounded-lg transition-colors"
+              >
+                Create from Template
+              </button>
+              <button
+                type="submit"
+                disabled={!name || submitting}
+                className="px-6 py-3 bg-port-success hover:bg-port-success/80 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {submitting ? 'Importing...' : 'Import App'}
+              </button>
+            </div>
           </div>
         )}
       </form>

@@ -135,6 +135,11 @@ export const scaffoldApp = (data) => request('/scaffold', {
   body: JSON.stringify(data)
 });
 
+export const createFromTemplate = (data) => request('/templates/create', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+
 // Providers
 export const getProviders = () => request('/providers');
 export const getActiveProvider = () => request('/providers/active');

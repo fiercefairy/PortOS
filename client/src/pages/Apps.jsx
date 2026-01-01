@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { ExternalLink } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
 import * as api from '../services/api';
 
@@ -116,6 +117,15 @@ export default function Apps() {
                         </div>
                       ) : (
                         <>
+                          {app.uiPort && (
+                            <button
+                              onClick={() => window.open(`http://localhost:${app.uiPort}`, '_blank')}
+                              className="text-sm text-green-400 hover:text-green-300 mr-3"
+                              title={`Open UI at localhost:${app.uiPort}`}
+                            >
+                              <ExternalLink size={16} className="inline" />
+                            </button>
+                          )}
                           <button
                             onClick={() => setEditingApp(app)}
                             className="text-sm text-port-accent hover:text-port-accent/80 mr-3"

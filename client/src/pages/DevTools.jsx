@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, Fragment } from 'react';
-import { GitBranch, Plus, Minus, FileText, Clock, RefreshCw, Activity, BarChart3, Image, X, XCircle, Cpu, MemoryStick, Terminal } from 'lucide-react';
+import { GitBranch, Plus, Minus, FileText, Clock, RefreshCw, Activity, Image, X, XCircle, Cpu, MemoryStick, Terminal } from 'lucide-react';
 import * as api from '../services/api';
 import socket from '../services/socket';
 

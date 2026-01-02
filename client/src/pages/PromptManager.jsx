@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { FileText, Variable, RefreshCw, Save, Plus, Trash2, Eye } from 'lucide-react';
-import * as api from '../services/api';
 
 export default function PromptManager() {
   const [tab, setTab] = useState('stages');

@@ -9,9 +9,9 @@ export function initSocket(io) {
     console.log(`🔌 Client connected: ${socket.id}`);
 
     // Handle streaming app detection
-    socket.on('detect:start', async ({ path, providerId }) => {
+    socket.on('detect:start', async ({ path }) => {
       console.log(`🔍 Starting detection: ${path}`);
-      await streamDetection(socket, path, providerId);
+      await streamDetection(socket, path);
     });
 
     // Handle log streaming requests

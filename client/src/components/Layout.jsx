@@ -250,21 +250,32 @@ export default function Layout() {
         `}
       >
         {/* Header with logo and collapse toggle */}
-        <div className={`flex items-center justify-between p-4 border-b border-port-border`}>
+        <div className={`flex items-center p-4 border-b border-port-border ${collapsed ? 'lg:justify-center' : 'justify-between'}`}>
+          {/* Expanded: logo + text */}
           <div className={`flex items-center gap-2 ${collapsed ? 'lg:hidden' : ''}`}>
             <Logo size={24} className="text-port-accent" />
             <span className="text-port-accent font-semibold whitespace-nowrap">PortOS</span>
           </div>
+          {/* Collapsed: just logo, clickable to expand */}
           {collapsed && (
-            <Logo size={24} className="hidden lg:block text-port-accent" />
+            <button
+              onClick={() => setCollapsed(false)}
+              className="hidden lg:block text-port-accent hover:text-port-accent/80 transition-colors"
+              title="Expand sidebar"
+            >
+              <Logo size={24} />
+            </button>
           )}
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="hidden lg:flex p-1 text-gray-500 hover:text-white transition-colors"
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            <ChevronLeft size={20} className={`transition-transform ${collapsed ? 'rotate-180' : ''}`} />
-          </button>
+          {/* Expanded: collapse button */}
+          {!collapsed && (
+            <button
+              onClick={() => setCollapsed(true)}
+              className="hidden lg:flex p-1 text-gray-500 hover:text-white transition-colors"
+              title="Collapse sidebar"
+            >
+              <ChevronLeft size={20} />
+            </button>
+          )}
           {/* Mobile close button */}
           <button
             onClick={() => setMobileOpen(false)}
@@ -280,13 +291,8 @@ export default function Layout() {
         </nav>
 
         {/* Footer with version */}
-        <div className={`p-4 border-t border-port-border text-sm text-gray-500 ${collapsed ? 'lg:text-center' : ''}`}>
-          {collapsed ? (
-            <span className="hidden lg:block text-xs">v{packageJson.version.split('.')[0]}</span>
-          ) : (
-            <span>v{packageJson.version}</span>
-          )}
-          <span className={`lg:hidden`}>v{packageJson.version}</span>
+        <div className={`p-4 border-t border-port-border text-sm text-gray-500 ${collapsed ? 'lg:hidden' : ''}`}>
+          <span>v{packageJson.version}</span>
         </div>
       </aside>
 

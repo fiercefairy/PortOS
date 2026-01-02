@@ -291,7 +291,7 @@ export function RunnerPage() {
   const [mode, setMode] = useState('ai'); // 'ai' or 'command'
   const [prompt, setPrompt] = useState('');
   const [command, setCommand] = useState('');
-  const [workspacePath, setWorkspacePath] = useState('');
+  const [selectedAppId, setSelectedAppId] = useState('');
   const [output, setOutput] = useState('');
   const [running, setRunning] = useState(false);
   const [runId, setRunId] = useState(null);
@@ -306,19 +306,25 @@ export function RunnerPage() {
   const fileInputRef = useRef(null);
   const outputRef = useRef(null);
 
+  // Get the selected app's repoPath
+  const selectedApp = apps.find(a => a.id === selectedAppId);
+  const workspacePath = selectedApp?.repoPath || '';
+
   useEffect(() => {
     Promise.all([
       api.getApps().catch(() => []),
       api.getProviders().catch(() => ({ providers: [] })),
       api.getAllowedCommands().catch(() => [])
     ]).then(([appsData, providersRes, cmds]) => {
-      setApps(appsData);
-      // Set PortOS as default workspace
-      const portosApp = appsData.find(a => a.name === 'PortOS');
-      if (portosApp && !workspacePath) {
-        setWorkspacePath(portosApp.repoPath);
-      } else if (appsData.length > 0 && !workspacePath) {
-        setWorkspacePath(appsData[0].repoPath);
+      // Filter out PortOS Autofixer (it's part of PortOS project)
+      const filteredApps = appsData.filter(a => a.id !== 'portos-autofixer');
+      setApps(filteredApps);
+      // Set PortOS as default workspace (exact name match)
+      const portosApp = filteredApps.find(a => a.name === 'PortOS');
+      if (portosApp) {
+        setSelectedAppId(portosApp.id);
+      } else if (filteredApps.length > 0) {
+        setSelectedAppId(filteredApps[0].id);
       }
       const allProviders = providersRes.providers || [];
       const enabledProviders = allProviders.filter(p => p.enabled);
@@ -514,12 +520,12 @@ export function RunnerPage() {
       <div className="flex flex-wrap gap-3">
         {/* Workspace */}
         <select
-          value={workspacePath}
-          onChange={(e) => setWorkspacePath(e.target.value)}
+          value={selectedAppId}
+          onChange={(e) => setSelectedAppId(e.target.value)}
           className="px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white text-sm"
         >
           {apps.map(app => (
-            <option key={app.id} value={app.repoPath}>{app.name}</option>
+            <option key={app.id} value={app.id}>{app.name}</option>
           ))}
         </select>
 

@@ -280,7 +280,7 @@ Autonomous crash detection and repair using Claude CLI.
 
 ### Architecture
 - **Daemon Process** (`autofixer/server.js`): Monitors PM2 for crashed processes registered in PortOS
-- **UI Server** (`autofixer/ui.js`): Web interface for viewing logs and fix history on port 6000
+- **UI Server** (`autofixer/ui.js`): Web interface for viewing logs and fix history on port 5560
 - **PM2 Integration**: Runs as `portos-autofixer` and `portos-autofixer-ui` processes
 
 ### Features
@@ -311,7 +311,7 @@ Autonomous crash detection and repair using Claude CLI.
 ### Configuration
 | Setting | Value |
 |---------|-------|
-| UI Port | 6000 |
+| UI Port | 5560 |
 | Check Interval | 15 minutes |
 | Fix Cooldown | 30 minutes |
 | Max History | 100 entries |

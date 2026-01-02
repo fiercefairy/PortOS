@@ -29,7 +29,8 @@ module.exports = {
       cwd: __dirname,
       interpreter: 'node',
       env: {
-        NODE_ENV: 'development'
+        NODE_ENV: 'development',
+        PORT: 5559
       },
       watch: false,
       autorestart: true,
@@ -44,7 +45,7 @@ module.exports = {
       interpreter: 'node',
       env: {
         NODE_ENV: 'development',
-        PORT: 6000
+        PORT: 5560
       },
       watch: false,
       autorestart: true,

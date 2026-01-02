@@ -6,7 +6,7 @@
       "description": "Autonomous PM2 crash detection and repair using Claude CLI",
       "repoPath": "/path/to/PortOS",
       "type": "express",
-      "uiPort": 6000,
+      "uiPort": 5560,
       "apiPort": null,
       "startCommands": [
         "pm2 start ecosystem.config.cjs --only portos-autofixer,portos-autofixer-ui"

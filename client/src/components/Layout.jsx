@@ -48,7 +48,7 @@ const navItems = [
     ]
   },
   { to: '/create', label: 'Add App', icon: PlusCircle, single: true },
-  { href: '//:6000', label: 'Autofixer', icon: Wrench, external: true, dynamicHost: true }
+  { href: '//:5560', label: 'Autofixer', icon: Wrench, external: true, dynamicHost: true }
 ];
 
 const SIDEBAR_KEY = 'portos-sidebar-collapsed';

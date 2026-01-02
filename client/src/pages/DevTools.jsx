@@ -313,6 +313,13 @@ export function RunnerPage() {
       api.getAllowedCommands().catch(() => [])
     ]).then(([appsData, providersRes, cmds]) => {
       setApps(appsData);
+      // Set PortOS as default workspace
+      const portosApp = appsData.find(a => a.name === 'PortOS');
+      if (portosApp && !workspacePath) {
+        setWorkspacePath(portosApp.repoPath);
+      } else if (appsData.length > 0 && !workspacePath) {
+        setWorkspacePath(appsData[0].repoPath);
+      }
       const allProviders = providersRes.providers || [];
       const enabledProviders = allProviders.filter(p => p.enabled);
       setProviders(enabledProviders);
@@ -481,7 +488,7 @@ export function RunnerPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white">AI Runner</h1>
+      <h1 className="text-2xl font-bold text-white">Code</h1>
 
       {/* Mode Toggle */}
       <div className="flex gap-2">
@@ -511,7 +518,6 @@ export function RunnerPage() {
           onChange={(e) => setWorkspacePath(e.target.value)}
           className="px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white text-sm"
         >
-          <option value="">Current directory</option>
           {apps.map(app => (
             <option key={app.id} value={app.repoPath}>{app.name}</option>
           ))}

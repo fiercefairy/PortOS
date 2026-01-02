@@ -439,16 +439,34 @@ export function RunnerPage() {
 
       const reader = new FileReader();
       reader.onload = async (ev) => {
-        const base64 = ev.target.result.split(',')[1];
-        const uploaded = await api.uploadScreenshot(base64, file.name, file.type).catch(() => null);
+        const result = ev?.target?.result;
+        if (typeof result !== 'string') {
+          console.error('Failed to read file: unexpected FileReader result type');
+          return;
+        }
+
+        const parts = result.split(',');
+        if (parts.length < 2) {
+          console.error('Failed to read file: unexpected data URL format');
+          return;
+        }
+
+        const base64 = parts[1];
+        const uploaded = await api.uploadScreenshot(base64, file.name, file.type).catch((err) => {
+          console.error('Failed to upload screenshot', err);
+          return null;
+        });
         if (uploaded) {
           setScreenshots(prev => [...prev, {
             id: uploaded.id,
             filename: uploaded.filename,
-            preview: ev.target.result,
+            preview: result,
             path: uploaded.path
           }]);
         }
+      };
+      reader.onerror = (err) => {
+        console.error('FileReader failed to read file', err);
       };
       reader.readAsDataURL(file);
     }

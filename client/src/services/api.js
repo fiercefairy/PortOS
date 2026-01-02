@@ -45,6 +45,8 @@ export const deleteApp = (id) => request(`/apps/${id}`, { method: 'DELETE' });
 export const startApp = (id) => request(`/apps/${id}/start`, { method: 'POST' });
 export const stopApp = (id) => request(`/apps/${id}/stop`, { method: 'POST' });
 export const restartApp = (id) => request(`/apps/${id}/restart`, { method: 'POST' });
+export const openAppInEditor = (id) => request(`/apps/${id}/open-editor`, { method: 'POST' });
+export const openAppFolder = (id) => request(`/apps/${id}/open-folder`, { method: 'POST' });
 export const getAppStatus = (id) => request(`/apps/${id}/status`);
 export const getAppLogs = (id, lines = 100, processName) => {
   const params = new URLSearchParams({ lines: String(lines) });

@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { spawn } from 'child_process';
+import { existsSync } from 'fs';
 import * as appsService from '../services/apps.js';
 import * as pm2Service from '../services/pm2.js';
 import { logAction } from '../services/history.js';
@@ -221,6 +223,68 @@ router.get('/:id/logs', async (req, res, next) => {
     .catch(err => `Error retrieving logs: ${err.message}`);
 
   res.json({ processName, lines, logs });
+});
+
+// POST /api/apps/:id/open-editor - Open app in editor
+router.post('/:id/open-editor', async (req, res, next) => {
+  const app = await appsService.getAppById(req.params.id);
+
+  if (!app) {
+    return res.status(404).json({ error: 'App not found', code: 'NOT_FOUND' });
+  }
+
+  if (!existsSync(app.repoPath)) {
+    return res.status(400).json({ error: 'App path does not exist', code: 'PATH_NOT_FOUND' });
+  }
+
+  const editorCommand = app.editorCommand || 'code .';
+  const [cmd, ...args] = editorCommand.split(/\s+/);
+
+  // Spawn the editor process detached so it doesn't block
+  const child = spawn(cmd, args, {
+    cwd: app.repoPath,
+    detached: true,
+    stdio: 'ignore'
+  });
+  child.unref();
+
+  res.json({ success: true, command: editorCommand, path: app.repoPath });
+});
+
+// POST /api/apps/:id/open-folder - Open app folder in file manager
+router.post('/:id/open-folder', async (req, res, next) => {
+  const app = await appsService.getAppById(req.params.id);
+
+  if (!app) {
+    return res.status(404).json({ error: 'App not found', code: 'NOT_FOUND' });
+  }
+
+  if (!existsSync(app.repoPath)) {
+    return res.status(400).json({ error: 'App path does not exist', code: 'PATH_NOT_FOUND' });
+  }
+
+  // Cross-platform folder open command
+  const platform = process.platform;
+  let cmd, args;
+
+  if (platform === 'darwin') {
+    cmd = 'open';
+    args = [app.repoPath];
+  } else if (platform === 'win32') {
+    cmd = 'explorer';
+    args = [app.repoPath];
+  } else {
+    cmd = 'xdg-open';
+    args = [app.repoPath];
+  }
+
+  const child = spawn(cmd, args, {
+    detached: true,
+    stdio: 'ignore'
+  });
+  child.unref();
+
+  res.json({ success: true, path: app.repoPath });
 });
 
 export default router;

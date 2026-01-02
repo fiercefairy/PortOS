@@ -297,19 +297,13 @@ export default function Apps() {
                               {/* Quick Actions */}
                               <div className="flex gap-2 pt-2">
                                 <button
-                                  onClick={() => {
-                                    const cmd = `cd "${app.repoPath}" && ${app.editorCommand || 'code .'}`;
-                                    api.executeCommand(cmd).catch(() => null);
-                                  }}
+                                  onClick={() => api.openAppInEditor(app.id).catch(() => null)}
                                   className="px-3 py-1.5 bg-port-border hover:bg-port-border/80 text-white rounded-lg text-xs flex items-center gap-1"
                                 >
                                   <Code size={14} /> Open in Editor
                                 </button>
                                 <button
-                                  onClick={() => {
-                                    const cmd = `open "${app.repoPath}"`;
-                                    api.executeCommand(cmd).catch(() => null);
-                                  }}
+                                  onClick={() => api.openAppFolder(app.id).catch(() => null)}
                                   className="px-3 py-1.5 bg-port-border hover:bg-port-border/80 text-white rounded-lg text-xs flex items-center gap-1"
                                 >
                                   <FolderOpen size={14} /> Open Folder

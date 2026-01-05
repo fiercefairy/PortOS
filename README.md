@@ -12,21 +12,32 @@ Think Umbrel, but for your active git repos and dev environments. Access your de
 - **Start/Stop/Restart** — Control your apps directly from the dashboard or apps table
 - **Real-time Logs** — Stream PM2 logs via Socket.IO with tail length control
 - **Smart Import** — Point to a directory and auto-detect project config from package.json, vite.config, and ecosystem.config
-- **Dev Tools** — Process monitor, action history, git status, and shell command runner
+- **Chief of Staff** — Autonomous task manager that monitors TASKS.md and dispatches AI agents
+- **Dev Tools** — Process monitor, AI agent tracker, action history, git status, and shell runner
 - **AI Runner** — Execute prompts via Claude Code CLI, Codex, Gemini CLI, or local models
 - **Mobile Ready** — Responsive design with collapsible sidebar for on-the-go access
 
 ## Screenshots
 
 ### Apps Management
-Expandable app rows with start/stop controls, PM2 process status, and quick actions.
+Expandable app rows with start/stop controls, PM2 process status, ports, and quick actions.
 
-![Apps Page](./docs/media/portos_2.png)
+![Apps Page](./docs/media/portos_0.png)
 
-### Dev Tools
-Monitor AI agents, view action history, run commands, and check git status.
+### AI Agent Processes
+Monitor running AI agents (Claude, Cursor, etc.) with runtime, CPU, and memory stats.
 
-![Dev Tools](./docs/media/portos_3.png)
+![AI Agents](./docs/media/portos_2.png)
+
+### PM2 Processes
+View all PM2 processes with live log streaming, memory usage, uptime, and restart controls.
+
+![PM2 Processes](./docs/media/portos_5.png)
+
+### Chief of Staff
+Autonomous task manager that monitors your TASKS.md and dispatches AI agents to complete work.
+
+![Chief of Staff](./docs/media/portos_6.png)
 
 ### App Import
 Auto-detect project configuration from your codebase — ports, start commands, and PM2 process names.

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, Fragment } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { GitBranch, Plus, Minus, FileText, Clock, RefreshCw, Activity, Image, X, XCircle, Cpu, MemoryStick, Terminal, Trash2, MessageSquarePlus, Info } from 'lucide-react';
+import { GitBranch, Plus, Minus, FileText, Clock, RefreshCw, Activity, Image, X, XCircle, Cpu, MemoryStick, Terminal, Trash2, MessageSquarePlus, Info, Save } from 'lucide-react';
+import toast from 'react-hot-toast';
 import * as api from '../services/api';
 import socket from '../services/socket';
 
@@ -1063,19 +1064,36 @@ ${prompt.trim()}`;
 
 export function ProcessesPage() {
   const [processes, setProcesses] = useState([]);
+  const [managedProcessNames, setManagedProcessNames] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [expandedProcess, setExpandedProcess] = useState(null);
   const [logs, setLogs] = useState([]);
   const [restarting, setRestarting] = useState({});
   const [tailLines, setTailLines] = useState(500);
   const [subscribed, setSubscribed] = useState(false);
+  const [saving, setSaving] = useState(false);
   const logsRef = useRef(null);
 
   useEffect(() => {
     loadProcesses();
+    loadManagedProcessNames();
     const interval = setInterval(loadProcesses, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  const loadManagedProcessNames = async () => {
+    const apps = await api.getApps().catch(() => []);
+    const names = new Set();
+    apps.forEach(app => {
+      (app.pm2ProcessNames || []).forEach(name => names.add(name));
+    });
+    setManagedProcessNames(names);
+  };
+
+  const isPortOSManaged = (procName) => {
+    if (procName.startsWith('portos-')) return true;
+    return managedProcessNames.has(procName);
+  };
 
   useEffect(() => {
     if (!expandedProcess) {
@@ -1176,6 +1194,24 @@ export function ProcessesPage() {
     setLogs([]);
   };
 
+  const handlePm2Save = async () => {
+    setSaving(true);
+    const result = await fetch('/api/commands/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command: 'pm2 save' })
+    }).then(r => r.json()).catch(() => ({ success: false }));
+    setSaving(false);
+    if (result.success) {
+      toast.success('PM2 process list saved to startup');
+    } else {
+      toast.error('Failed to save PM2 process list');
+    }
+  };
+
+  // Filter to only show PortOS-managed processes
+  const managedProcesses = processes.filter(proc => isPortOSManaged(proc.name));
+
   const formatMemory = (bytes) => {
     if (!bytes) return '0 MB';
     return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -1207,13 +1243,26 @@ export function ProcessesPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-white">PM2 Processes</h1>
-        <button
-          onClick={loadProcesses}
-          className="px-4 py-2 bg-port-border hover:bg-port-border/80 text-white rounded-lg transition-colors"
-        >
-          Refresh
-        </button>
+        <div>
+          <h1 className="text-2xl font-bold text-white">PM2 Processes</h1>
+          <p className="text-gray-500">PortOS-managed processes ({managedProcesses.length} of {processes.length} total)</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={handlePm2Save}
+            disabled={saving}
+            className="px-4 py-2 bg-port-accent hover:bg-port-accent/80 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+          >
+            <Save size={16} className={saving ? 'animate-pulse' : ''} />
+            {saving ? 'Saving...' : 'PM2 Save'}
+          </button>
+          <button
+            onClick={loadProcesses}
+            className="px-4 py-2 bg-port-border hover:bg-port-border/80 text-white rounded-lg transition-colors"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       <div className="bg-port-card border border-port-border rounded-xl overflow-hidden">
@@ -1232,7 +1281,7 @@ export function ProcessesPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-port-border">
-            {processes.map(proc => (
+            {managedProcesses.map(proc => (
               <Fragment key={proc.pm_id}>
                 <tr className="hover:bg-port-border/20">
                   <td className="px-4 py-3">

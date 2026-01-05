@@ -120,7 +120,7 @@ export default function Apps() {
           <p className="text-gray-500">Manage registered applications</p>
         </div>
         <Link
-          to="/create"
+          to="/apps/create"
           className="px-4 py-2 bg-port-accent hover:bg-port-accent/80 text-white rounded-lg transition-colors"
         >
           + Add App
@@ -134,7 +134,7 @@ export default function Apps() {
           <h3 className="text-xl font-semibold text-white mb-2">No apps registered</h3>
           <p className="text-gray-500 mb-6">Add your first app to get started</p>
           <Link
-            to="/create"
+            to="/apps/create"
             className="inline-block px-4 py-2 bg-port-accent hover:bg-port-accent/80 text-white rounded-lg transition-colors"
           >
             Add App
@@ -174,7 +174,7 @@ export default function Apps() {
                             const ports = procInfo?.ports || {};
                             const portEntries = Object.entries(ports);
                             const portDisplay = portEntries.length > 1
-                              ? portEntries.map(([label, port]) => `${label}:${port}`).join(',')
+                              ? ` (${portEntries.map(([label, port]) => `${label}:${port}`).join(', ')})`
                               : portEntries.length === 1
                                 ? `:${portEntries[0][1]}`
                                 : '';
@@ -338,7 +338,7 @@ export default function Apps() {
                                           {processConfig?.ports && Object.keys(processConfig.ports).length > 0 && (
                                             <span className="text-xs text-cyan-400 font-mono">
                                               {Object.entries(processConfig.ports).length > 1
-                                                ? Object.entries(processConfig.ports).map(([label, port]) => `${label}:${port}`).join(',')
+                                                ? ` (${Object.entries(processConfig.ports).map(([label, port]) => `${label}:${port}`).join(', ')})`
                                                 : `:${Object.values(processConfig.ports)[0]}`}
                                             </span>
                                           )}

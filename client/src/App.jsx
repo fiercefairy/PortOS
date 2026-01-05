@@ -28,7 +28,7 @@ export default function App() {
         <Route path="ai" element={<AIProviders />} />
         <Route path="prompts" element={<PromptManager />} />
         <Route path="cos" element={<ChiefOfStaff />} />
-        <Route path="create" element={<CreateApp />} />
+        <Route path="apps/create" element={<CreateApp />} />
         <Route path="templates" element={<Templates />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

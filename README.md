@@ -14,7 +14,7 @@ Think Umbrel, but for your active git repos and dev environments. Access your de
 - **Smart Import** — Point to a directory and auto-detect project config from package.json, vite.config, and ecosystem.config
 - **Chief of Staff** — Autonomous task manager that monitors TASKS.md and dispatches AI agents
 - **Dev Tools** — Process monitor, AI agent tracker, action history, git status, and shell runner
-- **AI Runner** — Execute prompts via Claude Code CLI, Codex, Gemini CLI, or local models
+- **AI Runner** — Execute prompts via Claude Code, Codex, Gemini CLI, Ollama, or LM Studio
 - **Mobile Ready** — Responsive design with collapsible sidebar for on-the-go access
 
 ## Screenshots
@@ -47,23 +47,13 @@ Auto-detect project configuration from your codebase — ports, start commands, 
 ## Quick Start
 
 ```bash
-# Clone the repo
 git clone https://github.com/atomantic/PortOS.git
 cd PortOS
-
-# Install dependencies (also sets up data/ and .browser/ directories)
-npm run install:all
-
-# Start with PM2 (recommended)
-pm2 start ecosystem.config.cjs
-
-# Or start in dev mode
+./setup.sh
 npm run dev
 ```
 
-**Access PortOS:**
-- Local: http://localhost:5555
-- Tailscale: http://[your-machine-name]:5555
+Access PortOS at http://localhost:5555 (or http://[your-machine-name]:5555 via Tailscale)
 
 ## Network Access
 
@@ -122,8 +112,8 @@ Each registered app includes:
 
 ### AI Providers (`data/providers.json`)
 Configure AI providers for the runner:
-- **CLI-based**: Claude Code, Codex, Gemini CLI, Aider
-- **API-based**: LM Studio, Ollama (OpenAI-compatible endpoints)
+- **CLI-based**: Claude Code, Codex, Gemini CLI
+- **Local models**: Ollama, LM Studio (OpenAI-compatible endpoints)
 
 ## Security
 

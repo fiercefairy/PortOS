@@ -497,7 +497,10 @@ export function RunsHistoryPage() {
                         {run.success === false && expandedId !== run.id && (
                           <div className="text-xs text-port-error/80 font-mono truncate mt-1">
                             ⚠ {run.error
-                              ? `${run.error.split('\n')[0]?.substring(0, 80)}${run.error.length > 80 ? '...' : ''}`
+                              ? (() => {
+                                  const firstLine = run.error.split('\n')[0] || '';
+                                  return `${firstLine.substring(0, 80)}${firstLine.length > 80 ? '...' : ''}`;
+                                })()
                               : run.errorCategory && run.errorCategory !== 'unknown'
                                 ? `${run.errorCategory}: ${run.suggestedFix || 'See details'}`
                                 : `${getExitCodeInfo(run.exitCode).label}: ${getExitCodeInfo(run.exitCode).description}`}

@@ -87,6 +87,10 @@ function selectModelForTask(task, provider) {
   }
 
   // Detect coding/development tasks - these should NEVER use light model
+  // Intentionally inclusive: if a task mentions any coding-related term (even in
+  // broader context like "bug report template"), we err on the side of using
+  // a stronger model since misclassifying a coding task is more costly than
+  // over-allocating resources for a documentation task.
   const isCodingTask = /\b(fix|bug|implement|develop|code|refactor|test|feature|function|class|module|api|endpoint|component|service|route|schema|migration|script|build|deploy|debug|error|exception|crash|issue|patch)\b/.test(desc);
 
   // Simple/quick tasks → haiku/light (ONLY for non-coding tasks)
@@ -469,7 +473,10 @@ const runnerAgents = new Map();
  * This allows us to receive completion events for agents spawned before restart
  */
 async function syncRunnerAgents() {
-  const agents = await getActiveAgentsFromRunner().catch(() => []);
+  const agents = await getActiveAgentsFromRunner().catch(err => {
+    console.error(`❌ Failed to get active agents from runner: ${err.message}`);
+    return [];
+  });
   if (agents.length === 0) return 0;
 
   console.log(`🔄 Syncing ${agents.length} running agents from CoS Runner`);

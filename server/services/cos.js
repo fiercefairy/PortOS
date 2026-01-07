@@ -134,6 +134,19 @@ async function ensureDirectories() {
 }
 
 /**
+ * Validate JSON string before parsing
+ */
+function isValidJSON(str) {
+  if (!str || !str.trim()) return false;
+  const trimmed = str.trim();
+  // Check for basic JSON structure
+  if (!(trimmed.startsWith('{') && trimmed.endsWith('}'))) return false;
+  // Check for common corruption patterns
+  if (trimmed.endsWith('}}') || trimmed.includes('}{')) return false;
+  return true;
+}
+
+/**
  * Load CoS state
  */
 async function loadState() {
@@ -144,6 +157,16 @@ async function loadState() {
   }
 
   const content = await readFile(STATE_FILE, 'utf-8');
+
+  if (!isValidJSON(content)) {
+    console.log(`⚠️ Corrupted or empty state file at ${STATE_FILE}, returning default state`);
+    // Backup the corrupted file for debugging
+    const backupPath = `${STATE_FILE}.corrupted.${Date.now()}`;
+    await writeFile(backupPath, content).catch(() => {});
+    console.log(`📝 Backed up corrupted state to ${backupPath}`);
+    return { ...DEFAULT_STATE };
+  }
+
   const state = JSON.parse(content);
 
   // Merge with defaults to ensure all fields exist

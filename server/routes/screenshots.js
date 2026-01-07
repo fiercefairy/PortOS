@@ -15,8 +15,16 @@ const router = Router();
 // Max file size: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-// Validate image magic bytes
+/**
+ * Validate image magic bytes
+ * Note: This validates the file signature/magic bytes at the start of the file.
+ * It does NOT validate the entire file structure - a file could have valid magic
+ * bytes but malformed content. This is sufficient for basic type detection and
+ * blocking non-image uploads. For high-security scenarios, consider using a
+ * proper image processing library to fully validate the file structure.
+ */
 function isValidImage(buffer) {
+  if (buffer.length < 12) return null; // Too small to be a valid image
   // PNG: 89 50 4E 47
   if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
     return 'png';

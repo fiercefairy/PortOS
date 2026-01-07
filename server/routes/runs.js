@@ -171,8 +171,15 @@ router.delete('/:id', asyncHandler(async (req, res, next) => {
   res.status(204).send();
 }));
 
-// DELETE /api/runs/failed - Delete all failed runs
+// DELETE /api/runs - Delete all failed runs
+// Requires ?confirm=true query parameter to prevent accidental deletion
 router.delete('/', asyncHandler(async (req, res, next) => {
+  if (req.query.confirm !== 'true') {
+    throw new ServerError('Destructive operation requires ?confirm=true', {
+      status: 400,
+      code: 'CONFIRMATION_REQUIRED'
+    });
+  }
   const deletedCount = await runner.deleteFailedRuns();
   res.json({ deleted: deletedCount });
 }));

@@ -113,6 +113,10 @@ export async function spawnAgentViaRunner(options) {
     claudePath
   } = options;
 
+  // Create abort controller for timeout (60 seconds for agent spawn)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
+
   const response = await fetch(`${COS_RUNNER_URL}/spawn`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -124,8 +128,9 @@ export async function spawnAgentViaRunner(options) {
       model,
       envVars,
       claudePath
-    })
-  });
+    }),
+    signal: controller.signal
+  }).finally(() => clearTimeout(timeoutId));
 
   if (!response.ok) {
     const error = await response.json();

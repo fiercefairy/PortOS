@@ -43,13 +43,39 @@ const io = new SocketServer(server, {
 });
 
 /**
+ * Validate JSON string before parsing
+ */
+function isValidJSON(str) {
+  if (!str || !str.trim()) return false;
+  const trimmed = str.trim();
+  // Check for basic JSON structure
+  if (!(trimmed.startsWith('{') && trimmed.endsWith('}'))) return false;
+  // Check for common corruption patterns
+  if (trimmed.endsWith('}}') || trimmed.includes('}{')) return false;
+  return true;
+}
+
+/**
  * Load runner state from disk
  */
 async function loadState() {
+  const defaultState = { agents: {}, stats: { spawned: 0, completed: 0, failed: 0 } };
+
   if (!existsSync(STATE_FILE)) {
-    return { agents: {}, stats: { spawned: 0, completed: 0, failed: 0 } };
+    return defaultState;
   }
+
   const content = await readFile(STATE_FILE, 'utf-8');
+
+  if (!isValidJSON(content)) {
+    console.log('⚠️ Corrupted or empty state file, returning default state');
+    // Backup the corrupted file for debugging
+    const backupPath = `${STATE_FILE}.corrupted.${Date.now()}`;
+    await writeFile(backupPath, content).catch(() => {});
+    console.log(`📝 Backed up corrupted state to ${backupPath}`);
+    return defaultState;
+  }
+
   return JSON.parse(content);
 }
 

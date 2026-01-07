@@ -23,11 +23,16 @@ const RUNS_DIR = join(DATA_DIR, 'runs');
 
 /**
  * Safe JSON parse with fallback to empty object
+ * Logs parse errors for debugging corrupted metadata files
  */
 function safeJsonParse(str, fallback = {}) {
   try {
     return JSON.parse(str);
-  } catch {
+  } catch (err) {
+    // Log only if str is not empty/default - empty strings are expected from .catch(() => '{}')
+    if (str && str !== '{}') {
+      console.warn(`⚠️ JSON parse failed: ${err.message} (input: ${str.slice(0, 100)}...)`);
+    }
     return fallback;
   }
 }
@@ -142,6 +147,8 @@ function categorizeError(output, exitCode) {
   const lowerOutput = output.toLowerCase();
 
   // API/Model errors - check specific patterns first
+  // Model not found requires BOTH "model:" AND a not-found pattern to avoid false positives
+  // from legitimate output that might contain just "model:" in a different context
   if (lowerOutput.includes('not_found_error') && lowerOutput.includes('model:')) {
     return { category: 'model_not_found', suggestion: 'The specified model does not exist - check AI provider settings and select a valid model' };
   }

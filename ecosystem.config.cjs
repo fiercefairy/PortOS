@@ -87,6 +87,9 @@ module.exports = {
       script: 'browser/server.js',
       cwd: __dirname,
       interpreter: 'node',
+      // Browser service exposes CDP on 0.0.0.0 for Tailscale remote access
+      // Unlike cos-runner, this is safe because CDP already has its own auth
+      // and browser instances are sandboxed. Accessed via PortOS UI remotely.
       ports: { cdp: 5556, health: 5557 },
       env: {
         NODE_ENV: 'development',

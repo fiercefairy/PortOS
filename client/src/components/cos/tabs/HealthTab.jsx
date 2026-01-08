@@ -1,15 +1,25 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, CheckCircle, AlertCircle, TrendingUp, Brain, Zap, Database } from 'lucide-react';
+import { RefreshCw, CheckCircle, AlertCircle, TrendingUp, Brain, Zap, Database, Clock, Trophy, Activity } from 'lucide-react';
 import * as api from '../../../services/api';
 
 export default function HealthTab({ health, onCheck }) {
   const [learning, setLearning] = useState(null);
   const [loadingLearning, setLoadingLearning] = useState(true);
   const [backfilling, setBackfilling] = useState(false);
+  const [todayActivity, setTodayActivity] = useState(null);
+  const [loadingActivity, setLoadingActivity] = useState(true);
 
   useEffect(() => {
     loadLearning();
+    loadTodayActivity();
   }, []);
+
+  const loadTodayActivity = async () => {
+    setLoadingActivity(true);
+    const data = await api.getCosTodayActivity().catch(() => null);
+    setTodayActivity(data);
+    setLoadingActivity(false);
+  };
 
   const loadLearning = async () => {
     setLoadingLearning(true);
@@ -29,6 +39,115 @@ export default function HealthTab({ health, onCheck }) {
 
   return (
     <div className="space-y-6">
+      {/* Today's Activity Section */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Activity className="w-5 h-5 text-port-accent" />
+            <h3 className="text-lg font-semibold text-white">Today's Activity</h3>
+          </div>
+          <button
+            onClick={loadTodayActivity}
+            className="text-gray-500 hover:text-white transition-colors"
+          >
+            <RefreshCw size={14} className={loadingActivity ? 'animate-spin' : ''} />
+          </button>
+        </div>
+
+        {loadingActivity ? (
+          <div className="text-center py-4 text-gray-500">Loading activity...</div>
+        ) : !todayActivity ? (
+          <div className="text-center py-4 text-gray-500">Could not load activity data</div>
+        ) : (
+          <div className="space-y-4">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-port-card border border-port-border rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <CheckCircle size={14} className="text-port-success" />
+                  <span className="text-xs text-gray-500">Completed</span>
+                </div>
+                <div className="text-2xl font-bold text-white">{todayActivity.stats.completed}</div>
+                <div className="text-xs text-gray-500">
+                  {todayActivity.stats.succeeded} success / {todayActivity.stats.failed} failed
+                </div>
+              </div>
+
+              <div className="bg-port-card border border-port-border rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingUp size={14} className="text-port-accent" />
+                  <span className="text-xs text-gray-500">Success Rate</span>
+                </div>
+                <div className={`text-2xl font-bold ${
+                  todayActivity.stats.successRate >= 80 ? 'text-port-success' :
+                  todayActivity.stats.successRate >= 50 ? 'text-port-warning' : 'text-port-error'
+                }`}>
+                  {todayActivity.stats.successRate}%
+                </div>
+                <div className="text-xs text-gray-500">today</div>
+              </div>
+
+              <div className="bg-port-card border border-port-border rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <Clock size={14} className="text-cyan-400" />
+                  <span className="text-xs text-gray-500">Time Worked</span>
+                </div>
+                <div className="text-2xl font-bold text-cyan-400">{todayActivity.time.combined}</div>
+                <div className="text-xs text-gray-500">
+                  {todayActivity.stats.running > 0 && `${todayActivity.stats.running} active`}
+                </div>
+              </div>
+
+              <div className="bg-port-card border border-port-border rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <Trophy size={14} className="text-yellow-400" />
+                  <span className="text-xs text-gray-500">Status</span>
+                </div>
+                <div className={`text-lg font-bold ${
+                  todayActivity.isPaused ? 'text-port-warning' :
+                  todayActivity.isRunning ? 'text-port-success' : 'text-gray-500'
+                }`}>
+                  {todayActivity.isPaused ? 'Paused' :
+                   todayActivity.isRunning ? 'Active' : 'Stopped'}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {todayActivity.stats.running > 0 ? `${todayActivity.stats.running} running` : 'idle'}
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Accomplishments */}
+            {todayActivity.accomplishments.length > 0 && (
+              <div className="bg-port-card border border-port-border rounded-lg p-4">
+                <h4 className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
+                  <Trophy size={14} className="text-yellow-400" />
+                  Recent Accomplishments
+                </h4>
+                <div className="space-y-2">
+                  {todayActivity.accomplishments.map((item, idx) => (
+                    <div key={idx} className="flex items-start justify-between text-sm p-2 bg-port-bg rounded">
+                      <div className="flex-1 min-w-0">
+                        <span className="text-gray-300 block truncate">{item.description}</span>
+                        <span className="text-xs text-gray-500">{item.taskType}</span>
+                      </div>
+                      <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">
+                        {Math.round(item.duration / 60000)}m
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {todayActivity.stats.completed === 0 && (
+              <div className="bg-port-card border border-port-border rounded-lg p-6 text-center text-gray-500">
+                No tasks completed today yet. CoS will start working when tasks are available.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* System Health Section */}
       <div className="flex items-center justify-between">
         <div>

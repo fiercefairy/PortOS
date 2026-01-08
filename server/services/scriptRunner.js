@@ -22,6 +22,48 @@ const SCRIPTS_STATE_FILE = join(__dirname, '../../data/cos/scripts-state.json');
 // Active scheduled jobs
 const scheduledJobs = new Map();
 
+// Allowlist of safe commands for scripts (mirrors commands.js allowlist)
+const ALLOWED_SCRIPT_COMMANDS = new Set([
+  'npm', 'npx', 'pnpm', 'yarn', 'bun',
+  'node', 'deno',
+  'git', 'gh',
+  'pm2',
+  'ls', 'cat', 'head', 'tail', 'grep', 'find', 'wc',
+  'pwd', 'which', 'echo', 'env',
+  'curl', 'wget',
+  'docker', 'docker-compose',
+  'make', 'cargo', 'go', 'python', 'python3', 'pip', 'pip3',
+  'brew'
+]);
+
+/**
+ * Validate a script command against the allowlist
+ * Returns { valid: boolean, error?: string, baseCommand?: string }
+ */
+function validateScriptCommand(command) {
+  if (!command || typeof command !== 'string') {
+    return { valid: false, error: 'Command is required' };
+  }
+
+  const trimmed = command.trim();
+  if (!trimmed) {
+    return { valid: false, error: 'Command cannot be empty' };
+  }
+
+  // Extract the base command (first word before space or pipe)
+  const parts = trimmed.split(/\s+/);
+  const baseCommand = parts[0];
+
+  if (!ALLOWED_SCRIPT_COMMANDS.has(baseCommand)) {
+    return {
+      valid: false,
+      error: `Command '${baseCommand}' is not in the allowlist. Allowed: ${Array.from(ALLOWED_SCRIPT_COMMANDS).sort().join(', ')}`
+    };
+  }
+
+  return { valid: true, baseCommand };
+}
+
 // Schedule presets to cron expressions
 const SCHEDULE_PRESETS = {
   'every-5-min': '*/5 * * * *',
@@ -119,6 +161,12 @@ export function unscheduleScript(scriptId) {
  * Create a new script
  */
 export async function createScript(data) {
+  // Security: Validate command against allowlist before creating
+  const validation = validateScriptCommand(data.command);
+  if (!validation.valid) {
+    throw new Error(`Invalid script command: ${validation.error}`);
+  }
+
   const id = `script-${uuidv4().slice(0, 8)}`;
 
   const script = {
@@ -157,6 +205,14 @@ export async function createScript(data) {
  * Update a script
  */
 export async function updateScript(id, data) {
+  // Security: Validate command against allowlist if being updated
+  if (data.command !== undefined) {
+    const validation = validateScriptCommand(data.command);
+    if (!validation.valid) {
+      throw new Error(`Invalid script command: ${validation.error}`);
+    }
+  }
+
   const state = await loadScriptsState();
   const script = state.scripts[id];
 
@@ -238,6 +294,14 @@ export async function executeScript(scriptId) {
 
   if (!script) {
     return { success: false, error: 'Script not found' };
+  }
+
+  // Security: Defense in depth - validate command at execution time
+  // (in case state file was manually modified)
+  const validation = validateScriptCommand(script.command);
+  if (!validation.valid) {
+    console.error(`❌ Script ${script.name} has invalid command: ${validation.error}`);
+    return { success: false, error: `Invalid command: ${validation.error}` };
   }
 
   console.log(`▶️ Executing script: ${script.name} (${scriptId})`);
@@ -374,4 +438,11 @@ export function getScheduledJobs() {
     });
   }
   return jobs;
+}
+
+/**
+ * Get list of allowed commands for scripts
+ */
+export function getAllowedScriptCommands() {
+  return Array.from(ALLOWED_SCRIPT_COMMANDS).sort();
 }

@@ -1477,6 +1477,89 @@ export async function listReports() {
 }
 
 /**
+ * Get today's activity summary
+ * Returns completed tasks, success rate, time worked, and top accomplishments
+ */
+export async function getTodayActivity() {
+  const state = await loadState();
+  const today = new Date().toISOString().split('T')[0];
+
+  // Filter agents completed today
+  const todayAgents = Object.values(state.agents).filter(a => {
+    if (!a.completedAt) return false;
+    return a.completedAt.startsWith(today);
+  });
+
+  const succeeded = todayAgents.filter(a => a.result?.success);
+  const failed = todayAgents.filter(a => !a.result?.success);
+
+  // Calculate total time worked (sum of agent durations)
+  const totalDurationMs = todayAgents.reduce((sum, a) => {
+    const duration = a.result?.duration || 0;
+    return sum + duration;
+  }, 0);
+
+  // Get currently running agents
+  const runningAgents = Object.values(state.agents).filter(a => a.status === 'running');
+  const activeTimeMs = runningAgents.reduce((sum, a) => {
+    if (!a.startedAt) return sum;
+    return sum + (Date.now() - new Date(a.startedAt).getTime());
+  }, 0);
+
+  // Format duration as human-readable
+  const formatDuration = (ms) => {
+    const mins = Math.floor(ms / 60000);
+    const hours = Math.floor(mins / 60);
+    const remainingMins = mins % 60;
+    if (hours > 0) {
+      return `${hours}h ${remainingMins}m`;
+    }
+    return `${mins}m`;
+  };
+
+  // Get top accomplishments (successful tasks with description snippets)
+  const accomplishments = succeeded
+    .map(a => ({
+      id: a.id,
+      taskId: a.taskId,
+      description: a.metadata?.taskDescription?.substring(0, 100) || a.taskId,
+      taskType: a.metadata?.analysisType || a.metadata?.taskType || 'task',
+      duration: a.result?.duration || 0,
+      completedAt: a.completedAt
+    }))
+    .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))
+    .slice(0, 5);
+
+  // Calculate success rate
+  const successRate = todayAgents.length > 0
+    ? Math.round((succeeded.length / todayAgents.length) * 100)
+    : 0;
+
+  return {
+    date: today,
+    stats: {
+      completed: todayAgents.length,
+      succeeded: succeeded.length,
+      failed: failed.length,
+      successRate,
+      running: runningAgents.length
+    },
+    time: {
+      totalDurationMs,
+      totalDuration: formatDuration(totalDurationMs),
+      activeDurationMs: activeTimeMs,
+      activeDuration: formatDuration(activeTimeMs),
+      combinedMs: totalDurationMs + activeTimeMs,
+      combined: formatDuration(totalDurationMs + activeTimeMs)
+    },
+    accomplishments,
+    lastEvaluation: state.stats.lastEvaluation,
+    isRunning: daemonRunning,
+    isPaused: state.paused
+  };
+}
+
+/**
  * Clear completed agents from state (keep in files)
  */
 export async function clearCompletedAgents() {

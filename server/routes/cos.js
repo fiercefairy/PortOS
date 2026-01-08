@@ -291,6 +291,12 @@ router.post('/app-activity/:appId/clear-cooldown', asyncHandler(async (req, res)
   res.json({ success: true, appId: req.params.appId, activity: result });
 }));
 
+// GET /api/cos/activity/today - Get today's activity summary
+router.get('/activity/today', asyncHandler(async (req, res) => {
+  const activity = await cos.getTodayActivity();
+  res.json(activity);
+}));
+
 // GET /api/cos/learning - Get learning insights
 router.get('/learning', asyncHandler(async (req, res) => {
   const insights = await taskLearning.getLearningInsights();

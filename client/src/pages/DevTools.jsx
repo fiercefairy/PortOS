@@ -4,6 +4,7 @@ import { GitBranch, Plus, Minus, FileText, Clock, RefreshCw, Activity, Image, X,
 import toast from 'react-hot-toast';
 import * as api from '../services/api';
 import socket from '../services/socket';
+import { formatTime, formatRuntime } from '../utils/formatters';
 
 export function HistoryPage() {
   const [history, setHistory] = useState([]);
@@ -47,17 +48,6 @@ export function HistoryPage() {
     loadData();
   };
 
-  const formatTime = (timestamp) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now - date;
-
-    if (diff < 60000) return 'Just now';
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-    return date.toLocaleDateString();
-  };
-
   const getActionIcon = (action) => {
     const icons = {
       start: '▶️',
@@ -68,13 +58,6 @@ export function HistoryPage() {
       'ai-run': '🤖'
     };
     return icons[action] || '📋';
-  };
-
-  const formatRuntime = (ms) => {
-    if (!ms) return null;
-    if (ms < 1000) return `${ms}ms`;
-    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-    return `${(ms / 60000).toFixed(1)}m`;
   };
 
   const toggleExpand = (id) => {
@@ -370,24 +353,6 @@ export function RunsHistoryPage() {
         }
       }
     });
-  };
-
-  const formatTime = (timestamp) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now - date;
-
-    if (diff < 60000) return 'Just now';
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-    return date.toLocaleDateString();
-  };
-
-  const formatRuntime = (ms) => {
-    if (!ms) return null;
-    if (ms < 1000) return `${ms}ms`;
-    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-    return `${(ms / 60000).toFixed(1)}m`;
   };
 
   const getExitCodeInfo = (exitCode) => {

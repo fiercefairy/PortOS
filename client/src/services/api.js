@@ -253,6 +253,9 @@ export const getCosReports = () => request('/cos/reports');
 export const getCosTodayReport = () => request('/cos/reports/today');
 export const getCosReport = (date) => request(`/cos/reports/${date}`);
 
+// CoS Activity
+export const getCosTodayActivity = () => request('/cos/activity/today');
+
 // CoS Learning
 export const getCosLearning = () => request('/cos/learning');
 export const getCosLearningDurations = () => request('/cos/learning/durations');

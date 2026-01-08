@@ -12,7 +12,7 @@ import { parseEcosystemFromPath } from '../services/streamingDetect.js';
 const router = Router();
 
 // GET /api/apps - List all apps
-router.get('/', asyncHandler(async (req, res, next) => {
+router.get('/', asyncHandler(async (req, res) => {
   const apps = await appsService.getAllApps();
 
   // Get all PM2 processes once
@@ -52,7 +52,6 @@ router.get('/', asyncHandler(async (req, res, next) => {
     };
   }));
 
-  console.log(`📱 GET /api/apps (${enriched.length} apps)`);
   res.json(enriched);
 }));
 

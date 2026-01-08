@@ -12,9 +12,7 @@ const router = Router();
 
 // GET /api/apps - List all apps
 router.get('/', asyncHandler(async (req, res, next) => {
-  console.log('📱 GET /api/apps - fetching apps list');
   const apps = await appsService.getAllApps();
-  console.log(`📱 GET /api/apps - found ${apps.length} apps`);
 
   // Get all PM2 processes once
   const allPm2 = await pm2Service.listProcesses().catch(() => []);
@@ -53,7 +51,7 @@ router.get('/', asyncHandler(async (req, res, next) => {
     };
   }));
 
-  console.log(`📱 GET /api/apps - responding with ${enriched.length} apps`);
+  console.log(`📱 GET /api/apps (${enriched.length} apps)`);
   res.json(enriched);
 }));
 

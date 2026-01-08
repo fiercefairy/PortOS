@@ -649,6 +649,7 @@ io.on('connection', (socket) => {
 /**
  * Cleanup orphaned agents on startup
  * Checks if PIDs from state are still running
+ * Emits completion events for dead agents so main server can retry tasks
  */
 async function cleanupOrphanedAgents() {
   const state = await loadState();
@@ -658,8 +659,18 @@ async function cleanupOrphanedAgents() {
     // Check if process is still running
     const isRunning = await checkProcessRunning(agentInfo.pid);
     if (!isRunning) {
-      orphaned.push(agentId);
+      orphaned.push({ agentId, taskId: agentInfo.taskId });
       delete state.agents[agentId];
+
+      // Emit completion event so main server knows the agent died
+      emitToServer('agent:completed', {
+        agentId,
+        taskId: agentInfo.taskId,
+        exitCode: -1,
+        success: false,
+        orphaned: true,
+        error: 'Agent process died (runner restart detected dead PID)'
+      });
     }
   }
 
@@ -695,16 +706,19 @@ async function checkProcessRunning(pid) {
 server.listen(PORT, HOST, async () => {
   console.log(`🤖 CoS Agent Runner started on http://${HOST}:${PORT}`);
 
-  // Cleanup orphaned agents
-  const orphaned = await cleanupOrphanedAgents();
-  if (orphaned.length > 0) {
-    console.log(`🧹 Cleaned ${orphaned.length} orphaned agent(s)`);
-  }
-
   // Ensure agents directory exists
   if (!existsSync(AGENTS_DIR)) {
     await mkdir(AGENTS_DIR, { recursive: true });
   }
+
+  // Delay orphan cleanup to allow socket connections to establish
+  // This ensures completion events reach the main server for task retry
+  setTimeout(async () => {
+    const orphaned = await cleanupOrphanedAgents();
+    if (orphaned.length > 0) {
+      console.log(`🧹 Cleaned ${orphaned.length} orphaned agent(s)`);
+    }
+  }, 3000);
 });
 
 // Graceful shutdown

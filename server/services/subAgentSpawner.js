@@ -1155,6 +1155,18 @@ export async function killAllAgents() {
 const MAX_ORPHAN_RETRIES = 3;
 
 /**
+ * Check if a process is running by PID
+ */
+async function isPidAlive(pid) {
+  if (!pid) return false;
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const execAsync = promisify(exec);
+  const result = await execAsync(`ps -p ${pid} -o pid= 2>/dev/null`).catch(() => ({ stdout: '' }));
+  return result.stdout.trim() !== '';
+}
+
+/**
  * Clean up orphaned agents on startup
  * Agents marked as "running" in state but not tracked anywhere are orphaned
  *
@@ -1197,7 +1209,18 @@ export async function cleanupOrphanedAgents() {
       const inRemoteRunner = runnerActiveIds.has(agent.id);
 
       if (!inLocalDirect && !inLocalRunner && !inRemoteRunner) {
-        console.log(`🧹 Cleaning up orphaned agent ${agent.id}`);
+        // Before marking as orphaned, check if the process is actually still running
+        // This prevents false positives when servers restart but agent process survives
+        if (agent.pid) {
+          const stillAlive = await isPidAlive(agent.pid);
+          if (stillAlive) {
+            console.log(`🔄 Agent ${agent.id} (PID ${agent.pid}) still running, re-syncing to runner tracking`);
+            runnerAgents.set(agent.id, { id: agent.id, pid: agent.pid, taskId: agent.taskId });
+            continue;
+          }
+        }
+
+        console.log(`🧹 Cleaning up orphaned agent ${agent.id} (PID ${agent.pid || 'unknown'} not running)`);
         await markComplete(agent.id, {
           success: false,
           error: 'Agent process was orphaned (server restart)',

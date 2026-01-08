@@ -152,8 +152,8 @@ async function deleteMemoryFiles(id) {
 }
 
 /**
- * Generate summary from content (simple truncation for now)
- * TODO: Use LLM for better summaries
+ * Generate summary from content using simple truncation
+ * Note: LLM-based summaries could improve quality but add latency and cost
  */
 function generateSummary(content, maxLength = 150) {
   if (content.length <= maxLength) return content;

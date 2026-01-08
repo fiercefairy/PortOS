@@ -32,7 +32,6 @@ export default function AppTile({ app, onUpdate }) {
   };
 
   const isOnline = app.overallStatus === 'online';
-  const isStopped = app.overallStatus === 'stopped';
 
   return (
     <div className="bg-port-card border border-port-border rounded-xl p-5 hover:border-port-accent/50 transition-colors">
@@ -83,7 +82,7 @@ export default function AppTile({ app, onUpdate }) {
           </a>
         )}
 
-        {/* Start/Stop/Restart */}
+        {/* Start button for non-online states (stopped, not_started, not_found, etc) */}
         {!isOnline && (
           <button
             onClick={() => handleAction('start')}
@@ -94,6 +93,7 @@ export default function AppTile({ app, onUpdate }) {
           </button>
         )}
 
+        {/* Restart/Stop buttons for online apps */}
         {isOnline && (
           <>
             <button
@@ -111,16 +111,6 @@ export default function AppTile({ app, onUpdate }) {
               {loading === 'stop' ? '...' : 'Stop'}
             </button>
           </>
-        )}
-
-        {isStopped && (
-          <button
-            onClick={() => handleAction('start')}
-            disabled={loading === 'start'}
-            className="px-3 py-1.5 text-sm rounded-lg bg-port-success hover:bg-port-success/80 text-white transition-colors disabled:opacity-50"
-          >
-            {loading === 'start' ? '...' : 'Start'}
-          </button>
         )}
       </div>
     </div>

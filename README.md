@@ -13,6 +13,8 @@ Think Umbrel, but for your active git repos and dev environments. Access your de
 - **Real-time Logs** — Stream PM2 logs via Socket.IO with tail length control
 - **Smart Import** — Point to a directory and auto-detect project config from package.json, vite.config, and ecosystem.config
 - **Chief of Staff** — Autonomous task manager that monitors TASKS.md and dispatches AI agents
+- **Task Learning** — Tracks task success rates and duration to improve model selection
+- **Scheduled Scripts** — Cron-based automation with optional agent triggering
 - **Dev Tools** — Process monitor, AI agent tracker, action history, git status, and shell runner
 - **AI Runner** — Execute prompts via Claude Code, Codex, Gemini CLI, Ollama, or LM Studio
 - **Mobile Ready** — Responsive design with collapsible sidebar for on-the-go access

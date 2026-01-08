@@ -158,6 +158,18 @@ Server Event → Socket.IO → socket.js → React Component State Update
 - Vector embeddings via LM Studio
 - Memory retrieval for context injection
 
+### Task Learning Service (`server/services/taskLearning.js`)
+- Completion tracking and success rates
+- Duration estimates by task type
+- Model tier effectiveness analysis
+- Actionable recommendations
+
+### Script Runner Service (`server/services/scriptRunner.js`)
+- Cron-based script scheduling
+- Command allowlist enforcement
+- Agent trigger integration
+- Run history tracking
+
 ## Error Handling
 
 All routes use `asyncHandler` wrapper from `server/lib/errorHandler.js`:

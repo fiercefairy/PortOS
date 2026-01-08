@@ -52,6 +52,7 @@ pm2 logs
 - [x] M23: Self-Improvement System (automated UI/security/code quality analysis with Playwright and Opus)
 - [x] M24: Goal-Driven Proactive Mode (COS-GOALS.md mission file, always-working behavior, expanded task types)
 - [x] M25: Task Learning System (completion tracking, success rate analysis, model effectiveness, recommendations)
+- [x] M26: Scheduled Scripts (cron scheduling, agent triggers, command allowlist, run history)
 
 ### Documentation
 - [Architecture Overview](./docs/ARCHITECTURE.md) - System design, data flow
@@ -1132,6 +1133,119 @@ After:  Apps on cooldown → Run self-improvement → Always working
 |------|---------|
 | `data/COS-GOALS.md` | New mission and goals file |
 | `server/services/cos.js` | Updated config defaults, expanded task types, always-working logic |
+
+---
+
+## M25: Task Learning System
+
+Tracks patterns from completed tasks to improve future task execution and model selection.
+
+### Features
+1. **Completion Tracking**: Records success/failure for every agent task completion
+2. **Success Rate Analysis**: Calculates success rates by task type and model tier
+3. **Duration Tracking**: Tracks average execution time per task type
+4. **Error Pattern Analysis**: Identifies recurring error categories
+5. **Model Effectiveness**: Compares performance across model tiers (light/medium/heavy)
+6. **Recommendations**: Generates actionable insights based on historical data
+
+### Data Tracked
+| Metric | Grouping | Description |
+|--------|----------|-------------|
+| Completion count | By task type | Total tasks completed per type |
+| Success rate | By task type | Percentage of successful completions |
+| Average duration | By task type | Mean execution time |
+| Error patterns | By category | Recurring error types with affected tasks |
+| Model effectiveness | By tier | Success rate and duration per model |
+
+### API Endpoints
+| Route | Description |
+|-------|-------------|
+| GET /api/cos/learning | Get learning insights and recommendations |
+| GET /api/cos/learning/durations | Get task duration estimates by type |
+| POST /api/cos/learning/backfill | Backfill learning data from history |
+
+### Data Storage
+```
+./data/cos/
+└── learning.json    # Learning metrics and patterns
+```
+
+### Implementation Files
+| File | Purpose |
+|------|---------|
+| `server/services/taskLearning.js` | Core learning service |
+| `server/routes/cos.js` | Learning API endpoints |
+
+---
+
+## M26: Scheduled Scripts
+
+Cron-based script scheduling with optional agent triggering for automated health checks and maintenance.
+
+### Features
+1. **Schedule Presets**: Common intervals (5min, 15min, hourly, daily, weekly, on-demand)
+2. **Custom Cron**: Full cron expression support for complex schedules
+3. **Command Allowlist**: Security-first design using same allowlist as command runner
+4. **Agent Triggering**: Scripts can spawn CoS agents when issues are detected
+5. **Run History**: Track last execution, output, and exit codes
+6. **Enable/Disable**: Toggle scripts without deleting them
+
+### Schedule Presets
+| Preset | Cron Expression |
+|--------|-----------------|
+| every-5-min | `*/5 * * * *` |
+| every-15-min | `*/15 * * * *` |
+| every-30-min | `*/30 * * * *` |
+| hourly | `0 * * * *` |
+| every-6-hours | `0 */6 * * *` |
+| daily | `0 9 * * *` |
+| weekly | `0 9 * * 1` |
+| on-demand | (manual only) |
+
+### Trigger Actions
+| Action | Description |
+|--------|-------------|
+| log-only | Record output, no further action |
+| spawn-agent | Create CoS task with output as context |
+| create-task | Add task to COS-TASKS.md (not yet implemented) |
+
+### API Endpoints
+| Route | Description |
+|-------|-------------|
+| GET /api/cos/scripts | List all scripts |
+| POST /api/cos/scripts | Create a new script |
+| GET /api/cos/scripts/presets | Get schedule presets |
+| GET /api/cos/scripts/allowed-commands | Get allowed commands |
+| GET /api/cos/scripts/jobs | Get scheduled job info |
+| GET /api/cos/scripts/:id | Get specific script |
+| PUT /api/cos/scripts/:id | Update a script |
+| DELETE /api/cos/scripts/:id | Delete a script |
+| POST /api/cos/scripts/:id/run | Execute immediately |
+| GET /api/cos/scripts/:id/runs | Get run history |
+
+### Data Storage
+```
+./data/cos/
+├── scripts/              # Script output logs
+└── scripts-state.json    # Script configurations
+```
+
+### Socket Events
+| Event | Description |
+|-------|-------------|
+| script:created | New script created |
+| script:updated | Script configuration changed |
+| script:deleted | Script removed |
+| script:started | Execution started |
+| script:completed | Execution finished |
+| script:error | Execution error |
+
+### Implementation Files
+| File | Purpose |
+|------|---------|
+| `server/services/scriptRunner.js` | Script execution and scheduling |
+| `server/routes/scripts.js` | REST API endpoints |
+| `client/src/components/cos/tabs/ScriptCard.jsx` | Script UI component |
 
 ---
 

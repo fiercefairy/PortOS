@@ -132,6 +132,29 @@ No authentication is required. PortOS relies on network-level security (Tailscal
 | POST | `/cos/agents/:id/terminate` | Terminate agent |
 | GET | `/cos/reports` | List reports |
 
+### CoS Task Learning
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/cos/learning` | Get learning insights and recommendations |
+| GET | `/cos/learning/durations` | Get task duration estimates by type |
+| POST | `/cos/learning/backfill` | Backfill learning data from history |
+
+### CoS Scheduled Scripts
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/cos/scripts` | List all scheduled scripts |
+| POST | `/cos/scripts` | Create a new script |
+| GET | `/cos/scripts/presets` | Get available schedule presets |
+| GET | `/cos/scripts/allowed-commands` | Get allowed commands for scripts |
+| GET | `/cos/scripts/jobs` | Get scheduled job info |
+| GET | `/cos/scripts/:id` | Get a specific script |
+| PUT | `/cos/scripts/:id` | Update a script |
+| DELETE | `/cos/scripts/:id` | Delete a script |
+| POST | `/cos/scripts/:id/run` | Execute a script immediately |
+| GET | `/cos/scripts/:id/runs` | Get script run history |
+
 ### Memory System
 
 | Method | Endpoint | Description |
@@ -241,6 +264,26 @@ socket.on('cos:memory:created', (memory) => {
 
 socket.on('cos:memory:updated', (memory) => {
   console.log('Memory updated:', memory.id);
+});
+```
+
+### Script Events
+
+```javascript
+socket.on('script:created', (script) => {
+  console.log('Script created:', script.id, script.name);
+});
+
+socket.on('script:started', ({ scriptId, name }) => {
+  console.log('Script started:', scriptId);
+});
+
+socket.on('script:completed', ({ scriptId, exitCode, duration }) => {
+  console.log('Script completed:', scriptId, exitCode);
+});
+
+socket.on('script:error', ({ scriptId, error }) => {
+  console.error('Script error:', scriptId, error);
 });
 ```
 

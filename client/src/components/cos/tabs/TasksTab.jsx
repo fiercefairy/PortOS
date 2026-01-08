@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Plus, RefreshCw, Image, X } from 'lucide-react';
+import { Plus, RefreshCw, Image, X, ChevronDown, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   DndContext,
@@ -25,6 +25,8 @@ export default function TasksTab({ tasks, onRefresh, providers, apps }) {
   const [userTasksLocal, setUserTasksLocal] = useState([]);
   const [screenshots, setScreenshots] = useState([]);
   const [durations, setDurations] = useState(null);
+  const [showCompletedUserTasks, setShowCompletedUserTasks] = useState(false);
+  const [showCompletedSystemTasks, setShowCompletedSystemTasks] = useState(false);
   const fileInputRef = useRef(null);
 
   // Fetch task duration estimates from learning data
@@ -39,16 +41,44 @@ export default function TasksTab({ tasks, onRefresh, providers, apps }) {
   const cosTasks = useMemo(() => tasks.cos?.tasks || [], [tasks.cos?.tasks]);
   const awaitingApproval = useMemo(() => tasks.cos?.awaitingApproval || [], [tasks.cos?.awaitingApproval]);
 
+  // Split tasks into pending (includes in_progress, blocked) and completed
+  const pendingUserTasks = useMemo(() =>
+    userTasks.filter(t => t.status !== 'completed'),
+    [userTasks]
+  );
+  const completedUserTasks = useMemo(() =>
+    userTasks.filter(t => t.status === 'completed'),
+    [userTasks]
+  );
+  const pendingSystemTasks = useMemo(() =>
+    cosTasks.filter(t => t.status !== 'completed'),
+    [cosTasks]
+  );
+  const completedSystemTasks = useMemo(() =>
+    cosTasks.filter(t => t.status === 'completed'),
+    [cosTasks]
+  );
+
   // Memoize enabled providers for dropdown
   const enabledProviders = useMemo(() =>
     providers?.filter(p => p.enabled) || [],
     [providers]
   );
 
-  // Memoize sortable item IDs for DndContext
-  const sortableIds = useMemo(() =>
-    userTasksLocal.map(t => t.id),
+  // Memoize pending tasks from local state for drag-and-drop (only pending tasks are sortable)
+  const pendingUserTasksLocal = useMemo(() =>
+    userTasksLocal.filter(t => t.status !== 'completed'),
     [userTasksLocal]
+  );
+  const completedUserTasksLocal = useMemo(() =>
+    userTasksLocal.filter(t => t.status === 'completed'),
+    [userTasksLocal]
+  );
+
+  // Memoize sortable item IDs for DndContext (only pending tasks)
+  const sortableIds = useMemo(() =>
+    pendingUserTasksLocal.map(t => t.id),
+    [pendingUserTasksLocal]
   );
 
   // Keep local state in sync with server state
@@ -325,27 +355,69 @@ export default function TasksTab({ tasks, onRefresh, providers, apps }) {
           </div>
         )}
 
-        {userTasksLocal.length === 0 ? (
+        {/* Pending User Tasks */}
+        {pendingUserTasksLocal.length === 0 && completedUserTasksLocal.length === 0 ? (
           <div className="bg-port-card border border-port-border rounded-lg p-6 text-center text-gray-500">
             No user tasks. Click "Add Task" or edit TASKS.md directly.
           </div>
         ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={sortableIds}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="space-y-2">
-                {userTasksLocal.map(task => (
-                  <SortableTaskItem key={task.id} task={task} onRefresh={onRefresh} providers={providers} durations={durations} />
-                ))}
+          <div className="space-y-3">
+            {/* Pending Section */}
+            <div className="bg-port-card border border-port-border rounded-lg overflow-hidden">
+              <div className="px-3 py-2 bg-port-accent/10 border-b border-port-border flex items-center justify-between">
+                <span className="text-sm font-medium text-port-accent">
+                  Pending ({pendingUserTasksLocal.length})
+                </span>
               </div>
-            </SortableContext>
-          </DndContext>
+              {pendingUserTasksLocal.length === 0 ? (
+                <div className="p-4 text-center text-gray-500 text-sm">
+                  No pending tasks
+                </div>
+              ) : (
+                <div className="p-2">
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext
+                      items={sortableIds}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="space-y-1.5">
+                        {pendingUserTasksLocal.map(task => (
+                          <SortableTaskItem key={task.id} task={task} onRefresh={onRefresh} providers={providers} durations={durations} />
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
+                </div>
+              )}
+            </div>
+
+            {/* Completed Section - Collapsible */}
+            {completedUserTasksLocal.length > 0 && (
+              <div className="bg-port-card border border-port-border rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setShowCompletedUserTasks(!showCompletedUserTasks)}
+                  className="w-full px-3 py-2 bg-port-success/10 border-b border-port-border flex items-center justify-between hover:bg-port-success/20 transition-colors"
+                  aria-expanded={showCompletedUserTasks}
+                >
+                  <span className="text-sm font-medium text-port-success flex items-center gap-2">
+                    {showCompletedUserTasks ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
+                    Completed ({completedUserTasksLocal.length})
+                  </span>
+                </button>
+                {showCompletedUserTasks && (
+                  <div className="p-2 space-y-1.5">
+                    {completedUserTasksLocal.map(task => (
+                      <TaskItem key={task.id} task={task} onRefresh={onRefresh} providers={providers} durations={durations} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -353,16 +425,46 @@ export default function TasksTab({ tasks, onRefresh, providers, apps }) {
       <div>
         <h3 className="text-lg font-semibold text-white mb-3">System Tasks (COS-TASKS.md)</h3>
 
-        {cosTasks.length === 0 ? (
+        {/* Pending System Tasks */}
+        {pendingSystemTasks.length === 0 && completedSystemTasks.length === 0 ? (
           <div className="bg-port-card border border-port-border rounded-lg p-6 text-center text-gray-500">
             No system tasks.
           </div>
         ) : (
-          <div className="space-y-2">
-            {cosTasks.map(task => (
-              <TaskItem key={task.id} task={task} isSystem onRefresh={onRefresh} providers={providers} durations={durations} />
-            ))}
-          </div>
+          <>
+            {pendingSystemTasks.length === 0 ? (
+              <div className="bg-port-card border border-port-border rounded-lg p-4 text-center text-gray-500 text-sm">
+                No pending tasks
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {pendingSystemTasks.map(task => (
+                  <TaskItem key={task.id} task={task} isSystem onRefresh={onRefresh} providers={providers} durations={durations} />
+                ))}
+              </div>
+            )}
+
+            {/* Completed System Tasks - Collapsible */}
+            {completedSystemTasks.length > 0 && (
+              <div className="mt-3">
+                <button
+                  onClick={() => setShowCompletedSystemTasks(!showCompletedSystemTasks)}
+                  className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors mb-2"
+                  aria-expanded={showCompletedSystemTasks}
+                >
+                  {showCompletedSystemTasks ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
+                  Completed ({completedSystemTasks.length})
+                </button>
+                {showCompletedSystemTasks && (
+                  <div className="space-y-2">
+                    {completedSystemTasks.map(task => (
+                      <TaskItem key={task.id} task={task} isSystem onRefresh={onRefresh} providers={providers} durations={durations} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
 

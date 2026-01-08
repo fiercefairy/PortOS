@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import StatusBadge from '../components/StatusBadge';
 import IconPicker from '../components/IconPicker';
 import * as api from '../services/api';
+import socket from '../services/socket';
 
 export default function Apps() {
   const [apps, setApps] = useState([]);
@@ -24,8 +25,16 @@ export default function Apps() {
 
   useEffect(() => {
     fetchApps();
-    const interval = setInterval(fetchApps, 5000);
-    return () => clearInterval(interval);
+
+    // Listen for apps changes via WebSocket instead of polling
+    const handleAppsChanged = () => {
+      fetchApps();
+    };
+    socket.on('apps:changed', handleAppsChanged);
+
+    return () => {
+      socket.off('apps:changed', handleAppsChanged);
+    };
   }, [fetchApps]);
 
   const handleDelete = async (app) => {
@@ -37,28 +46,19 @@ export default function Apps() {
   const handleStart = async (app) => {
     setActionLoading(prev => ({ ...prev, [app.id]: 'start' }));
     await api.startApp(app.id).catch(() => null);
-    setTimeout(() => {
-      setActionLoading(prev => ({ ...prev, [app.id]: null }));
-      fetchApps();
-    }, 1500);
+    setActionLoading(prev => ({ ...prev, [app.id]: null }));
   };
 
   const handleStop = async (app) => {
     setActionLoading(prev => ({ ...prev, [app.id]: 'stop' }));
     await api.stopApp(app.id).catch(() => null);
-    setTimeout(() => {
-      setActionLoading(prev => ({ ...prev, [app.id]: null }));
-      fetchApps();
-    }, 1500);
+    setActionLoading(prev => ({ ...prev, [app.id]: null }));
   };
 
   const handleRestart = async (app) => {
     setActionLoading(prev => ({ ...prev, [app.id]: 'restart' }));
     await api.restartApp(app.id).catch(() => null);
-    setTimeout(() => {
-      setActionLoading(prev => ({ ...prev, [app.id]: null }));
-      fetchApps();
-    }, 2000);
+    setActionLoading(prev => ({ ...prev, [app.id]: null }));
   };
 
   const handleRefreshConfig = async (app) => {

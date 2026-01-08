@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { spawn } from 'child_process';
 import { existsSync } from 'fs';
 import * as appsService from '../services/apps.js';
+import { notifyAppsChanged } from '../services/apps.js';
 import * as pm2Service from '../services/pm2.js';
 import { logAction } from '../services/history.js';
 import { validate, appSchema, appUpdateSchema } from '../lib/validation.js';
@@ -144,6 +145,7 @@ router.post('/:id/start', asyncHandler(async (req, res, next) => {
 
   const allSuccess = Object.values(results).every(r => r.success !== false);
   await logAction('start', app.id, app.name, { processNames }, allSuccess);
+  notifyAppsChanged('start');
 
   res.json({ success: true, results });
 }));
@@ -166,6 +168,7 @@ router.post('/:id/stop', asyncHandler(async (req, res, next) => {
 
   const allSuccess = Object.values(results).every(r => r.success !== false);
   await logAction('stop', app.id, app.name, { processNames: app.pm2ProcessNames }, allSuccess);
+  notifyAppsChanged('stop');
 
   res.json({ success: true, results });
 }));
@@ -188,6 +191,7 @@ router.post('/:id/restart', asyncHandler(async (req, res, next) => {
 
   const allSuccess = Object.values(results).every(r => r.success !== false);
   await logAction('restart', app.id, app.name, { processNames: app.pm2ProcessNames }, allSuccess);
+  notifyAppsChanged('restart');
 
   res.json({ success: true, results });
 }));

@@ -9,7 +9,8 @@ vi.mock('../services/apps.js', () => ({
   getAppById: vi.fn(),
   createApp: vi.fn(),
   updateApp: vi.fn(),
-  deleteApp: vi.fn()
+  deleteApp: vi.fn(),
+  notifyAppsChanged: vi.fn()
 }));
 
 vi.mock('../services/pm2.js', () => ({

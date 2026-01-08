@@ -3,11 +3,15 @@ import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
+import EventEmitter from 'events';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const DATA_DIR = join(__dirname, '../../data');
 const APPS_FILE = join(DATA_DIR, 'apps.json');
+
+// Event emitter for apps changes
+export const appsEvents = new EventEmitter();
 
 // In-memory cache for apps data
 let appsCache = null;
@@ -65,6 +69,14 @@ async function saveApps(data) {
 export function invalidateCache() {
   appsCache = null;
   cacheTimestamp = 0;
+}
+
+/**
+ * Notify clients that apps data has changed
+ * Call this after any operation that modifies app state
+ */
+export function notifyAppsChanged(action = 'update') {
+  appsEvents.emit('changed', { action, timestamp: Date.now() });
 }
 
 /**

@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import { streamDetection } from './streamingDetect.js';
 import { cosEvents } from './cos.js';
+import { appsEvents } from './apps.js';
 import { errorEvents } from '../lib/errorHandler.js';
 import { handleErrorRecovery } from './autoFixer.js';
 import * as pm2Standardizer from './pm2Standardizer.js';
@@ -11,6 +12,8 @@ const activeStreams = new Map();
 const cosSubscribers = new Set();
 // Store error subscribers for auto-fix notifications
 const errorSubscribers = new Set();
+// Store io instance for broadcasting
+let ioInstance = null;
 
 export function initSocket(io) {
   io.on('connection', (socket) => {
@@ -205,11 +208,17 @@ export function initSocket(io) {
     });
   });
 
+  // Store io instance for apps broadcasting
+  ioInstance = io;
+
   // Set up CoS event forwarding to subscribers
   setupCosEventForwarding();
 
   // Set up error event forwarding to subscribers
   setupErrorEventForwarding();
+
+  // Set up apps event forwarding to all clients
+  setupAppsEventForwarding();
 }
 
 function cleanupStream(socketId) {
@@ -291,5 +300,14 @@ function setupErrorEventForwarding() {
       canAutoFix: error.canAutoFix,
       context: error.context
     });
+  });
+}
+
+// Set up apps event forwarding - broadcasts to ALL clients
+function setupAppsEventForwarding() {
+  appsEvents.on('changed', (data) => {
+    if (ioInstance) {
+      ioInstance.emit('apps:changed', data);
+    }
   });
 }

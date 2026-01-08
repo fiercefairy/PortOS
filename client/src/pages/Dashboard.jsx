@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import AppTile from '../components/AppTile';
 import * as api from '../services/api';
+import socket from '../services/socket';
 
 export default function Dashboard() {
   const [apps, setApps] = useState([]);
@@ -22,8 +23,16 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 10000);
-    return () => clearInterval(interval);
+
+    // Listen for apps changes via WebSocket instead of polling
+    const handleAppsChanged = () => {
+      fetchData();
+    };
+    socket.on('apps:changed', handleAppsChanged);
+
+    return () => {
+      socket.off('apps:changed', handleAppsChanged);
+    };
   }, [fetchData]);
 
   // Memoize derived stats to prevent recalculation on every render

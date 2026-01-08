@@ -27,7 +27,7 @@ Common port labels:
 | 5555 | portos-client | ui | Vite dev server (React UI) |
 | 5556 | portos-browser | cdp | Chrome DevTools Protocol |
 | 5557 | portos-browser | health | Browser health check API |
-| 5558 | (reserved) | - | Reserved for future PortOS use |
+| 5558 | portos-cos | api | CoS Agent Runner (isolated process) |
 | 5559 | portos-autofixer | api | Autofixer daemon API |
 | 5560 | portos-autofixer-ui | ui | Autofixer web UI |
 

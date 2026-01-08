@@ -236,15 +236,21 @@ function formatRuntime(ms) {
  * Kill a process by PID
  */
 export async function killProcess(pid) {
+  // Security: Ensure PID is a valid integer to prevent command injection
+  const safePid = parseInt(pid, 10);
+  if (isNaN(safePid) || safePid <= 0) {
+    throw new Error('Invalid PID provided');
+  }
+
   const platform = process.platform;
 
   if (platform === 'win32') {
-    await execAsync(`taskkill /PID ${pid} /F`);
+    await execAsync(`taskkill /PID ${safePid} /F`);
   } else {
-    await execAsync(`kill -9 ${pid}`);
+    await execAsync(`kill -9 ${safePid}`);
   }
 
-  console.log(`🔪 Killed process ${pid}`);
+  console.log(`🔪 Killed process ${safePid}`);
   return true;
 }
 
@@ -252,10 +258,16 @@ export async function killProcess(pid) {
  * Get detailed info for a specific process
  */
 export async function getProcessInfo(pid) {
+  // Security: Ensure PID is a valid integer to prevent command injection
+  const safePid = parseInt(pid, 10);
+  if (isNaN(safePid) || safePid <= 0) {
+    return null;
+  }
+
   const platform = process.platform;
 
   if (platform === 'darwin' || platform === 'linux') {
-    const cmd = `ps -ww -p ${pid} -o pid,ppid,%cpu,%mem,etime,command`;
+    const cmd = `ps -ww -p ${safePid} -o pid,ppid,%cpu,%mem,etime,command`;
     const result = await execAsync(cmd).catch(() => null);
     if (!result) return null;
 

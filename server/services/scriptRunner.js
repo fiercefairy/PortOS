@@ -36,9 +36,17 @@ const ALLOWED_SCRIPT_COMMANDS = new Set([
   'brew'
 ]);
 
+// Shell metacharacters that could be used for command injection
+// Security: Reject any command containing these to prevent injection via pipes, chaining, etc.
+const DANGEROUS_SHELL_CHARS = /[;|&`$(){}[\]<>\\!#*?~]/;
+
 /**
  * Validate a script command against the allowlist
- * Returns { valid: boolean, error?: string, baseCommand?: string }
+ * Returns { valid: boolean, error?: string, baseCommand?: string, args?: string[] }
+ *
+ * Security measures:
+ * 1. Base command must be in allowlist
+ * 2. Command cannot contain shell metacharacters that enable injection
  */
 function validateScriptCommand(command) {
   if (!command || typeof command !== 'string') {
@@ -50,7 +58,16 @@ function validateScriptCommand(command) {
     return { valid: false, error: 'Command cannot be empty' };
   }
 
-  // Extract the base command (first word before space or pipe)
+  // Security: Check for dangerous shell metacharacters that could enable command injection
+  // This prevents attacks like: npm; rm -rf / or npm && malicious_cmd or npm | cat /etc/passwd
+  if (DANGEROUS_SHELL_CHARS.test(trimmed)) {
+    return {
+      valid: false,
+      error: 'Command contains disallowed shell characters (security restriction). Pipes, semicolons, and other shell operators are not allowed.'
+    };
+  }
+
+  // Extract the base command (first word before space)
   const parts = trimmed.split(/\s+/);
   const baseCommand = parts[0];
 
@@ -61,7 +78,7 @@ function validateScriptCommand(command) {
     };
   }
 
-  return { valid: true, baseCommand };
+  return { valid: true, baseCommand, args: parts.slice(1) };
 }
 
 // Schedule presets to cron expressions
@@ -310,9 +327,12 @@ export async function executeScript(scriptId) {
   const startTime = Date.now();
 
   return new Promise((resolve) => {
-    const child = spawn('sh', ['-c', script.command], {
+    // Security: Use spawn with array of args (shell:false) to prevent shell injection
+    // The validation function ensures no metacharacters are present
+    const child = spawn(validation.baseCommand, validation.args || [], {
       cwd: join(__dirname, '../../'),
-      timeout: 60000 // 1 minute timeout
+      timeout: 60000, // 1 minute timeout
+      shell: false
     });
 
     let output = '';

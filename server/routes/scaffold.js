@@ -144,10 +144,17 @@ async function scaffoldApp(req, res) {
   // Generate project files based on template
   if (template === 'vite-react' || template === 'vite-express') {
     // Create using npm create vite
-    const { stderr } = await execAsync(
-      `npm create vite@latest ${dirName} -- --template react`,
-      { cwd: parentDir }
-    ).catch(err => ({ stderr: err.message }));
+    // Security: Use spawn with array args instead of execAsync to prevent shell injection
+    const { stderr } = await new Promise((resolve) => {
+      const child = spawn('npm', ['create', 'vite@latest', dirName, '--', '--template', 'react'], {
+        cwd: parentDir,
+        shell: false
+      });
+      let stderr = '';
+      child.stderr.on('data', (data) => { stderr += data.toString(); });
+      child.on('close', () => resolve({ stderr }));
+      child.on('error', (err) => resolve({ stderr: err.message }));
+    });
 
     if (stderr && !stderr.includes('npm warn')) {
       addStep('Create Vite project', 'error', stderr);
@@ -313,12 +320,17 @@ app.listen(PORT, '0.0.0.0', () => {
 
   // Create GitHub repo if requested
   if (createGitHubRepo) {
-    const ghArgs = githubOrg
-      ? `repo create ${githubOrg}/${dirName} --source=. --push --private`
-      : `repo create ${dirName} --source=. --push --private`;
+    // Security: Use spawn with array args to prevent shell injection from githubOrg/dirName
+    const repoName = githubOrg ? `${githubOrg}/${dirName}` : dirName;
+    const ghArgs = ['repo', 'create', repoName, '--source=.', '--push', '--private'];
 
-    const { stderr: ghErr } = await execAsync(`gh ${ghArgs}`, { cwd: repoPath })
-      .catch(err => ({ stderr: err.message }));
+    const { stderr: ghErr } = await new Promise((resolve) => {
+      const child = spawn('gh', ghArgs, { cwd: repoPath, shell: false });
+      let stderr = '';
+      child.stderr.on('data', (data) => { stderr += data.toString(); });
+      child.on('close', () => resolve({ stderr }));
+      child.on('error', (err) => resolve({ stderr: err.message }));
+    });
 
     if (ghErr && !ghErr.includes('Created repository')) {
       addStep('Create GitHub repo', 'error', ghErr);

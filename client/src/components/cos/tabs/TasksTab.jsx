@@ -175,15 +175,17 @@ export default function TasksTab({ tasks, onRefresh, providers, apps }) {
             <button
               onClick={() => setShowAddTask(!showAddTask)}
               className="flex items-center gap-1 text-sm text-port-accent hover:text-port-accent/80 transition-colors"
+              aria-expanded={showAddTask}
             >
-              <Plus size={16} />
+              <Plus size={16} aria-hidden="true" />
               Add Task
             </button>
             <button
               onClick={onRefresh}
               className="text-gray-500 hover:text-white transition-colors"
+              aria-label="Refresh tasks"
             >
-              <RefreshCw size={16} />
+              <RefreshCw size={16} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -255,7 +257,7 @@ export default function TasksTab({ tasks, onRefresh, providers, apps }) {
                   onClick={() => fileInputRef.current?.click()}
                   className="flex items-center gap-2 px-3 py-2 bg-port-bg border border-port-border rounded-lg text-gray-400 hover:text-white text-sm transition-colors"
                 >
-                  <Image size={16} />
+                  <Image size={16} aria-hidden="true" />
                   Add Screenshot
                 </button>
                 <input
@@ -265,6 +267,7 @@ export default function TasksTab({ tasks, onRefresh, providers, apps }) {
                   multiple
                   onChange={handleFileSelect}
                   className="hidden"
+                  aria-label="Upload screenshot files"
                 />
                 {screenshots.length > 0 && (
                   <span className="text-xs text-gray-500">{screenshots.length} screenshot{screenshots.length > 1 ? 's' : ''} attached</span>
@@ -284,8 +287,9 @@ export default function TasksTab({ tasks, onRefresh, providers, apps }) {
                         type="button"
                         onClick={() => removeScreenshot(s.id)}
                         className="absolute -top-2 -right-2 w-5 h-5 bg-port-error rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label={`Remove screenshot ${s.filename}`}
                       >
-                        <X size={12} />
+                        <X size={12} aria-hidden="true" />
                       </button>
                     </div>
                   ))}
@@ -305,7 +309,7 @@ export default function TasksTab({ tasks, onRefresh, providers, apps }) {
                   onClick={handleAddTask}
                   className="flex items-center gap-1 px-3 py-1.5 bg-port-accent/20 hover:bg-port-accent/30 text-port-accent rounded-lg text-sm transition-colors"
                 >
-                  <Plus size={14} />
+                  <Plus size={14} aria-hidden="true" />
                   Add
                 </button>
               </div>

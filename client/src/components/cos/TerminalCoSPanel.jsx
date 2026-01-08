@@ -134,16 +134,18 @@ export default function TerminalCoSPanel({ state, speaking, statusMessage, event
             <button
               onClick={onStop}
               className="flex items-center gap-1 px-2 py-1 bg-red-900/30 hover:bg-red-900/50 text-red-400 rounded border border-red-700/50 text-xs transition-colors"
+              aria-label="Stop CoS agent"
             >
-              <Square size={10} />
+              <Square size={10} aria-hidden="true" />
               stop
             </button>
           ) : (
             <button
               onClick={onStart}
               className="flex items-center gap-1 px-2 py-1 bg-green-900/30 hover:bg-green-900/50 text-green-400 rounded border border-green-700/50 text-xs transition-colors"
+              aria-label="Start CoS agent"
             >
-              <Play size={10} />
+              <Play size={10} aria-hidden="true" />
               start
             </button>
           )}
@@ -211,16 +213,18 @@ export default function TerminalCoSPanel({ state, speaking, statusMessage, event
             <button
               onClick={onStop}
               className="flex items-center gap-2 px-3 py-1.5 bg-red-900/30 hover:bg-red-900/50 text-red-400 rounded border border-red-700/50 text-xs transition-colors"
+              aria-label="Stop CoS agent"
             >
-              <Square size={12} />
+              <Square size={12} aria-hidden="true" />
               ./stop
             </button>
           ) : (
             <button
               onClick={onStart}
               className="flex items-center gap-2 px-3 py-1.5 bg-green-900/30 hover:bg-green-900/50 text-green-400 rounded border border-green-700/50 text-xs transition-colors"
+              aria-label="Start CoS agent"
             >
-              <Play size={12} />
+              <Play size={12} aria-hidden="true" />
               ./start
             </button>
           )}

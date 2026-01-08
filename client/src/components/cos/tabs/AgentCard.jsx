@@ -151,7 +151,7 @@ export default function AgentCard({ agent, onTerminate, onKill, onDelete, onResu
       <div className="p-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <Cpu size={16} className={completed ? 'text-gray-500' : 'text-port-accent animate-pulse'} />
+            <Cpu size={16} aria-hidden="true" className={completed ? 'text-gray-500' : 'text-port-accent animate-pulse'} />
             <span className="font-mono text-sm text-gray-400">{agent.id}</span>
             {isSystemAgent && (
               <span className="px-1.5 py-0.5 text-xs bg-gray-500/20 text-gray-400 rounded">SYS</span>
@@ -177,7 +177,7 @@ export default function AgentCard({ agent, onTerminate, onKill, onDelete, onResu
             {!completed && processStats?.active && (
               <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-port-success/20 text-port-success"
                     title={`PID: ${processStats.pid} | State: ${processStats.state}`}>
-                <Activity size={10} />
+                <Activity size={10} aria-hidden="true" />
                 PID {processStats.pid} | {processStats.cpu?.toFixed(1)}% | {processStats.memoryMb}MB
               </span>
             )}
@@ -185,7 +185,7 @@ export default function AgentCard({ agent, onTerminate, onKill, onDelete, onResu
             {!completed && agent.pid && processStats && !processStats.active && (
               <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-port-error/20 text-port-error"
                     title="Process is not running - zombie agent">
-                <Skull size={10} />
+                <Skull size={10} aria-hidden="true" />
                 PID {agent.pid} ZOMBIE
               </span>
             )}
@@ -197,7 +197,7 @@ export default function AgentCard({ agent, onTerminate, onKill, onDelete, onResu
                 className="flex items-center gap-1 text-sm text-gray-500"
                 title={`Based on ${durationEstimate.basedOn} completed ${durationEstimate.taskType} tasks`}
               >
-                <Clock size={12} />
+                <Clock size={12} aria-hidden="true" />
                 {formatDuration(duration)} / ~{formatDuration(durationEstimate.estimatedMs)}
               </span>
             ) : (
@@ -207,6 +207,7 @@ export default function AgentCard({ agent, onTerminate, onKill, onDelete, onResu
               <button
                 onClick={() => setExpanded(!expanded)}
                 className="text-gray-500 hover:text-white transition-colors text-xs"
+                aria-expanded={expanded}
               >
                 {expanded ? 'Hide' : 'Show'} Output
               </button>
@@ -216,9 +217,9 @@ export default function AgentCard({ agent, onTerminate, onKill, onDelete, onResu
               <button
                 onClick={() => onTerminate(agent.id)}
                 className="text-gray-500 hover:text-port-warning transition-colors"
-                title="Terminate (graceful SIGTERM)"
+                aria-label="Terminate agent (graceful SIGTERM)"
               >
-                <Square size={14} />
+                <Square size={14} aria-hidden="true" />
               </button>
             )}
             {/* Kill button (force SIGKILL) */}
@@ -227,18 +228,18 @@ export default function AgentCard({ agent, onTerminate, onKill, onDelete, onResu
                 onClick={handleKill}
                 disabled={killing}
                 className="text-gray-500 hover:text-port-error transition-colors disabled:opacity-50"
-                title="Force Kill (SIGKILL)"
+                aria-label="Force kill agent (SIGKILL)"
               >
-                {killing ? <Loader2 size={14} className="animate-spin" /> : <Skull size={14} />}
+                {killing ? <Loader2 size={14} aria-hidden="true" className="animate-spin" /> : <Skull size={14} aria-hidden="true" />}
               </button>
             )}
             {completed && !isSystemAgent && onResume && (
               <button
                 onClick={() => onResume(agent)}
                 className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-port-accent/20 text-port-accent hover:bg-port-accent/30 transition-colors"
-                title="Create new task from this agent's context"
+                aria-label="Create new task from this agent's context"
               >
-                <RotateCcw size={12} />
+                <RotateCcw size={12} aria-hidden="true" />
                 Resume
               </button>
             )}
@@ -246,9 +247,9 @@ export default function AgentCard({ agent, onTerminate, onKill, onDelete, onResu
               <button
                 onClick={() => onDelete(agent.id)}
                 className="text-gray-500 hover:text-port-error transition-colors"
-                title="Remove"
+                aria-label="Remove agent"
               >
-                <Trash2 size={14} />
+                <Trash2 size={14} aria-hidden="true" />
               </button>
             )}
           </div>
@@ -285,9 +286,9 @@ export default function AgentCard({ agent, onTerminate, onKill, onDelete, onResu
         {agent.result && (
           <div className={`text-sm flex items-center gap-2 ${agent.result.success ? 'text-port-success' : 'text-port-error'}`}>
             {agent.result.success ? (
-              <><CheckCircle size={14} /> Completed successfully</>
+              <><CheckCircle size={14} aria-hidden="true" /> Completed successfully</>
             ) : (
-              <><AlertCircle size={14} /> {agent.result.error || 'Failed'}</>
+              <><AlertCircle size={14} aria-hidden="true" /> {agent.result.error || 'Failed'}</>
             )}
           </div>
         )}
@@ -298,7 +299,7 @@ export default function AgentCard({ agent, onTerminate, onKill, onDelete, onResu
         <div className="border-t border-port-border bg-port-bg/50 p-3">
           {loadingOutput ? (
             <div className="flex items-center gap-2 text-gray-500 text-sm">
-              <Loader2 size={14} className="animate-spin" />
+              <Loader2 size={14} aria-hidden="true" className="animate-spin" />
               Loading full output...
             </div>
           ) : output.length > 0 ? (

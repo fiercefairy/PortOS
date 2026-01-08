@@ -14,10 +14,10 @@ import toast from 'react-hot-toast';
 import * as api from '../../../services/api';
 
 const statusIcons = {
-  pending: <Clock size={16} className="text-yellow-500" />,
-  in_progress: <Activity size={16} className="text-port-accent animate-pulse" />,
-  completed: <CheckCircle size={16} className="text-port-success" />,
-  blocked: <Ban size={16} className="text-port-error" />
+  pending: <Clock size={16} aria-hidden="true" className="text-yellow-500" />,
+  in_progress: <Activity size={16} aria-hidden="true" className="text-port-accent animate-pulse" />,
+  completed: <CheckCircle size={16} aria-hidden="true" className="text-port-success" />,
+  blocked: <Ban size={16} aria-hidden="true" className="text-port-error" />
 };
 
 export default function TaskItem({ task, isSystem, awaitingApproval, onRefresh, providers, dragHandleProps }) {
@@ -77,11 +77,9 @@ export default function TaskItem({ task, isSystem, awaitingApproval, onRefresh, 
         <button
           onClick={() => handleStatusChange(task.status === 'completed' ? 'pending' : 'completed')}
           className="mt-0.5 hover:scale-110 transition-transform"
-          title={task.status === 'completed' ? 'Mark as pending' : 'Mark as completed'}
-          aria-label={task.status === 'completed' ? 'Mark as pending' : 'Mark as completed'}
+          aria-label={`Status: ${task.status}. Click to mark as ${task.status === 'completed' ? 'pending' : 'completed'}`}
         >
-          <span aria-hidden="true">{statusIcons[task.status]}</span>
-          <span className="sr-only">Status: {task.status}</span>
+          {statusIcons[task.status]}
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -142,13 +140,13 @@ export default function TaskItem({ task, isSystem, awaitingApproval, onRefresh, 
                   onClick={handleSave}
                   className="flex items-center gap-1 text-xs text-port-success hover:text-port-success/80"
                 >
-                  <Save size={12} /> Save
+                  <Save size={12} aria-hidden="true" /> Save
                 </button>
                 <button
                   onClick={() => setEditing(false)}
                   className="flex items-center gap-1 text-xs text-gray-500 hover:text-white"
                 >
-                  <X size={12} /> Cancel
+                  <X size={12} aria-hidden="true" /> Cancel
                 </button>
               </div>
             </div>

@@ -109,8 +109,9 @@ export default function AgentsTab({ agents, onRefresh, liveOutputs, providers, a
             <button
               onClick={handleClearCompleted}
               className="flex items-center gap-1 text-sm text-gray-500 hover:text-port-error transition-colors"
+              aria-label="Clear all completed agents"
             >
-              <Trash2 size={14} />
+              <Trash2 size={14} aria-hidden="true" />
               Clear
             </button>
           </div>

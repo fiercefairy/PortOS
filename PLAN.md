@@ -48,10 +48,20 @@ pm2 logs
 - [x] M19: CoS Agent Runner (isolated PM2 process for agent spawning, prevents orphaned processes)
 - [x] M20: AI Provider Error Handling (error extraction, categorization, CoS investigation tasks)
 - [x] M21: Usage Metrics Integration (usage tracking for all AI runs, mobile responsive design)
+- [x] M22: Orphan Auto-Retry (automatic retry for orphaned agents, investigation task on max retries)
+- [x] M23: Self-Improvement System (automated UI/security/code quality analysis with Playwright and Opus)
+- [x] M24: Goal-Driven Proactive Mode (COS-GOALS.md mission file, always-working behavior, expanded task types)
+- [x] M25: Task Learning System (completion tracking, success rate analysis, model effectiveness, recommendations)
 
 ### Documentation
+- [Architecture Overview](./docs/ARCHITECTURE.md) - System design, data flow
+- [API Reference](./docs/API.md) - REST endpoints, WebSocket events
 - [Contributing Guide](./docs/CONTRIBUTING.md) - Code guidelines, git workflow
+- [PM2 Configuration](./docs/PM2.md) - PM2 patterns and best practices
+- [Port Allocation](./docs/PORTS.md) - Port conventions and allocation
 - [Versioning & Releases](./docs/VERSIONING.md) - Version format, release process
+- [GitHub Actions](./docs/GITHUB_ACTIONS.md) - CI/CD workflow patterns
+- [Troubleshooting](./docs/TROUBLESHOOTING.md) - Common issues and solutions
 
 ### Error Handling
 The server implements comprehensive error handling:
@@ -587,13 +597,22 @@ Semantic memory system for the Chief of Staff that stores facts, learnings, obse
 | cos:memory:extracted | Memories extracted from agent |
 | cos:memory:approval-needed | Medium-confidence memories pending approval |
 
+### Setup Requirements
+
+**LM Studio** must be running with an embedding model loaded for the memory system to work:
+
+1. Download and install [LM Studio](https://lmstudio.ai/)
+2. Load an embedding model: `text-embedding-nomic-embed-text-v2-moe` (recommended) or `text-embedding-nomic-embed-text-v1.5`
+3. Start the local server on port 1234 (default)
+4. The memory system will automatically connect
+
 ### LM Studio Configuration
 ```javascript
 memory: {
   enabled: true,
   embeddingProvider: 'lmstudio',
   embeddingEndpoint: 'http://localhost:1234/v1/embeddings',
-  embeddingModel: 'nomic-embed-text-v1.5',
+  embeddingModel: 'text-embedding-nomic-embed-text-v2-moe',
   embeddingDimension: 768,
   maxContextTokens: 2000,
   minRelevanceThreshold: 0.7,
@@ -926,3 +945,289 @@ executeCliRun() / executeApiRun() / completeAgentRun()
     └─► recordMessages(providerId, model, 1, estimatedTokens)
             └─► updates totalMessages, byProvider, byModel tokens
 ```
+
+---
+
+## M22: Orphan Auto-Retry
+
+Automatic retry for orphaned agents with investigation task creation after repeated failures.
+
+### Problem
+When agents become orphaned (server restart, runner crash, etc.), the task remained stuck and the system didn't automatically retry or investigate the issue.
+
+### Solution
+1. **Auto-Retry**: Reset orphaned tasks to pending for automatic retry (up to 3 attempts)
+2. **Retry Tracking**: Track retry count in task metadata (orphanRetryCount)
+3. **Investigation Task**: After max retries, create auto-approved investigation task
+4. **Evaluation Trigger**: Trigger task evaluation immediately after orphan cleanup
+
+### Retry Flow
+```
+Agent Orphaned
+    └─► cleanupOrphanedAgents() marks agent as completed
+    └─► handleOrphanedTask() checks retry count
+        ├─► retryCount < 3: Reset task to pending, trigger evaluation
+        └─► retryCount >= 3: Mark task blocked, create investigation task
+```
+
+### Task Metadata
+```javascript
+metadata: {
+  orphanRetryCount: number,      // Incremented each orphan
+  lastOrphanedAt: string,        // ISO timestamp
+  lastOrphanedAgentId: string,   // Agent that was orphaned
+  blockedReason: string          // Only if max retries exceeded
+}
+```
+
+### Investigation Task (Auto-Approved)
+When max retries (3) are exceeded, an investigation task is created:
+- Priority: HIGH
+- approvalRequired: false (auto-approved, will run immediately)
+- Contains: original task description, retry count, last agent ID
+- Instructions: Check logs, verify spawning, look for resource constraints
+
+### Implementation Files
+| File | Changes |
+|------|---------|
+| `server/services/subAgentSpawner.js` | Added `handleOrphanedTask()`, updated `cleanupOrphanedAgents()` to reset tasks and trigger evaluation |
+| `server/services/cos.js` | Added `getTaskById()` export, updated `updateTask()` to merge metadata properly |
+
+### Configuration
+| Setting | Value | Description |
+|---------|-------|-------------|
+| MAX_ORPHAN_RETRIES | 3 | Retries before creating investigation task |
+
+---
+
+## M23: Self-Improvement System
+
+Automated self-analysis and improvement system that uses Playwright and Opus to continuously improve PortOS.
+
+### Problem
+CoS idle reviews only checked managed apps for simple fixes. The system wasn't proactively improving itself - checking its own UI for bugs, mobile responsiveness issues, security vulnerabilities, or code quality.
+
+### Solution
+A comprehensive self-improvement system that rotates through 7 analysis types:
+
+1. **ui-bugs**: Navigate to all routes with Playwright, check console errors, fix bugs
+2. **mobile-responsive**: Test at mobile/tablet/desktop viewports, fix layout issues
+3. **security**: Audit server/client code for XSS, injection, path traversal
+4. **code-quality**: Find DRY violations, large functions, dead code
+5. **accessibility**: Check ARIA labels, color contrast, keyboard navigation
+6. **console-errors**: Capture and fix all JavaScript errors
+7. **performance**: Analyze re-renders, N+1 queries, bundle size
+
+### Key Features
+- **Automatic rotation**: Cycles through analysis types when CoS is idle
+- **Opus model**: All self-improvement tasks use claude-opus-4-5-20251101 for thorough analysis
+- **Playwright integration**: Uses MCP browser tools to analyze live UI
+- **Auto-approved**: Tasks run without requiring manual approval
+- **Alternates with app reviews**: Balances self-improvement with managed app maintenance
+
+### Task Flow
+```
+CoS Idle (no user/system tasks)
+    └─► Check lastSelfImprovement vs lastIdleReview
+        ├─► Self-improvement older: Generate self-improvement task
+        │       └─► Rotate to next analysis type
+        │       └─► Spawn Opus agent with Playwright instructions
+        └─► App review older: Generate idle app review (existing behavior)
+```
+
+### Implementation Files
+| File | Purpose |
+|------|---------|
+| `server/services/cos.js` | Added `generateSelfImprovementTask()`, updated `generateIdleReviewTask()` |
+| `server/services/selfImprovement.js` | Constants, prompt templates, utility functions |
+
+### State Tracking
+```javascript
+stats: {
+  lastSelfImprovement: ISO timestamp,
+  lastSelfImprovementType: 'ui-bugs' | 'mobile-responsive' | ... ,
+  lastIdleReview: ISO timestamp
+}
+```
+
+### Example Task
+```
+[Self-Improvement] UI Bug Analysis
+
+Use Playwright MCP to analyze PortOS UI at http://localhost:5555/
+- Navigate to each route
+- Capture browser snapshots and console messages
+- Fix any bugs found
+- Commit changes
+
+Use model: claude-opus-4-5-20251101
+```
+
+---
+
+## M24: Goal-Driven Proactive Mode
+
+Makes CoS proactive and goal-driven, spending more time working and less time idle.
+
+### Problem
+CoS was too passive - it would sit idle when apps were on cooldown instead of finding other productive work. The system lacked clear goals and mission guidance.
+
+### Solution
+
+#### 1. COS-GOALS.md Mission File
+Created `data/COS-GOALS.md` with:
+- Mission statement and core principles
+- 5 active goals (codebase quality, self-improvement, documentation, user engagement, system health)
+- Task generation priorities
+- Behavior guidelines
+- Metrics to track
+
+#### 2. Always-Working Behavior
+Updated `generateIdleReviewTask()` to ALWAYS return work:
+- First tries self-improvement if it's been longer since last run
+- Then tries app reviews if any apps are off cooldown
+- **Falls back to self-improvement** if apps are on cooldown (instead of returning null)
+
+#### 3. Expanded Task Types
+Added 4 new self-improvement task types:
+- `cos-enhancement`: Improve CoS capabilities and prompts
+- `test-coverage`: Add missing tests
+- `documentation`: Update PLAN.md, docs/, code comments
+- `feature-ideas`: Brainstorm and implement small features
+
+Now 11 task types total, rotating through all goals.
+
+#### 4. Configuration Changes
+| Setting | Old | New |
+|---------|-----|-----|
+| `evaluationIntervalMs` | 300000 (5m) | 60000 (1m) |
+| `appReviewCooldownMs` | 3600000 (1h) | 1800000 (30m) |
+| `idleReviewPriority` | LOW | MEDIUM |
+| `proactiveMode` | (new) | true |
+| `goalsFile` | (new) | data/COS-GOALS.md |
+
+### Task Rotation
+```
+1. ui-bugs          → Check UI for errors
+2. mobile-responsive → Test viewport sizes
+3. security         → Audit for vulnerabilities
+4. code-quality     → Find DRY violations, dead code
+5. console-errors   → Fix JS errors
+6. performance      → Optimize re-renders, queries
+7. cos-enhancement  → Improve CoS itself
+8. test-coverage    → Add tests
+9. documentation    → Update docs
+10. feature-ideas   → Implement new features
+11. accessibility   → Check a11y issues
+```
+
+### Key Behavior Change
+```
+Before: Apps on cooldown → Return null → Idle
+After:  Apps on cooldown → Run self-improvement → Always working
+```
+
+### Implementation Files
+| File | Changes |
+|------|---------|
+| `data/COS-GOALS.md` | New mission and goals file |
+| `server/services/cos.js` | Updated config defaults, expanded task types, always-working logic |
+
+---
+
+## Security Audit (2026-01-08)
+
+Comprehensive security audit performed by CoS Self-Improvement agent.
+
+### Vulnerabilities Found and Fixed
+
+#### 1. Command Injection in Git Service (CRITICAL - FIXED)
+**File**: `server/services/git.js`
+
+**Problem**: The service used `exec()` with string concatenation for shell commands, allowing command injection attacks:
+```javascript
+// VULNERABLE - user input directly in shell command
+await execAsync(`git add ${paths}`, { cwd: dir });
+await execAsync(`git commit -m "${message}"`, { cwd: dir });
+```
+
+An attacker could inject shell commands via file paths like `; rm -rf /` or commit messages containing shell metacharacters.
+
+**Fix Applied**:
+- Replaced `exec()` with `spawn()` and `shell: false` to prevent shell interpretation
+- Created `execGit()` helper that uses argument arrays instead of string concatenation
+- Added `validateFilePaths()` to reject paths with:
+  - Null bytes (`\0`)
+  - Shell metacharacters (`;`, `|`, `&`, `` ` ``, `$`)
+  - Path traversal (`..`)
+  - Absolute paths (`/`)
+
+#### 2. Path Traversal in Screenshots Route (HIGH - FIXED)
+**File**: `server/routes/screenshots.js`
+
+**Problem**: User-provided filenames were used directly without sanitization:
+```javascript
+// VULNERABLE - path traversal possible
+const filepath = join(SCREENSHOTS_DIR, filename);
+```
+
+An attacker could access arbitrary files via paths like `../../../etc/passwd`.
+
+**Fix Applied**:
+- Added `sanitizeFilename()` to strip path components and special characters
+- Use `resolve()` to normalize paths, then verify result stays within `SCREENSHOTS_DIR`
+- Defense in depth: check both upload and retrieval endpoints
+
+### No Issues Found (Secure Patterns in Use)
+
+#### Command Execution
+- **`server/services/commands.js`**: Uses allowlist (`ALLOWED_COMMANDS`) to restrict which commands can be executed. Only the base command is checked, but it uses `spawn('sh', ['-c', command])` which allows pipes and redirects for allowed commands only.
+
+#### PM2 Operations
+- **`server/services/pm2.js`**: Uses `spawn('pm2', args, { shell: false })` correctly.
+
+#### Input Validation
+- **Zod schemas**: Routes use Zod validation for structured input (`lib/validation.js`, `lib/memoryValidation.js`)
+- **Type coercion**: Query parameters properly parsed with `parseInt()` with fallback defaults
+
+#### React XSS Protection
+- No `dangerouslySetInnerHTML` usage found
+- React's JSX escapes content by default
+- API client properly uses `JSON.stringify()` for request bodies
+
+#### No Sensitive Data in Client
+- API keys stored server-side only in `data/providers.json`
+- No localStorage usage for sensitive data
+- Client uses relative API paths, no hardcoded secrets
+
+#### CSRF Protection
+- Same-origin deployment (client and server on same domain)
+- JSON content type required for all POST/PUT requests
+
+### Command Allowlist Review
+**File**: `server/services/commands.js`
+
+The allowlist is comprehensive for the intended use case:
+```javascript
+const ALLOWED_COMMANDS = new Set([
+  'npm', 'npx', 'pnpm', 'yarn', 'bun',  // Package managers
+  'node', 'deno',                        // Runtimes
+  'git', 'gh',                           // Git operations
+  'pm2',                                 // Process manager
+  'ls', 'cat', 'head', 'tail', 'grep', 'find', 'wc',  // File inspection
+  'pwd', 'which', 'echo', 'env',         // System info
+  'curl', 'wget',                        // Network
+  'docker', 'docker-compose',            // Containers
+  'make', 'cargo', 'go', 'python', 'python3', 'pip', 'pip3',  // Build tools
+  'brew'                                 // macOS package manager
+]);
+```
+
+**Note**: While this prevents arbitrary command execution, the system allows shell pipes/redirects within allowed commands because it uses `spawn('sh', ['-c', command])`. This is intentional for DevTools functionality but could theoretically be abused (e.g., `npm run "$(malicious)"`).
+
+### Recommendations for Future
+
+1. **Rate Limiting**: Consider adding rate limiting to prevent DoS
+2. **Audit Logging**: Log all command executions for forensic analysis
+3. **Content Security Policy**: Add CSP headers to client responses
+4. **Command Argument Validation**: Consider validating arguments to allowed commands, not just base commands

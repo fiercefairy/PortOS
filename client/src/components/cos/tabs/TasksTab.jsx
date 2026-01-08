@@ -230,63 +230,89 @@ export default function TasksTab({ tasks, onRefresh, providers, apps }) {
 
         {/* Add Task Form */}
         {showAddTask && (
-          <div className="bg-port-card border border-port-accent/50 rounded-lg p-4 mb-4">
+          <div className="bg-port-card border border-port-accent/50 rounded-lg p-4 mb-4" role="form" aria-label="Add new task">
             <div className="space-y-3">
-              <input
-                type="text"
-                placeholder="Task ID (auto-generated if empty)"
-                value={newTask.id}
-                onChange={e => setNewTask(t => ({ ...t, id: e.target.value }))}
-                className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white text-sm"
-              />
-              <input
-                type="text"
-                placeholder="Task description *"
-                value={newTask.description}
-                onChange={e => setNewTask(t => ({ ...t, description: e.target.value }))}
-                className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white text-sm"
-              />
-              <input
-                type="text"
-                placeholder="Context (optional)"
-                value={newTask.context}
-                onChange={e => setNewTask(t => ({ ...t, context: e.target.value }))}
-                className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white text-sm"
-              />
-              <div className="flex gap-3">
-                <select
-                  value={newTask.app}
-                  onChange={e => setNewTask(t => ({ ...t, app: e.target.value }))}
-                  className="flex-1 px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white text-sm"
-                >
-                  <option value="">PortOS (default)</option>
-                  {apps?.map(app => (
-                    <option key={app.id} value={app.id}>{app.name}</option>
-                  ))}
-                </select>
+              <div>
+                <label htmlFor="task-id" className="sr-only">Task ID</label>
+                <input
+                  id="task-id"
+                  type="text"
+                  placeholder="Task ID (auto-generated if empty)"
+                  value={newTask.id}
+                  onChange={e => setNewTask(t => ({ ...t, id: e.target.value }))}
+                  className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="task-description" className="sr-only">Task description (required)</label>
+                <input
+                  id="task-description"
+                  type="text"
+                  placeholder="Task description *"
+                  value={newTask.description}
+                  onChange={e => setNewTask(t => ({ ...t, description: e.target.value }))}
+                  className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white text-sm"
+                  aria-required="true"
+                />
+              </div>
+              <div>
+                <label htmlFor="task-context" className="sr-only">Context</label>
+                <input
+                  id="task-context"
+                  type="text"
+                  placeholder="Context (optional)"
+                  value={newTask.context}
+                  onChange={e => setNewTask(t => ({ ...t, context: e.target.value }))}
+                  className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white text-sm"
+                />
               </div>
               <div className="flex gap-3">
-                <select
-                  value={newTask.provider}
-                  onChange={e => setNewTask(t => ({ ...t, provider: e.target.value, model: '' }))}
-                  className="w-40 px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white text-sm"
-                >
-                  <option value="">Auto (default)</option>
-                  {enabledProviders.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-                <select
-                  value={newTask.model}
-                  onChange={e => setNewTask(t => ({ ...t, model: e.target.value }))}
-                  className="flex-1 px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white text-sm"
-                  disabled={!newTask.provider}
-                >
-                  <option value="">{newTask.provider ? 'Select model...' : 'Select provider first'}</option>
-                  {availableModels.map(m => (
-                    <option key={m} value={m}>{m.replace('claude-', '').replace(/-\d+$/, '')}</option>
-                  ))}
-                </select>
+                <div className="flex-1">
+                  <label htmlFor="task-app" className="sr-only">Target application</label>
+                  <select
+                    id="task-app"
+                    value={newTask.app}
+                    onChange={e => setNewTask(t => ({ ...t, app: e.target.value }))}
+                    className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white text-sm"
+                  >
+                    <option value="">PortOS (default)</option>
+                    {apps?.map(app => (
+                      <option key={app.id} value={app.id}>{app.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <div>
+                  <label htmlFor="task-provider" className="sr-only">AI provider</label>
+                  <select
+                    id="task-provider"
+                    value={newTask.provider}
+                    onChange={e => setNewTask(t => ({ ...t, provider: e.target.value, model: '' }))}
+                    className="w-40 px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white text-sm"
+                  >
+                    <option value="">Auto (default)</option>
+                    {enabledProviders.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label htmlFor="task-model" className="sr-only">AI model</label>
+                  <select
+                    id="task-model"
+                    value={newTask.model}
+                    onChange={e => setNewTask(t => ({ ...t, model: e.target.value }))}
+                    className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white text-sm"
+                    disabled={!newTask.provider}
+                    aria-disabled={!newTask.provider}
+                  >
+                    <option value="">{newTask.provider ? 'Select model...' : 'Select provider first'}</option>
+                    {availableModels.map(m => (
+                      <option key={m} value={m}>{m.replace('claude-', '').replace(/-\d+$/, '')}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               {/* Screenshot Upload */}
               <div className="flex items-center gap-3">

@@ -35,15 +35,15 @@ const AppTile = memo(function AppTile({ app, onUpdate }) {
   const isOnline = app.overallStatus === 'online';
 
   return (
-    <div className="bg-port-card border border-port-border rounded-xl p-5 hover:border-port-accent/50 transition-colors">
+    <article className="bg-port-card border border-port-border rounded-xl p-5 hover:border-port-accent/50 transition-colors" aria-labelledby={`app-title-${app.id}`}>
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-lg bg-port-border flex items-center justify-center text-port-accent">
+          <div className="w-12 h-12 rounded-lg bg-port-border flex items-center justify-center text-port-accent" aria-hidden="true">
             <AppIcon icon={app.icon || 'package'} size={28} />
           </div>
           <div>
-            <h3 className="font-semibold text-white">{app.name}</h3>
+            <h3 id={`app-title-${app.id}`} className="font-semibold text-white">{app.name}</h3>
             <p className="text-sm text-gray-500">{app.type}</p>
           </div>
         </div>
@@ -70,7 +70,7 @@ const AppTile = memo(function AppTile({ app, onUpdate }) {
       </p>
 
       {/* Actions */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2" role="group" aria-label={`Actions for ${app.name}`}>
         {/* Open UI */}
         {appUrl && isOnline && (
           <a
@@ -78,6 +78,7 @@ const AppTile = memo(function AppTile({ app, onUpdate }) {
             target="_blank"
             rel="noopener noreferrer"
             className="px-3 py-1.5 text-sm rounded-lg bg-port-accent hover:bg-port-accent/80 text-white transition-colors"
+            aria-label={`Open ${app.name} UI in new tab`}
           >
             Open UI
           </a>
@@ -89,6 +90,8 @@ const AppTile = memo(function AppTile({ app, onUpdate }) {
             onClick={() => handleAction('start')}
             disabled={loading === 'start'}
             className="px-3 py-1.5 text-sm rounded-lg bg-port-success hover:bg-port-success/80 text-white transition-colors disabled:opacity-50"
+            aria-label={`Start ${app.name}`}
+            aria-busy={loading === 'start'}
           >
             {loading === 'start' ? '...' : 'Start'}
           </button>
@@ -101,6 +104,8 @@ const AppTile = memo(function AppTile({ app, onUpdate }) {
               onClick={() => handleAction('restart')}
               disabled={loading === 'restart'}
               className="px-3 py-1.5 text-sm rounded-lg bg-port-warning hover:bg-port-warning/80 text-white transition-colors disabled:opacity-50"
+              aria-label={`Restart ${app.name}`}
+              aria-busy={loading === 'restart'}
             >
               {loading === 'restart' ? '...' : 'Restart'}
             </button>
@@ -108,13 +113,15 @@ const AppTile = memo(function AppTile({ app, onUpdate }) {
               onClick={() => handleAction('stop')}
               disabled={loading === 'stop'}
               className="px-3 py-1.5 text-sm rounded-lg bg-port-error hover:bg-port-error/80 text-white transition-colors disabled:opacity-50"
+              aria-label={`Stop ${app.name}`}
+              aria-busy={loading === 'stop'}
             >
               {loading === 'stop' ? '...' : 'Stop'}
             </button>
           </>
         )}
       </div>
-    </div>
+    </article>
   );
 });
 

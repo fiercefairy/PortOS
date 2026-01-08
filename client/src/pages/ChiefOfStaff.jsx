@@ -102,7 +102,8 @@ export default function ChiefOfStaff() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 5000);
+    // Reduced polling since most updates come via socket events
+    const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
@@ -201,6 +202,11 @@ export default function ChiefOfStaff() {
       }
     });
 
+    // Listen for apps changes (start/stop/restart)
+    socket.on('apps:changed', () => {
+      fetchData();
+    });
+
     return () => {
       socket.emit('cos:unsubscribe');
       socket.off('connect', subscribe);
@@ -211,6 +217,7 @@ export default function ChiefOfStaff() {
       socket.off('cos:agent:completed');
       socket.off('cos:health:check');
       socket.off('cos:log');
+      socket.off('apps:changed');
     };
   }, [socket, fetchData]);
 
@@ -357,16 +364,18 @@ export default function ChiefOfStaff() {
                 <button
                   onClick={handleStop}
                   className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-colors"
+                  aria-label="Stop Chief of Staff agent"
                 >
-                  <Square size={14} className="sm:w-4 sm:h-4" />
+                  <Square size={14} className="sm:w-4 sm:h-4" aria-hidden="true" />
                   Stop
                 </button>
               ) : (
                 <button
                   onClick={handleStart}
                   className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-lg transition-colors"
+                  aria-label="Start Chief of Staff agent"
                 >
-                  <Play size={14} className="sm:w-4 sm:h-4" />
+                  <Play size={14} className="sm:w-4 sm:h-4" aria-hidden="true" />
                   Start
                 </button>
               )}
@@ -438,21 +447,27 @@ export default function ChiefOfStaff() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 border-b border-port-border overflow-x-auto scrollbar-hide">
+        <div role="tablist" aria-label="Chief of Staff sections" className="flex gap-1 mb-6 border-b border-port-border overflow-x-auto scrollbar-hide">
           {TABS.map(tabItem => {
             const Icon = tabItem.icon;
+            const isSelected = activeTab === tabItem.id;
             return (
               <button
                 key={tabItem.id}
+                role="tab"
+                aria-selected={isSelected}
+                aria-controls={`tabpanel-${tabItem.id}`}
+                id={`tab-${tabItem.id}`}
                 onClick={() => navigate(`/cos/${tabItem.id}`)}
                 className={`flex items-center gap-2 px-3 sm:px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
-                  activeTab === tabItem.id
+                  isSelected
                     ? 'text-port-accent border-port-accent'
                     : 'text-gray-500 border-transparent hover:text-white'
                 }`}
               >
-                <Icon size={16} />
+                <Icon size={16} aria-hidden="true" />
                 <span className="hidden sm:inline">{tabItem.label}</span>
+                <span className="sr-only sm:hidden">{tabItem.label}</span>
               </button>
             );
           })}
@@ -460,22 +475,34 @@ export default function ChiefOfStaff() {
 
         {/* Tab Content */}
         {activeTab === 'tasks' && (
-          <TasksTab tasks={tasks} onRefresh={fetchData} providers={providers} apps={apps} />
+          <div role="tabpanel" id="tabpanel-tasks" aria-labelledby="tab-tasks">
+            <TasksTab tasks={tasks} onRefresh={fetchData} providers={providers} apps={apps} />
+          </div>
         )}
         {activeTab === 'agents' && (
-          <AgentsTab agents={agents} onRefresh={fetchData} liveOutputs={liveOutputs} providers={providers} apps={apps} />
+          <div role="tabpanel" id="tabpanel-agents" aria-labelledby="tab-agents">
+            <AgentsTab agents={agents} onRefresh={fetchData} liveOutputs={liveOutputs} providers={providers} apps={apps} />
+          </div>
         )}
         {activeTab === 'scripts' && (
-          <ScriptsTab scripts={scripts} onRefresh={fetchData} />
+          <div role="tabpanel" id="tabpanel-scripts" aria-labelledby="tab-scripts">
+            <ScriptsTab scripts={scripts} onRefresh={fetchData} />
+          </div>
         )}
         {activeTab === 'memory' && (
-          <MemoryTab />
+          <div role="tabpanel" id="tabpanel-memory" aria-labelledby="tab-memory">
+            <MemoryTab />
+          </div>
         )}
         {activeTab === 'health' && (
-          <HealthTab health={health} onCheck={handleHealthCheck} />
+          <div role="tabpanel" id="tabpanel-health" aria-labelledby="tab-health">
+            <HealthTab health={health} onCheck={handleHealthCheck} />
+          </div>
         )}
         {activeTab === 'config' && (
-          <ConfigTab config={status?.config} onUpdate={fetchData} onEvaluate={handleForceEvaluate} avatarStyle={avatarStyle} setAvatarStyle={setAvatarStyle} evalCountdown={evalCountdown} />
+          <div role="tabpanel" id="tabpanel-config" aria-labelledby="tab-config">
+            <ConfigTab config={status?.config} onUpdate={fetchData} onEvaluate={handleForceEvaluate} avatarStyle={avatarStyle} setAvatarStyle={setAvatarStyle} evalCountdown={evalCountdown} />
+          </div>
         )}
         </div>
       </div>

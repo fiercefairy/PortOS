@@ -101,7 +101,8 @@ export function HistoryPage() {
           <select
             value={filter.action}
             onChange={(e) => setFilter(prev => ({ ...prev, action: e.target.value }))}
-            className="px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white"
+            className="px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-port-accent"
+            aria-label="Filter by action type"
           >
             <option value="">All Actions</option>
             {actions.map(action => (
@@ -112,7 +113,8 @@ export function HistoryPage() {
           <select
             value={filter.success}
             onChange={(e) => setFilter(prev => ({ ...prev, success: e.target.value }))}
-            className="px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white"
+            className="px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-port-accent"
+            aria-label="Filter by result status"
           >
             <option value="">All Results</option>
             <option value="true">Success</option>
@@ -162,8 +164,12 @@ export function HistoryPage() {
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <button className="text-gray-400 hover:text-white flex-shrink-0">
-                        <span className={`inline-block transition-transform ${expandedId === entry.id ? 'rotate-90' : ''}`}>▶</span>
+                      <button
+                        className="text-gray-400 hover:text-white flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-port-accent rounded"
+                        aria-expanded={expandedId === entry.id}
+                        aria-label={`${expandedId === entry.id ? 'Collapse' : 'Expand'} ${entry.action} details`}
+                      >
+                        <span className={`inline-block transition-transform ${expandedId === entry.id ? 'rotate-90' : ''}`} aria-hidden="true">▶</span>
                       </button>
                       <span className="text-xl flex-shrink-0">{getActionIcon(entry.action)}</span>
                       <div className="flex-1 min-w-0">
@@ -182,14 +188,19 @@ export function HistoryPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3 pl-8 sm:pl-0">
-                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${entry.success ? 'bg-port-success' : 'bg-port-error'}`} />
+                      <span
+                        className={`w-2 h-2 rounded-full flex-shrink-0 ${entry.success ? 'bg-port-success' : 'bg-port-error'}`}
+                        role="img"
+                        aria-label={entry.success ? 'Success' : 'Failed'}
+                      />
                       <span className="text-sm text-gray-500 flex-shrink-0">{formatTime(entry.timestamp)}</span>
                       <button
                         onClick={(e) => handleDelete(entry.id, e)}
-                        className="p-1 text-gray-500 hover:text-port-error transition-colors sm:opacity-0 sm:group-hover:opacity-100"
+                        className="p-1 text-gray-500 hover:text-port-error transition-colors sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-port-accent rounded"
                         title="Delete entry"
+                        aria-label={`Delete ${entry.action} entry from ${formatTime(entry.timestamp)}`}
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={14} aria-hidden="true" />
                       </button>
                     </div>
                   </div>

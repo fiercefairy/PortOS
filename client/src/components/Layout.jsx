@@ -19,7 +19,8 @@ import {
   Wrench,
   ExternalLink,
   Crown,
-  Play
+  Play,
+  Camera
 } from 'lucide-react';
 import packageJson from '../../package.json';
 import Logo from './Logo';
@@ -38,6 +39,7 @@ const navItems = [
     ]
   },
   { to: '/apps', label: 'Apps', icon: Package, single: true },
+  { to: '/media', label: 'Media', icon: Camera, single: true },
   { href: '//:5560', label: 'Autofixer', icon: Wrench, external: true, dynamicHost: true },
   { to: '/cos', label: 'Chief of Staff', icon: Crown, single: true, showBadge: true },
   {

@@ -514,21 +514,10 @@ export async function evaluateTasks() {
 
   const tasksToSpawn = [];
 
-  // Priority 1: User tasks (not on cooldown)
+  // Priority 1: User tasks (always run - cooldown only applies to system tasks)
   const pendingUserTasks = userTaskData.grouped?.pending || [];
   for (const task of pendingUserTasks) {
     if (tasksToSpawn.length >= availableSlots) break;
-
-    // Check if task's app is on cooldown
-    const appId = task.metadata?.app;
-    if (appId) {
-      const onCooldown = await isAppOnCooldown(appId, state.config.appReviewCooldownMs);
-      if (onCooldown) {
-        emitLog('debug', `Skipping task ${task.id} - app ${appId} on cooldown`);
-        continue;
-      }
-    }
-
     tasksToSpawn.push({ ...task, taskType: 'user' });
   }
 

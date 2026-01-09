@@ -235,6 +235,29 @@ router.get('/:id/logs', asyncHandler(async (req, res, next) => {
   res.json({ processName, lines, logs });
 }));
 
+// Allowlist of safe editor commands
+// Security: Only allow known-safe editor commands to prevent arbitrary code execution
+const ALLOWED_EDITORS = new Set([
+  'code',      // VS Code
+  'cursor',    // Cursor
+  'zed',       // Zed
+  'subl',      // Sublime Text
+  'atom',      // Atom
+  'vim',       // Vim
+  'nvim',      // Neovim
+  'nano',      // Nano
+  'emacs',     // Emacs
+  'idea',      // IntelliJ IDEA
+  'pycharm',   // PyCharm
+  'webstorm',  // WebStorm
+  'phpstorm',  // PhpStorm
+  'rubymine',  // RubyMine
+  'goland',    // GoLand
+  'clion',     // CLion
+  'rider',     // Rider
+  'studio'     // Android Studio
+]);
+
 // POST /api/apps/:id/open-editor - Open app in editor
 router.post('/:id/open-editor', asyncHandler(async (req, res, next) => {
   const app = await appsService.getAppById(req.params.id);
@@ -250,11 +273,33 @@ router.post('/:id/open-editor', asyncHandler(async (req, res, next) => {
   const editorCommand = app.editorCommand || 'code .';
   const [cmd, ...args] = editorCommand.split(/\s+/);
 
+  // Security: Validate that the editor command is in our allowlist
+  // This prevents arbitrary command execution via malicious editorCommand values
+  if (!ALLOWED_EDITORS.has(cmd)) {
+    throw new ServerError(`Editor '${cmd}' is not in the allowed editors list`, {
+      status: 400,
+      code: 'INVALID_EDITOR',
+      context: { allowedEditors: Array.from(ALLOWED_EDITORS) }
+    });
+  }
+
+  // Security: Validate args don't contain shell metacharacters
+  const DANGEROUS_CHARS = /[;|&`$(){}[\]<>\\!#*?~]/;
+  for (const arg of args) {
+    if (DANGEROUS_CHARS.test(arg)) {
+      throw new ServerError('Editor arguments contain disallowed characters', {
+        status: 400,
+        code: 'INVALID_EDITOR_ARGS'
+      });
+    }
+  }
+
   // Spawn the editor process detached so it doesn't block
   const child = spawn(cmd, args, {
     cwd: app.repoPath,
     detached: true,
-    stdio: 'ignore'
+    stdio: 'ignore',
+    shell: false  // Security: Ensure no shell interpretation
   });
   child.unref();
 

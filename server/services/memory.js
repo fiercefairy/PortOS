@@ -367,6 +367,27 @@ export async function deleteMemory(id, hard = false) {
 }
 
 /**
+ * Helper to decrement agent's pendingApproval count
+ */
+async function decrementAgentPendingApproval(sourceAgentId) {
+  if (!sourceAgentId) return;
+
+  const { getAgent } = await import('./cos.js');
+  const agent = await getAgent(sourceAgentId).catch(() => null);
+  if (!agent?.memoryExtraction?.pendingApproval) return;
+
+  const currentPending = agent.memoryExtraction.pendingApproval;
+  if (currentPending > 0) {
+    await updateAgent(sourceAgentId, {
+      memoryExtraction: {
+        ...agent.memoryExtraction,
+        pendingApproval: currentPending - 1
+      }
+    });
+  }
+}
+
+/**
  * Approve a pending memory (changes status from pending_approval to active)
  */
 export async function approveMemory(id) {
@@ -395,6 +416,9 @@ export async function approveMemory(id) {
     // Remove associated notification
     await notifications.removeByMetadata('memoryId', id);
 
+    // Decrement agent's pendingApproval count
+    await decrementAgentPendingApproval(memory.sourceAgentId);
+
     return { success: true, memory };
   });
 }
@@ -409,6 +433,9 @@ export async function rejectMemory(id) {
     if (memory.status !== 'pending_approval') {
       return { success: false, error: 'Memory is not pending approval' };
     }
+
+    // Store sourceAgentId before deletion
+    const sourceAgentId = memory.sourceAgentId;
 
     // Hard delete - remove files
     await deleteMemoryFiles(id);
@@ -429,6 +456,9 @@ export async function rejectMemory(id) {
 
     // Remove associated notification
     await notifications.removeByMetadata('memoryId', id);
+
+    // Decrement agent's pendingApproval count
+    await decrementAgentPendingApproval(sourceAgentId);
 
     return { success: true, id };
   });

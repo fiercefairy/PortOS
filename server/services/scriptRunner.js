@@ -22,6 +22,9 @@ const SCRIPTS_STATE_FILE = join(__dirname, '../../data/cos/scripts-state.json');
 // Active scheduled jobs
 const scheduledJobs = new Map();
 
+// Execution lock to prevent duplicate runs (tracks last execution time)
+const executionLock = new Map();
+
 // Allowlist of safe commands for scripts (mirrors commands.js allowlist)
 const ALLOWED_SCRIPT_COMMANDS = new Set([
   'npm', 'npx', 'pnpm', 'yarn', 'bun',
@@ -306,10 +309,20 @@ export async function listScripts() {
  * Execute a script
  */
 export async function executeScript(scriptId) {
+  // De-duplication: prevent duplicate execution within 5 seconds
+  const now = Date.now();
+  const lastExecution = executionLock.get(scriptId);
+  if (lastExecution && (now - lastExecution) < 5000) {
+    console.log(`⏭️ Skipping duplicate execution of ${scriptId} (last run ${now - lastExecution}ms ago)`);
+    return { success: false, error: 'Duplicate execution prevented', skipped: true };
+  }
+  executionLock.set(scriptId, now);
+
   const state = await loadScriptsState();
   const script = state.scripts[scriptId];
 
   if (!script) {
+    executionLock.delete(scriptId);
     return { success: false, error: 'Script not found' };
   }
 
@@ -318,6 +331,7 @@ export async function executeScript(scriptId) {
   const validation = validateScriptCommand(script.command);
   if (!validation.valid) {
     console.error(`❌ Script ${script.name} has invalid command: ${validation.error}`);
+    executionLock.delete(scriptId);
     return { success: false, error: `Invalid command: ${validation.error}` };
   }
 
@@ -358,6 +372,9 @@ export async function executeScript(scriptId) {
 
       state.scripts[scriptId] = script;
       await saveScriptsState(state);
+
+      // Clear execution lock after completion
+      executionLock.delete(scriptId);
 
       console.log(`✅ Script ${script.name} completed with code ${code} in ${duration}ms`);
 
@@ -406,6 +423,9 @@ export async function executeScript(scriptId) {
       script.lastExitCode = -1;
       state.scripts[scriptId] = script;
       await saveScriptsState(state);
+
+      // Clear execution lock on error
+      executionLock.delete(scriptId);
 
       cosEvents.emit('script:error', { scriptId, error: err.message });
 

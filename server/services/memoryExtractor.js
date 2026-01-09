@@ -131,11 +131,15 @@ function extractPatterns(output) {
   }
 
   // Pattern: "already well-optimized" / "already has excellent" / "already implemented"
-  const alreadyWorkingRegex = /(?:already|currently)\s+(?:has\s+)?(?:excellent|good|great|proper|well[- ]?optimized|well[- ]?implemented|working\s+well|fully\s+implemented)\s+([^\n.]+)/gi;
+  // Exclude colons to prevent truncated memories like "Already has excellent responsive design:"
+  const alreadyWorkingRegex = /(?:already|currently)\s+(?:has\s+)?(?:excellent|good|great|proper|well[- ]?optimized|well[- ]?implemented|working\s+well|fully\s+implemented)\s+([^\n.:]+)/gi;
   while ((match = alreadyWorkingRegex.exec(output)) !== null) {
+    const captured = match[1].trim();
+    // Skip if capture is too short or empty
+    if (captured.length < 5) continue;
     memories.push({
       type: 'fact',
-      content: `Already has excellent ${match[1].trim()}`,
+      content: `Already has excellent ${captured}`,
       confidence: 0.85,
       category: 'codebase',
       tags: ['existing-feature', 'no-action-needed']

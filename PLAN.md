@@ -55,6 +55,7 @@ pm2 logs
 - [x] M26: Scheduled Scripts (cron scheduling, agent triggers, command allowlist, run history)
 - [x] M28: Weekly Digest UI (visual digest tab with insights, accomplishments, week-over-week comparisons)
 - [x] M29: Comprehensive App Improvement (self-improvement operations extended to managed apps, 10 analysis types, rotation system)
+- [x] M30: Configurable Task Intervals (per-task-type scheduling: daily, weekly, once, on-demand; schedule UI tab; execution history tracking)
 
 ### Documentation
 - [Architecture Overview](./docs/ARCHITECTURE.md) - System design, data flow

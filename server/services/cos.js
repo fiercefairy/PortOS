@@ -746,69 +746,95 @@ const MANAGED_APP_IMPROVEMENT_TYPES = [
  * Generate a self-improvement task for PortOS itself
  * Uses Playwright and Opus to analyze and fix issues
  *
- * Enhanced with adaptive learning:
+ * Enhanced with adaptive learning and configurable intervals:
+ * - Respects per-task-type interval settings (daily, weekly, once, etc.)
  * - Skips task types with consistently poor success rates
  * - Logs learning-based recommendations
  * - Falls back to next available task type if current is skipped
+ * - Checks for on-demand task requests first
  */
 async function generateSelfImprovementTask(state) {
-  // Get the next analysis type in rotation, but skip failing task types
-  const lastType = state.stats.lastSelfImprovementType || '';
-  let currentIndex = SELF_IMPROVEMENT_TYPES.indexOf(lastType);
-  let nextType = null;
-  let attempts = 0;
-  const maxAttempts = SELF_IMPROVEMENT_TYPES.length;
+  // Import task schedule service dynamically to avoid circular dependency
+  const taskSchedule = await import('./taskSchedule.js');
 
-  // Find next task type that isn't being skipped due to poor performance
-  while (attempts < maxAttempts) {
-    currentIndex = (currentIndex + 1) % SELF_IMPROVEMENT_TYPES.length;
-    const candidateType = SELF_IMPROVEMENT_TYPES[currentIndex];
-    const taskTypeKey = `self-improve:${candidateType}`;
+  // First, check for any on-demand task requests
+  const onDemandRequests = await taskSchedule.getOnDemandRequests();
+  const selfImprovementRequests = onDemandRequests.filter(r => r.category === 'selfImprovement');
 
-    // Check if this task type should be skipped based on learning data
-    const cooldownInfo = await getAdaptiveCooldownMultiplier(taskTypeKey).catch(() => ({ skip: false }));
+  if (selfImprovementRequests.length > 0) {
+    const request = selfImprovementRequests[0];
+    await taskSchedule.clearOnDemandRequest(request.id);
+    emitLog('info', `Processing on-demand task request: ${request.taskType}`, { requestId: request.id });
 
-    if (cooldownInfo.skip) {
-      emitLog('warn', `Skipping ${candidateType} - poor success rate (${cooldownInfo.successRate}% after ${cooldownInfo.completed} attempts)`, {
-        taskType: candidateType,
-        successRate: cooldownInfo.successRate,
-        completed: cooldownInfo.completed,
-        reason: cooldownInfo.reason
-      });
-      attempts++;
-      continue;
-    }
+    // Record execution and generate the requested task
+    await taskSchedule.recordExecution(`self-improve:${request.taskType}`);
 
-    // Log if there's a recommendation from learning system
-    if (cooldownInfo.recommendation) {
-      emitLog('info', `Learning insight for ${candidateType}: ${cooldownInfo.recommendation}`, {
-        taskType: candidateType,
-        multiplier: cooldownInfo.multiplier
-      });
-    }
-
-    nextType = candidateType;
-    break;
-  }
-
-  // If all task types are failing, log warning and pick the one that's been failing longest
-  if (!nextType) {
-    const skippedTypes = await getSkippedTaskTypes().catch(() => []);
-    emitLog('warn', `All self-improvement task types are underperforming - selecting oldest failed type for retry`, {
-      skippedCount: skippedTypes.length
+    // Update state
+    await withStateLock(async () => {
+      const s = await loadState();
+      s.stats.lastSelfImprovement = new Date().toISOString();
+      s.stats.lastSelfImprovementType = request.taskType;
+      await saveState(s);
     });
 
-    // Sort by lastCompleted ascending (oldest first) and pick that one
-    if (skippedTypes.length > 0) {
-      skippedTypes.sort((a, b) => new Date(a.lastCompleted || 0) - new Date(b.lastCompleted || 0));
-      const oldestType = skippedTypes[0].taskType.replace('self-improve:', '');
-      nextType = oldestType;
-      emitLog('info', `Retrying ${oldestType} as it hasn't been attempted recently`);
+    return generateSelfImprovementTaskForType(request.taskType, state);
+  }
+
+  // Use the schedule service to determine the next task type
+  const lastType = state.stats.lastSelfImprovementType || '';
+  const nextTypeResult = await taskSchedule.getNextSelfImprovementTaskType(lastType);
+
+  if (!nextTypeResult) {
+    emitLog('info', 'No self-improvement tasks are eligible to run based on schedule');
+    return null;
+  }
+
+  let nextType = nextTypeResult.taskType;
+  const selectionReason = nextTypeResult.reason;
+
+  // Additional check: skip if learning data suggests poor performance
+  const taskTypeKey = `self-improve:${nextType}`;
+  const cooldownInfo = await getAdaptiveCooldownMultiplier(taskTypeKey).catch(() => ({ skip: false }));
+
+  if (cooldownInfo.skip) {
+    emitLog('warn', `Skipping ${nextType} - poor success rate (${cooldownInfo.successRate}% after ${cooldownInfo.completed} attempts)`, {
+      taskType: nextType,
+      successRate: cooldownInfo.successRate,
+      completed: cooldownInfo.completed,
+      reason: cooldownInfo.reason
+    });
+
+    // Try to find another eligible task type
+    const dueTasks = await taskSchedule.getDueSelfImprovementTasks();
+    const alternativeTask = dueTasks.find(t => t.taskType !== nextType);
+
+    if (alternativeTask) {
+      nextType = alternativeTask.taskType;
+      emitLog('info', `Switched to alternative task type: ${nextType}`);
     } else {
-      // Fallback to first type in rotation
-      nextType = SELF_IMPROVEMENT_TYPES[0];
+      // Fall back to the skipped types logic
+      const skippedTypes = await getSkippedTaskTypes().catch(() => []);
+      if (skippedTypes.length > 0) {
+        skippedTypes.sort((a, b) => new Date(a.lastCompleted || 0) - new Date(b.lastCompleted || 0));
+        const oldestType = skippedTypes[0].taskType.replace('self-improve:', '');
+        nextType = oldestType;
+        emitLog('info', `Retrying ${oldestType} as it hasn't been attempted recently`);
+      } else {
+        nextType = SELF_IMPROVEMENT_TYPES[0];
+      }
     }
   }
+
+  // Log if there's a recommendation from learning system
+  if (cooldownInfo.recommendation) {
+    emitLog('info', `Learning insight for ${nextType}: ${cooldownInfo.recommendation}`, {
+      taskType: nextType,
+      multiplier: cooldownInfo.multiplier
+    });
+  }
+
+  // Record execution in the schedule service
+  await taskSchedule.recordExecution(`self-improve:${nextType}`);
 
   // Update state with new timestamp and type
   await withStateLock(async () => {
@@ -818,9 +844,48 @@ async function generateSelfImprovementTask(state) {
     await saveState(s);
   });
 
-  emitLog('info', `Generating self-improvement task: ${nextType}`);
+  emitLog('info', `Generating self-improvement task: ${nextType} (${selectionReason})`);
 
-  const taskDescriptions = {
+  // Get task descriptions from the centralized helper function
+  const taskDescriptions = getSelfImprovementTaskDescriptions();
+
+  return generateSelfImprovementTaskForType(nextType, state, taskDescriptions);
+}
+
+/**
+ * Helper function to generate a self-improvement task for a specific type
+ * Used by both normal rotation and on-demand task requests
+ */
+function generateSelfImprovementTaskForType(taskType, state, taskDescriptions = null) {
+  // Use provided descriptions or generate default ones
+  const descriptions = taskDescriptions || getSelfImprovementTaskDescriptions();
+  const description = descriptions[taskType] || `[Self-Improvement] ${taskType} analysis`;
+
+  const task = {
+    id: `self-improve-${taskType}-${Date.now().toString(36)}`,
+    status: 'pending',
+    priority: 'MEDIUM',
+    priorityValue: PRIORITY_VALUES['MEDIUM'],
+    description,
+    metadata: {
+      analysisType: taskType,
+      autoGenerated: true,
+      selfImprovement: true,
+      model: 'claude-opus-4-5-20251101'
+    },
+    taskType: 'internal',
+    autoApproved: true
+  };
+
+  return task;
+}
+
+/**
+ * Get task descriptions for all self-improvement types
+ * Extracted for reuse by on-demand task generation
+ */
+function getSelfImprovementTaskDescriptions() {
+  return {
     'ui-bugs': `[Self-Improvement] UI Bug Analysis
 
 Use Playwright MCP (browser_navigate, browser_snapshot, browser_console_messages) to analyze PortOS UI:
@@ -1109,31 +1174,16 @@ IMPORTANT: Only update one major version bump at a time. If multiple major updat
 
 Use model: claude-opus-4-5-20251101 for thorough security analysis`
   };
-
-  const description = taskDescriptions[nextType];
-
-  const task = {
-    id: `self-improve-${nextType}-${Date.now().toString(36)}`,
-    status: 'pending',
-    priority: 'MEDIUM',
-    priorityValue: PRIORITY_VALUES['MEDIUM'],
-    description,
-    metadata: {
-      analysisType: nextType,
-      autoGenerated: true,
-      selfImprovement: true,
-      model: 'claude-opus-4-5-20251101'
-    },
-    taskType: 'internal',
-    autoApproved: true
-  };
-
-  return task;
 }
 
 /**
  * Generate a comprehensive self-improvement task for a managed app
  * Rotates through analysis types similar to PortOS self-improvement
+ *
+ * Enhanced with configurable intervals:
+ * - Respects per-task-type interval settings (daily, weekly, once per app, etc.)
+ * - Checks for on-demand task requests first
+ * - Records execution history for interval tracking
  *
  * @param {Object} app - The managed app object
  * @param {Object} state - Current CoS state
@@ -1141,22 +1191,49 @@ Use model: claude-opus-4-5-20251101 for thorough security analysis`
  */
 async function generateManagedAppImprovementTask(app, state) {
   const { getAppActivityById, updateAppActivity } = await import('./appActivity.js');
+  const taskSchedule = await import('./taskSchedule.js');
 
-  // Get last improvement type for this app
-  const appActivity = await getAppActivityById(app.id);
-  const lastType = appActivity?.lastImprovementType || '';
+  // First, check for any on-demand task requests for this app
+  const onDemandRequests = await taskSchedule.getOnDemandRequests();
+  const appRequests = onDemandRequests.filter(r =>
+    r.category === 'appImprovement' && r.appId === app.id
+  );
 
-  // Find next type in rotation
-  let currentIndex = MANAGED_APP_IMPROVEMENT_TYPES.indexOf(lastType);
-  currentIndex = (currentIndex + 1) % MANAGED_APP_IMPROVEMENT_TYPES.length;
-  const nextType = MANAGED_APP_IMPROVEMENT_TYPES[currentIndex];
+  let nextType;
+  let selectionReason = 'rotation';
+
+  if (appRequests.length > 0) {
+    const request = appRequests[0];
+    await taskSchedule.clearOnDemandRequest(request.id);
+    nextType = request.taskType;
+    selectionReason = 'on-demand';
+    emitLog('info', `Processing on-demand app task request: ${nextType} for ${app.name}`, { requestId: request.id });
+  } else {
+    // Get last improvement type for this app
+    const appActivity = await getAppActivityById(app.id);
+    const lastType = appActivity?.lastImprovementType || '';
+
+    // Use the schedule service to determine the next task type
+    const nextTypeResult = await taskSchedule.getNextAppImprovementTaskType(app.id, lastType);
+
+    if (!nextTypeResult) {
+      emitLog('info', `No app improvement tasks are eligible for ${app.name} based on schedule`);
+      return null;
+    }
+
+    nextType = nextTypeResult.taskType;
+    selectionReason = nextTypeResult.reason;
+  }
+
+  // Record execution in the schedule service
+  await taskSchedule.recordExecution(`app-improve:${nextType}`, app.id);
 
   // Update app activity with new type
   await updateAppActivity(app.id, {
     lastImprovementType: nextType
   });
 
-  emitLog('info', `Generating comprehensive improvement task for ${app.name}: ${nextType}`, { appId: app.id, analysisType: nextType });
+  emitLog('info', `Generating comprehensive improvement task for ${app.name}: ${nextType} (${selectionReason})`, { appId: app.id, analysisType: nextType });
 
   // Task descriptions for each analysis type
   const taskDescriptions = {

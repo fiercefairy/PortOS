@@ -54,6 +54,7 @@ pm2 logs
 - [x] M25: Task Learning System (completion tracking, success rate analysis, model effectiveness, recommendations)
 - [x] M26: Scheduled Scripts (cron scheduling, agent triggers, command allowlist, run history)
 - [x] M28: Weekly Digest UI (visual digest tab with insights, accomplishments, week-over-week comparisons)
+- [x] M29: Comprehensive App Improvement (self-improvement operations extended to managed apps, 10 analysis types, rotation system)
 
 ### Documentation
 - [Architecture Overview](./docs/ARCHITECTURE.md) - System design, data flow
@@ -1461,3 +1462,89 @@ Uses existing Weekly Digest backend endpoints:
 | `client/src/components/cos/index.js` | Added DigestTab export |
 | `client/src/components/cos/constants.js` | Added digest tab to TABS array |
 | `client/src/pages/ChiefOfStaff.jsx` | Import and render DigestTab |
+
+---
+
+## M29: Comprehensive App Improvement (2026-01-09)
+
+Extended the CoS self-improvement system to apply the same comprehensive analysis to managed apps (not just PortOS itself).
+
+### Problem
+
+The CoS had a sophisticated self-improvement system with 12 different analysis types (security, code quality, performance, etc.) for PortOS itself, but managed apps only received simple idle reviews (formatting, dead code, typos). This meant managed apps weren't getting the same level of thorough analysis and improvement.
+
+### Solution
+
+Created an app-agnostic self-improvement system that applies comprehensive analysis to any managed app:
+
+1. **10 Analysis Types for Apps**: Security audit, code quality, test coverage, performance, accessibility, console errors, dependency updates, documentation, error handling, and TypeScript typing
+2. **Rotation System**: Each app tracks its last improvement type and rotates through all 10 types
+3. **App Activity Tracking**: Extended `appActivity.js` to track `lastImprovementType` per app
+4. **Configuration Toggle**: New `comprehensiveAppImprovement` config option (default: true)
+5. **Backward Compatible**: Can fall back to simple idle reviews by disabling the config
+
+### Key Features
+
+- **App-Specific Context**: Each task template includes the app's name and repo path
+- **Opus Model**: All comprehensive improvements use claude-opus-4-5-20251101 for thorough analysis
+- **Auto-Approved**: Tasks run without requiring manual approval
+- **Cooldown Management**: Respects existing 30-minute cooldown between working on the same app
+
+### Analysis Types
+
+| Type | Description |
+|------|-------------|
+| security-audit | Command injection, XSS, path traversal, authentication |
+| code-quality | DRY violations, dead code, magic numbers |
+| test-coverage | Add missing tests for critical paths |
+| performance | N+1 queries, unnecessary re-renders, bundle size |
+| accessibility | ARIA labels, color contrast, keyboard navigation |
+| console-errors | Fix JavaScript and server errors |
+| dependency-updates | npm audit, update packages safely |
+| documentation | README, JSDoc, inline comments |
+| error-handling | Try-catch blocks, error logging |
+| typing | TypeScript type improvements |
+
+### Configuration
+
+```javascript
+comprehensiveAppImprovement: true  // Enable comprehensive analysis for managed apps
+```
+
+### Implementation Files
+
+| File | Changes |
+|------|---------|
+| `server/services/cos.js` | Added `MANAGED_APP_IMPROVEMENT_TYPES` array, `generateManagedAppImprovementTask()` function, updated `generateIdleReviewTask()` |
+| `server/services/appActivity.js` | Added `lastImprovementType` field to app activity tracking |
+
+### Task Flow
+
+```
+CoS Idle → No user/system tasks
+    └─► Try PortOS self-improvement (if older than last app review)
+    └─► Try managed app improvement
+        ├─► Get next app off cooldown
+        ├─► Check comprehensiveAppImprovement config
+        │   ├─► true: Generate comprehensive improvement task (rotates through 10 types)
+        │   └─► false: Generate simple idle review (formatting, dead code, typos)
+        └─► Mark app as reviewed, start cooldown
+```
+
+### Example Task
+
+```
+[App Improvement: MyApp] Security Audit
+
+Analyze the MyApp codebase for security vulnerabilities:
+
+Repository: /Users/user/projects/myapp
+
+1. Review routes/controllers for:
+   - Command injection in exec/spawn calls
+   - Path traversal in file operations
+   - Missing input validation
+   ...
+
+Use model: claude-opus-4-5-20251101
+```

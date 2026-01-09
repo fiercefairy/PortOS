@@ -124,10 +124,6 @@ export default function Media() {
     setStream(mediaStream);
     setPermissionState('granted');
 
-    if (videoRef.current && videoEnabled) {
-      videoRef.current.srcObject = mediaStream;
-    }
-
     if (audioEnabled) {
       setupAudioAnalyser(mediaStream);
     }
@@ -213,6 +209,13 @@ export default function Media() {
       stopMedia();
     };
   }, [stopMedia]);
+
+  // Set video srcObject when stream changes (handles async state update)
+  useEffect(() => {
+    if (videoRef.current && stream && videoEnabled) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream, videoEnabled]);
 
   // Handle device change
   const handleDeviceChange = useCallback(async (type, deviceId) => {

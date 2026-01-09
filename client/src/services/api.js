@@ -259,6 +259,8 @@ export const getCosTodayActivity = () => request('/cos/activity/today');
 // CoS Learning
 export const getCosLearning = () => request('/cos/learning');
 export const getCosLearningDurations = () => request('/cos/learning/durations');
+export const getCosLearningSkipped = () => request('/cos/learning/skipped');
+export const getCosLearningPerformance = () => request('/cos/learning/performance');
 export const backfillCosLearning = () => request('/cos/learning/backfill', { method: 'POST' });
 
 // CoS Scripts

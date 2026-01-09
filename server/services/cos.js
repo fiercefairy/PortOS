@@ -552,11 +552,23 @@ export async function evaluateTasks() {
     }
   }
 
-  // Priority 3: Generate idle review task if no other work and idle review enabled
+  // Background: Queue eligible self-improvement tasks as system tasks (runs regardless of user tasks)
+  // These will be picked up in Priority 2 on subsequent evaluations
+  if (state.config.idleReviewEnabled) {
+    await queueEligibleImprovementTasks(state, cosTaskData);
+  }
+
+  // Priority 3: Only generate direct idle task if nothing else to do AND no system tasks queued
+  // This is a fallback - normally self-improvement tasks should be queued as system tasks
   if (tasksToSpawn.length === 0 && state.config.idleReviewEnabled) {
-    const idleTask = await generateIdleReviewTask(state);
-    if (idleTask) {
-      tasksToSpawn.push(idleTask);
+    // Check if we have any pending system tasks that just got queued
+    const freshCosTasks = await getCosTasks();
+    const pendingSystemTasks = freshCosTasks.autoApproved?.length || 0;
+    if (pendingSystemTasks === 0) {
+      const idleTask = await generateIdleReviewTask(state);
+      if (idleTask) {
+        tasksToSpawn.push(idleTask);
+      }
     }
   }
 
@@ -704,6 +716,156 @@ async function generateIdleReviewTask(state) {
 
   emitLog('debug', 'No idle tasks available');
   return null;
+}
+
+/**
+ * Queue eligible self-improvement and app improvement tasks as system tasks
+ * Called during every evaluation to ensure system tasks are queued even when user tasks exist
+ * Tasks are queued to COS-TASKS.md and will be picked up in Priority 2
+ */
+async function queueEligibleImprovementTasks(state, cosTaskData) {
+  const { getDueSelfImprovementTasks, shouldRunSelfImprovementTask, getNextAppImprovementTaskType } = await import('./taskSchedule.js');
+
+  // Get existing pending/in_progress system tasks to avoid duplicates
+  const existingTasks = cosTaskData.tasks || [];
+  const existingTaskTypes = new Set();
+
+  for (const task of existingTasks) {
+    if (task.status === 'pending' || task.status === 'in_progress') {
+      // Check for self-improvement type in metadata or description
+      const selfImpType = task.metadata?.selfImprovementType ||
+        task.description?.match(/\[self-improvement\]\s*(\w[\w-]*)/i)?.[1];
+      if (selfImpType) {
+        existingTaskTypes.add(selfImpType);
+      }
+      // Check for app improvement type
+      const appImpType = task.metadata?.analysisType;
+      const appId = task.metadata?.app;
+      if (appImpType && appId) {
+        existingTaskTypes.add(`app:${appId}:${appImpType}`);
+      }
+    }
+  }
+
+  let queued = 0;
+
+  // Queue eligible self-improvement tasks for PortOS
+  if (state.config.selfImprovementEnabled) {
+    const dueTasks = await getDueSelfImprovementTasks().catch(() => []);
+
+    for (const taskType of dueTasks) {
+      // Skip if already queued
+      if (existingTaskTypes.has(taskType)) {
+        emitLog('debug', `Self-improvement task ${taskType} already queued`);
+        continue;
+      }
+
+      // Double-check eligibility
+      const eligible = await shouldRunSelfImprovementTask(taskType).catch(() => false);
+      if (!eligible) continue;
+
+      // Generate task description
+      const taskDesc = getSelfImprovementTaskDescription(taskType);
+      if (!taskDesc) continue;
+
+      // Add to COS-TASKS.md
+      const newTask = await addTask({
+        id: `sys-${taskType}-${Date.now().toString(36)}`,
+        description: `[self-improvement] ${taskType}: ${taskDesc}`,
+        priority: 'LOW',
+        app: null,
+        context: `Auto-generated self-improvement task. Type: ${taskType}`,
+        approvalRequired: false
+      }, 'internal');
+
+      emitLog('info', `Queued self-improvement task: ${taskType}`, { taskId: newTask.id });
+      existingTaskTypes.add(taskType);
+      queued++;
+    }
+  }
+
+  // Queue eligible app improvement tasks for managed apps
+  const apps = await getAllApps().catch(() => []);
+  for (const app of apps) {
+    // Check if app is on cooldown
+    const onCooldown = await isAppOnCooldown(app.id, state.config.appReviewCooldownMs);
+    if (onCooldown) continue;
+
+    // Get next eligible improvement type for this app
+    const nextType = await getNextAppImprovementTaskType(app.id).catch(() => null);
+    if (!nextType) continue;
+
+    const taskKey = `app:${app.id}:${nextType}`;
+    if (existingTaskTypes.has(taskKey)) {
+      emitLog('debug', `App improvement task ${nextType} for ${app.name} already queued`);
+      continue;
+    }
+
+    // Generate task description
+    const taskDesc = getAppImprovementTaskDescription(nextType, app);
+    if (!taskDesc) continue;
+
+    // Add to COS-TASKS.md
+    const newTask = await addTask({
+      id: `sys-app-${app.id.slice(0, 8)}-${nextType}-${Date.now().toString(36)}`,
+      description: taskDesc,
+      priority: 'LOW',
+      app: app.id,
+      context: `Auto-generated app improvement task for ${app.name}. Type: ${nextType}`,
+      approvalRequired: false
+    }, 'internal');
+
+    emitLog('info', `Queued app improvement task: ${nextType} for ${app.name}`, { taskId: newTask.id, appId: app.id });
+    existingTaskTypes.add(taskKey);
+    queued++;
+
+    // Only queue one task per app per evaluation to avoid flooding
+    break;
+  }
+
+  if (queued > 0) {
+    emitLog('info', `Queued ${queued} improvement task(s) to system tasks`);
+  }
+}
+
+/**
+ * Get task description for a self-improvement type
+ */
+function getSelfImprovementTaskDescription(taskType) {
+  const descriptions = {
+    'ui-bugs': 'Review PortOS UI for visual bugs, layout issues, and UX improvements',
+    'mobile-responsive': 'Check mobile responsiveness and fix layout issues on smaller screens',
+    'security': 'Audit PortOS for security vulnerabilities (XSS, injection, auth issues)',
+    'code-quality': 'Review code for DRY violations, dead code, and refactoring opportunities',
+    'console-errors': 'Check browser console and fix JavaScript errors and warnings',
+    'performance': 'Profile and optimize slow components, queries, and renders',
+    'cos-enhancement': 'Improve CoS capabilities, prompts, and task handling logic',
+    'test-coverage': 'Add missing tests for uncovered code paths',
+    'documentation': 'Update documentation, comments, and README files',
+    'feature-ideas': 'Brainstorm and document potential new features for PortOS',
+    'accessibility': 'Audit and fix accessibility issues (ARIA, keyboard nav, contrast)',
+    'dependency-updates': 'Check for and safely update outdated dependencies'
+  };
+  return descriptions[taskType] || null;
+}
+
+/**
+ * Get task description for an app improvement type
+ */
+function getAppImprovementTaskDescription(taskType, app) {
+  const descriptions = {
+    'security-audit': `Security audit for ${app.name}: check for vulnerabilities`,
+    'code-quality': `Code quality review for ${app.name}: DRY violations, dead code`,
+    'test-coverage': `Add missing tests for ${app.name}`,
+    'performance': `Performance optimization for ${app.name}`,
+    'accessibility': `Accessibility audit for ${app.name}`,
+    'console-errors': `Fix console errors in ${app.name}`,
+    'dependency-updates': `Update dependencies for ${app.name}`,
+    'documentation': `Update documentation for ${app.name}`,
+    'error-handling': `Improve error handling in ${app.name}`,
+    'typing': `Add/fix TypeScript types in ${app.name}`
+  };
+  return descriptions[taskType] || null;
 }
 
 // Self-improvement task types (rotates through these)

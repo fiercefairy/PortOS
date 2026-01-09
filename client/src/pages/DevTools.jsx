@@ -2099,37 +2099,34 @@ export function AgentsPage() {
         <div className="sm:hidden divide-y divide-port-border">
           {agents.map(agent => (
             <div key={agent.pid} className="p-3">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-white text-sm">{agent.agentName.toLowerCase()}</span>
+              {/* Top row: Name, PID, Runtime, Kill button */}
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <span className="font-mono text-white text-sm truncate">{agent.agentName.toLowerCase()}</span>
                   {agent.source === 'cos' && (
-                    <span className="px-1.5 py-0.5 text-[10px] bg-purple-500/20 text-purple-400 rounded">CoS</span>
+                    <span className="px-1.5 py-0.5 text-[10px] bg-purple-500/20 text-purple-400 rounded flex-shrink-0">CoS</span>
                   )}
+                  <span className="text-gray-500 text-xs flex-shrink-0">#{agent.pid}</span>
+                  <span className="font-mono text-cyan-400 text-xs flex-shrink-0 whitespace-nowrap">{agent.runtimeFormatted}</span>
                 </div>
                 <button
                   onClick={() => handleKill(agent.pid)}
                   disabled={killing[agent.pid]}
-                  className="text-red-400 hover:text-red-300 disabled:opacity-50 p-1"
+                  className="flex-shrink-0 px-2 py-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-300 disabled:opacity-50 rounded text-xs font-medium flex items-center gap-1"
                 >
-                  <XCircle size={18} className={killing[agent.pid] ? 'animate-pulse' : ''} />
+                  <XCircle size={14} className={killing[agent.pid] ? 'animate-pulse' : ''} />
+                  Kill
                 </button>
               </div>
-              <div className="grid grid-cols-4 gap-2 text-xs">
-                <div>
-                  <div className="text-gray-500">PID</div>
-                  <div className="font-mono text-white">{agent.pid}</div>
+              {/* Stats row: CPU & Memory */}
+              <div className="flex items-center gap-4 text-xs">
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-500">CPU</span>
+                  <span className="font-mono text-green-400">{agent.cpu?.toFixed(1)}%</span>
                 </div>
-                <div>
-                  <div className="text-gray-500">Time</div>
-                  <div className="font-mono text-cyan-400">{agent.runtimeFormatted}</div>
-                </div>
-                <div>
-                  <div className="text-gray-500">CPU</div>
-                  <div className="font-mono text-green-400">{agent.cpu?.toFixed(1)}%</div>
-                </div>
-                <div>
-                  <div className="text-gray-500">Mem</div>
-                  <div className="font-mono text-blue-400">{agent.memory?.toFixed(1)}%</div>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-500">Mem</span>
+                  <span className="font-mono text-blue-400">{agent.memory?.toFixed(1)}%</span>
                 </div>
               </div>
               <button
@@ -2222,10 +2219,11 @@ export function AgentsPage() {
                     <button
                       onClick={() => handleKill(agent.pid)}
                       disabled={killing[agent.pid]}
-                      className="text-red-400 hover:text-red-300 disabled:opacity-50 transition-colors"
+                      className="px-3 py-1.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-300 disabled:opacity-50 rounded text-sm font-medium inline-flex items-center gap-1.5 transition-colors"
                       title="Kill process"
                     >
-                      <XCircle size={22} className={killing[agent.pid] ? 'animate-pulse' : ''} />
+                      <XCircle size={16} className={killing[agent.pid] ? 'animate-pulse' : ''} />
+                      Kill
                     </button>
                   </td>
                 </tr>

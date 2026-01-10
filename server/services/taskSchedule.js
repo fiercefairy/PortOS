@@ -624,7 +624,7 @@ export async function loadSchedule() {
   const loaded = JSON.parse(content);
 
   // Merge with defaults to ensure all task types have settings
-  return {
+  const schedule = {
     ...DEFAULT_SCHEDULE,
     ...loaded,
     selfImprovement: {
@@ -638,6 +638,29 @@ export async function loadSchedule() {
     executions: loaded.executions || {},
     templates: loaded.templates || []
   };
+
+  // Populate prompts from defaults if they don't exist
+  let needsSave = false;
+  for (const [taskType, config] of Object.entries(schedule.selfImprovement)) {
+    if (!config.prompt && DEFAULT_SELF_IMPROVEMENT_PROMPTS[taskType]) {
+      config.prompt = DEFAULT_SELF_IMPROVEMENT_PROMPTS[taskType];
+      needsSave = true;
+    }
+  }
+
+  for (const [taskType, config] of Object.entries(schedule.appImprovement)) {
+    if (!config.prompt && DEFAULT_APP_IMPROVEMENT_PROMPTS[taskType]) {
+      config.prompt = DEFAULT_APP_IMPROVEMENT_PROMPTS[taskType];
+      needsSave = true;
+    }
+  }
+
+  // Save if we populated any prompts
+  if (needsSave) {
+    await saveSchedule(schedule);
+  }
+
+  return schedule;
 }
 
 /**
@@ -1196,21 +1219,19 @@ export function getDefaultAppImprovementPrompt(taskType) {
 }
 
 /**
- * Get the effective prompt for a self-improvement task type
- * Returns custom prompt if set, otherwise returns default
+ * Get the prompt for a self-improvement task type
  */
 export async function getSelfImprovementPrompt(taskType) {
   const interval = await getSelfImprovementInterval(taskType);
-  return interval.prompt || DEFAULT_SELF_IMPROVEMENT_PROMPTS[taskType] || `[Self-Improvement] ${taskType} analysis`;
+  return interval.prompt || `[Self-Improvement] ${taskType} analysis`;
 }
 
 /**
- * Get the effective prompt for an app improvement task type
- * Returns custom prompt if set, otherwise returns default template
+ * Get the prompt for an app improvement task type
  */
 export async function getAppImprovementPrompt(taskType) {
   const interval = await getAppImprovementInterval(taskType);
-  return interval.prompt || DEFAULT_APP_IMPROVEMENT_PROMPTS[taskType] || `[App Improvement] ${taskType} analysis
+  return interval.prompt || `[App Improvement] ${taskType} analysis
 
 Repository: {repoPath}
 

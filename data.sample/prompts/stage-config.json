@@ -56,6 +56,30 @@
       "provider": "lmstudio",
       "returnsJson": true,
       "variables": []
+    },
+    "brain-classifier": {
+      "name": "Brain Classifier",
+      "description": "Classify captured thoughts into People/Projects/Ideas/Admin",
+      "model": "lmstudio:gptoss-20b",
+      "provider": "lmstudio",
+      "returnsJson": true,
+      "variables": []
+    },
+    "brain-daily-digest": {
+      "name": "Brain Daily Digest",
+      "description": "Generate daily actionable digest",
+      "model": "lmstudio:gptoss-20b",
+      "provider": "lmstudio",
+      "returnsJson": true,
+      "variables": []
+    },
+    "brain-weekly-review": {
+      "name": "Brain Weekly Review",
+      "description": "Generate weekly review and open loops analysis",
+      "model": "lmstudio:gptoss-20b",
+      "provider": "lmstudio",
+      "returnsJson": true,
+      "variables": []
     }
   }
 }

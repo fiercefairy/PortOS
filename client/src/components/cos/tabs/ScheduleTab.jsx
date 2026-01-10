@@ -94,7 +94,6 @@ function TaskTypeRow({ taskType, config, onUpdate, onTrigger, onReset, category,
 
   const selectedProvider = providers?.find(p => p.id === (selectedProviderId || ''));
   const availableModels = selectedProvider?.models || [];
-  const hasCustomPrompt = config.prompt && config.prompt.trim() !== '';
 
   const status = config.status || {};
   const isEligible = status.shouldRun;
@@ -249,15 +248,13 @@ function TaskTypeRow({ taskType, config, onUpdate, onTrigger, onReset, category,
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm text-gray-400">
-                Task Prompt {hasCustomPrompt && <span className="text-port-accent">(custom)</span>}
-              </label>
+              <label className="text-sm text-gray-400">Task Prompt</label>
               {!editingPrompt && (
                 <button
                   onClick={() => setEditingPrompt(true)}
                   className="text-xs text-port-accent hover:text-port-accent/80"
                 >
-                  {hasCustomPrompt ? 'Edit' : 'Customize'}
+                  Edit
                 </button>
               )}
             </div>
@@ -269,7 +266,7 @@ function TaskTypeRow({ taskType, config, onUpdate, onTrigger, onReset, category,
                   disabled={updating}
                   rows={12}
                   className="w-full bg-port-bg border border-port-border rounded px-3 py-2 text-white text-sm font-mono"
-                  placeholder="Enter custom prompt (leave empty to use default)"
+                  placeholder="Enter task prompt"
                 />
                 <div className="flex gap-2">
                   <button
@@ -286,30 +283,18 @@ function TaskTypeRow({ taskType, config, onUpdate, onTrigger, onReset, category,
                   >
                     Cancel
                   </button>
-                  {hasCustomPrompt && (
-                    <button
-                      onClick={() => {
-                        setPromptValue('');
-                        handleSavePrompt();
-                      }}
-                      disabled={updating}
-                      className="px-3 py-1.5 text-sm bg-port-error/20 hover:bg-port-error/30 text-port-error rounded transition-colors"
-                    >
-                      Reset to Default
-                    </button>
-                  )}
                 </div>
                 <p className="text-xs text-gray-500">
-                  Leave empty to use the default prompt. For app improvement tasks, use <code className="bg-port-border px-1 rounded">{'{appName}'}</code> and <code className="bg-port-border px-1 rounded">{'{repoPath}'}</code> as placeholders.
+                  For app improvement tasks, use <code className="bg-port-border px-1 rounded">{'{appName}'}</code> and <code className="bg-port-border px-1 rounded">{'{repoPath}'}</code> as placeholders.
                 </p>
               </div>
             ) : (
-              <div className="bg-port-bg border border-port-border rounded px-3 py-2 text-xs text-gray-400 font-mono max-h-32 overflow-y-auto">
-                {hasCustomPrompt ? (
-                  <pre className="whitespace-pre-wrap">{promptValue}</pre>
-                ) : (
-                  <span className="italic">Using default prompt (click Customize to edit)</span>
-                )}
+              <div
+                className="bg-port-bg border border-port-border rounded px-3 py-2 text-xs text-gray-400 font-mono max-h-32 overflow-y-auto cursor-pointer hover:border-port-accent/50"
+                onClick={() => setEditingPrompt(true)}
+                title="Click to edit prompt"
+              >
+                <pre className="whitespace-pre-wrap">{promptValue || 'No prompt configured'}</pre>
               </div>
             )}
           </div>

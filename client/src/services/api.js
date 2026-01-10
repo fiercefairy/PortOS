@@ -414,3 +414,111 @@ export const createGitBackup = (repoPath) => request('/standardize/backup', {
   method: 'POST',
   body: JSON.stringify({ repoPath })
 });
+
+// Brain - Second Brain Feature
+export const getBrainSummary = () => request('/brain/summary');
+export const getBrainSettings = () => request('/brain/settings');
+export const updateBrainSettings = (settings) => request('/brain/settings', {
+  method: 'PUT',
+  body: JSON.stringify(settings)
+});
+
+// Brain - Capture & Inbox
+export const captureBrainThought = (text, providerOverride, modelOverride) => request('/brain/capture', {
+  method: 'POST',
+  body: JSON.stringify({ text, providerOverride, modelOverride })
+});
+export const getBrainInbox = (options = {}) => {
+  const params = new URLSearchParams();
+  if (options.status) params.set('status', options.status);
+  if (options.limit) params.set('limit', options.limit);
+  if (options.offset) params.set('offset', options.offset);
+  return request(`/brain/inbox?${params}`);
+};
+export const getBrainInboxEntry = (id) => request(`/brain/inbox/${id}`);
+export const resolveBrainReview = (inboxLogId, destination, editedExtracted) => request('/brain/review/resolve', {
+  method: 'POST',
+  body: JSON.stringify({ inboxLogId, destination, editedExtracted })
+});
+export const fixBrainClassification = (inboxLogId, newDestination, updatedFields, note) => request('/brain/fix', {
+  method: 'POST',
+  body: JSON.stringify({ inboxLogId, newDestination, updatedFields, note })
+});
+export const retryBrainClassification = (id, providerOverride, modelOverride) => request(`/brain/inbox/${id}/retry`, {
+  method: 'POST',
+  body: JSON.stringify({ providerOverride, modelOverride })
+});
+
+// Brain - People
+export const getBrainPeople = () => request('/brain/people');
+export const getBrainPerson = (id) => request(`/brain/people/${id}`);
+export const createBrainPerson = (data) => request('/brain/people', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const updateBrainPerson = (id, data) => request(`/brain/people/${id}`, {
+  method: 'PUT',
+  body: JSON.stringify(data)
+});
+export const deleteBrainPerson = (id) => request(`/brain/people/${id}`, { method: 'DELETE' });
+
+// Brain - Projects
+export const getBrainProjects = (filters) => {
+  const params = new URLSearchParams();
+  if (filters?.status) params.set('status', filters.status);
+  return request(`/brain/projects?${params}`);
+};
+export const getBrainProject = (id) => request(`/brain/projects/${id}`);
+export const createBrainProject = (data) => request('/brain/projects', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const updateBrainProject = (id, data) => request(`/brain/projects/${id}`, {
+  method: 'PUT',
+  body: JSON.stringify(data)
+});
+export const deleteBrainProject = (id) => request(`/brain/projects/${id}`, { method: 'DELETE' });
+
+// Brain - Ideas
+export const getBrainIdeas = () => request('/brain/ideas');
+export const getBrainIdea = (id) => request(`/brain/ideas/${id}`);
+export const createBrainIdea = (data) => request('/brain/ideas', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const updateBrainIdea = (id, data) => request(`/brain/ideas/${id}`, {
+  method: 'PUT',
+  body: JSON.stringify(data)
+});
+export const deleteBrainIdea = (id) => request(`/brain/ideas/${id}`, { method: 'DELETE' });
+
+// Brain - Admin
+export const getBrainAdmin = (filters) => {
+  const params = new URLSearchParams();
+  if (filters?.status) params.set('status', filters.status);
+  return request(`/brain/admin?${params}`);
+};
+export const getBrainAdminItem = (id) => request(`/brain/admin/${id}`);
+export const createBrainAdminItem = (data) => request('/brain/admin', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const updateBrainAdminItem = (id, data) => request(`/brain/admin/${id}`, {
+  method: 'PUT',
+  body: JSON.stringify(data)
+});
+export const deleteBrainAdminItem = (id) => request(`/brain/admin/${id}`, { method: 'DELETE' });
+
+// Brain - Digests & Reviews
+export const getBrainLatestDigest = () => request('/brain/digest/latest');
+export const getBrainDigests = (limit = 10) => request(`/brain/digests?limit=${limit}`);
+export const runBrainDigest = (providerOverride, modelOverride) => request('/brain/digest/run', {
+  method: 'POST',
+  body: JSON.stringify({ providerOverride, modelOverride })
+});
+export const getBrainLatestReview = () => request('/brain/review/latest');
+export const getBrainReviews = (limit = 10) => request(`/brain/reviews?limit=${limit}`);
+export const runBrainReview = (providerOverride, modelOverride) => request('/brain/review/run', {
+  method: 'POST',
+  body: JSON.stringify({ providerOverride, modelOverride })
+});

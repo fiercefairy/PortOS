@@ -20,7 +20,8 @@ import {
   ExternalLink,
   Crown,
   Play,
-  Camera
+  Camera,
+  Brain
 } from 'lucide-react';
 import packageJson from '../../package.json';
 import Logo from './Logo';
@@ -42,6 +43,7 @@ const navItems = [
   { to: '/media', label: 'Media', icon: Camera, single: true },
   { href: '//:5560', label: 'Autofixer', icon: Wrench, external: true, dynamicHost: true },
   { to: '/cos', label: 'Chief of Staff', icon: Crown, single: true, showBadge: true },
+  { to: '/brain', label: 'Brain', icon: Brain, single: true },
   {
     label: 'Dev Tools',
     icon: Terminal,
@@ -385,8 +387,8 @@ export default function Layout() {
         </header>
 
         {/* Main content */}
-        <main id="main-content" className={`flex-1 overflow-auto ${location.pathname.startsWith('/cos') ? '' : 'p-4 md:p-6'}`}>
-          {location.pathname.startsWith('/cos') ? (
+        <main id="main-content" className={`flex-1 overflow-auto ${location.pathname.startsWith('/cos') || location.pathname.startsWith('/brain') ? '' : 'p-4 md:p-6'}`}>
+          {location.pathname.startsWith('/cos') || location.pathname.startsWith('/brain') ? (
             <Outlet />
           ) : (
             <div className="max-w-7xl mx-auto">

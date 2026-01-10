@@ -7,6 +7,7 @@ import CreateApp from './pages/CreateApp';
 import Templates from './pages/Templates';
 import PromptManager from './pages/PromptManager';
 import ChiefOfStaff from './pages/ChiefOfStaff';
+import Brain from './pages/Brain';
 import Media from './pages/Media';
 
 // Lazy load heavier pages for code splitting
@@ -46,6 +47,8 @@ export default function App() {
           <Route path="prompts" element={<PromptManager />} />
           <Route path="cos" element={<Navigate to="/cos/tasks" replace />} />
           <Route path="cos/:tab" element={<ChiefOfStaff />} />
+          <Route path="brain" element={<Navigate to="/brain/inbox" replace />} />
+          <Route path="brain/:tab" element={<Brain />} />
           <Route path="apps/create" element={<CreateApp />} />
           <Route path="templates" element={<Templates />} />
           <Route path="media" element={<Media />} />

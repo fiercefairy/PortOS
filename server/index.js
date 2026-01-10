@@ -26,6 +26,7 @@ import scriptsRoutes from './routes/scripts.js';
 import memoryRoutes from './routes/memory.js';
 import notificationsRoutes from './routes/notifications.js';
 import standardizeRoutes from './routes/standardize.js';
+import brainRoutes from './routes/brain.js';
 import { initSocket } from './services/socket.js';
 import { initScriptRunner } from './services/scriptRunner.js';
 import { errorMiddleware, setupProcessErrorHandlers } from './lib/errorHandler.js';
@@ -92,6 +93,7 @@ app.use('/api/cos', cosRoutes);
 app.use('/api/memory', memoryRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/standardize', standardizeRoutes);
+app.use('/api/brain', brainRoutes);
 
 // Initialize script runner
 initScriptRunner().catch(err => console.error(`❌ Script runner init failed: ${err.message}`));

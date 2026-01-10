@@ -171,6 +171,11 @@ export const fixInputSchema = z.object({
   note: z.string().max(500).optional()
 });
 
+// Update inbox entry input schema
+export const updateInboxInputSchema = z.object({
+  capturedText: z.string().min(1).max(10000)
+});
+
 // Create/Update People input schema
 export const peopleInputSchema = z.object({
   name: z.string().min(1).max(200),

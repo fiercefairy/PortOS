@@ -387,6 +387,24 @@ export async function updateInboxLog(id, updates) {
 }
 
 /**
+ * Delete inbox log entry
+ */
+export async function deleteInboxLog(id) {
+  const records = await loadJsonlStore('inboxLog');
+  const index = records.findIndex(r => r.id === id);
+
+  if (index === -1) {
+    return false;
+  }
+
+  records.splice(index, 1);
+  await rewriteJsonl('inboxLog', records);
+
+  console.log(`🧠 Deleted inbox log: ${id}`);
+  return true;
+}
+
+/**
  * Get inbox log count by status
  */
 export async function getInboxLogCounts() {

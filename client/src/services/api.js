@@ -448,6 +448,11 @@ export const retryBrainClassification = (id, providerOverride, modelOverride) =>
   method: 'POST',
   body: JSON.stringify({ providerOverride, modelOverride })
 });
+export const updateBrainInboxEntry = (id, capturedText) => request(`/brain/inbox/${id}`, {
+  method: 'PUT',
+  body: JSON.stringify({ capturedText })
+});
+export const deleteBrainInboxEntry = (id) => request(`/brain/inbox/${id}`, { method: 'DELETE' });
 
 // Brain - People
 export const getBrainPeople = () => request('/brain/people');

@@ -17,6 +17,7 @@ import {
   captureInputSchema,
   resolveReviewInputSchema,
   fixInputSchema,
+  updateInboxInputSchema,
   inboxQuerySchema,
   peopleInputSchema,
   projectInputSchema,
@@ -127,6 +128,39 @@ router.post('/inbox/:id/retry', asyncHandler(async (req, res) => {
   const { providerOverride, modelOverride } = req.body;
   const result = await brainService.retryClassification(req.params.id, providerOverride, modelOverride);
   res.json(result);
+}));
+
+/**
+ * PUT /api/brain/inbox/:id
+ * Update an inbox entry (edit captured text)
+ */
+router.put('/inbox/:id', asyncHandler(async (req, res) => {
+  const validation = validate(updateInboxInputSchema, req.body);
+  if (!validation.success) {
+    throw new ServerError('Validation failed', {
+      status: 400,
+      code: 'VALIDATION_ERROR',
+      context: { details: validation.errors }
+    });
+  }
+
+  const result = await brainService.updateInboxEntry(req.params.id, validation.data);
+  if (!result) {
+    throw new ServerError('Inbox entry not found', { status: 404, code: 'NOT_FOUND' });
+  }
+  res.json(result);
+}));
+
+/**
+ * DELETE /api/brain/inbox/:id
+ * Delete an inbox entry
+ */
+router.delete('/inbox/:id', asyncHandler(async (req, res) => {
+  const deleted = await brainService.deleteInboxEntry(req.params.id);
+  if (!deleted) {
+    throw new ServerError('Inbox entry not found', { status: 404, code: 'NOT_FOUND' });
+  }
+  res.status(204).send();
 }));
 
 // =============================================================================

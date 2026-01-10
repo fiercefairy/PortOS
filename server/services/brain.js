@@ -617,6 +617,32 @@ export async function retryClassification(inboxLogId, providerOverride, modelOve
   };
 }
 
+/**
+ * Update inbox entry (edit captured text)
+ */
+export async function updateInboxEntry(inboxLogId, updates) {
+  const updated = await storage.updateInboxLog(inboxLogId, updates);
+  if (!updated) {
+    return null;
+  }
+
+  console.log(`🧠 Updated inbox entry text: ${inboxLogId}`);
+  return updated;
+}
+
+/**
+ * Delete inbox entry
+ */
+export async function deleteInboxEntry(inboxLogId) {
+  const deleted = await storage.deleteInboxLog(inboxLogId);
+  if (!deleted) {
+    return false;
+  }
+
+  console.log(`🧠 Deleted inbox entry: ${inboxLogId}`);
+  return true;
+}
+
 // Re-export storage functions for convenience
 export const loadMeta = storage.loadMeta;
 export const updateMeta = storage.updateMeta;

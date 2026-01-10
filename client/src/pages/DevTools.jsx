@@ -310,6 +310,7 @@ export function RunsHistoryPage() {
   const [expandedId, setExpandedId] = useState(null);
   const [expandedDetails, setExpandedDetails] = useState({});
   const [sourceFilter, setSourceFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
     loadRuns();
@@ -321,6 +322,15 @@ export function RunsHistoryPage() {
     setRuns(data.runs || []);
     setLoading(false);
   };
+
+  // Filter runs by status
+  const filteredRuns = runs.filter(run => {
+    if (statusFilter === 'all') return true;
+    if (statusFilter === 'success') return run.success === true;
+    if (statusFilter === 'running') return run.success === null;
+    if (statusFilter === 'failed') return run.success === false;
+    return true;
+  });
 
   const handleDelete = async (id, e) => {
     e.stopPropagation();
@@ -461,13 +471,37 @@ export function RunsHistoryPage() {
         ))}
       </div>
 
+      {/* Status Filter */}
+      <div className="flex flex-wrap gap-1.5 sm:gap-2">
+        {[
+          { value: 'all', label: 'All Status' },
+          { value: 'success', label: 'Success' },
+          { value: 'running', label: 'Running' },
+          { value: 'failed', label: 'Failed' }
+        ].map(filter => (
+          <button
+            key={filter.value}
+            onClick={() => setStatusFilter(filter.value)}
+            className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
+              statusFilter === filter.value
+                ? 'bg-port-accent text-white'
+                : 'bg-port-card text-gray-400 hover:text-white border border-port-border'
+            }`}
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
+
       {/* Runs List */}
       <div className="bg-port-card border border-port-border rounded-lg sm:rounded-xl overflow-hidden">
-        {runs.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">No AI runs yet</div>
+        {filteredRuns.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            {runs.length === 0 ? 'No AI runs yet' : 'No runs match the selected filters'}
+          </div>
         ) : (
           <div className="divide-y divide-port-border">
-            {runs.map(run => (
+            {filteredRuns.map(run => (
               <div key={run.id}>
                 <div
                   className="p-3 sm:p-4 hover:bg-port-border/20 cursor-pointer group"

@@ -6,7 +6,7 @@
  * and usage tracking.
  */
 
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { writeFile, mkdir, readFile } from 'fs/promises';
@@ -136,6 +136,22 @@ async function createAgentRun(agentId, task, model, provider, workspacePath) {
 }
 
 /**
+ * Check if a commit was made with the task ID
+ * Returns true if a recent commit contains [task-{taskId}]
+ * Returns false if git command fails (not a repo, git not available, etc.)
+ */
+function checkForTaskCommit(taskId, workspacePath = ROOT_DIR) {
+  // Check if it's a git repo first
+  const gitDir = join(workspacePath, '.git');
+  if (!existsSync(gitDir)) return false;
+
+  const searchPattern = `[task-${taskId}]`;
+  const gitLogCmd = `git log --all --oneline --grep="${searchPattern}" -1 2>/dev/null || true`;
+  const result = execSync(gitLogCmd, { cwd: workspacePath, encoding: 'utf-8' }).trim();
+  return result.length > 0;
+}
+
+/**
  * Complete a run entry with final results
  */
 async function completeAgentRun(runId, output, exitCode, duration, errorAnalysis = null) {
@@ -150,7 +166,18 @@ async function completeAgentRun(runId, output, exitCode, duration, errorAnalysis
   metadata.endTime = new Date().toISOString();
   metadata.duration = duration;
   metadata.exitCode = exitCode;
-  metadata.success = exitCode === 0;
+
+  // Post-execution validation: check for task commit even if exit code is non-zero
+  let success = exitCode === 0;
+  if (!success && metadata.taskId && metadata.workspacePath) {
+    const commitFound = checkForTaskCommit(metadata.taskId, metadata.workspacePath);
+    if (commitFound) {
+      console.log(`⚠️ Agent ${metadata.agentId} reported failure (exit ${exitCode}) but work completed - commit found for task ${metadata.taskId}`);
+      success = true;
+    }
+  }
+
+  metadata.success = success;
   metadata.outputSize = Buffer.byteLength(output || '');
 
   // Store error details - extract from output if no analysis provided

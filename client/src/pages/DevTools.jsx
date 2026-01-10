@@ -589,13 +589,15 @@ export function RunsHistoryPage() {
                         </div>
                       </div>
 
-                      {/* Output - show for successful runs with output OR for failed runs */}
-                      {(expandedDetails[run.id]?.output || run.success === false) && (
+                      {/* Output - show for all completed runs */}
+                      {run.success !== null && (
                         <div>
                           <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">Output</div>
                           <div className="bg-port-card border border-port-border rounded-lg p-3 max-h-64 overflow-auto">
                             <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap break-all">
-                              {expandedDetails[run.id]?.output || (run.success === false ? 'Loading output...' : '')}
+                              {expandedDetails[run.id]?.output !== undefined
+                                ? (expandedDetails[run.id].output || '(no output)')
+                                : 'Loading output...'}
                             </pre>
                           </div>
                         </div>
@@ -851,7 +853,8 @@ ${prompt.trim()}`;
       prompt: finalPrompt,
       workspacePath: workspacePath || undefined,
       workspaceName: apps.find(a => a.repoPath === workspacePath)?.name,
-      timeout: timeout * 60 * 1000 // Convert minutes to milliseconds
+      timeout: timeout * 60 * 1000, // Convert minutes to milliseconds
+      screenshots: screenshots.map(s => s.path) // Include screenshot paths
     }).catch(err => ({ error: err.message }));
 
     if (result.error) {

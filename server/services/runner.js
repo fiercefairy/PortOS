@@ -1,6 +1,6 @@
 import { mkdir, writeFile, readFile, readdir, rm } from 'fs/promises';
 import { existsSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, extname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { getProviderById } from './providers.js';
@@ -20,6 +20,37 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const DATA_DIR = join(__dirname, '../../data');
 const RUNS_DIR = join(DATA_DIR, 'runs');
+const SCREENSHOTS_DIR = resolve(__dirname, '../../data/screenshots');
+
+/**
+ * Get MIME type from file extension
+ */
+function getMimeType(filepath) {
+  const ext = extname(filepath).toLowerCase();
+  const mimeTypes = {
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp'
+  };
+  return mimeTypes[ext] || 'image/png';
+}
+
+/**
+ * Load an image as base64 data URL
+ */
+async function loadImageAsBase64(imagePath) {
+  const fullPath = imagePath.startsWith('/') ? imagePath : join(SCREENSHOTS_DIR, imagePath);
+
+  if (!existsSync(fullPath)) {
+    throw new Error(`Image not found: ${fullPath}`);
+  }
+
+  const buffer = await readFile(fullPath);
+  const mimeType = getMimeType(fullPath);
+  return `data:${mimeType};base64,${buffer.toString('base64')}`;
+}
 
 /**
  * Safe JSON parse with fallback to empty object
@@ -418,7 +449,7 @@ export async function executeCliRun(runId, provider, prompt, workspacePath, onDa
   return runId;
 }
 
-export async function executeApiRun(runId, provider, model, prompt, workspacePath, onData, onComplete) {
+export async function executeApiRun(runId, provider, model, prompt, workspacePath, screenshots, onData, onComplete) {
   const runDir = join(RUNS_DIR, runId);
   const outputPath = join(runDir, 'output.txt');
   const metadataPath = join(runDir, 'metadata.json');
@@ -436,13 +467,47 @@ export async function executeApiRun(runId, provider, model, prompt, workspacePat
   const controller = new AbortController();
   activeRuns.set(runId, controller);
 
+  // Build message content - if screenshots are provided, use vision format
+  let messageContent;
+  if (screenshots && screenshots.length > 0) {
+    console.log(`📸 Loading ${screenshots.length} screenshots for vision API`);
+    const contentParts = [];
+
+    // Add images first
+    for (const screenshotPath of screenshots) {
+      const imageDataUrl = await loadImageAsBase64(screenshotPath).catch(err => {
+        console.error(`❌ Failed to load screenshot ${screenshotPath}: ${err.message}`);
+        return null;
+      });
+      if (imageDataUrl) {
+        contentParts.push({
+          type: 'image_url',
+          image_url: {
+            url: imageDataUrl
+          }
+        });
+      }
+    }
+
+    // Add text prompt
+    contentParts.push({
+      type: 'text',
+      text: prompt
+    });
+
+    messageContent = contentParts;
+  } else {
+    // No screenshots, just text
+    messageContent = prompt;
+  }
+
   const response = await fetch(`${provider.endpoint}/chat/completions`, {
     method: 'POST',
     headers,
     signal: controller.signal,
     body: JSON.stringify({
       model: model || provider.defaultModel,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: 'user', content: messageContent }],
       stream: true
     })
   }).catch(err => ({ ok: false, error: err.message }));
@@ -544,12 +609,21 @@ export async function executeApiRun(runId, provider, model, prompt, workspacePat
 
   processStream().catch(async (err) => {
     activeRuns.delete(runId);
+
+    // Write partial output if any was captured before error
+    if (output) {
+      await writeFile(outputPath, output).catch(writeErr => {
+        console.error(`❌ Failed to write partial output: ${writeErr.message}`);
+      });
+    }
+
     const metadata = safeJsonParse(await readFile(metadataPath, 'utf-8').catch(() => '{}'));
     metadata.endTime = new Date().toISOString();
     metadata.duration = Date.now() - startTime;
     metadata.success = false;
     metadata.error = err.message;
     metadata.errorDetails = err.message;
+    metadata.outputSize = Buffer.byteLength(output);
     const { category, suggestion } = categorizeError(err.message, -1);
     metadata.errorCategory = category;
     metadata.suggestedFix = suggestion;

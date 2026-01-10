@@ -17,8 +17,8 @@ router.get('/', asyncHandler(async (req, res, next) => {
 
 // POST /api/runs - Create and execute a new run
 router.post('/', asyncHandler(async (req, res, next) => {
-  const { providerId, model, prompt, workspacePath, workspaceName, timeout } = req.body;
-  console.log(`🚀 POST /api/runs - provider: ${providerId}, model: ${model}, workspace: ${workspaceName}, timeout: ${timeout}ms`);
+  const { providerId, model, prompt, workspacePath, workspaceName, timeout, screenshots } = req.body;
+  console.log(`🚀 POST /api/runs - provider: ${providerId}, model: ${model}, workspace: ${workspaceName}, timeout: ${timeout}ms, screenshots: ${screenshots?.length || 0}`);
 
   if (!providerId) {
     throw new ServerError('providerId is required', {
@@ -40,7 +40,8 @@ router.post('/', asyncHandler(async (req, res, next) => {
     prompt,
     workspacePath,
     workspaceName,
-    timeout
+    timeout,
+    screenshots
   });
 
   const { runId, provider, metadata, timeout: effectiveTimeout } = runData;
@@ -73,6 +74,7 @@ router.post('/', asyncHandler(async (req, res, next) => {
       model,
       prompt,
       workspacePath,
+      screenshots,
       (data) => {
         io?.emit(`run:${runId}:data`, data);
       },

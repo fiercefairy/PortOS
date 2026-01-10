@@ -384,6 +384,7 @@ function ProviderForm({ provider, onClose, onSave }) {
     args: provider?.args?.join(' ') || '',
     endpoint: provider?.endpoint || '',
     apiKey: provider?.apiKey || '',
+    models: provider?.models || [],
     defaultModel: provider?.defaultModel || '',
     lightModel: provider?.lightModel || '',
     mediumModel: provider?.mediumModel || '',
@@ -391,6 +392,8 @@ function ProviderForm({ provider, onClose, onSave }) {
     timeout: provider?.timeout || 300000,
     enabled: provider?.enabled !== false
   });
+
+  const availableModels = formData.models || [];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -496,14 +499,55 @@ function ProviderForm({ provider, onClose, onSave }) {
           )}
 
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Default Model</label>
-            <input
-              type="text"
-              value={formData.defaultModel}
-              onChange={(e) => setFormData(prev => ({ ...prev, defaultModel: e.target.value }))}
-              placeholder="claude-sonnet-4-20250514"
-              className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white focus:border-port-accent focus:outline-none"
+            <label className="block text-sm text-gray-400 mb-1">
+              Available Models
+              {formData.type === 'api' && <span className="text-xs text-gray-500 ml-2">(Use Refresh button after saving)</span>}
+            </label>
+            <textarea
+              value={(formData.models || []).join(', ')}
+              onChange={(e) => {
+                const models = e.target.value
+                  .split(',')
+                  .map(m => m.trim())
+                  .filter(Boolean);
+                setFormData(prev => ({ ...prev, models }));
+              }}
+              placeholder="model-1, model-2, model-3"
+              rows={2}
+              className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white resize-none focus:border-port-accent focus:outline-none"
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Comma-separated list of available models. For API providers, use Refresh to auto-populate.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Default Model</label>
+            {availableModels.length > 0 ? (
+              <select
+                value={formData.defaultModel}
+                onChange={(e) => setFormData(prev => ({ ...prev, defaultModel: e.target.value }))}
+                className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white focus:border-port-accent focus:outline-none"
+              >
+                <option value="">None</option>
+                {availableModels.map(model => (
+                  <option key={model} value={model}>{model}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={formData.defaultModel}
+                onChange={(e) => setFormData(prev => ({ ...prev, defaultModel: e.target.value }))}
+                placeholder="claude-sonnet-4-20250514"
+                className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white focus:border-port-accent focus:outline-none"
+              />
+            )}
+            <p className="text-xs text-gray-500 mt-1">
+              {availableModels.length > 0
+                ? 'Model to use when no tier is specified'
+                : 'Save and test provider to fetch available models'}
+            </p>
           </div>
 
           {/* Model Tiers */}
@@ -511,36 +555,89 @@ function ProviderForm({ provider, onClose, onSave }) {
             <h4 className="text-sm font-medium text-gray-300 mb-3">Model Tiers</h4>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Light (fast)</label>
-                <input
-                  type="text"
-                  value={formData.lightModel}
-                  onChange={(e) => setFormData(prev => ({ ...prev, lightModel: e.target.value }))}
-                  placeholder="haiku"
-                  className="w-full px-2 py-1.5 bg-port-bg border border-port-border rounded-lg text-white text-sm focus:border-port-accent focus:outline-none"
-                />
+                <label className="block text-xs text-gray-400 mb-1">
+                  <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1"></span>
+                  Light (fast)
+                </label>
+                {availableModels.length > 0 ? (
+                  <select
+                    value={formData.lightModel}
+                    onChange={(e) => setFormData(prev => ({ ...prev, lightModel: e.target.value }))}
+                    className="w-full px-2 py-1.5 bg-port-bg border border-port-border rounded-lg text-white text-sm focus:border-port-accent focus:outline-none"
+                  >
+                    <option value="">None</option>
+                    {availableModels.map(model => (
+                      <option key={model} value={model}>{model}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={formData.lightModel}
+                    onChange={(e) => setFormData(prev => ({ ...prev, lightModel: e.target.value }))}
+                    placeholder="haiku"
+                    className="w-full px-2 py-1.5 bg-port-bg border border-port-border rounded-lg text-white text-sm focus:border-port-accent focus:outline-none"
+                  />
+                )}
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Medium (balanced)</label>
-                <input
-                  type="text"
-                  value={formData.mediumModel}
-                  onChange={(e) => setFormData(prev => ({ ...prev, mediumModel: e.target.value }))}
-                  placeholder="sonnet"
-                  className="w-full px-2 py-1.5 bg-port-bg border border-port-border rounded-lg text-white text-sm focus:border-port-accent focus:outline-none"
-                />
+                <label className="block text-xs text-gray-400 mb-1">
+                  <span className="inline-block w-2 h-2 rounded-full bg-yellow-500 mr-1"></span>
+                  Medium (balanced)
+                </label>
+                {availableModels.length > 0 ? (
+                  <select
+                    value={formData.mediumModel}
+                    onChange={(e) => setFormData(prev => ({ ...prev, mediumModel: e.target.value }))}
+                    className="w-full px-2 py-1.5 bg-port-bg border border-port-border rounded-lg text-white text-sm focus:border-port-accent focus:outline-none"
+                  >
+                    <option value="">None</option>
+                    {availableModels.map(model => (
+                      <option key={model} value={model}>{model}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={formData.mediumModel}
+                    onChange={(e) => setFormData(prev => ({ ...prev, mediumModel: e.target.value }))}
+                    placeholder="sonnet"
+                    className="w-full px-2 py-1.5 bg-port-bg border border-port-border rounded-lg text-white text-sm focus:border-port-accent focus:outline-none"
+                  />
+                )}
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Heavy (powerful)</label>
-                <input
-                  type="text"
-                  value={formData.heavyModel}
-                  onChange={(e) => setFormData(prev => ({ ...prev, heavyModel: e.target.value }))}
-                  placeholder="opus"
-                  className="w-full px-2 py-1.5 bg-port-bg border border-port-border rounded-lg text-white text-sm focus:border-port-accent focus:outline-none"
-                />
+                <label className="block text-xs text-gray-400 mb-1">
+                  <span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1"></span>
+                  Heavy (powerful)
+                </label>
+                {availableModels.length > 0 ? (
+                  <select
+                    value={formData.heavyModel}
+                    onChange={(e) => setFormData(prev => ({ ...prev, heavyModel: e.target.value }))}
+                    className="w-full px-2 py-1.5 bg-port-bg border border-port-border rounded-lg text-white text-sm focus:border-port-accent focus:outline-none"
+                  >
+                    <option value="">None</option>
+                    {availableModels.map(model => (
+                      <option key={model} value={model}>{model}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={formData.heavyModel}
+                    onChange={(e) => setFormData(prev => ({ ...prev, heavyModel: e.target.value }))}
+                    placeholder="opus"
+                    className="w-full px-2 py-1.5 bg-port-bg border border-port-border rounded-lg text-white text-sm focus:border-port-accent focus:outline-none"
+                  />
+                )}
               </div>
             </div>
+            <p className="text-xs text-gray-500 mt-2">
+              {availableModels.length > 0
+                ? 'Used for intelligent model selection based on task requirements'
+                : 'Save provider, then use Test or Refresh to fetch available models'}
+            </p>
           </div>
 
           <div>

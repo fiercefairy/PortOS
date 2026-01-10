@@ -1,11 +1,12 @@
-import { MessageSquare, Database, Calendar, Shield, Users, FolderKanban, Lightbulb, ClipboardList } from 'lucide-react';
+import { MessageSquare, Database, Calendar, Shield, Users, FolderKanban, Lightbulb, ClipboardList, Settings } from 'lucide-react';
 
 // Main navigation tabs
 export const TABS = [
   { id: 'inbox', label: 'Inbox', icon: MessageSquare },
   { id: 'memory', label: 'Memory', icon: Database },
   { id: 'digest', label: 'Digest', icon: Calendar },
-  { id: 'trust', label: 'Trust', icon: Shield }
+  { id: 'trust', label: 'Trust', icon: Shield },
+  { id: 'config', label: 'Config', icon: Settings }
 ];
 
 // Memory sub-tabs for entity types

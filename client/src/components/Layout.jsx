@@ -31,6 +31,7 @@ import NotificationDropdown from './NotificationDropdown';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: Home, single: true },
+  { separator: true },
   {
     label: 'AI Config',
     icon: Bot,
@@ -40,10 +41,9 @@ const navItems = [
     ]
   },
   { to: '/apps', label: 'Apps', icon: Package, single: true },
-  { to: '/media', label: 'Media', icon: Camera, single: true },
   { href: '//:5560', label: 'Autofixer', icon: Wrench, external: true, dynamicHost: true },
-  { to: '/cos', label: 'Chief of Staff', icon: Crown, single: true, showBadge: true },
   { to: '/brain', label: 'Brain', icon: Brain, single: true },
+  { to: '/cos', label: 'Chief of Staff', icon: Crown, single: true, showBadge: true },
   {
     label: 'Dev Tools',
     icon: Terminal,
@@ -56,7 +56,8 @@ const navItems = [
       { to: '/devtools/processes', label: 'Processes', icon: Activity },
       { to: '/devtools/usage', label: 'Usage', icon: BarChart3 }
     ]
-  }
+  },
+  { to: '/media', label: 'Media', icon: Camera, single: true }
 ];
 
 const SIDEBAR_KEY = 'portos-sidebar-collapsed';
@@ -129,6 +130,13 @@ export default function Layout() {
   };
 
   const renderNavItem = (item) => {
+    // Separator
+    if (item.separator) {
+      return (
+        <div key="separator" className="mx-4 my-2 border-t border-port-border" />
+      );
+    }
+
     const Icon = item.icon;
 
     // External link

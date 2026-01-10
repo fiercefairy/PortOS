@@ -13,6 +13,7 @@ import InboxTab from '../components/brain/tabs/InboxTab';
 import MemoryTab from '../components/brain/tabs/MemoryTab';
 import DigestTab from '../components/brain/tabs/DigestTab';
 import TrustTab from '../components/brain/tabs/TrustTab';
+import ConfigTab from '../components/brain/tabs/ConfigTab';
 
 export default function Brain() {
   const { tab } = useParams();
@@ -53,6 +54,8 @@ export default function Brain() {
         return <DigestTab onRefresh={fetchData} />;
       case 'trust':
         return <TrustTab onRefresh={fetchData} />;
+      case 'config':
+        return <ConfigTab onRefresh={fetchData} />;
       default:
         return <InboxTab onRefresh={fetchData} settings={settings} />;
     }

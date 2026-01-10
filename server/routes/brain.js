@@ -10,6 +10,7 @@
 
 import { Router } from 'express';
 import * as brainService from '../services/brain.js';
+import { getProviderById } from '../services/providers.js';
 import { asyncHandler, ServerError } from '../lib/errorHandler.js';
 import { validate } from '../lib/validation.js';
 import {
@@ -436,6 +437,43 @@ router.put('/settings', asyncHandler(async (req, res) => {
       context: { details: validation.errors }
     });
   }
+
+  // Validate provider and model if provided
+  if (validation.data.defaultProvider || validation.data.defaultModel) {
+    const providerId = validation.data.defaultProvider;
+    const modelId = validation.data.defaultModel;
+
+    // Get current settings to use existing provider if only model is being updated
+    const currentSettings = await brainService.loadMeta();
+    const effectiveProviderId = providerId || currentSettings.defaultProvider;
+
+    // Validate provider exists
+    const provider = await getProviderById(effectiveProviderId);
+    if (!provider) {
+      throw new ServerError(`Provider "${effectiveProviderId}" not found`, {
+        status: 400,
+        code: 'INVALID_PROVIDER'
+      });
+    }
+
+    // Validate model exists in provider's models
+    if (modelId) {
+      if (!provider.models || provider.models.length === 0) {
+        throw new ServerError(`Provider "${effectiveProviderId}" has no models configured`, {
+          status: 400,
+          code: 'NO_MODELS'
+        });
+      }
+      if (!provider.models.includes(modelId)) {
+        throw new ServerError(`Model "${modelId}" not found in provider "${effectiveProviderId}"`, {
+          status: 400,
+          code: 'INVALID_MODEL',
+          context: { availableModels: provider.models }
+        });
+      }
+    }
+  }
+
   const settings = await brainService.updateMeta(validation.data);
   res.json(settings);
 }));

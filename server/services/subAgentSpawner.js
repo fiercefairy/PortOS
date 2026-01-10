@@ -15,7 +15,7 @@ import { homedir } from 'os';
 import { v4 as uuidv4 } from 'uuid';
 import { cosEvents, registerAgent, updateAgent, completeAgent, appendAgentOutput, getConfig, updateTask, addTask, emitLog } from './cos.js';
 import { startAppCooldown, markAppReviewCompleted } from './appActivity.js';
-import { isRunnerAvailable, spawnAgentViaRunner, terminateAgentViaRunner, killAgentViaRunner, getAgentStatsFromRunner, initCosRunnerConnection, onCosRunnerEvent, getActiveAgentsFromRunner } from './cosRunnerClient.js';
+import { isRunnerAvailable, spawnAgentViaRunner, terminateAgentViaRunner, killAgentViaRunner, getAgentStatsFromRunner, initCosRunnerConnection, onCosRunnerEvent, getActiveAgentsFromRunner, getRunnerHealth } from './cosRunnerClient.js';
 import { getActiveProvider } from './providers.js';
 import { recordSession, recordMessages } from './usage.js';
 import { buildPrompt } from './promptService.js';
@@ -636,9 +636,43 @@ export async function spawnAgentForTask(task) {
 }
 
 /**
+ * Minimum runner uptime (seconds) before spawning agents.
+ * Prevents race condition during rolling restarts where server starts
+ * before runner, spawns an agent, then runner restarts and orphans it.
+ */
+const RUNNER_MIN_UPTIME_SECONDS = 10;
+
+/**
+ * Wait for runner to be stable (sufficient uptime) before spawning
+ */
+async function waitForRunnerStability() {
+  const maxWaitMs = 15000;
+  const checkIntervalMs = 1000;
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < maxWaitMs) {
+    const health = await getRunnerHealth();
+    if (health.available && health.uptime >= RUNNER_MIN_UPTIME_SECONDS) {
+      return true;
+    }
+    if (health.available && health.uptime < RUNNER_MIN_UPTIME_SECONDS) {
+      const waitTime = Math.ceil(RUNNER_MIN_UPTIME_SECONDS - health.uptime);
+      emitLog('info', `Waiting ${waitTime}s for runner stability (uptime: ${Math.floor(health.uptime)}s)`, { uptime: health.uptime });
+    }
+    await new Promise(resolve => setTimeout(resolve, checkIntervalMs));
+  }
+
+  emitLog('warning', 'Runner stability check timed out, proceeding anyway', {});
+  return false;
+}
+
+/**
  * Spawn agent via CoS Runner (isolated PM2 process)
  */
 async function spawnViaRunner(agentId, task, prompt, workspacePath, model, provider, runId, claudePath) {
+  // Wait for runner to be stable to prevent orphaned agents during rolling restarts
+  await waitForRunnerStability();
+
   // Store tracking info for runner-spawned agents
   const agentInfo = {
     taskId: task.id,

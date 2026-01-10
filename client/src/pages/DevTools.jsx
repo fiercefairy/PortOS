@@ -579,6 +579,26 @@ export function RunsHistoryPage() {
                 {expandedId === run.id && (
                   <div className="px-4 pb-4 bg-port-bg border-t border-port-border">
                     <div className="pt-4 space-y-4">
+                      {/* Execution ID */}
+                      <div className="mb-4">
+                        <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Execution ID</div>
+                        <div className="flex items-center gap-2">
+                          <code className="text-xs text-gray-400 font-mono select-all">{run.id}</code>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(run.id);
+                            }}
+                            className="p-1 text-gray-500 hover:text-white transition-colors"
+                            title="Copy execution ID"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+
                       {/* Metadata Grid */}
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 text-sm">
                         <div>

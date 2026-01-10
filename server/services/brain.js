@@ -47,6 +47,7 @@ async function callAI(promptStageName, variables, providerOverride, modelOverrid
   const model = modelOverride || provider.defaultModel;
 
   if (provider.type === 'cli') {
+
     return new Promise((resolve, reject) => {
       const args = [...(provider.args || []), prompt];
       let output = '';
@@ -541,8 +542,8 @@ export async function retryClassification(inboxLogId, providerOverride, modelOve
   const aiResponse = await callAI(
     'brain-classifier',
     { capturedText: inboxLog.capturedText, now: new Date().toISOString() },
-    providerOverride,
-    modelOverride
+    provider,
+    model
   ).catch(err => {
     aiError = err;
     return null;
@@ -597,11 +598,21 @@ export async function retryClassification(inboxLogId, providerOverride, modelOve
   }
 
   // Classification succeeded with high confidence - auto-file
-  const result = await fileThought(inboxLogId, classification.destination, classification.extracted);
+  const filedRecord = await fileToDestination(classification.destination, classification.extracted, classification.title);
+
+  await storage.updateInboxLog(inboxLogId, {
+    classification,
+    status: 'filed',
+    filed: {
+      destination: classification.destination,
+      recordId: filedRecord.id,
+      filedAt: new Date().toISOString()
+    }
+  });
 
   console.log(`🧠 Retry successful for ${inboxLogId} -> ${classification.destination}`);
   return {
-    inboxLog: result.inboxLog,
+    inboxLog: await storage.getInboxLogById(inboxLogId),
     message: `Successfully classified as ${classification.destination}`
   };
 }

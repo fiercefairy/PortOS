@@ -1002,9 +1002,8 @@ async function generateSelfImprovementTaskForType(taskType, state, taskDescripti
   const taskSchedule = await import('./taskSchedule.js');
   const interval = await taskSchedule.getSelfImprovementInterval(taskType);
 
-  // Use provided descriptions or generate default ones
-  const descriptions = taskDescriptions || getSelfImprovementTaskDescriptions();
-  const description = descriptions[taskType] || `[Self-Improvement] ${taskType} analysis`;
+  // Get the effective prompt (custom or default)
+  const description = await taskSchedule.getSelfImprovementPrompt(taskType);
 
   const metadata = {
     analysisType: taskType,
@@ -1391,7 +1390,15 @@ async function generateManagedAppImprovementTask(app, state) {
 
   emitLog('info', `Generating comprehensive improvement task for ${app.name}: ${nextType} (${selectionReason})`, { appId: app.id, analysisType: nextType });
 
-  // Task descriptions for each analysis type
+  // Get the effective prompt (custom or default template)
+  const promptTemplate = await taskSchedule.getAppImprovementPrompt(nextType);
+
+  // Replace template variables in the prompt
+  const description = promptTemplate
+    .replace(/\{appName\}/g, app.name)
+    .replace(/\{repoPath\}/g, app.repoPath);
+
+  // Legacy task descriptions - keeping for fallback but they won't be used
   const taskDescriptions = {
     'security-audit': `[App Improvement: ${app.name}] Security Audit
 
@@ -1648,16 +1655,6 @@ Repository: ${app.repoPath}
 
 Use model: claude-opus-4-5-20251101 for thorough typing`
   };
-
-  const description = taskDescriptions[nextType] || `[App Improvement: ${app.name}] ${nextType}
-
-Perform ${nextType} analysis on ${app.name}.
-
-Repository: ${app.repoPath}
-
-Analyze the codebase and make improvements. Commit changes with clear descriptions.
-
-Use model: claude-opus-4-5-20251101`;
 
   // Get interval settings to determine provider/model
   const interval = await taskSchedule.getAppImprovementInterval(nextType);

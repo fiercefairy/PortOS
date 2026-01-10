@@ -44,32 +44,32 @@ const WEEK = 7 * DAY;
 
 // Default interval settings for self-improvement task types
 const DEFAULT_SELF_IMPROVEMENT_INTERVALS = {
-  'ui-bugs': { type: INTERVAL_TYPES.ROTATION, enabled: true },
-  'mobile-responsive': { type: INTERVAL_TYPES.WEEKLY, enabled: true },
-  'security': { type: INTERVAL_TYPES.WEEKLY, enabled: true },
-  'code-quality': { type: INTERVAL_TYPES.ROTATION, enabled: true },
-  'console-errors': { type: INTERVAL_TYPES.ROTATION, enabled: true },
-  'performance': { type: INTERVAL_TYPES.WEEKLY, enabled: true },
-  'cos-enhancement': { type: INTERVAL_TYPES.ROTATION, enabled: true },
-  'test-coverage': { type: INTERVAL_TYPES.WEEKLY, enabled: true },
-  'documentation': { type: INTERVAL_TYPES.WEEKLY, enabled: true },
-  'feature-ideas': { type: INTERVAL_TYPES.DAILY, enabled: true },
-  'accessibility': { type: INTERVAL_TYPES.WEEKLY, enabled: true },
-  'dependency-updates': { type: INTERVAL_TYPES.WEEKLY, enabled: true }
+  'ui-bugs': { type: INTERVAL_TYPES.ROTATION, enabled: true, providerId: null, model: null },
+  'mobile-responsive': { type: INTERVAL_TYPES.WEEKLY, enabled: true, providerId: null, model: null },
+  'security': { type: INTERVAL_TYPES.WEEKLY, enabled: true, providerId: null, model: null },
+  'code-quality': { type: INTERVAL_TYPES.ROTATION, enabled: true, providerId: null, model: null },
+  'console-errors': { type: INTERVAL_TYPES.ROTATION, enabled: true, providerId: null, model: null },
+  'performance': { type: INTERVAL_TYPES.WEEKLY, enabled: true, providerId: null, model: null },
+  'cos-enhancement': { type: INTERVAL_TYPES.ROTATION, enabled: true, providerId: null, model: null },
+  'test-coverage': { type: INTERVAL_TYPES.WEEKLY, enabled: true, providerId: null, model: null },
+  'documentation': { type: INTERVAL_TYPES.WEEKLY, enabled: true, providerId: null, model: null },
+  'feature-ideas': { type: INTERVAL_TYPES.DAILY, enabled: true, providerId: null, model: null },
+  'accessibility': { type: INTERVAL_TYPES.WEEKLY, enabled: true, providerId: null, model: null },
+  'dependency-updates': { type: INTERVAL_TYPES.WEEKLY, enabled: true, providerId: null, model: null }
 };
 
 // Default interval settings for managed app improvement task types
 const DEFAULT_APP_IMPROVEMENT_INTERVALS = {
-  'security-audit': { type: INTERVAL_TYPES.WEEKLY, enabled: true },
-  'code-quality': { type: INTERVAL_TYPES.ROTATION, enabled: true },
-  'test-coverage': { type: INTERVAL_TYPES.WEEKLY, enabled: true },
-  'performance': { type: INTERVAL_TYPES.WEEKLY, enabled: true },
-  'accessibility': { type: INTERVAL_TYPES.ONCE, enabled: true },
-  'console-errors': { type: INTERVAL_TYPES.ROTATION, enabled: true },
-  'dependency-updates': { type: INTERVAL_TYPES.WEEKLY, enabled: true },
-  'documentation': { type: INTERVAL_TYPES.ONCE, enabled: true },
-  'error-handling': { type: INTERVAL_TYPES.ROTATION, enabled: true },
-  'typing': { type: INTERVAL_TYPES.ONCE, enabled: true }
+  'security-audit': { type: INTERVAL_TYPES.WEEKLY, enabled: true, providerId: null, model: null },
+  'code-quality': { type: INTERVAL_TYPES.ROTATION, enabled: true, providerId: null, model: null },
+  'test-coverage': { type: INTERVAL_TYPES.WEEKLY, enabled: true, providerId: null, model: null },
+  'performance': { type: INTERVAL_TYPES.WEEKLY, enabled: true, providerId: null, model: null },
+  'accessibility': { type: INTERVAL_TYPES.ONCE, enabled: true, providerId: null, model: null },
+  'console-errors': { type: INTERVAL_TYPES.ROTATION, enabled: true, providerId: null, model: null },
+  'dependency-updates': { type: INTERVAL_TYPES.WEEKLY, enabled: true, providerId: null, model: null },
+  'documentation': { type: INTERVAL_TYPES.ONCE, enabled: true, providerId: null, model: null },
+  'error-handling': { type: INTERVAL_TYPES.ROTATION, enabled: true, providerId: null, model: null },
+  'typing': { type: INTERVAL_TYPES.ONCE, enabled: true, providerId: null, model: null }
 };
 
 /**
@@ -151,7 +151,7 @@ async function saveSchedule(schedule) {
  */
 export async function getSelfImprovementInterval(taskType) {
   const schedule = await loadSchedule();
-  return schedule.selfImprovement[taskType] || { type: INTERVAL_TYPES.ROTATION, enabled: true };
+  return schedule.selfImprovement[taskType] || { type: INTERVAL_TYPES.ROTATION, enabled: true, providerId: null, model: null };
 }
 
 /**
@@ -159,7 +159,7 @@ export async function getSelfImprovementInterval(taskType) {
  */
 export async function getAppImprovementInterval(taskType) {
   const schedule = await loadSchedule();
-  return schedule.appImprovement[taskType] || { type: INTERVAL_TYPES.ROTATION, enabled: true };
+  return schedule.appImprovement[taskType] || { type: INTERVAL_TYPES.ROTATION, enabled: true, providerId: null, model: null };
 }
 
 /**
@@ -169,7 +169,7 @@ export async function updateSelfImprovementInterval(taskType, settings) {
   const schedule = await loadSchedule();
 
   if (!schedule.selfImprovement[taskType]) {
-    schedule.selfImprovement[taskType] = { type: INTERVAL_TYPES.ROTATION, enabled: true };
+    schedule.selfImprovement[taskType] = { type: INTERVAL_TYPES.ROTATION, enabled: true, providerId: null, model: null };
   }
 
   schedule.selfImprovement[taskType] = {
@@ -191,7 +191,7 @@ export async function updateAppImprovementInterval(taskType, settings) {
   const schedule = await loadSchedule();
 
   if (!schedule.appImprovement[taskType]) {
-    schedule.appImprovement[taskType] = { type: INTERVAL_TYPES.ROTATION, enabled: true };
+    schedule.appImprovement[taskType] = { type: INTERVAL_TYPES.ROTATION, enabled: true, providerId: null, model: null };
   }
 
   schedule.appImprovement[taskType] = {

@@ -33,10 +33,12 @@ function formatTimeRemaining(ms) {
   return `${minutes}m`;
 }
 
-function TaskTypeRow({ taskType, config, onUpdate, onTrigger, onReset, category }) {
+function TaskTypeRow({ taskType, config, onUpdate, onTrigger, onReset, category, providers }) {
   const [expanded, setExpanded] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [selectedType, setSelectedType] = useState(config.type);
+  const [selectedProviderId, setSelectedProviderId] = useState(config.providerId || '');
+  const [selectedModel, setSelectedModel] = useState(config.model || '');
 
   const handleTypeChange = async (newType) => {
     setUpdating(true);
@@ -52,6 +54,29 @@ function TaskTypeRow({ taskType, config, onUpdate, onTrigger, onReset, category 
     await onUpdate(taskType, { enabled: !config.enabled });
     setUpdating(false);
   };
+
+  const handleProviderChange = async (newProviderId) => {
+    setUpdating(true);
+    setSelectedProviderId(newProviderId);
+    const providerId = newProviderId === '' ? null : newProviderId;
+    await onUpdate(taskType, { providerId }).catch(() => {
+      setSelectedProviderId(config.providerId || '');
+    });
+    setUpdating(false);
+  };
+
+  const handleModelChange = async (newModel) => {
+    setUpdating(true);
+    setSelectedModel(newModel);
+    const model = newModel === '' ? null : newModel;
+    await onUpdate(taskType, { model }).catch(() => {
+      setSelectedModel(config.model || '');
+    });
+    setUpdating(false);
+  };
+
+  const selectedProvider = providers?.find(p => p.id === (selectedProviderId || ''));
+  const availableModels = selectedProvider?.models || [];
 
   const status = config.status || {};
   const isEligible = status.shouldRun;
@@ -164,6 +189,46 @@ function TaskTypeRow({ taskType, config, onUpdate, onTrigger, onReset, category 
             <p className="text-xs text-gray-500 mt-1">{INTERVAL_DESCRIPTIONS[selectedType]}</p>
           </div>
 
+          <div>
+            <label className="text-sm text-gray-400 block mb-2">Provider (optional)</label>
+            <select
+              value={selectedProviderId}
+              onChange={(e) => handleProviderChange(e.target.value)}
+              disabled={updating}
+              className="w-full bg-port-card border border-port-border rounded px-3 py-2 text-white text-sm"
+            >
+              <option value="">Default (active provider)</option>
+              {providers?.map(provider => (
+                <option key={provider.id} value={provider.id}>
+                  {provider.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Leave as default to use the currently active provider
+            </p>
+          </div>
+
+          <div>
+            <label className="text-sm text-gray-400 block mb-2">Model (optional)</label>
+            <select
+              value={selectedModel}
+              onChange={(e) => handleModelChange(e.target.value)}
+              disabled={updating || (!selectedProviderId && !selectedModel)}
+              className="w-full bg-port-card border border-port-border rounded px-3 py-2 text-white text-sm"
+            >
+              <option value="">Default model</option>
+              {availableModels.map(model => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Leave as default to use the provider's default model
+            </p>
+          </div>
+
           <div className="flex gap-2">
             <button
               onClick={() => onTrigger(taskType)}
@@ -196,7 +261,7 @@ function TaskTypeRow({ taskType, config, onUpdate, onTrigger, onReset, category 
   );
 }
 
-function TaskTypeSection({ title, description, tasks, onUpdate, onTrigger, onReset, category }) {
+function TaskTypeSection({ title, description, tasks, onUpdate, onTrigger, onReset, category, providers }) {
   const [collapsed, setCollapsed] = useState(false);
   const taskEntries = Object.entries(tasks || {});
 
@@ -231,6 +296,7 @@ function TaskTypeSection({ title, description, tasks, onUpdate, onTrigger, onRes
               onTrigger={onTrigger}
               onReset={onReset}
               category={category}
+              providers={providers}
             />
           ))}
         </div>
@@ -241,6 +307,7 @@ function TaskTypeSection({ title, description, tasks, onUpdate, onTrigger, onRes
 
 export default function ScheduleTab({ apps }) {
   const [schedule, setSchedule] = useState(null);
+  const [providers, setProviders] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const fetchSchedule = useCallback(async () => {
@@ -249,9 +316,15 @@ export default function ScheduleTab({ apps }) {
     setLoading(false);
   }, []);
 
+  const fetchProviders = useCallback(async () => {
+    const data = await api.getProviders().catch(() => null);
+    setProviders(data?.providers || []);
+  }, []);
+
   useEffect(() => {
     fetchSchedule();
-  }, [fetchSchedule]);
+    fetchProviders();
+  }, [fetchSchedule, fetchProviders]);
 
   const handleUpdateSelfImprovement = async (taskType, settings) => {
     const result = await api.updateCosSelfImprovementInterval(taskType, settings).catch(err => {
@@ -376,6 +449,7 @@ export default function ScheduleTab({ apps }) {
         onTrigger={handleTriggerSelfImprovement}
         onReset={handleResetSelfImprovement}
         category="selfImprovement"
+        providers={providers}
       />
 
       <TaskTypeSection
@@ -390,6 +464,7 @@ export default function ScheduleTab({ apps }) {
         }}
         onReset={(taskType) => handleResetAppImprovement(taskType, null)}
         category="appImprovement"
+        providers={providers}
       />
 
       {schedule.lastUpdated && (

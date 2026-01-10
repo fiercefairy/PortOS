@@ -457,12 +457,14 @@ router.get('/schedule/self-improvement/:taskType', asyncHandler(async (req, res)
 // PUT /api/cos/schedule/self-improvement/:taskType - Update interval for self-improvement task
 router.put('/schedule/self-improvement/:taskType', asyncHandler(async (req, res) => {
   const { taskType } = req.params;
-  const { type, enabled, intervalMs } = req.body;
+  const { type, enabled, intervalMs, providerId, model } = req.body;
 
   const settings = {};
   if (type !== undefined) settings.type = type;
   if (enabled !== undefined) settings.enabled = enabled;
   if (intervalMs !== undefined) settings.intervalMs = intervalMs;
+  if (providerId !== undefined) settings.providerId = providerId;
+  if (model !== undefined) settings.model = model;
 
   const result = await taskSchedule.updateSelfImprovementInterval(taskType, settings);
   res.json({ success: true, taskType, interval: result });
@@ -478,12 +480,14 @@ router.get('/schedule/app-improvement/:taskType', asyncHandler(async (req, res) 
 // PUT /api/cos/schedule/app-improvement/:taskType - Update interval for app improvement task
 router.put('/schedule/app-improvement/:taskType', asyncHandler(async (req, res) => {
   const { taskType } = req.params;
-  const { type, enabled, intervalMs } = req.body;
+  const { type, enabled, intervalMs, providerId, model } = req.body;
 
   const settings = {};
   if (type !== undefined) settings.type = type;
   if (enabled !== undefined) settings.enabled = enabled;
   if (intervalMs !== undefined) settings.intervalMs = intervalMs;
+  if (providerId !== undefined) settings.providerId = providerId;
+  if (model !== undefined) settings.model = model;
 
   const result = await taskSchedule.updateAppImprovementInterval(taskType, settings);
   res.json({ success: true, taskType, interval: result });

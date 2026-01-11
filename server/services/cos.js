@@ -40,7 +40,7 @@ export const cosEvents = new EventEmitter();
  * @param {string} level - Log level: 'info', 'warn', 'error', 'success', 'debug'
  * @param {string} message - Log message
  * @param {Object} data - Additional data to include in log entry
- * @param {string} prefix - Optional prefix for console output (e.g., '[SelfImprovement]')
+ * @param {string} prefix - Optional prefix for console output (e.g., '🔧 SelfImprovement')
  */
 export function emitLog(level, message, data = {}, prefix = '') {
   const logEntry = {
@@ -49,7 +49,7 @@ export function emitLog(level, message, data = {}, prefix = '') {
     message,
     ...data
   };
-  const emoji = level === 'error' ? '❌' : level === 'warn' ? '⚠️' : level === 'success' ? '✅' : 'ℹ️';
+  const emoji = level === 'error' ? '❌' : level === 'warn' ? '⚠️' : level === 'success' ? '✅' : level === 'debug' ? '🔍' : 'ℹ️';
   const prefixStr = prefix ? ` ${prefix}` : '';
   console.log(`${emoji}${prefixStr} ${message}`);
   cosEvents.emit('log', logEntry);

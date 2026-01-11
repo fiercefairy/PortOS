@@ -684,11 +684,11 @@ export function initTaskLearning() {
     };
 
     await recordTaskCompletion(agent, task).catch(err => {
-      console.error(`❌ [TaskLearning] Failed to record completion: ${err.message}`);
+      console.error(`❌ 📚 TaskLearning: Failed to record completion: ${err.message}`);
     });
   });
 
-  emitLog('info', 'Task Learning System initialized', {}, '[TaskLearning]');
+  emitLog('info', 'Task Learning System initialized', {}, '📚 TaskLearning');
 }
 
 /**
@@ -714,6 +714,6 @@ export async function backfillFromHistory() {
     }
   }
 
-  emitLog('info', `Backfilled ${backfilled} completed tasks into learning system`, { backfilled }, '[TaskLearning]');
+  emitLog('info', `Backfilled ${backfilled} completed tasks into learning system`, { backfilled }, '📚 TaskLearning');
   return backfilled;
 }

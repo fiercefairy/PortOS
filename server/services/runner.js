@@ -570,7 +570,7 @@ export async function executeApiRun(runId, provider, model, prompt, workspacePat
 
       for (const line of lines) {
         const data = line.slice(6);
-        if (data === '[DONE]') continue;
+        if (data === '✅') continue;
 
         let parsed = null;
         try {

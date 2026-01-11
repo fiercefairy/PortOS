@@ -704,7 +704,7 @@ export async function updateSelfImprovementInterval(taskType, settings) {
   };
 
   await saveSchedule(schedule);
-  emitLog('info', `Updated self-improvement interval for ${taskType}`, { taskType, settings }, '[TaskSchedule]');
+  emitLog('info', `Updated self-improvement interval for ${taskType}`, { taskType, settings }, '📅 TaskSchedule');
   cosEvents.emit('schedule:changed', { category: 'selfImprovement', taskType, settings });
 
   return schedule.selfImprovement[taskType];
@@ -726,7 +726,7 @@ export async function updateAppImprovementInterval(taskType, settings) {
   };
 
   await saveSchedule(schedule);
-  emitLog('info', `Updated app improvement interval for ${taskType}`, { taskType, settings }, '[TaskSchedule]');
+  emitLog('info', `Updated app improvement interval for ${taskType}`, { taskType, settings }, '📅 TaskSchedule');
   cosEvents.emit('schedule:changed', { category: 'appImprovement', taskType, settings });
 
   return schedule.appImprovement[taskType];
@@ -1051,7 +1051,7 @@ export async function addTemplateTask(template) {
   schedule.templates.push(newTemplate);
   await saveSchedule(schedule);
 
-  emitLog('info', `Added template task: ${newTemplate.name}`, { templateId: newTemplate.id }, '[TaskSchedule]');
+  emitLog('info', `Added template task: ${newTemplate.name}`, { templateId: newTemplate.id }, '📅 TaskSchedule');
   return newTemplate;
 }
 
@@ -1077,7 +1077,7 @@ export async function deleteTemplateTask(templateId) {
   const deleted = schedule.templates.splice(index, 1)[0];
   await saveSchedule(schedule);
 
-  emitLog('info', `Deleted template task: ${deleted.name}`, { templateId }, '[TaskSchedule]');
+  emitLog('info', `Deleted template task: ${deleted.name}`, { templateId }, '📅 TaskSchedule');
   return { success: true, deleted };
 }
 
@@ -1105,7 +1105,7 @@ export async function triggerOnDemandTask(taskType, category = 'selfImprovement'
   schedule.onDemandRequests.push(request);
   await saveSchedule(schedule);
 
-  emitLog('info', `On-demand task requested: ${taskType}`, { category, appId }, '[TaskSchedule]');
+  emitLog('info', `On-demand task requested: ${taskType}`, { category, appId }, '📅 TaskSchedule');
   cosEvents.emit('task:on-demand-requested', request);
 
   return request;
@@ -1199,7 +1199,7 @@ export async function resetExecutionHistory(taskType, category = 'selfImprovemen
   }
 
   await saveSchedule(schedule);
-  emitLog('info', `Reset execution history for ${taskType}`, { category, appId }, '[TaskSchedule]');
+  emitLog('info', `Reset execution history for ${taskType}`, { category, appId }, '📅 TaskSchedule');
 
   return { success: true, taskType, appId };
 }

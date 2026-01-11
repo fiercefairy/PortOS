@@ -121,7 +121,7 @@ export async function generateWeeklyDigest(weekId = null) {
   const weekStart = getWeekStart(new Date());
   weekStart.setHours(0, 0, 0, 0);
 
-  emitLog('info', `Generating weekly digest for ${targetWeekId}`, { weekId: targetWeekId }, '[WeeklyDigest]');
+  emitLog('info', `Generating weekly digest for ${targetWeekId}`, { weekId: targetWeekId }, '📊 WeeklyDigest');
 
   // Get all agents
   const agents = await getAgents();

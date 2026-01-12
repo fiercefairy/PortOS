@@ -122,6 +122,46 @@ export function createPromptsService(config = {}) {
     },
 
     /**
+     * Create a new stage
+     */
+    async createStage(stageName, config, template = '') {
+      if (!stageConfig) await loadPrompts();
+      if (stageConfig.stages[stageName]) {
+        throw new Error(`Stage ${stageName} already exists`);
+      }
+      stageConfig.stages[stageName] = config;
+      await writeFile(join(PROMPTS_PATH, 'stage-config.json'), JSON.stringify(stageConfig, null, 2));
+
+      // Create template file
+      const stagesDir = join(PROMPTS_PATH, 'stages');
+      if (!existsSync(stagesDir)) await mkdir(stagesDir, { recursive: true });
+      await writeFile(join(stagesDir, `${stageName}.md`), template);
+
+      console.log(`✅ Created prompt stage: ${stageName}`);
+    },
+
+    /**
+     * Delete a stage
+     */
+    async deleteStage(stageName) {
+      if (!stageConfig) await loadPrompts();
+      if (!stageConfig.stages[stageName]) {
+        throw new Error(`Stage ${stageName} not found`);
+      }
+      delete stageConfig.stages[stageName];
+      await writeFile(join(PROMPTS_PATH, 'stage-config.json'), JSON.stringify(stageConfig, null, 2));
+
+      // Delete template file if it exists
+      const templatePath = join(PROMPTS_PATH, 'stages', `${stageName}.md`);
+      if (existsSync(templatePath)) {
+        const { unlink } = await import('fs/promises');
+        await unlink(templatePath);
+      }
+
+      console.log(`🗑️ Deleted prompt stage: ${stageName}`);
+    },
+
+    /**
      * Get all variables
      */
     getVariables() {

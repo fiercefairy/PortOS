@@ -36,6 +36,7 @@ import './services/subAgentSpawner.js'; // Initialize CoS agent spawner
 import { createAIToolkit } from '@portos/ai-toolkit/server';
 import { createPortOSProviderRoutes } from './routes/providers.js';
 import { createPortOSRunsRoutes } from './routes/runs.js';
+import { createPortOSPromptsRoutes } from './routes/prompts.js';
 import { setAIToolkit as setProvidersToolkit } from './services/providers.js';
 import { setAIToolkit as setRunnerToolkit } from './services/runner.js';
 import { setAIToolkit as setPromptsToolkit } from './services/promptService.js';
@@ -112,6 +113,11 @@ setProvidersToolkit(aiToolkit);
 setRunnerToolkit(aiToolkit);
 setPromptsToolkit(aiToolkit);
 
+// Initialize prompts service to load stage configurations
+aiToolkit.services.prompts.init().catch(err => {
+  console.error(`❌ Failed to initialize prompts: ${err.message}`);
+});
+
 // Initialize auto-fixer for error recovery
 initAutoFixer();
 
@@ -141,7 +147,7 @@ app.use('/api', scaffoldRoutes); // Also mount at /api for /api/templates
 // AI Toolkit routes with PortOS extensions
 app.use('/api/providers', createPortOSProviderRoutes(aiToolkit));
 app.use('/api/runs', createPortOSRunsRoutes(aiToolkit));
-app.use('/api/prompts', aiToolkit.routes.prompts);
+app.use('/api/prompts', createPortOSPromptsRoutes(aiToolkit));
 
 app.use('/api/history', historyRoutes);
 app.use('/api/commands', commandsRoutes);

@@ -35,6 +35,8 @@ export interface PromptsService {
   getStageTemplate(name: string): Promise<string | null>;
   updateStageTemplate(name: string, content: string): Promise<void>;
   updateStageConfig(name: string, config: any): Promise<void>;
+  createStage(stageName: string, config: any, template?: string): Promise<void>;
+  deleteStage(stageName: string): Promise<void>;
   getVariables(): Record<string, any>;
   getVariable(key: string): any | null;
   updateVariable(key: string, data: any): Promise<void>;

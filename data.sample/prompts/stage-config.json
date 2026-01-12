@@ -7,20 +7,6 @@
       "returnsJson": true,
       "variables": ["jsonOutputFormat", "appDetectionSchema", "portDetectionRules", "pm2NamingConvention"]
     },
-    "code-analysis": {
-      "name": "Code Analysis",
-      "description": "Analyze code structure and suggest improvements",
-      "model": "default",
-      "returnsJson": false,
-      "variables": []
-    },
-    "command-suggestion": {
-      "name": "Command Suggestion",
-      "description": "Suggest CLI commands based on context",
-      "model": "quick",
-      "returnsJson": false,
-      "variables": []
-    },
     "cos-agent-briefing": {
       "name": "CoS Agent Briefing",
       "description": "Brief a sub-agent on their assigned task",

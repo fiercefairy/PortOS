@@ -87,9 +87,53 @@ export function createPortOSPromptsRoutes(aiToolkit) {
     res.json({ success: true });
   }));
 
+  // GET /api/prompts/:stage/usage - Check if stage is in use
+  router.get('/:stage/usage', asyncHandler(async (req, res) => {
+    const stageName = req.params.stage;
+
+    // Known system stages that are referenced in code
+    const systemStages = {
+      'cos-agent-briefing': ['CoS sub-agent task briefing'],
+      'cos-evaluate': ['CoS task evaluation'],
+      'cos-report-summary': ['CoS daily reports'],
+      'cos-self-improvement': ['CoS self-improvement tasks'],
+      'brain-classifier': ['Brain thought classification'],
+      'brain-daily-digest': ['Brain daily digest generation'],
+      'brain-weekly-review': ['Brain weekly review generation'],
+      'memory-evaluate': ['Memory extraction from agent output'],
+      'app-detection': ['Project directory analysis']
+    };
+
+    const isSystemStage = stageName in systemStages;
+    const usedBy = systemStages[stageName] || [];
+
+    res.json({
+      isSystemStage,
+      usedBy,
+      canDelete: !isSystemStage,
+      warning: isSystemStage ? 'This is a system stage used by PortOS features. Deleting it may break functionality.' : null
+    });
+  }));
+
   // DELETE /api/prompts/:stage - Delete a stage
   router.delete('/:stage', asyncHandler(async (req, res) => {
-    await promptsService.deleteStage(req.params.stage);
+    const stageName = req.params.stage;
+
+    // Check if it's a system stage
+    const systemStages = [
+      'cos-agent-briefing', 'cos-evaluate', 'cos-report-summary', 'cos-self-improvement',
+      'brain-classifier', 'brain-daily-digest', 'brain-weekly-review',
+      'memory-evaluate', 'app-detection'
+    ];
+
+    if (systemStages.includes(stageName) && req.query.force !== 'true') {
+      throw new ServerError(
+        'Cannot delete system stage. This stage is used by PortOS features. Add ?force=true to delete anyway.',
+        { status: 400, code: 'SYSTEM_STAGE_PROTECTED' }
+      );
+    }
+
+    await promptsService.deleteStage(stageName);
     res.json({ success: true });
   }));
 

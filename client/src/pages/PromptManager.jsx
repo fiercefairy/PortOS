@@ -7,6 +7,13 @@ export default function PromptManager() {
   const [variables, setVariables] = useState({});
   const [loading, setLoading] = useState(true);
 
+  // System stages that are protected
+  const systemStages = [
+    'cos-agent-briefing', 'cos-evaluate', 'cos-report-summary', 'cos-self-improvement',
+    'brain-classifier', 'brain-daily-digest', 'brain-weekly-review',
+    'memory-evaluate', 'app-detection'
+  ];
+
   // Stage editing
   const [selectedStage, setSelectedStage] = useState(null);
   const [stageTemplate, setStageTemplate] = useState('');
@@ -135,12 +142,43 @@ export default function PromptManager() {
   };
 
   const deleteStage = async (stageName) => {
-    if (!confirm(`Delete stage "${stageName}"? This cannot be undone.`)) return;
-    await fetch(`/api/prompts/${stageName}`, { method: 'DELETE' });
-    if (selectedStage === stageName) {
-      setSelectedStage(null);
+    // Check if stage is in use
+    const usageRes = await fetch(`/api/prompts/${stageName}/usage`).then(r => r.json());
+
+    let confirmMessage = `Delete stage "${stageName}"?`;
+
+    if (usageRes.isSystemStage) {
+      confirmMessage = `⚠️ WARNING: "${stageName}" is a SYSTEM stage!\n\n` +
+        `Used by: ${usageRes.usedBy.join(', ')}\n\n` +
+        `Deleting this will break PortOS functionality.\n\n` +
+        `Are you SURE you want to delete it?`;
+    } else {
+      confirmMessage += `\n\nThis cannot be undone.`;
     }
-    await loadData();
+
+    if (!confirm(confirmMessage)) return;
+
+    try {
+      // System stages require force flag
+      const url = usageRes.isSystemStage
+        ? `/api/prompts/${stageName}?force=true`
+        : `/api/prompts/${stageName}`;
+
+      const res = await fetch(url, { method: 'DELETE' });
+
+      if (!res.ok) {
+        const error = await res.json();
+        alert(`Failed to delete: ${error.error || 'Unknown error'}`);
+        return;
+      }
+
+      if (selectedStage === stageName) {
+        setSelectedStage(null);
+      }
+      await loadData();
+    } catch (err) {
+      alert(`Failed to delete: ${err.message}`);
+    }
   };
 
   if (loading) {
@@ -213,7 +251,14 @@ export default function PromptManager() {
                     onClick={() => loadStage(name)}
                     className="flex-1 min-w-0 text-left"
                   >
-                    <div className="font-medium truncate">{config.name || name}</div>
+                    <div className="flex items-center gap-1">
+                      <span className="font-medium truncate">{config.name || name}</span>
+                      {systemStages.includes(name) && (
+                        <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 bg-port-accent/20 text-port-accent rounded uppercase font-semibold">
+                          System
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-gray-500 truncate">{config.description}</div>
                   </button>
                   <button

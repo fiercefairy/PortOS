@@ -203,7 +203,7 @@ export default function PromptManager() {
               {Object.entries(stages).map(([name, config]) => (
                 <div
                   key={name}
-                  className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm ${
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
                     selectedStage === name
                       ? 'bg-port-accent/20 text-port-accent'
                       : 'text-gray-300 hover:bg-port-border'
@@ -211,14 +211,14 @@ export default function PromptManager() {
                 >
                   <button
                     onClick={() => loadStage(name)}
-                    className="flex-1 text-left"
+                    className="flex-1 min-w-0 text-left"
                   >
-                    <div className="font-medium">{config.name || name}</div>
+                    <div className="font-medium truncate">{config.name || name}</div>
                     <div className="text-xs text-gray-500 truncate">{config.description}</div>
                   </button>
                   <button
                     onClick={() => deleteStage(name)}
-                    className="p-1 text-gray-500 hover:text-port-error"
+                    className="flex-shrink-0 p-1 text-gray-500 hover:text-port-error"
                     title="Delete stage"
                   >
                     <Trash2 size={14} />

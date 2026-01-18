@@ -649,18 +649,18 @@ export async function spawnAgentForTask(task) {
   // Mark the task as in_progress to prevent re-spawning
   await updateTask(task.id, { status: 'in_progress' }, task.taskType || 'user');
 
-  // Spawn the Claude CLI process using full path for PM2 compatibility
-  const claudePath = process.env.CLAUDE_PATH || '/Users/antic/.nvm/versions/node/v25.2.1/bin/claude';
+  // Build CLI-specific spawn configuration
+  const cliConfig = buildCliSpawnConfig(provider, selectedModel);
 
-  emitLog('success', `Spawning agent for task ${task.id}`, { agentId, model: selectedModel, mode: useRunner ? 'runner' : 'direct' });
+  emitLog('success', `Spawning agent for task ${task.id}`, { agentId, model: selectedModel, mode: useRunner ? 'runner' : 'direct', cli: cliConfig.command });
 
   // Use CoS Runner if available, otherwise spawn directly
   if (useRunner) {
-    return spawnViaRunner(agentId, task, prompt, workspacePath, selectedModel, provider, runId, claudePath);
+    return spawnViaRunner(agentId, task, prompt, workspacePath, selectedModel, provider, runId, cliConfig);
   }
 
   // Direct spawn mode (fallback)
-  return spawnDirectly(agentId, task, prompt, workspacePath, selectedModel, provider, runId, claudePath, agentDir);
+  return spawnDirectly(agentId, task, prompt, workspacePath, selectedModel, provider, runId, cliConfig, agentDir);
 }
 
 /**
@@ -697,7 +697,7 @@ async function waitForRunnerStability() {
 /**
  * Spawn agent via CoS Runner (isolated PM2 process)
  */
-async function spawnViaRunner(agentId, task, prompt, workspacePath, model, provider, runId, claudePath) {
+async function spawnViaRunner(agentId, task, prompt, workspacePath, model, provider, runId, cliConfig) {
   // Wait for runner to be stable to prevent orphaned agents during rolling restarts
   await waitForRunnerStability();
 
@@ -730,7 +730,8 @@ async function spawnViaRunner(agentId, task, prompt, workspacePath, model, provi
     workspacePath,
     model,
     envVars: provider.envVars,
-    claudePath
+    cliCommand: cliConfig.command,
+    cliArgs: cliConfig.args
   });
 
   // Store PID in persisted state for zombie detection
@@ -796,14 +797,13 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
 /**
  * Spawn agent directly (fallback when runner not available)
  */
-async function spawnDirectly(agentId, task, prompt, workspacePath, model, provider, runId, claudePath, agentDir) {
-  const spawnArgs = buildSpawnArgs(null, model);
-  const fullCommand = `${claudePath} ${spawnArgs.join(' ')} <<< "${(task.description || '').substring(0, 100)}..."`;
+async function spawnDirectly(agentId, task, prompt, workspacePath, model, provider, runId, cliConfig, agentDir) {
+  const fullCommand = `${cliConfig.command} ${cliConfig.args.join(' ')} <<< "${(task.description || '').substring(0, 100)}..."`;
 
   // Ensure workspacePath is valid
   const cwd = workspacePath && typeof workspacePath === 'string' ? workspacePath : ROOT_DIR;
 
-  const claudeProcess = spawn(claudePath, spawnArgs, {
+  const claudeProcess = spawn(cliConfig.command, cliConfig.args, {
     cwd,
     shell: false,
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -920,7 +920,44 @@ async function spawnDirectly(agentId, task, prompt, workspacePath, model, provid
 }
 
 /**
+ * Build spawn command and arguments for a CLI provider
+ * Returns { command, args, stdinMode } based on provider type
+ */
+function buildCliSpawnConfig(provider, model) {
+  const providerId = provider?.id || 'claude-code';
+
+  // Codex CLI uses different invocation pattern
+  if (providerId === 'codex') {
+    const args = ['exec'];
+    if (model) {
+      args.push('--model', model);
+    }
+    return {
+      command: provider?.command || 'codex',
+      args,
+      stdinMode: 'prompt' // codex exec reads prompt from stdin
+    };
+  }
+
+  // Default: Claude Code CLI
+  const args = [
+    '--dangerously-skip-permissions', // Unrestricted mode
+    '--print',                          // Print output and exit
+  ];
+  if (model) {
+    args.push('--model', model);
+  }
+
+  return {
+    command: process.env.CLAUDE_PATH || '/Users/antic/.nvm/versions/node/v25.2.1/bin/claude',
+    args,
+    stdinMode: 'prompt'
+  };
+}
+
+/**
  * Build spawn arguments for Claude CLI
+ * @deprecated Use buildCliSpawnConfig instead
  */
 function buildSpawnArgs(config, model) {
   // Note: MCP server config via --mcp-config requires a file path, not inline JSON

@@ -205,6 +205,10 @@ app.post('/spawn', async (req, res) => {
     workspacePath,
     model,
     envVars = {},
+    // New: CLI-agnostic parameters
+    cliCommand,
+    cliArgs,
+    // Legacy: Claude-specific (deprecated)
     claudePath = '/Users/antic/.nvm/versions/node/v25.2.1/bin/claude'
   } = req.body;
 
@@ -212,23 +216,30 @@ app.post('/spawn', async (req, res) => {
     return res.status(400).json({ error: 'Missing required fields: agentId, taskId, prompt' });
   }
 
-  // Build spawn arguments
-  const spawnArgs = [
-    '--dangerously-skip-permissions',
-    '--print'
-  ];
-
-  if (model) {
-    spawnArgs.push('--model', model);
+  // Use new CLI params if provided, otherwise fallback to legacy Claude defaults
+  let command, spawnArgs;
+  if (cliCommand && cliArgs) {
+    command = cliCommand;
+    spawnArgs = cliArgs;
+  } else {
+    // Legacy: Claude-specific args
+    command = claudePath;
+    spawnArgs = [
+      '--dangerously-skip-permissions',
+      '--print'
+    ];
+    if (model) {
+      spawnArgs.push('--model', model);
+    }
   }
 
-  console.log(`🤖 Spawning agent ${agentId} for task ${taskId}`);
+  console.log(`🤖 Spawning agent ${agentId} for task ${taskId} (CLI: ${command})`);
 
   // Ensure workspacePath is valid
   const cwd = workspacePath && typeof workspacePath === 'string' ? workspacePath : ROOT_DIR;
 
-  // Spawn the Claude CLI process
-  const claudeProcess = spawn(claudePath, spawnArgs, {
+  // Spawn the CLI process
+  const claudeProcess = spawn(command, spawnArgs, {
     cwd,
     shell: false,
     stdio: ['pipe', 'pipe', 'pipe'],

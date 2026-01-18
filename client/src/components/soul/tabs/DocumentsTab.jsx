@@ -10,7 +10,8 @@ import {
   Check,
   ToggleLeft,
   ToggleRight,
-  Scale
+  Scale,
+  ArrowLeft
 } from 'lucide-react';
 import * as api from '../../../services/api';
 import toast from 'react-hot-toast';
@@ -119,21 +120,21 @@ export default function DocumentsTab({ onRefresh }) {
   }
 
   return (
-    <div className="flex h-full gap-4">
+    <div className="flex flex-col lg:flex-row h-full gap-4">
       {/* Document List Sidebar */}
-      <div className="w-72 flex-shrink-0 bg-port-card rounded-lg border border-port-border overflow-hidden flex flex-col">
+      <div className={`${selectedDoc ? 'hidden lg:flex' : 'flex'} w-full lg:w-72 flex-shrink-0 bg-port-card rounded-lg border border-port-border overflow-hidden flex-col`}>
         <div className="p-3 border-b border-port-border flex items-center justify-between">
           <h3 className="font-medium text-white">Documents</h3>
           <button
             onClick={() => setShowCreate(true)}
-            className="p-1.5 text-gray-400 hover:text-white transition-colors"
+            className="p-2 min-h-[40px] min-w-[40px] flex items-center justify-center text-gray-400 hover:text-white transition-colors"
             title="Create document"
           >
             <Plus size={18} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto max-h-[50vh] lg:max-h-none">
           {documents.length === 0 ? (
             <div className="p-4 text-center text-gray-500">
               No documents yet
@@ -152,7 +153,7 @@ export default function DocumentsTab({ onRefresh }) {
                     <button
                       key={doc.id}
                       onClick={() => loadDocument(doc.id)}
-                      className={`w-full px-3 py-2 text-left hover:bg-port-border transition-colors ${
+                      className={`w-full px-3 py-3 min-h-[44px] text-left hover:bg-port-border transition-colors ${
                         selectedDoc?.id === doc.id ? 'bg-port-accent/10 border-l-2 border-port-accent' : ''
                       }`}
                     >
@@ -175,82 +176,107 @@ export default function DocumentsTab({ onRefresh }) {
       </div>
 
       {/* Document Editor */}
-      <div className="flex-1 bg-port-card rounded-lg border border-port-border overflow-hidden flex flex-col">
+      <div className={`${selectedDoc ? 'flex' : 'hidden lg:flex'} flex-1 bg-port-card rounded-lg border border-port-border overflow-hidden flex-col`}>
         {selectedDoc ? (
           <>
             {/* Editor Header */}
-            <div className="p-3 border-b border-port-border flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <h3 className="font-medium text-white">{selectedDoc.title}</h3>
-                <span className={`text-xs px-2 py-0.5 rounded ${DOCUMENT_CATEGORIES[selectedDoc.category]?.color}`}>
-                  {DOCUMENT_CATEGORIES[selectedDoc.category]?.label}
-                </span>
-                {selectedDoc.version && (
-                  <span className="text-xs text-gray-500">v{selectedDoc.version}</span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {/* Weight Control */}
-                <div className="flex items-center gap-2 px-2 py-1 bg-port-bg rounded border border-port-border" title="Document weight (1-10): Higher weight = included first when truncating">
-                  <Scale size={14} className="text-gray-500" />
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={selectedDoc.weight || 5}
-                    onChange={(e) => handleWeightChange(selectedDoc, parseInt(e.target.value))}
-                    className="w-16 h-1 accent-port-accent"
-                  />
-                  <span className="text-xs text-gray-400 w-4">{selectedDoc.weight || 5}</span>
+            <div className="p-3 border-b border-port-border">
+              {/* Top row with back button and actions */}
+              <div className="flex items-center justify-between gap-2 mb-2 lg:mb-0">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  {/* Back button for mobile */}
+                  <button
+                    onClick={() => setSelectedDoc(null)}
+                    className="lg:hidden p-2 min-h-[40px] min-w-[40px] flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+                    title="Back to list"
+                  >
+                    <ArrowLeft size={18} />
+                  </button>
+                  <h3 className="font-medium text-white truncate">{selectedDoc.title}</h3>
+                  <span className={`hidden sm:inline text-xs px-2 py-0.5 rounded flex-shrink-0 ${DOCUMENT_CATEGORIES[selectedDoc.category]?.color}`}>
+                    {DOCUMENT_CATEGORIES[selectedDoc.category]?.label}
+                  </span>
+                  {selectedDoc.version && (
+                    <span className="hidden sm:inline text-xs text-gray-500 flex-shrink-0">v{selectedDoc.version}</span>
+                  )}
                 </div>
-                <button
-                  onClick={() => handleToggleEnabled(selectedDoc, !selectedDoc.enabled)}
-                  className={`p-1.5 transition-colors ${
-                    selectedDoc.enabled ? 'text-green-400' : 'text-gray-500'
-                  }`}
-                  title={selectedDoc.enabled ? 'Disable for CoS injection' : 'Enable for CoS injection'}
-                >
-                  {selectedDoc.enabled ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
-                </button>
-                {editMode ? (
-                  <>
-                    <button
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="p-1.5 text-green-400 hover:text-green-300 transition-colors disabled:opacity-50"
-                      title="Save"
-                    >
-                      <Save size={18} />
-                    </button>
-                    <button
-                      onClick={() => {
-                        setEditContent(selectedDoc.content);
-                        setEditMode(false);
-                      }}
-                      className="p-1.5 text-gray-400 hover:text-white transition-colors"
-                      title="Cancel"
-                    >
-                      <X size={18} />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => setEditMode(true)}
-                      className="p-1.5 text-gray-400 hover:text-white transition-colors"
-                      title="Edit"
-                    >
-                      <Edit2 size={18} />
-                    </button>
-                    <button
-                      onClick={() => setDeleteConfirm(selectedDoc.id)}
-                      className="p-1.5 text-gray-400 hover:text-red-400 transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </>
-                )}
+                <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                  {/* Weight Control - hidden on mobile */}
+                  <div className="hidden md:flex items-center gap-2 px-2 py-1 bg-port-bg rounded border border-port-border" title="Document weight (1-10): Higher weight = included first when truncating">
+                    <Scale size={14} className="text-gray-500" />
+                    <input
+                      type="range"
+                      min="1"
+                      max="10"
+                      value={selectedDoc.weight || 5}
+                      onChange={(e) => handleWeightChange(selectedDoc, parseInt(e.target.value))}
+                      className="w-16 h-1 accent-port-accent"
+                    />
+                    <span className="text-xs text-gray-400 w-4">{selectedDoc.weight || 5}</span>
+                  </div>
+                  <button
+                    onClick={() => handleToggleEnabled(selectedDoc, !selectedDoc.enabled)}
+                    className={`p-2 min-h-[40px] min-w-[40px] flex items-center justify-center transition-colors ${
+                      selectedDoc.enabled ? 'text-green-400' : 'text-gray-500'
+                    }`}
+                    title={selectedDoc.enabled ? 'Disable for CoS injection' : 'Enable for CoS injection'}
+                  >
+                    {selectedDoc.enabled ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                  </button>
+                  {editMode ? (
+                    <>
+                      <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="p-2 min-h-[40px] min-w-[40px] flex items-center justify-center text-green-400 hover:text-green-300 transition-colors disabled:opacity-50"
+                        title="Save"
+                      >
+                        <Save size={18} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditContent(selectedDoc.content);
+                          setEditMode(false);
+                        }}
+                        className="p-2 min-h-[40px] min-w-[40px] flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+                        title="Cancel"
+                      >
+                        <X size={18} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setEditMode(true)}
+                        className="p-2 min-h-[40px] min-w-[40px] flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+                        title="Edit"
+                      >
+                        <Edit2 size={18} />
+                      </button>
+                      <button
+                        onClick={() => setDeleteConfirm(selectedDoc.id)}
+                        className="p-2 min-h-[40px] min-w-[40px] flex items-center justify-center text-gray-400 hover:text-red-400 transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+              {/* Mobile weight control row */}
+              <div className="flex md:hidden items-center gap-2 mt-2 pt-2 border-t border-port-border">
+                <Scale size={14} className="text-gray-500" />
+                <span className="text-xs text-gray-400">Weight:</span>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={selectedDoc.weight || 5}
+                  onChange={(e) => handleWeightChange(selectedDoc, parseInt(e.target.value))}
+                  className="flex-1 h-1 accent-port-accent"
+                />
+                <span className="text-xs text-gray-400 w-4">{selectedDoc.weight || 5}</span>
               </div>
             </div>
 
@@ -282,8 +308,8 @@ export default function DocumentsTab({ onRefresh }) {
 
       {/* Create Document Modal */}
       {showCreate && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-port-card rounded-lg border border-port-border w-full max-w-lg p-6">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-port-card rounded-lg border border-port-border w-full max-w-lg p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-semibold text-white mb-4">Create Soul Document</h2>
 
             <div className="space-y-4">
@@ -294,7 +320,7 @@ export default function DocumentsTab({ onRefresh }) {
                   value={newDoc.filename}
                   onChange={(e) => setNewDoc({ ...newDoc, filename: e.target.value })}
                   placeholder="DOCUMENT_NAME.md"
-                  className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white"
+                  className="w-full px-3 py-3 min-h-[44px] bg-port-bg border border-port-border rounded-lg text-white"
                 />
               </div>
 
@@ -305,7 +331,7 @@ export default function DocumentsTab({ onRefresh }) {
                   value={newDoc.title}
                   onChange={(e) => setNewDoc({ ...newDoc, title: e.target.value })}
                   placeholder="Document title"
-                  className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white"
+                  className="w-full px-3 py-3 min-h-[44px] bg-port-bg border border-port-border rounded-lg text-white"
                 />
               </div>
 
@@ -314,7 +340,7 @@ export default function DocumentsTab({ onRefresh }) {
                 <select
                   value={newDoc.category}
                   onChange={(e) => setNewDoc({ ...newDoc, category: e.target.value })}
-                  className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white"
+                  className="w-full px-3 py-3 min-h-[44px] bg-port-bg border border-port-border rounded-lg text-white"
                 >
                   {Object.entries(DOCUMENT_CATEGORIES).map(([key, config]) => (
                     <option key={key} value={key}>{config.label}</option>
@@ -328,26 +354,26 @@ export default function DocumentsTab({ onRefresh }) {
                   value={newDoc.content}
                   onChange={(e) => setNewDoc({ ...newDoc, content: e.target.value })}
                   placeholder="# Document Title&#10;&#10;Content here..."
-                  rows={10}
-                  className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white font-mono text-sm"
+                  rows={8}
+                  className="w-full px-3 py-3 bg-port-bg border border-port-border rounded-lg text-white font-mono text-sm"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 mt-6">
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-6">
               <button
                 onClick={() => {
                   setShowCreate(false);
                   setNewDoc({ filename: '', title: '', category: 'core', content: '' });
                 }}
-                className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                className="px-4 py-3 min-h-[44px] text-gray-400 hover:text-white transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreate}
                 disabled={saving}
-                className="px-4 py-2 bg-port-accent text-white rounded-lg hover:bg-port-accent/80 disabled:opacity-50"
+                className="px-4 py-3 min-h-[44px] bg-port-accent text-white rounded-lg hover:bg-port-accent/80 disabled:opacity-50"
               >
                 {saving ? 'Creating...' : 'Create'}
               </button>
@@ -358,22 +384,22 @@ export default function DocumentsTab({ onRefresh }) {
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-port-card rounded-lg border border-port-border p-6 max-w-md">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-port-card rounded-lg border border-port-border p-4 sm:p-6 w-full max-w-md">
             <h2 className="text-lg font-semibold text-white mb-2">Delete Document?</h2>
             <p className="text-gray-400 mb-6">
               This action cannot be undone. The document will be permanently deleted.
             </p>
-            <div className="flex justify-end gap-3">
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                className="px-4 py-3 min-h-[44px] text-gray-400 hover:text-white transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleDelete(deleteConfirm)}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                className="px-4 py-3 min-h-[44px] bg-red-500 text-white rounded-lg hover:bg-red-600"
               >
                 Delete
               </button>

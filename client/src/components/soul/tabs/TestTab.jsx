@@ -163,7 +163,7 @@ export default function TestTab({ onRefresh }) {
   return (
     <div className="space-y-6">
       {/* Configuration */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Provider Selection */}
         <div className="bg-port-card rounded-lg border border-port-border p-4">
           <h3 className="font-semibold text-white mb-4">Select Providers & Models</h3>
@@ -180,7 +180,7 @@ export default function TestTab({ onRefresh }) {
                       <button
                         key={model}
                         onClick={() => toggleProvider(provider.id, model)}
-                        className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                        className={`px-3 py-2 min-h-[40px] text-sm rounded-lg border transition-colors ${
                           isSelected
                             ? 'bg-port-accent/20 border-port-accent text-port-accent'
                             : 'border-port-border text-gray-400 hover:text-white hover:border-gray-500'
@@ -200,32 +200,32 @@ export default function TestTab({ onRefresh }) {
         <div className="bg-port-card rounded-lg border border-port-border p-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-white">Select Tests ({selectedTests.length}/{tests.length})</h3>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <button
                 onClick={() => setSelectedTests(tests.map(t => t.testId))}
-                className="text-xs text-port-accent hover:text-white"
+                className="text-xs py-1 px-2 min-h-[32px] text-port-accent hover:text-white"
               >
                 All
               </button>
               <button
                 onClick={() => setSelectedTests([])}
-                className="text-xs text-gray-500 hover:text-white"
+                className="text-xs py-1 px-2 min-h-[32px] text-gray-500 hover:text-white"
               >
                 None
               </button>
             </div>
           </div>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
+          <div className="space-y-1 max-h-64 overflow-y-auto">
             {tests.map(test => (
               <label
                 key={test.testId}
-                className="flex items-center gap-3 p-2 rounded hover:bg-port-border cursor-pointer"
+                className="flex items-center gap-3 p-2 min-h-[44px] rounded hover:bg-port-border cursor-pointer"
               >
                 <input
                   type="checkbox"
                   checked={selectedTests.includes(test.testId)}
                   onChange={() => toggleTest(test.testId)}
-                  className="w-4 h-4 rounded border-port-border bg-port-bg text-port-accent focus:ring-port-accent"
+                  className="w-5 h-5 rounded border-port-border bg-port-bg text-port-accent focus:ring-port-accent"
                 />
                 <span className="text-sm text-white">
                   {test.testId}. {test.testName}
@@ -237,11 +237,11 @@ export default function TestTab({ onRefresh }) {
       </div>
 
       {/* Run Button */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
         <button
           onClick={runTests}
           disabled={running || selectedProviders.length === 0}
-          className="flex items-center gap-2 px-6 py-3 bg-port-accent text-white rounded-lg font-medium hover:bg-port-accent/80 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center justify-center gap-2 px-6 py-3 min-h-[48px] bg-port-accent text-white rounded-lg font-medium hover:bg-port-accent/80 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {running ? (
             <>
@@ -259,7 +259,7 @@ export default function TestTab({ onRefresh }) {
         <button
           onClick={generateTests}
           disabled={generating || selectedProviders.length === 0}
-          className="flex items-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center justify-center gap-2 px-4 py-3 min-h-[48px] bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {generating ? (
             <>
@@ -275,7 +275,7 @@ export default function TestTab({ onRefresh }) {
         </button>
 
         {selectedProviders.length > 0 && (
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-gray-500 text-center sm:text-left">
             Testing against {selectedProviders.length} model{selectedProviders.length > 1 ? 's' : ''}
           </span>
         )}
@@ -317,7 +317,7 @@ export default function TestTab({ onRefresh }) {
                 <div className="text-sm text-gray-300 mb-3">
                   <span className="text-gray-500">Prompt:</span> "{test.prompt}"
                 </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
                   <div>
                     <div className="text-green-400 text-xs mb-1">Expected Behavior</div>
                     <div className="text-gray-400">{test.expectedBehavior}</div>
@@ -346,8 +346,8 @@ export default function TestTab({ onRefresh }) {
           </div>
 
           {/* Results Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <table className="w-full min-w-[500px]">
               <thead>
                 <tr className="border-b border-port-border">
                   <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">Test</th>

@@ -110,7 +110,7 @@ export default function OverviewTab({ status, settings, onRefresh }) {
           When loaded into an LLM, it creates a digital twin that thinks and responds like you.
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full mb-8">
           <div className="p-4 bg-port-card rounded-lg border border-port-border">
             <FileText className="w-8 h-8 text-purple-400 mb-3" />
             <h3 className="font-semibold text-white mb-2">Core Identity</h3>
@@ -128,22 +128,22 @@ export default function OverviewTab({ status, settings, onRefresh }) {
           </div>
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <button
             onClick={() => setShowWizard(true)}
-            className="px-6 py-3 bg-port-accent text-white rounded-lg font-medium hover:bg-port-accent/80 transition-colors"
+            className="px-6 py-3 min-h-[44px] bg-port-accent text-white rounded-lg font-medium hover:bg-port-accent/80 transition-colors"
           >
             Start Wizard
           </button>
           <button
             onClick={() => navigate('/soul/enrich')}
-            className="px-6 py-3 bg-port-card text-white rounded-lg font-medium border border-port-border hover:bg-port-border transition-colors"
+            className="px-6 py-3 min-h-[44px] bg-port-card text-white rounded-lg font-medium border border-port-border hover:bg-port-border transition-colors"
           >
             Start Enrichment
           </button>
           <button
             onClick={() => navigate('/soul/documents')}
-            className="px-6 py-3 bg-port-card text-white rounded-lg font-medium border border-port-border hover:bg-port-border transition-colors"
+            className="px-6 py-3 min-h-[44px] bg-port-card text-white rounded-lg font-medium border border-port-border hover:bg-port-border transition-colors"
           >
             Create Document
           </button>
@@ -160,16 +160,16 @@ export default function OverviewTab({ status, settings, onRefresh }) {
           <h2 className="text-lg font-semibold text-white">Soul Health</h2>
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className="p-2 text-gray-400 hover:text-white transition-colors"
+            className="p-2 min-h-[40px] min-w-[40px] flex items-center justify-center text-gray-400 hover:text-white transition-colors"
             title="Settings"
           >
             <Settings size={20} />
           </button>
         </div>
 
-        <div className="flex items-center gap-6">
-          <div className="relative w-32 h-32">
-            <svg className="w-full h-full transform -rotate-90">
+        <div className="flex flex-col sm:flex-row items-center gap-6">
+          <div className="relative w-28 h-28 sm:w-32 sm:h-32 flex-shrink-0">
+            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 128 128">
               <circle
                 cx="64"
                 cy="64"
@@ -192,7 +192,7 @@ export default function OverviewTab({ status, settings, onRefresh }) {
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className={`text-3xl font-bold ${getHealthColor(status.healthScore)}`}>
+              <span className={`text-2xl sm:text-3xl font-bold ${getHealthColor(status.healthScore)}`}>
                 {status.healthScore}%
               </span>
               <span className="text-xs text-gray-500">
@@ -201,22 +201,22 @@ export default function OverviewTab({ status, settings, onRefresh }) {
             </div>
           </div>
 
-          <div className="flex-1 grid grid-cols-3 gap-4">
-            <div>
-              <div className="text-2xl font-bold text-white">{status.enabledDocuments}</div>
-              <div className="text-sm text-gray-500">Active Documents</div>
+          <div className="flex-1 grid grid-cols-3 gap-2 sm:gap-4 w-full">
+            <div className="text-center sm:text-left">
+              <div className="text-xl sm:text-2xl font-bold text-white">{status.enabledDocuments}</div>
+              <div className="text-xs sm:text-sm text-gray-500">Active Docs</div>
             </div>
-            <div>
-              <div className="text-2xl font-bold text-white">
+            <div className="text-center sm:text-left">
+              <div className="text-xl sm:text-2xl font-bold text-white">
                 {status.enrichmentProgress?.completedCategories || 0}/{status.enrichmentProgress?.totalCategories || 10}
               </div>
-              <div className="text-sm text-gray-500">Enriched Categories</div>
+              <div className="text-xs sm:text-sm text-gray-500">Enriched</div>
             </div>
-            <div>
-              <div className="text-2xl font-bold text-white">
+            <div className="text-center sm:text-left">
+              <div className="text-xl sm:text-2xl font-bold text-white">
                 {status.lastTestRun ? `${Math.round(status.lastTestRun.score * 100)}%` : '—'}
               </div>
-              <div className="text-sm text-gray-500">Last Test Score</div>
+              <div className="text-xs sm:text-sm text-gray-500">Test Score</div>
             </div>
           </div>
         </div>
@@ -350,14 +350,14 @@ export default function OverviewTab({ status, settings, onRefresh }) {
           Use AI to detect contradictions or inconsistencies between your soul documents.
         </p>
 
-        <div className="flex items-center gap-4 mb-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 mb-4">
           <select
             value={selectedProvider ? `${selectedProvider.providerId}:${selectedProvider.model}` : ''}
             onChange={(e) => {
               const [providerId, model] = e.target.value.split(':');
               setSelectedProvider({ providerId, model });
             }}
-            className="px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white text-sm"
+            className="px-3 py-3 min-h-[44px] bg-port-bg border border-port-border rounded-lg text-white text-sm"
           >
             {providers.map(p => (
               (p.models || [p.defaultModel]).filter(Boolean).map(model => (
@@ -371,7 +371,7 @@ export default function OverviewTab({ status, settings, onRefresh }) {
           <button
             onClick={checkContradictions}
             disabled={checkingContradictions}
-            className="px-4 py-2 bg-port-accent text-white rounded-lg text-sm hover:bg-port-accent/80 disabled:opacity-50 flex items-center gap-2"
+            className="px-4 py-3 min-h-[44px] bg-port-accent text-white rounded-lg text-sm hover:bg-port-accent/80 disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {checkingContradictions ? (
               <>
@@ -423,9 +423,9 @@ export default function OverviewTab({ status, settings, onRefresh }) {
       </div>
 
       {/* Document Categories */}
-      <div className="bg-port-card rounded-lg border border-port-border p-6">
+      <div className="bg-port-card rounded-lg border border-port-border p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-white mb-4">Documents by Category</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           {Object.entries(DOCUMENT_CATEGORIES).map(([key, config]) => {
             const count = status.documentsByCategory?.[key] || 0;
             const Icon = config.icon;
@@ -447,17 +447,17 @@ export default function OverviewTab({ status, settings, onRefresh }) {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <button
           onClick={() => navigate('/soul/test')}
-          className="flex items-center gap-4 p-4 bg-port-card rounded-lg border border-port-border hover:border-port-accent transition-colors"
+          className="flex items-center gap-3 sm:gap-4 p-4 min-h-[72px] bg-port-card rounded-lg border border-port-border hover:border-port-accent transition-colors"
         >
-          <div className="p-3 rounded-lg bg-green-500/20">
-            <Play className="w-6 h-6 text-green-400" />
+          <div className="p-2.5 sm:p-3 rounded-lg bg-green-500/20 flex-shrink-0">
+            <Play className="w-5 h-5 sm:w-6 sm:h-6 text-green-400" />
           </div>
-          <div className="text-left">
+          <div className="text-left min-w-0">
             <div className="font-medium text-white">Run Tests</div>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-gray-500 truncate">
               {status.lastTestRun
                 ? `Last: ${formatRelativeTime(status.lastTestRun.timestamp)}`
                 : 'Test behavioral alignment'}
@@ -467,14 +467,14 @@ export default function OverviewTab({ status, settings, onRefresh }) {
 
         <button
           onClick={() => navigate('/soul/enrich')}
-          className="flex items-center gap-4 p-4 bg-port-card rounded-lg border border-port-border hover:border-port-accent transition-colors"
+          className="flex items-center gap-3 sm:gap-4 p-4 min-h-[72px] bg-port-card rounded-lg border border-port-border hover:border-port-accent transition-colors"
         >
-          <div className="p-3 rounded-lg bg-yellow-500/20">
-            <Sparkles className="w-6 h-6 text-yellow-400" />
+          <div className="p-2.5 sm:p-3 rounded-lg bg-yellow-500/20 flex-shrink-0">
+            <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400" />
           </div>
-          <div className="text-left">
+          <div className="text-left min-w-0">
             <div className="font-medium text-white">Enrich Soul</div>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-gray-500 truncate">
               {status.enrichmentProgress?.completedCategories || 0} categories complete
             </div>
           </div>
@@ -482,25 +482,25 @@ export default function OverviewTab({ status, settings, onRefresh }) {
 
         <button
           onClick={() => navigate('/soul/export')}
-          className="flex items-center gap-4 p-4 bg-port-card rounded-lg border border-port-border hover:border-port-accent transition-colors"
+          className="flex items-center gap-3 sm:gap-4 p-4 min-h-[72px] bg-port-card rounded-lg border border-port-border hover:border-port-accent transition-colors"
         >
-          <div className="p-3 rounded-lg bg-blue-500/20">
-            <Download className="w-6 h-6 text-blue-400" />
+          <div className="p-2.5 sm:p-3 rounded-lg bg-blue-500/20 flex-shrink-0">
+            <Download className="w-5 h-5 sm:w-6 sm:h-6 text-blue-400" />
           </div>
-          <div className="text-left">
+          <div className="text-left min-w-0">
             <div className="font-medium text-white">Export Soul</div>
-            <div className="text-sm text-gray-500">Download for external LLMs</div>
+            <div className="text-sm text-gray-500 truncate">Download for external LLMs</div>
           </div>
         </button>
       </div>
 
       {/* Last Test Result */}
       {status.lastTestRun && (
-        <div className="bg-port-card rounded-lg border border-port-border p-6">
+        <div className="bg-port-card rounded-lg border border-port-border p-4 sm:p-6">
           <h2 className="text-lg font-semibold text-white mb-4">Latest Test Run</h2>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className={`text-3xl font-bold ${
+              <div className={`text-2xl sm:text-3xl font-bold ${
                 status.lastTestRun.score >= 0.8 ? 'text-green-400' :
                 status.lastTestRun.score >= 0.5 ? 'text-yellow-400' : 'text-red-400'
               }`}>
@@ -510,14 +510,14 @@ export default function OverviewTab({ status, settings, onRefresh }) {
                 <div className="text-white font-medium">
                   {status.lastTestRun.passed}/{status.lastTestRun.total} tests passed
                 </div>
-                <div className="text-sm text-gray-500">
+                <div className="text-xs sm:text-sm text-gray-500">
                   Model: {status.lastTestRun.model} • {formatRelativeTime(status.lastTestRun.timestamp)}
                 </div>
               </div>
             </div>
             <button
               onClick={() => navigate('/soul/test')}
-              className="px-4 py-2 text-sm text-port-accent hover:text-white transition-colors"
+              className="px-4 py-2 min-h-[40px] text-sm text-port-accent hover:text-white transition-colors"
             >
               View Details
             </button>

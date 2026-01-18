@@ -194,24 +194,24 @@ export default function EnrichTab({ onRefresh }) {
     const Icon = categoryConfig?.icon || Sparkles;
 
     return (
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto px-1">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6 sm:mb-8">
           <button
             onClick={exitCategory}
-            className="flex items-center gap-2 text-gray-400 hover:text-white mb-4"
+            className="flex items-center gap-2 text-gray-400 hover:text-white mb-4 py-2 min-h-[44px]"
           >
             <ArrowLeft size={18} />
             Back to categories
           </button>
 
-          <div className="flex items-center gap-4">
-            <div className={`p-3 rounded-lg bg-${categoryConfig?.color || 'blue'}-500/20`}>
-              <Icon className={`w-6 h-6 text-${categoryConfig?.color || 'blue'}-400`} />
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className={`p-2.5 sm:p-3 rounded-lg bg-${categoryConfig?.color || 'blue'}-500/20 flex-shrink-0`}>
+              <Icon className={`w-5 h-5 sm:w-6 sm:h-6 text-${categoryConfig?.color || 'blue'}-400`} />
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-white">{categoryConfig?.label}</h2>
-              <p className="text-gray-400">{categoryConfig?.description}</p>
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl font-bold text-white">{categoryConfig?.label}</h2>
+              <p className="text-sm sm:text-base text-gray-400 truncate">{categoryConfig?.description}</p>
             </div>
           </div>
 
@@ -261,10 +261,10 @@ export default function EnrichTab({ onRefresh }) {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
               <button
                 onClick={skipQuestion}
-                className="flex items-center gap-2 px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] text-gray-400 hover:text-white transition-colors"
               >
                 <SkipForward size={18} />
                 Skip
@@ -273,7 +273,7 @@ export default function EnrichTab({ onRefresh }) {
               <button
                 onClick={submitAnswer}
                 disabled={submitting || !answer.trim()}
-                className="flex items-center gap-2 px-6 py-3 bg-port-accent text-white rounded-lg font-medium hover:bg-port-accent/80 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center gap-2 px-6 py-3 min-h-[48px] bg-port-accent text-white rounded-lg font-medium hover:bg-port-accent/80 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? (
                   <>
@@ -333,7 +333,7 @@ export default function EnrichTab({ onRefresh }) {
       </div>
 
       {/* Category Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {Object.entries(ENRICHMENT_CATEGORIES).map(([key, config]) => {
           const catProgress = progress?.categories?.[key];
           const isComplete = catProgress?.completed;
@@ -343,7 +343,7 @@ export default function EnrichTab({ onRefresh }) {
             <button
               key={key}
               onClick={() => startCategory(key)}
-              className={`p-4 bg-port-card rounded-lg border transition-all text-left hover:border-port-accent ${
+              className={`p-4 min-h-[120px] bg-port-card rounded-lg border transition-all text-left hover:border-port-accent ${
                 isComplete ? 'border-green-500/30' : 'border-port-border'
               }`}
             >
@@ -359,7 +359,7 @@ export default function EnrichTab({ onRefresh }) {
               </div>
 
               <h3 className="font-semibold text-white mb-1">{config.label}</h3>
-              <p className="text-sm text-gray-400 mb-3">{config.description}</p>
+              <p className="text-sm text-gray-400 mb-3 line-clamp-2">{config.description}</p>
 
               <div className="flex items-center justify-between text-xs">
                 <span className="text-gray-500">
@@ -421,7 +421,7 @@ export default function EnrichTab({ onRefresh }) {
             </p>
 
             {/* Provider Selection */}
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
               <label className="text-sm text-gray-400">Analyze with:</label>
               <select
                 value={selectedProvider ? `${selectedProvider.providerId}:${selectedProvider.model}` : ''}
@@ -429,7 +429,7 @@ export default function EnrichTab({ onRefresh }) {
                   const [providerId, model] = e.target.value.split(':');
                   setSelectedProvider({ providerId, model });
                 }}
-                className="px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white text-sm"
+                className="px-3 py-3 min-h-[44px] bg-port-bg border border-port-border rounded-lg text-white text-sm"
               >
                 {providers.map(p => (
                   (p.models || [p.defaultModel]).filter(Boolean).map(model => (
@@ -467,10 +467,10 @@ export default function EnrichTab({ onRefresh }) {
               ))}
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
               <button
                 onClick={addWritingSample}
-                className="px-4 py-2 text-sm text-port-accent hover:text-white border border-port-accent/30 rounded-lg hover:border-port-accent"
+                className="px-4 py-3 min-h-[44px] text-sm text-port-accent hover:text-white border border-port-accent/30 rounded-lg hover:border-port-accent"
               >
                 + Add Another Sample
               </button>
@@ -478,7 +478,7 @@ export default function EnrichTab({ onRefresh }) {
               <button
                 onClick={analyzeWriting}
                 disabled={analyzingWriting}
-                className="px-4 py-2 bg-cyan-600 text-white rounded-lg text-sm hover:bg-cyan-500 disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-3 min-h-[44px] bg-cyan-600 text-white rounded-lg text-sm hover:bg-cyan-500 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {analyzingWriting ? (
                   <>
@@ -503,7 +503,7 @@ export default function EnrichTab({ onRefresh }) {
                 </h4>
 
                 {writingAnalysis.analysis && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                     {writingAnalysis.analysis.formality && (
                       <div className="p-3 bg-port-bg rounded-lg">
                         <div className="text-xs text-gray-500">Formality</div>
@@ -540,12 +540,12 @@ export default function EnrichTab({ onRefresh }) {
 
                 {writingAnalysis.suggestedContent && (
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="text-sm text-gray-400">Suggested WRITING_STYLE.md content:</div>
                       <button
                         onClick={saveWritingStyle}
                         disabled={savingWritingStyle}
-                        className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-500 disabled:opacity-50 flex items-center gap-1"
+                        className="px-3 py-2 min-h-[40px] bg-green-600 text-white rounded text-sm hover:bg-green-500 disabled:opacity-50 flex items-center justify-center gap-1"
                       >
                         {savingWritingStyle ? (
                           <RefreshCw className="w-3 h-3 animate-spin" />

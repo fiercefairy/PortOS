@@ -68,9 +68,9 @@ export default function Soul() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-port-border">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 gap-3 border-b border-port-border">
         <div className="flex items-center gap-3">
-          <Heart className="w-8 h-8 text-pink-500" />
+          <Heart className="w-8 h-8 text-pink-500 flex-shrink-0" />
           <div>
             <h1 className="text-xl font-bold text-white">Soul</h1>
             <p className="text-sm text-gray-500">Digital twin identity scaffold</p>
@@ -79,7 +79,7 @@ export default function Soul() {
 
         {/* Quick stats */}
         {status && (
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
             <div className="flex items-center gap-2">
               <span className="text-gray-500">Health:</span>
               <span className={`font-medium ${getHealthColor(status.healthScore)}`}>
@@ -99,7 +99,7 @@ export default function Soul() {
       </div>
 
       {/* Tab navigation */}
-      <div className="flex border-b border-port-border">
+      <div className="flex overflow-x-auto border-b border-port-border scrollbar-hide">
         {TABS.map((tabItem) => {
           const Icon = tabItem.icon;
           const isActive = activeTab === tabItem.id;
@@ -107,7 +107,7 @@ export default function Soul() {
             <button
               key={tabItem.id}
               onClick={() => handleTabChange(tabItem.id)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
+              className={`flex items-center gap-2 px-3 sm:px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap min-h-[44px] ${
                 isActive
                   ? 'text-port-accent border-b-2 border-port-accent bg-port-accent/5'
                   : 'text-gray-400 hover:text-white hover:bg-port-card'
@@ -116,7 +116,7 @@ export default function Soul() {
               aria-selected={isActive}
             >
               <Icon size={16} aria-hidden="true" />
-              {tabItem.label}
+              <span className="hidden xs:inline sm:inline">{tabItem.label}</span>
             </button>
           );
         })}

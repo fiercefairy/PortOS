@@ -154,16 +154,16 @@ ${boundaries.irritant ? `- **Pet Peeve**: ${boundaries.irritant}` : ''}
   };
 
   return (
-    <div className="bg-port-card rounded-lg border border-port-accent/30 p-6">
+    <div className="bg-port-card rounded-lg border border-port-accent/30 p-4 sm:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
-          <Sparkles className="w-6 h-6 text-port-accent" />
-          <h2 className="text-xl font-bold text-white">Create Your Soul</h2>
+          <Sparkles className="w-6 h-6 text-port-accent flex-shrink-0" />
+          <h2 className="text-lg sm:text-xl font-bold text-white">Create Your Soul</h2>
         </div>
         <button
           onClick={onCancel}
-          className="text-gray-400 hover:text-white"
+          className="text-gray-400 hover:text-white py-2 min-h-[40px]"
         >
           Skip for now
         </button>
@@ -184,13 +184,13 @@ ${boundaries.irritant ? `- **Pet Peeve**: ${boundaries.irritant}` : ''}
       </div>
 
       {/* Step Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <div className="p-3 rounded-lg bg-port-accent/20">
-          <StepIcon className="w-6 h-6 text-port-accent" />
+      <div className="flex items-center gap-3 sm:gap-4 mb-6">
+        <div className="p-2.5 sm:p-3 rounded-lg bg-port-accent/20 flex-shrink-0">
+          <StepIcon className="w-5 h-5 sm:w-6 sm:h-6 text-port-accent" />
         </div>
-        <div>
-          <h3 className="text-lg font-semibold text-white">{step.title}</h3>
-          <p className="text-gray-400">{step.description}</p>
+        <div className="min-w-0">
+          <h3 className="text-base sm:text-lg font-semibold text-white">{step.title}</h3>
+          <p className="text-sm text-gray-400">{step.description}</p>
         </div>
       </div>
 
@@ -204,18 +204,18 @@ ${boundaries.irritant ? `- **Pet Peeve**: ${boundaries.irritant}` : ''}
               value={formData[step.id]?.[field.id] || ''}
               onChange={(e) => updateField(field.id, e.target.value)}
               placeholder={field.placeholder}
-              className="w-full px-4 py-2 bg-port-bg border border-port-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-port-accent"
+              className="w-full px-4 py-3 min-h-[44px] bg-port-bg border border-port-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-port-accent"
             />
           </div>
         ))}
       </div>
 
       {/* Navigation */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <button
           onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
           disabled={currentStep === 0}
-          className="flex items-center gap-2 px-4 py-2 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ChevronLeft size={18} />
           Back
@@ -225,7 +225,7 @@ ${boundaries.irritant ? `- **Pet Peeve**: ${boundaries.irritant}` : ''}
           <button
             onClick={handleComplete}
             disabled={saving || !canProceed()}
-            className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center justify-center gap-2 px-6 py-3 min-h-[48px] bg-green-600 text-white rounded-lg hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? (
               <>
@@ -243,7 +243,7 @@ ${boundaries.irritant ? `- **Pet Peeve**: ${boundaries.irritant}` : ''}
           <button
             onClick={() => setCurrentStep(Math.min(WIZARD_STEPS.length - 1, currentStep + 1))}
             disabled={!canProceed()}
-            className="flex items-center gap-2 px-6 py-2 bg-port-accent text-white rounded-lg hover:bg-port-accent/80 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center justify-center gap-2 px-6 py-3 min-h-[48px] bg-port-accent text-white rounded-lg hover:bg-port-accent/80 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Next
             <ChevronRight size={18} />
@@ -252,12 +252,12 @@ ${boundaries.irritant ? `- **Pet Peeve**: ${boundaries.irritant}` : ''}
       </div>
 
       {/* Step Indicators */}
-      <div className="flex items-center justify-center gap-2 mt-6">
+      <div className="flex items-center justify-center gap-3 mt-6">
         {WIZARD_STEPS.map((s, index) => (
           <button
             key={s.id}
             onClick={() => setCurrentStep(index)}
-            className={`w-2 h-2 rounded-full transition-colors ${
+            className={`w-3 h-3 min-w-[12px] min-h-[12px] rounded-full transition-colors ${
               index === currentStep
                 ? 'bg-port-accent'
                 : index < currentStep

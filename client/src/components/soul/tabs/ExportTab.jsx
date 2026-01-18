@@ -126,9 +126,9 @@ export default function ExportTab({ onRefresh }) {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
       {/* Configuration */}
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Format Selection */}
         <div className="bg-port-card rounded-lg border border-port-border p-4">
           <h3 className="font-semibold text-white mb-4">Export Format</h3>
@@ -142,16 +142,16 @@ export default function ExportTab({ onRefresh }) {
                     setSelectedFormat(format.id);
                     setExportResult(null);
                   }}
-                  className={`w-full flex items-start gap-3 p-3 rounded-lg border transition-colors text-left ${
+                  className={`w-full flex items-start gap-3 p-3 min-h-[60px] rounded-lg border transition-colors text-left ${
                     selectedFormat === format.id
                       ? 'border-port-accent bg-port-accent/10'
                       : 'border-port-border hover:border-gray-500'
                   }`}
                 >
-                  <Icon className={`w-5 h-5 mt-0.5 ${
+                  <Icon className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
                     selectedFormat === format.id ? 'text-port-accent' : 'text-gray-400'
                   }`} />
-                  <div>
+                  <div className="min-w-0">
                     <div className={`font-medium ${
                       selectedFormat === format.id ? 'text-port-accent' : 'text-white'
                     }`}>
@@ -169,39 +169,39 @@ export default function ExportTab({ onRefresh }) {
         <div className="bg-port-card rounded-lg border border-port-border p-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-white">Documents ({selectedDocs.length})</h3>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <button
                 onClick={() => setSelectedDocs(documents.map(d => d.id))}
-                className="text-xs text-port-accent hover:text-white"
+                className="text-xs py-1 px-2 min-h-[32px] text-port-accent hover:text-white"
               >
                 All
               </button>
               <button
                 onClick={() => setSelectedDocs(documents.filter(d => d.enabled).map(d => d.id))}
-                className="text-xs text-gray-500 hover:text-white"
+                className="text-xs py-1 px-2 min-h-[32px] text-gray-500 hover:text-white"
               >
                 Enabled
               </button>
               <button
                 onClick={() => setSelectedDocs([])}
-                className="text-xs text-gray-500 hover:text-white"
+                className="text-xs py-1 px-2 min-h-[32px] text-gray-500 hover:text-white"
               >
                 None
               </button>
             </div>
           </div>
 
-          <div className="space-y-2 max-h-64 overflow-y-auto">
+          <div className="space-y-1 max-h-64 overflow-y-auto">
             {documents.map(doc => (
               <label
                 key={doc.id}
-                className="flex items-center gap-3 p-2 rounded hover:bg-port-border cursor-pointer"
+                className="flex items-center gap-3 p-2 min-h-[44px] rounded hover:bg-port-border cursor-pointer"
               >
                 <input
                   type="checkbox"
                   checked={selectedDocs.includes(doc.id)}
                   onChange={() => toggleDocument(doc.id)}
-                  className="w-4 h-4 rounded border-port-border bg-port-bg text-port-accent focus:ring-port-accent"
+                  className="w-5 h-5 rounded border-port-border bg-port-bg text-port-accent focus:ring-port-accent"
                 />
                 <div className="flex-1 min-w-0">
                   <div className={`text-sm truncate ${doc.enabled ? 'text-white' : 'text-gray-500'}`}>
@@ -216,12 +216,12 @@ export default function ExportTab({ onRefresh }) {
             ))}
           </div>
 
-          <label className="flex items-center gap-2 mt-4 pt-4 border-t border-port-border">
+          <label className="flex items-center gap-3 mt-4 pt-4 border-t border-port-border min-h-[44px]">
             <input
               type="checkbox"
               checked={includeDisabled}
               onChange={(e) => setIncludeDisabled(e.target.checked)}
-              className="w-4 h-4 rounded border-port-border bg-port-bg text-port-accent focus:ring-port-accent"
+              className="w-5 h-5 rounded border-port-border bg-port-bg text-port-accent focus:ring-port-accent"
             />
             <span className="text-sm text-gray-400">Include disabled documents</span>
           </label>
@@ -231,7 +231,7 @@ export default function ExportTab({ onRefresh }) {
         <button
           onClick={handleExport}
           disabled={exporting || selectedDocs.length === 0}
-          className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-port-accent text-white rounded-lg font-medium hover:bg-port-accent/80 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center gap-2 px-6 py-3 min-h-[48px] bg-port-accent text-white rounded-lg font-medium hover:bg-port-accent/80 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {exporting ? (
             <>
@@ -248,8 +248,8 @@ export default function ExportTab({ onRefresh }) {
       </div>
 
       {/* Preview / Result */}
-      <div className="bg-port-card rounded-lg border border-port-border overflow-hidden flex flex-col">
-        <div className="p-4 border-b border-port-border flex items-center justify-between">
+      <div className="bg-port-card rounded-lg border border-port-border overflow-hidden flex flex-col min-h-[300px] lg:min-h-0">
+        <div className="p-4 border-b border-port-border flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-semibold text-white flex items-center gap-2">
             <Eye size={18} />
             Preview
@@ -257,19 +257,19 @@ export default function ExportTab({ onRefresh }) {
 
           {exportResult && (
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-gray-500 hidden sm:inline">
                 ~{exportResult.tokenEstimate?.toLocaleString()} tokens
               </span>
               <button
                 onClick={copyToClipboard}
-                className="p-1.5 text-gray-400 hover:text-white transition-colors"
+                className="p-2 min-h-[40px] min-w-[40px] flex items-center justify-center text-gray-400 hover:text-white transition-colors"
                 title="Copy to clipboard"
               >
                 {copied ? <Check size={18} className="text-green-400" /> : <Copy size={18} />}
               </button>
               <button
                 onClick={downloadFile}
-                className="p-1.5 text-gray-400 hover:text-white transition-colors"
+                className="p-2 min-h-[40px] min-w-[40px] flex items-center justify-center text-gray-400 hover:text-white transition-colors"
                 title="Download"
               >
                 <Download size={18} />

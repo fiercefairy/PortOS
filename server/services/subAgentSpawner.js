@@ -22,6 +22,7 @@ import { buildPrompt } from './promptService.js';
 import { registerSpawnedAgent, unregisterSpawnedAgent } from './agents.js';
 import { getMemorySection } from './memoryRetriever.js';
 import { extractAndStoreMemories } from './memoryExtractor.js';
+import { getSoulForPrompt } from './soul.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -1014,12 +1015,21 @@ async function buildAgentPrompt(task, config, workspaceDir) {
     return null;
   });
 
+  // Get soul context for persona alignment
+  const soulSection = await getSoulForPrompt({
+    maxTokens: config.soul?.maxContextTokens || 2000
+  }).catch(err => {
+    console.log(`⚠️ Soul context retrieval failed: ${err.message}`);
+    return null;
+  });
+
   // Try to use the prompt template system
   const promptData = await buildPrompt('cos-agent-briefing', {
     task,
     config,
     memorySection,
     claudeMdSection,
+    soulSection,
     timestamp: new Date().toISOString()
   }).catch(() => null);
 

@@ -238,7 +238,7 @@ export const updateCosTask = (id, updates) => request(`/cos/tasks/${id}`, {
   method: 'PUT',
   body: JSON.stringify(updates)
 });
-export const deleteCosTask = (id) => request(`/cos/tasks/${id}`, { method: 'DELETE' });
+export const deleteCosTask = (id, taskType = 'user') => request(`/cos/tasks/${id}?type=${taskType}`, { method: 'DELETE' });
 export const reorderCosTasks = (taskIds) => request('/cos/tasks/reorder', {
   method: 'POST',
   body: JSON.stringify({ taskIds })

@@ -68,16 +68,12 @@ export default function Media() {
     }
 
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    console.log(`🎤 AudioContext created, state: ${audioContext.state}`);
 
     // Resume AudioContext if suspended (browser autoplay policy)
     if (audioContext.state === 'suspended') {
-      console.log(`🎤 AudioContext suspended, attempting resume...`);
-      await audioContext.resume().catch(err => {
-        console.error(`❌ Failed to resume AudioContext: ${err.message}`);
+      await audioContext.resume().catch(() => {
         setAudioNeedsInteraction(true);
       });
-      console.log(`🎤 AudioContext state after resume: ${audioContext.state}`);
     }
 
     const analyser = audioContext.createAnalyser();
@@ -107,23 +103,18 @@ export default function Media() {
     };
 
     updateLevel();
-    console.log(`🎤 Audio analyser setup complete`);
   }, []);
 
   // Enable audio with user interaction (for mobile browsers)
   const enableAudio = useCallback(async () => {
     if (audioRef.current && audioContextRef.current) {
-      console.log(`🎤 User interaction: attempting to enable audio`);
-
       // Resume AudioContext
       if (audioContextRef.current.state === 'suspended') {
         await audioContextRef.current.resume();
-        console.log(`🎤 AudioContext resumed: ${audioContextRef.current.state}`);
       }
 
       // Play audio element
       await audioRef.current.play();
-      console.log(`🎤 Audio playback started`);
 
       setAudioNeedsInteraction(false);
       setError(null);
@@ -158,19 +149,15 @@ export default function Media() {
     // Set video source to server stream
     if (videoRef.current && videoEnabled) {
       videoRef.current.src = `${protocol}//${window.location.hostname}:5554/api/media/video?t=${timestamp}`;
-      console.log(`📹 Video stream URL: ${videoRef.current.src}`);
     }
 
     // Set audio source to server stream and set up analyzer
     if (audioRef.current && audioEnabled) {
       audioRef.current.src = `${protocol}//${window.location.hostname}:5554/api/media/audio?t=${timestamp}`;
-      console.log(`🎤 Audio stream URL: ${audioRef.current.src}`);
 
       audioRef.current.play().then(() => {
-        console.log(`🎤 Audio playback started successfully`);
         setupAudioAnalyser(audioRef.current);
-      }).catch(err => {
-        console.error(`❌ Audio playback error: ${err.message}`);
+      }).catch(() => {
         // On mobile browsers, autoplay is often blocked - show interaction prompt
         setAudioNeedsInteraction(true);
         setupAudioAnalyser(audioRef.current); // Set up analyser anyway for when user enables

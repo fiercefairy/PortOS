@@ -50,7 +50,7 @@ const navItems = [
     icon: Fingerprint,
     children: [
       { to: '/brain', label: 'Brain', icon: Brain },
-      { to: '/soul', label: 'Soul', icon: Heart }
+      { to: '/digital-twin', label: 'Digital Twin', icon: Heart }
     ]
   },
   {
@@ -404,8 +404,8 @@ export default function Layout() {
         </header>
 
         {/* Main content */}
-        <main id="main-content" className={`flex-1 overflow-auto ${location.pathname.startsWith('/cos') || location.pathname.startsWith('/brain') || location.pathname.startsWith('/soul') ? '' : 'p-4 md:p-6'}`}>
-          {location.pathname.startsWith('/cos') || location.pathname.startsWith('/brain') || location.pathname.startsWith('/soul') ? (
+        <main id="main-content" className={`flex-1 overflow-auto ${location.pathname.startsWith('/cos') || location.pathname.startsWith('/brain') || location.pathname.startsWith('/digital-twin') ? '' : 'p-4 md:p-6'}`}>
+          {location.pathname.startsWith('/cos') || location.pathname.startsWith('/brain') || location.pathname.startsWith('/digital-twin') ? (
             <Outlet />
           ) : (
             <div className="max-w-7xl mx-auto">

@@ -25,7 +25,7 @@ import notificationsRoutes from './routes/notifications.js';
 import standardizeRoutes from './routes/standardize.js';
 import brainRoutes from './routes/brain.js';
 import mediaRoutes from './routes/media.js';
-import soulRoutes from './routes/soul.js';
+import digitalTwinRoutes from './routes/digital-twin.js';
 import { initSocket } from './services/socket.js';
 import { initScriptRunner } from './services/scriptRunner.js';
 import { errorMiddleware, setupProcessErrorHandlers, asyncHandler } from './lib/errorHandler.js';
@@ -34,7 +34,7 @@ import { initTaskLearning } from './services/taskLearning.js';
 import { recordSession, recordMessages } from './services/usage.js';
 import { errorEvents } from './lib/errorHandler.js';
 import './services/subAgentSpawner.js'; // Initialize CoS agent spawner
-import { createAIToolkit } from '@portos/ai-toolkit/server';
+import { createAIToolkit } from 'portos-ai-toolkit/server';
 import { createPortOSProviderRoutes } from './routes/providers.js';
 import { createPortOSRunsRoutes } from './routes/runs.js';
 import { createPortOSPromptsRoutes } from './routes/prompts.js';
@@ -163,7 +163,7 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/standardize', standardizeRoutes);
 app.use('/api/brain', brainRoutes);
 app.use('/api/media', mediaRoutes);
-app.use('/api/soul', soulRoutes);
+app.use('/api/digital-twin', digitalTwinRoutes);
 
 // Initialize script runner
 initScriptRunner().catch(err => console.error(`❌ Script runner init failed: ${err.message}`));

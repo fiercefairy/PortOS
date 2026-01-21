@@ -136,13 +136,13 @@ export default function OverviewTab({ status, settings, onRefresh }) {
             Start Wizard
           </button>
           <button
-            onClick={() => navigate('/soul/enrich')}
+            onClick={() => navigate('/digital-twin/enrich')}
             className="px-6 py-3 min-h-[44px] bg-port-card text-white rounded-lg font-medium border border-port-border hover:bg-port-border transition-colors"
           >
             Start Enrichment
           </button>
           <button
-            onClick={() => navigate('/soul/documents')}
+            onClick={() => navigate('/digital-twin/documents')}
             className="px-6 py-3 min-h-[44px] bg-port-card text-white rounded-lg font-medium border border-port-border hover:bg-port-border transition-colors"
           >
             Create Document
@@ -319,7 +319,7 @@ export default function OverviewTab({ status, settings, onRefresh }) {
                       </div>
                       {section.enrichmentCategory && (
                         <button
-                          onClick={() => navigate('/soul/enrich')}
+                          onClick={() => navigate('/digital-twin/enrich')}
                           className="flex items-center gap-1 text-sm text-port-accent hover:text-white"
                         >
                           Add via Enrich
@@ -433,7 +433,7 @@ export default function OverviewTab({ status, settings, onRefresh }) {
               <div
                 key={key}
                 className={`p-4 rounded-lg border ${config.color} cursor-pointer hover:opacity-80 transition-opacity`}
-                onClick={() => navigate('/soul/documents')}
+                onClick={() => navigate('/digital-twin/documents')}
               >
                 <div className="flex items-center gap-2 mb-2">
                   <Icon size={16} />
@@ -449,7 +449,7 @@ export default function OverviewTab({ status, settings, onRefresh }) {
       {/* Quick Actions */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <button
-          onClick={() => navigate('/soul/test')}
+          onClick={() => navigate('/digital-twin/test')}
           className="flex items-center gap-3 sm:gap-4 p-4 min-h-[72px] bg-port-card rounded-lg border border-port-border hover:border-port-accent transition-colors"
         >
           <div className="p-2.5 sm:p-3 rounded-lg bg-green-500/20 flex-shrink-0">
@@ -466,7 +466,7 @@ export default function OverviewTab({ status, settings, onRefresh }) {
         </button>
 
         <button
-          onClick={() => navigate('/soul/enrich')}
+          onClick={() => navigate('/digital-twin/enrich')}
           className="flex items-center gap-3 sm:gap-4 p-4 min-h-[72px] bg-port-card rounded-lg border border-port-border hover:border-port-accent transition-colors"
         >
           <div className="p-2.5 sm:p-3 rounded-lg bg-yellow-500/20 flex-shrink-0">
@@ -481,7 +481,7 @@ export default function OverviewTab({ status, settings, onRefresh }) {
         </button>
 
         <button
-          onClick={() => navigate('/soul/export')}
+          onClick={() => navigate('/digital-twin/export')}
           className="flex items-center gap-3 sm:gap-4 p-4 min-h-[72px] bg-port-card rounded-lg border border-port-border hover:border-port-accent transition-colors"
         >
           <div className="p-2.5 sm:p-3 rounded-lg bg-blue-500/20 flex-shrink-0">
@@ -516,7 +516,7 @@ export default function OverviewTab({ status, settings, onRefresh }) {
               </div>
             </div>
             <button
-              onClick={() => navigate('/soul/test')}
+              onClick={() => navigate('/digital-twin/test')}
               className="px-4 py-2 min-h-[40px] text-sm text-port-accent hover:text-white transition-colors"
             >
               View Details

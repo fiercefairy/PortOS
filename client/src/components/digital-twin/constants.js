@@ -20,7 +20,8 @@ import {
   Paintbrush,
   Shield,
   GitBranch,
-  AlertOctagon
+  AlertOctagon,
+  Fingerprint
 } from 'lucide-react';
 
 // Main navigation tabs
@@ -115,21 +116,33 @@ export const ENRICHMENT_CATEGORIES = {
     label: 'Favorite Books',
     description: 'Books that shaped your thinking',
     icon: BookOpen,
-    color: 'blue'
+    color: 'blue',
+    listBased: true,
+    itemLabel: 'Book',
+    itemPlaceholder: 'e.g., Gödel, Escher, Bach by Douglas Hofstadter',
+    notePlaceholder: 'Why this book matters to you, what it taught you...'
   },
   favorite_movies: {
     id: 'favorite_movies',
     label: 'Favorite Movies',
     description: 'Films that resonate with your aesthetic and values',
     icon: Film,
-    color: 'red'
+    color: 'red',
+    listBased: true,
+    itemLabel: 'Movie',
+    itemPlaceholder: 'e.g., Blade Runner 2049',
+    notePlaceholder: 'What draws you to this film, memorable scenes or themes...'
   },
   music_taste: {
     id: 'music_taste',
     label: 'Music Taste',
     description: 'Music as cognitive infrastructure',
     icon: Music,
-    color: 'green'
+    color: 'green',
+    listBased: true,
+    itemLabel: 'Album/Artist',
+    itemPlaceholder: 'e.g., OK Computer by Radiohead',
+    notePlaceholder: 'When you listen to this, how you use it (focus, energy, mood)...'
   },
   communication: {
     id: 'communication',
@@ -193,6 +206,13 @@ export const ENRICHMENT_CATEGORIES = {
     description: 'What your digital twin should never do',
     icon: AlertOctagon,
     color: 'rose'
+  },
+  personality_assessments: {
+    id: 'personality_assessments',
+    label: 'Personality Assessments',
+    description: 'Myers-Briggs, Big Five, Enneagram, and other personality type results',
+    icon: Fingerprint,
+    color: 'sky'
   }
 };
 

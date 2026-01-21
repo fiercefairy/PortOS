@@ -3,15 +3,15 @@ import { useParams, useNavigate } from 'react-router-dom';
 import * as api from '../services/api';
 import { Heart, RefreshCw } from 'lucide-react';
 
-import { TABS, getHealthColor, getHealthLabel } from '../components/soul/constants';
+import { TABS, getHealthColor, getHealthLabel } from '../components/digital-twin/constants';
 
-import OverviewTab from '../components/soul/tabs/OverviewTab';
-import DocumentsTab from '../components/soul/tabs/DocumentsTab';
-import TestTab from '../components/soul/tabs/TestTab';
-import EnrichTab from '../components/soul/tabs/EnrichTab';
-import ExportTab from '../components/soul/tabs/ExportTab';
+import OverviewTab from '../components/digital-twin/tabs/OverviewTab';
+import DocumentsTab from '../components/digital-twin/tabs/DocumentsTab';
+import TestTab from '../components/digital-twin/tabs/TestTab';
+import EnrichTab from '../components/digital-twin/tabs/EnrichTab';
+import ExportTab from '../components/digital-twin/tabs/ExportTab';
 
-export default function Soul() {
+export default function DigitalTwin() {
   const { tab } = useParams();
   const navigate = useNavigate();
   const activeTab = tab || 'overview';
@@ -37,7 +37,7 @@ export default function Soul() {
   }, [fetchData]);
 
   const handleTabChange = (tabId) => {
-    navigate(`/soul/${tabId}`);
+    navigate(`/digital-twin/${tabId}`);
   };
 
   const renderTabContent = () => {
@@ -72,8 +72,8 @@ export default function Soul() {
         <div className="flex items-center gap-3">
           <Heart className="w-8 h-8 text-pink-500 flex-shrink-0" />
           <div>
-            <h1 className="text-xl font-bold text-white">Soul</h1>
-            <p className="text-sm text-gray-500">Digital twin identity scaffold</p>
+            <h1 className="text-xl font-bold text-white">Digital Twin</h1>
+            <p className="text-sm text-gray-500">Identity scaffold for AI interactions</p>
           </div>
         </div>
 

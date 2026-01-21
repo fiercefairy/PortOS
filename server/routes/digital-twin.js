@@ -1,7 +1,7 @@
 /**
- * Soul API Routes
+ * Digital Twin API Routes
  *
- * Handles all HTTP endpoints for the Soul feature:
+ * Handles all HTTP endpoints for the Digital Twin feature:
  * - Document CRUD
  * - Behavioral testing
  * - Enrichment questionnaire
@@ -10,7 +10,7 @@
  */
 
 import { Router } from 'express';
-import * as soulService from '../services/soul.js';
+import * as digitalTwinService from '../services/digital-twin.js';
 import { asyncHandler, ServerError } from '../lib/errorHandler.js';
 import { validate } from '../lib/validation.js';
 import {
@@ -25,8 +25,11 @@ import {
   testHistoryQuerySchema,
   contradictionInputSchema,
   generateTestsInputSchema,
-  writingAnalysisInputSchema
-} from '../lib/soulValidation.js';
+  writingAnalysisInputSchema,
+  analyzeListInputSchema,
+  saveListDocumentInputSchema,
+  getListItemsInputSchema
+} from '../lib/digitalTwinValidation.js';
 
 const router = Router();
 
@@ -35,11 +38,11 @@ const router = Router();
 // =============================================================================
 
 /**
- * GET /api/soul
- * Get soul status summary
+ * GET /api/digital-twin
+ * Get digital twin status summary
  */
 router.get('/', asyncHandler(async (req, res) => {
-  const status = await soulService.getSoulStatus();
+  const status = await digitalTwinService.getDigitalTwinStatus();
   res.json(status);
 }));
 
@@ -48,20 +51,20 @@ router.get('/', asyncHandler(async (req, res) => {
 // =============================================================================
 
 /**
- * GET /api/soul/documents
- * List all soul documents
+ * GET /api/digital-twin/documents
+ * List all digital twin documents
  */
 router.get('/documents', asyncHandler(async (req, res) => {
-  const documents = await soulService.getDocuments();
+  const documents = await digitalTwinService.getDocuments();
   res.json(documents);
 }));
 
 /**
- * GET /api/soul/documents/:id
+ * GET /api/digital-twin/documents/:id
  * Get a single document with content
  */
 router.get('/documents/:id', asyncHandler(async (req, res) => {
-  const document = await soulService.getDocumentById(req.params.id);
+  const document = await digitalTwinService.getDocumentById(req.params.id);
   if (!document) {
     throw new ServerError('Document not found', { status: 404, code: 'NOT_FOUND' });
   }
@@ -69,7 +72,7 @@ router.get('/documents/:id', asyncHandler(async (req, res) => {
 }));
 
 /**
- * POST /api/soul/documents
+ * POST /api/digital-twin/documents
  * Create a new document
  */
 router.post('/documents', asyncHandler(async (req, res) => {
@@ -82,12 +85,12 @@ router.post('/documents', asyncHandler(async (req, res) => {
     });
   }
 
-  const document = await soulService.createDocument(validation.data);
+  const document = await digitalTwinService.createDocument(validation.data);
   res.status(201).json(document);
 }));
 
 /**
- * PUT /api/soul/documents/:id
+ * PUT /api/digital-twin/documents/:id
  * Update a document
  */
 router.put('/documents/:id', asyncHandler(async (req, res) => {
@@ -100,7 +103,7 @@ router.put('/documents/:id', asyncHandler(async (req, res) => {
     });
   }
 
-  const document = await soulService.updateDocument(req.params.id, validation.data);
+  const document = await digitalTwinService.updateDocument(req.params.id, validation.data);
   if (!document) {
     throw new ServerError('Document not found', { status: 404, code: 'NOT_FOUND' });
   }
@@ -108,11 +111,11 @@ router.put('/documents/:id', asyncHandler(async (req, res) => {
 }));
 
 /**
- * DELETE /api/soul/documents/:id
+ * DELETE /api/digital-twin/documents/:id
  * Delete a document
  */
 router.delete('/documents/:id', asyncHandler(async (req, res) => {
-  const deleted = await soulService.deleteDocument(req.params.id);
+  const deleted = await digitalTwinService.deleteDocument(req.params.id);
   if (!deleted) {
     throw new ServerError('Document not found', { status: 404, code: 'NOT_FOUND' });
   }
@@ -124,16 +127,16 @@ router.delete('/documents/:id', asyncHandler(async (req, res) => {
 // =============================================================================
 
 /**
- * GET /api/soul/tests
+ * GET /api/digital-twin/tests
  * Get the behavioral test suite (parsed from BEHAVIORAL_TEST_SUITE.md)
  */
 router.get('/tests', asyncHandler(async (req, res) => {
-  const tests = await soulService.parseTestSuite();
+  const tests = await digitalTwinService.parseTestSuite();
   res.json(tests);
 }));
 
 /**
- * POST /api/soul/tests/run
+ * POST /api/digital-twin/tests/run
  * Run behavioral tests against a single provider/model
  */
 router.post('/tests/run', asyncHandler(async (req, res) => {
@@ -147,12 +150,12 @@ router.post('/tests/run', asyncHandler(async (req, res) => {
   }
 
   const { providerId, model, testIds } = validation.data;
-  const result = await soulService.runTests(providerId, model, testIds);
+  const result = await digitalTwinService.runTests(providerId, model, testIds);
   res.json(result);
 }));
 
 /**
- * POST /api/soul/tests/run-multi
+ * POST /api/digital-twin/tests/run-multi
  * Run behavioral tests against multiple providers/models
  */
 router.post('/tests/run-multi', asyncHandler(async (req, res) => {
@@ -171,7 +174,7 @@ router.post('/tests/run-multi', asyncHandler(async (req, res) => {
   // Run tests for each provider in parallel
   const results = await Promise.all(
     providers.map(async ({ providerId, model }) => {
-      const result = await soulService.runTests(providerId, model, testIds).catch(err => ({
+      const result = await digitalTwinService.runTests(providerId, model, testIds).catch(err => ({
         providerId,
         model,
         error: err.message
@@ -179,7 +182,7 @@ router.post('/tests/run-multi', asyncHandler(async (req, res) => {
 
       // Emit progress via Socket.IO
       if (io) {
-        io.emit('soul:test-progress', { providerId, model, result });
+        io.emit('digital-twin:test-progress', { providerId, model, result });
       }
 
       return { providerId, model, ...result };
@@ -190,7 +193,7 @@ router.post('/tests/run-multi', asyncHandler(async (req, res) => {
 }));
 
 /**
- * GET /api/soul/tests/history
+ * GET /api/digital-twin/tests/history
  * Get test run history
  */
 router.get('/tests/history', asyncHandler(async (req, res) => {
@@ -203,7 +206,7 @@ router.get('/tests/history', asyncHandler(async (req, res) => {
     });
   }
 
-  const history = await soulService.getTestHistory(validation.data.limit);
+  const history = await digitalTwinService.getTestHistory(validation.data.limit);
   res.json(history);
 }));
 
@@ -212,25 +215,25 @@ router.get('/tests/history', asyncHandler(async (req, res) => {
 // =============================================================================
 
 /**
- * GET /api/soul/enrich/categories
+ * GET /api/digital-twin/enrich/categories
  * List all enrichment categories
  */
 router.get('/enrich/categories', asyncHandler(async (req, res) => {
-  const categories = soulService.getEnrichmentCategories();
+  const categories = digitalTwinService.getEnrichmentCategories();
   res.json(categories);
 }));
 
 /**
- * GET /api/soul/enrich/progress
+ * GET /api/digital-twin/enrich/progress
  * Get enrichment progress
  */
 router.get('/enrich/progress', asyncHandler(async (req, res) => {
-  const progress = await soulService.getEnrichmentProgress();
+  const progress = await digitalTwinService.getEnrichmentProgress();
   res.json(progress);
 }));
 
 /**
- * POST /api/soul/enrich/question
+ * POST /api/digital-twin/enrich/question
  * Get next question for a category
  */
 router.post('/enrich/question', asyncHandler(async (req, res) => {
@@ -244,13 +247,13 @@ router.post('/enrich/question', asyncHandler(async (req, res) => {
   }
 
   const { category, providerOverride, modelOverride } = validation.data;
-  const question = await soulService.generateEnrichmentQuestion(category, providerOverride, modelOverride);
+  const question = await digitalTwinService.generateEnrichmentQuestion(category, providerOverride, modelOverride);
   res.json(question);
 }));
 
 /**
- * POST /api/soul/enrich/answer
- * Submit answer and update soul documents
+ * POST /api/digital-twin/enrich/answer
+ * Submit answer and update digital twin documents
  */
 router.post('/enrich/answer', asyncHandler(async (req, res) => {
   const validation = validate(enrichmentAnswerInputSchema, req.body);
@@ -262,8 +265,64 @@ router.post('/enrich/answer', asyncHandler(async (req, res) => {
     });
   }
 
-  const result = await soulService.processEnrichmentAnswer(validation.data);
+  const result = await digitalTwinService.processEnrichmentAnswer(validation.data);
   res.json(result);
+}));
+
+/**
+ * POST /api/digital-twin/enrich/analyze-list
+ * Analyze a list of items (books, movies, music) and generate document content
+ */
+router.post('/enrich/analyze-list', asyncHandler(async (req, res) => {
+  const validation = validate(analyzeListInputSchema, req.body);
+  if (!validation.success) {
+    throw new ServerError('Validation failed', {
+      status: 400,
+      code: 'VALIDATION_ERROR',
+      context: { details: validation.errors }
+    });
+  }
+
+  const { category, items, providerId, model } = validation.data;
+  const result = await digitalTwinService.analyzeEnrichmentList(category, items, providerId, model);
+  res.json(result);
+}));
+
+/**
+ * POST /api/digital-twin/enrich/save-list
+ * Save analyzed list content to document
+ */
+router.post('/enrich/save-list', asyncHandler(async (req, res) => {
+  const validation = validate(saveListDocumentInputSchema, req.body);
+  if (!validation.success) {
+    throw new ServerError('Validation failed', {
+      status: 400,
+      code: 'VALIDATION_ERROR',
+      context: { details: validation.errors }
+    });
+  }
+
+  const { category, content, items } = validation.data;
+  const result = await digitalTwinService.saveEnrichmentListDocument(category, content, items);
+  res.json(result);
+}));
+
+/**
+ * GET /api/digital-twin/enrich/list-items/:category
+ * Get previously saved list items for a category
+ */
+router.get('/enrich/list-items/:category', asyncHandler(async (req, res) => {
+  const validation = validate(getListItemsInputSchema, { category: req.params.category });
+  if (!validation.success) {
+    throw new ServerError('Validation failed', {
+      status: 400,
+      code: 'VALIDATION_ERROR',
+      context: { details: validation.errors }
+    });
+  }
+
+  const items = await digitalTwinService.getEnrichmentListItems(validation.data.category);
+  res.json(items);
 }));
 
 // =============================================================================
@@ -271,16 +330,16 @@ router.post('/enrich/answer', asyncHandler(async (req, res) => {
 // =============================================================================
 
 /**
- * GET /api/soul/export/formats
+ * GET /api/digital-twin/export/formats
  * List available export formats
  */
 router.get('/export/formats', asyncHandler(async (req, res) => {
-  const formats = soulService.getExportFormats();
+  const formats = digitalTwinService.getExportFormats();
   res.json(formats);
 }));
 
 /**
- * POST /api/soul/export
+ * POST /api/digital-twin/export
  * Export soul in specified format
  */
 router.post('/export', asyncHandler(async (req, res) => {
@@ -294,7 +353,7 @@ router.post('/export', asyncHandler(async (req, res) => {
   }
 
   const { format, documentIds, includeDisabled } = validation.data;
-  const exported = await soulService.exportSoul(format, documentIds, includeDisabled);
+  const exported = await digitalTwinService.exportDigitalTwin(format, documentIds, includeDisabled);
   res.json(exported);
 }));
 
@@ -303,17 +362,17 @@ router.post('/export', asyncHandler(async (req, res) => {
 // =============================================================================
 
 /**
- * GET /api/soul/settings
- * Get soul settings
+ * GET /api/digital-twin/settings
+ * Get digital twin settings
  */
 router.get('/settings', asyncHandler(async (req, res) => {
-  const meta = await soulService.loadMeta();
+  const meta = await digitalTwinService.loadMeta();
   res.json(meta.settings);
 }));
 
 /**
- * PUT /api/soul/settings
- * Update soul settings
+ * PUT /api/digital-twin/settings
+ * Update digital twin settings
  */
 router.put('/settings', asyncHandler(async (req, res) => {
   const validation = validate(settingsUpdateInputSchema, req.body);
@@ -325,7 +384,7 @@ router.put('/settings', asyncHandler(async (req, res) => {
     });
   }
 
-  const settings = await soulService.updateSettings(validation.data);
+  const settings = await digitalTwinService.updateSettings(validation.data);
   res.json(settings);
 }));
 
@@ -334,17 +393,17 @@ router.put('/settings', asyncHandler(async (req, res) => {
 // =============================================================================
 
 /**
- * GET /api/soul/validate/completeness
- * Check soul document completeness
+ * GET /api/digital-twin/validate/completeness
+ * Check digital twin document completeness
  */
 router.get('/validate/completeness', asyncHandler(async (req, res) => {
-  const result = await soulService.validateCompleteness();
+  const result = await digitalTwinService.validateCompleteness();
   res.json(result);
 }));
 
 /**
- * POST /api/soul/validate/contradictions
- * Detect contradictions in soul documents using AI
+ * POST /api/digital-twin/validate/contradictions
+ * Detect contradictions in digital twin documents using AI
  */
 router.post('/validate/contradictions', asyncHandler(async (req, res) => {
   const validation = validate(contradictionInputSchema, req.body);
@@ -357,12 +416,12 @@ router.post('/validate/contradictions', asyncHandler(async (req, res) => {
   }
 
   const { providerId, model } = validation.data;
-  const result = await soulService.detectContradictions(providerId, model);
+  const result = await digitalTwinService.detectContradictions(providerId, model);
   res.json(result);
 }));
 
 /**
- * POST /api/soul/tests/generate
+ * POST /api/digital-twin/tests/generate
  * Generate behavioral tests from soul content
  */
 router.post('/tests/generate', asyncHandler(async (req, res) => {
@@ -376,12 +435,12 @@ router.post('/tests/generate', asyncHandler(async (req, res) => {
   }
 
   const { providerId, model } = validation.data;
-  const result = await soulService.generateDynamicTests(providerId, model);
+  const result = await digitalTwinService.generateDynamicTests(providerId, model);
   res.json(result);
 }));
 
 /**
- * POST /api/soul/analyze-writing
+ * POST /api/digital-twin/analyze-writing
  * Analyze writing samples to extract communication patterns
  */
 router.post('/analyze-writing', asyncHandler(async (req, res) => {
@@ -395,7 +454,7 @@ router.post('/analyze-writing', asyncHandler(async (req, res) => {
   }
 
   const { samples, providerId, model } = validation.data;
-  const result = await soulService.analyzeWritingSamples(samples, providerId, model);
+  const result = await digitalTwinService.analyzeWritingSamples(samples, providerId, model);
   res.json(result);
 }));
 

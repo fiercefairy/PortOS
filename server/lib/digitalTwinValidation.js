@@ -33,7 +33,8 @@ export const enrichmentCategoryEnum = z.enum([
   'career_skills',
   'non_negotiables',
   'decision_heuristics',
-  'error_intolerance'
+  'error_intolerance',
+  'personality_assessments'
 ]);
 
 // Document metadata schema
@@ -80,20 +81,22 @@ export const enrichmentProgressSchema = z.object({
   questionsAnswered: z.record(enrichmentCategoryEnum, z.number().int().min(0)).optional()
 });
 
-// Soul settings schema
-export const soulSettingsSchema = z.object({
+// Digital Twin settings schema
+export const digitalTwinSettingsSchema = z.object({
   autoInjectToCoS: z.boolean().default(true),
   maxContextTokens: z.number().int().min(1000).max(100000).default(4000)
 });
+export const soulSettingsSchema = digitalTwinSettingsSchema; // Alias for backwards compatibility
 
 // Full meta.json schema
-export const soulMetaSchema = z.object({
+export const digitalTwinMetaSchema = z.object({
   version: z.string().default('1.0.0'),
   documents: z.array(documentMetaSchema).default([]),
   testHistory: z.array(testHistoryEntrySchema).default([]),
   enrichment: enrichmentProgressSchema.default({ completedCategories: [], lastSession: null }),
-  settings: soulSettingsSchema.default({ autoInjectToCoS: true, maxContextTokens: 4000 })
+  settings: digitalTwinSettingsSchema.default({ autoInjectToCoS: true, maxContextTokens: 4000 })
 });
+export const soulMetaSchema = digitalTwinMetaSchema; // Alias for backwards compatibility
 
 // --- Input schemas for API endpoints ---
 
@@ -181,4 +184,30 @@ export const writingAnalysisInputSchema = z.object({
   samples: z.array(z.string().min(10)).min(1).max(10),
   providerId: z.string().min(1),
   model: z.string().min(1)
+});
+
+// List-based enrichment item
+export const listItemSchema = z.object({
+  title: z.string().min(1).max(500),
+  note: z.string().max(2000).optional()
+});
+
+// Analyze list input
+export const analyzeListInputSchema = z.object({
+  category: enrichmentCategoryEnum,
+  items: z.array(listItemSchema).min(1).max(50),
+  providerId: z.string().min(1),
+  model: z.string().min(1)
+});
+
+// Save list document input
+export const saveListDocumentInputSchema = z.object({
+  category: enrichmentCategoryEnum,
+  content: z.string().min(1).max(100000),
+  items: z.array(listItemSchema).min(1).max(50)
+});
+
+// Get list items input
+export const getListItemsInputSchema = z.object({
+  category: enrichmentCategoryEnum
 });

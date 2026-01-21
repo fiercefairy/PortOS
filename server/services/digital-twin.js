@@ -1,12 +1,12 @@
 /**
- * Soul Service
+ * Digital Twin Service
  *
- * Core business logic for the Soul feature:
- * - Document CRUD (manage soul markdown files)
+ * Core business logic for the Digital Twin feature:
+ * - Document CRUD (manage digital twin markdown files)
  * - Behavioral testing against LLMs
  * - Enrichment questionnaire system
  * - Export for external LLM use
- * - CoS integration (soul context injection)
+ * - CoS integration (digital twin context injection)
  */
 
 import { readFile, writeFile, unlink, readdir, mkdir, stat } from 'fs/promises';
@@ -18,18 +18,19 @@ import EventEmitter from 'events';
 import { getActiveProvider, getProviderById } from './providers.js';
 import { buildPrompt } from './promptService.js';
 import {
-  soulMetaSchema,
+  digitalTwinMetaSchema,
   documentMetaSchema,
   testHistoryEntrySchema
-} from '../lib/soulValidation.js';
+} from '../lib/digitalTwinValidation.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const SOUL_DIR = join(__dirname, '../../data/soul');
-const META_FILE = join(SOUL_DIR, 'meta.json');
+const DIGITAL_TWIN_DIR = join(__dirname, '../../data/digital-twin');
+const META_FILE = join(DIGITAL_TWIN_DIR, 'meta.json');
 
-// Event emitter for soul data changes
-export const soulEvents = new EventEmitter();
+// Event emitter for digital twin data changes
+export const digitalTwinEvents = new EventEmitter();
+export const soulEvents = digitalTwinEvents; // Alias for backwards compatibility
 
 // In-memory cache
 const cache = {
@@ -66,6 +67,11 @@ export const ENRICHMENT_CATEGORIES = {
     description: 'Books that shaped your thinking',
     targetDoc: 'BOOKS.md',
     targetCategory: 'entertainment',
+    listBased: true,
+    itemLabel: 'Book',
+    itemPlaceholder: 'e.g., Gödel, Escher, Bach by Douglas Hofstadter',
+    notePlaceholder: 'Why this book matters to you, what it taught you...',
+    analyzePrompt: 'Analyze these book choices to understand the reader\'s intellectual interests, values, and worldview.',
     questions: [
       'What book fundamentally changed how you see the world?',
       'Which book do you find yourself re-reading or recommending most?',
@@ -77,6 +83,11 @@ export const ENRICHMENT_CATEGORIES = {
     description: 'Films that resonate with your aesthetic and values',
     targetDoc: 'MOVIES.md',
     targetCategory: 'entertainment',
+    listBased: true,
+    itemLabel: 'Movie',
+    itemPlaceholder: 'e.g., Blade Runner 2049',
+    notePlaceholder: 'What draws you to this film, memorable scenes or themes...',
+    analyzePrompt: 'Analyze these film choices to understand the person\'s aesthetic preferences, emotional resonance patterns, and values.',
     questions: [
       'What film captures your aesthetic sensibility?',
       'Which movie do you quote or reference most often?',
@@ -88,6 +99,11 @@ export const ENRICHMENT_CATEGORIES = {
     description: 'Music as cognitive infrastructure',
     targetDoc: 'MUSIC.md',
     targetCategory: 'audio',
+    listBased: true,
+    itemLabel: 'Album/Artist',
+    itemPlaceholder: 'e.g., OK Computer by Radiohead',
+    notePlaceholder: 'When you listen to this, how you use it (focus, energy, mood)...',
+    analyzePrompt: 'Analyze these music choices to understand how this person uses music for cognitive and emotional regulation.',
     questions: [
       'What album do you use for deep focus work?',
       'What music captures your emotional baseline?',
@@ -192,6 +208,17 @@ export const ENRICHMENT_CATEGORIES = {
       'What should your digital twin never do when responding to you?',
       'What type of "help" actually makes things worse for you?'
     ]
+  },
+  personality_assessments: {
+    label: 'Personality Assessments',
+    description: 'Personality type results from assessments like Myers-Briggs, Big Five, DISC, Enneagram, etc.',
+    targetDoc: 'PERSONALITY.md',
+    targetCategory: 'core',
+    questions: [
+      'What is your Myers-Briggs type (e.g., INTJ, ENFP)? If you test differently at different times, list all results.',
+      'If you know your Big Five (OCEAN) scores, what are they? High/low on Openness, Conscientiousness, Extraversion, Agreeableness, Neuroticism?',
+      'Have you taken other personality assessments (Enneagram, DISC, StrengthsFinder, etc.)? Share those results.'
+    ]
   }
 };
 
@@ -208,9 +235,9 @@ function now() {
 }
 
 async function ensureSoulDir() {
-  if (!existsSync(SOUL_DIR)) {
-    await mkdir(SOUL_DIR, { recursive: true });
-    console.log(`🧬 Created soul data directory: ${SOUL_DIR}`);
+  if (!existsSync(DIGITAL_TWIN_DIR)) {
+    await mkdir(DIGITAL_TWIN_DIR, { recursive: true });
+    console.log(`🧬 Created soul data directory: ${DIGITAL_TWIN_DIR}`);
   }
 }
 
@@ -234,7 +261,7 @@ export async function loadMeta() {
 
   const content = await readFile(META_FILE, 'utf-8');
   const parsed = JSON.parse(content);
-  const validated = soulMetaSchema.safeParse(parsed);
+  const validated = digitalTwinMetaSchema.safeParse(parsed);
 
   cache.meta.data = validated.success ? validated.data : { ...DEFAULT_META, ...parsed };
   cache.meta.timestamp = Date.now();
@@ -244,11 +271,11 @@ export async function loadMeta() {
 async function buildInitialMeta() {
   const meta = { ...DEFAULT_META };
 
-  const files = await readdir(SOUL_DIR).catch(() => []);
+  const files = await readdir(DIGITAL_TWIN_DIR).catch(() => []);
   const mdFiles = files.filter(f => f.endsWith('.md'));
 
   for (const file of mdFiles) {
-    const content = await readFile(join(SOUL_DIR, file), 'utf-8').catch(() => '');
+    const content = await readFile(join(DIGITAL_TWIN_DIR, file), 'utf-8').catch(() => '');
     const title = extractTitle(content) || file.replace('.md', '');
     const category = inferCategory(file);
     const version = extractVersion(content);
@@ -357,7 +384,7 @@ export async function getDocuments() {
   const documents = [];
 
   for (const doc of meta.documents) {
-    const filePath = join(SOUL_DIR, doc.filename);
+    const filePath = join(DIGITAL_TWIN_DIR, doc.filename);
     const exists = existsSync(filePath);
 
     if (exists) {
@@ -379,7 +406,7 @@ export async function getDocumentById(id) {
 
   if (!docMeta) return null;
 
-  const filePath = join(SOUL_DIR, docMeta.filename);
+  const filePath = join(DIGITAL_TWIN_DIR, docMeta.filename);
   if (!existsSync(filePath)) return null;
 
   const content = await readFile(filePath, 'utf-8');
@@ -397,7 +424,7 @@ export async function createDocument(data) {
   await ensureSoulDir();
 
   const meta = await loadMeta();
-  const filePath = join(SOUL_DIR, data.filename);
+  const filePath = join(DIGITAL_TWIN_DIR, data.filename);
 
   // Check if file already exists
   if (existsSync(filePath)) {
@@ -434,7 +461,7 @@ export async function updateDocument(id, updates) {
   if (docIndex === -1) return null;
 
   const docMeta = meta.documents[docIndex];
-  const filePath = join(SOUL_DIR, docMeta.filename);
+  const filePath = join(DIGITAL_TWIN_DIR, docMeta.filename);
 
   // Update file content if provided
   if (updates.content) {
@@ -465,7 +492,7 @@ export async function deleteDocument(id) {
   if (docIndex === -1) return false;
 
   const docMeta = meta.documents[docIndex];
-  const filePath = join(SOUL_DIR, docMeta.filename);
+  const filePath = join(DIGITAL_TWIN_DIR, docMeta.filename);
 
   // Delete file
   if (existsSync(filePath)) {
@@ -489,7 +516,7 @@ export async function parseTestSuite() {
     return cache.tests.data;
   }
 
-  const testFile = join(SOUL_DIR, 'BEHAVIORAL_TEST_SUITE.md');
+  const testFile = join(DIGITAL_TWIN_DIR, 'BEHAVIORAL_TEST_SUITE.md');
   if (!existsSync(testFile)) {
     return [];
   }
@@ -724,7 +751,12 @@ export function getEnrichmentCategories() {
     label: config.label,
     description: config.description,
     targetDoc: config.targetDoc,
-    sampleQuestions: config.questions.length
+    sampleQuestions: config.questions.length,
+    // List-based category config
+    listBased: config.listBased || false,
+    itemLabel: config.itemLabel,
+    itemPlaceholder: config.itemPlaceholder,
+    notePlaceholder: config.notePlaceholder
   }));
 }
 
@@ -860,7 +892,7 @@ export async function processEnrichmentAnswer(data) {
   }
 
   // Append to target document
-  const targetPath = join(SOUL_DIR, config.targetDoc);
+  const targetPath = join(DIGITAL_TWIN_DIR, config.targetDoc);
   let existingContent = '';
 
   if (existsSync(targetPath)) {
@@ -934,6 +966,197 @@ export async function getEnrichmentProgress() {
   };
 }
 
+/**
+ * Analyze a list of items (books, movies, music) and generate document content
+ * @param {string} category - The enrichment category
+ * @param {Array} items - Array of { title, note } objects
+ * @param {string} providerId - Provider to use for analysis
+ * @param {string} model - Model to use
+ * @returns {Object} - { analysis, suggestedContent, items }
+ */
+export async function analyzeEnrichmentList(category, items, providerId, model) {
+  const config = ENRICHMENT_CATEGORIES[category];
+  if (!config) {
+    throw new Error(`Unknown enrichment category: ${category}`);
+  }
+
+  if (!config.listBased) {
+    throw new Error(`Category ${category} does not support list-based enrichment`);
+  }
+
+  if (!items || items.length === 0) {
+    throw new Error('No items provided');
+  }
+
+  const provider = await getProviderById(providerId);
+  if (!provider || !provider.enabled) {
+    throw new Error('Provider not found or disabled');
+  }
+
+  // Format items for the prompt
+  const itemsList = items.map((item, i) => {
+    let entry = `${i + 1}. ${item.title}`;
+    if (item.note) {
+      entry += `\n   User's note: ${item.note}`;
+    }
+    return entry;
+  }).join('\n\n');
+
+  // Build the analysis prompt
+  const prompt = `You are analyzing someone's ${config.label.toLowerCase()} to understand their personality, values, and preferences.
+
+${config.analyzePrompt}
+
+## Items provided:
+
+${itemsList}
+
+## Your task:
+
+1. **Analysis**: For each item, briefly note what it might reveal about the person (themes, values, intellectual interests, emotional patterns).
+
+2. **Patterns**: Identify 3-5 overarching patterns or themes across all choices.
+
+3. **Personality Insights**: What does this collection suggest about the person's:
+   - Intellectual interests and curiosities
+   - Values and worldview
+   - Aesthetic preferences
+   - Emotional landscape
+
+4. **Generate Document**: Create a markdown document for ${config.targetDoc} that captures these insights in a format useful for an AI digital twin.
+
+Respond in JSON format:
+\`\`\`json
+{
+  "itemAnalysis": [
+    { "title": "...", "insights": "..." }
+  ],
+  "patterns": ["pattern 1", "pattern 2", ...],
+  "personalityInsights": {
+    "intellectualInterests": "...",
+    "valuesWorldview": "...",
+    "aestheticPreferences": "...",
+    "emotionalLandscape": "..."
+  },
+  "suggestedDocument": "# ${config.label}\\n\\n..."
+}
+\`\`\``;
+
+  if (provider.type !== 'api') {
+    throw new Error('List analysis requires an API provider');
+  }
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (provider.apiKey) {
+    headers['Authorization'] = `Bearer ${provider.apiKey}`;
+  }
+
+  const response = await fetch(`${provider.endpoint}/chat/completions`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7,
+      max_tokens: 3000
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const responseText = data.choices?.[0]?.message?.content || '';
+
+  // Parse the JSON response
+  const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
+  if (jsonMatch) {
+    const parsed = JSON.parse(jsonMatch[1]);
+    return {
+      category,
+      items,
+      itemAnalysis: parsed.itemAnalysis || [],
+      patterns: parsed.patterns || [],
+      personalityInsights: parsed.personalityInsights || {},
+      suggestedDocument: parsed.suggestedDocument || '',
+      targetDoc: config.targetDoc,
+      targetCategory: config.targetCategory
+    };
+  }
+
+  // Fallback if JSON parsing fails
+  return {
+    category,
+    items,
+    rawResponse: responseText,
+    suggestedDocument: responseText,
+    targetDoc: config.targetDoc,
+    targetCategory: config.targetCategory
+  };
+}
+
+/**
+ * Save analyzed list content to document
+ */
+export async function saveEnrichmentListDocument(category, content, items) {
+  const config = ENRICHMENT_CATEGORIES[category];
+  if (!config) {
+    throw new Error(`Unknown enrichment category: ${category}`);
+  }
+
+  await ensureSoulDir();
+
+  const targetPath = join(DIGITAL_TWIN_DIR, config.targetDoc);
+  await writeFile(targetPath, content);
+
+  // Update meta
+  const meta = await loadMeta();
+
+  // Mark as completed since they provided a full list
+  if (!meta.enrichment.completedCategories.includes(category)) {
+    meta.enrichment.completedCategories.push(category);
+  }
+
+  // Store the list items for future reference/editing
+  if (!meta.enrichment.listItems) {
+    meta.enrichment.listItems = {};
+  }
+  meta.enrichment.listItems[category] = items;
+  meta.enrichment.lastSession = now();
+
+  // Ensure document is in meta
+  const existingDoc = meta.documents.find(d => d.filename === config.targetDoc);
+  if (!existingDoc) {
+    meta.documents.push({
+      id: generateId(),
+      filename: config.targetDoc,
+      title: config.label,
+      category: config.targetCategory || 'enrichment',
+      enabled: true,
+      priority: 30
+    });
+  }
+
+  await saveMeta(meta);
+
+  console.log(`🧬 Saved list-based enrichment for ${category} (${items.length} items)`);
+
+  return {
+    category,
+    targetDoc: config.targetDoc,
+    itemCount: items.length
+  };
+}
+
+/**
+ * Get previously saved list items for a category
+ */
+export async function getEnrichmentListItems(category) {
+  const meta = await loadMeta();
+  return meta.enrichment.listItems?.[category] || [];
+}
+
 // =============================================================================
 // EXPORT
 // =============================================================================
@@ -947,7 +1170,7 @@ export function getExportFormats() {
   ];
 }
 
-export async function exportSoul(format, documentIds = null, includeDisabled = false) {
+export async function exportDigitalTwin(format, documentIds = null, includeDisabled = false) {
   const meta = await loadMeta();
   let docs = meta.documents;
 
@@ -970,7 +1193,7 @@ export async function exportSoul(format, documentIds = null, includeDisabled = f
   // Load content for each document
   const documentsWithContent = [];
   for (const doc of docs) {
-    const filePath = join(SOUL_DIR, doc.filename);
+    const filePath = join(DIGITAL_TWIN_DIR, doc.filename);
     if (existsSync(filePath)) {
       const content = await readFile(filePath, 'utf-8');
       documentsWithContent.push({ ...doc, content });
@@ -1052,6 +1275,7 @@ function exportAsJson(docs) {
     tokenEstimate: Math.ceil(jsonString.length / 4)
   };
 }
+export const exportSoul = exportDigitalTwin; // Alias for backwards compatibility
 
 function exportAsIndividual(docs) {
   return {
@@ -1071,7 +1295,7 @@ function exportAsIndividual(docs) {
 // COS INTEGRATION
 // =============================================================================
 
-export async function getSoulForPrompt(options = {}) {
+export async function getDigitalTwinForPrompt(options = {}) {
   const { maxTokens = 4000 } = options;
   const meta = await loadMeta();
 
@@ -1095,7 +1319,7 @@ export async function getSoulForPrompt(options = {}) {
   const maxChars = maxTokens * 4; // Rough char-to-token estimate
 
   for (const doc of docs) {
-    const filePath = join(SOUL_DIR, doc.filename);
+    const filePath = join(DIGITAL_TWIN_DIR, doc.filename);
     if (!existsSync(filePath)) continue;
 
     const content = await readFile(filePath, 'utf-8');
@@ -1115,12 +1339,13 @@ export async function getSoulForPrompt(options = {}) {
 
   return output.trim();
 }
+export const getSoulForPrompt = getDigitalTwinForPrompt; // Alias for backwards compatibility
 
 // =============================================================================
 // STATUS & SUMMARY
 // =============================================================================
 
-export async function getSoulStatus() {
+export async function getDigitalTwinStatus() {
   const meta = await loadMeta();
   const documents = await getDocuments();
   const testHistory = meta.testHistory.slice(0, 5);
@@ -1151,12 +1376,13 @@ export async function getSoulStatus() {
     settings: meta.settings
   };
 }
+export const getSoulStatus = getDigitalTwinStatus; // Alias for backwards compatibility
 
 // =============================================================================
 // VALIDATION & ANALYSIS
 // =============================================================================
 
-// Required sections for a complete soul
+// Required sections for a complete digital twin
 const REQUIRED_SECTIONS = [
   {
     id: 'identity',
@@ -1215,7 +1441,7 @@ export async function validateCompleteness() {
   // Load content for all enabled documents
   const contents = [];
   for (const doc of enabledDocs) {
-    const filePath = join(SOUL_DIR, doc.filename);
+    const filePath = join(DIGITAL_TWIN_DIR, doc.filename);
     if (existsSync(filePath)) {
       const content = await readFile(filePath, 'utf-8');
       contents.push({ doc, content: content.toLowerCase() });
@@ -1270,7 +1496,7 @@ export async function detectContradictions(providerId, model) {
   // Load all document contents
   let combinedContent = '';
   for (const doc of enabledDocs) {
-    const filePath = join(SOUL_DIR, doc.filename);
+    const filePath = join(DIGITAL_TWIN_DIR, doc.filename);
     if (existsSync(filePath)) {
       const content = await readFile(filePath, 'utf-8');
       combinedContent += `\n\n## Document: ${doc.filename}\n\n${content}`;

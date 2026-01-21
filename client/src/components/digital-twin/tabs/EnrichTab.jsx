@@ -16,6 +16,7 @@ import * as api from '../../../services/api';
 import toast from 'react-hot-toast';
 
 import { ENRICHMENT_CATEGORIES } from '../constants';
+import ListEnrichment from '../ListEnrichment';
 
 export default function EnrichTab({ onRefresh }) {
   const [categories, setCategories] = useState([]);
@@ -134,8 +135,12 @@ export default function EnrichTab({ onRefresh }) {
   };
 
   const startCategory = async (categoryId) => {
+    const config = ENRICHMENT_CATEGORIES[categoryId];
     setActiveCategory(categoryId);
-    await loadQuestion(categoryId);
+    // Only load question for non-list-based categories
+    if (!config?.listBased) {
+      await loadQuestion(categoryId);
+    }
   };
 
   const loadQuestion = async (categoryId) => {
@@ -187,7 +192,25 @@ export default function EnrichTab({ onRefresh }) {
     );
   }
 
-  // Active enrichment session
+  // List-based enrichment (books, movies, music)
+  const activeCategoryConfig = activeCategory ? ENRICHMENT_CATEGORIES[activeCategory] : null;
+  if (activeCategory && activeCategoryConfig?.listBased) {
+    return (
+      <ListEnrichment
+        categoryId={activeCategory}
+        onBack={exitCategory}
+        onRefresh={() => {
+          loadData();
+          onRefresh?.();
+        }}
+        providers={providers}
+        selectedProvider={selectedProvider}
+        setSelectedProvider={setSelectedProvider}
+      />
+    );
+  }
+
+  // Q&A-based enrichment session
   if (activeCategory && currentQuestion) {
     const categoryConfig = ENRICHMENT_CATEGORIES[activeCategory];
     const categoryProgress = progress?.categories?.[activeCategory];

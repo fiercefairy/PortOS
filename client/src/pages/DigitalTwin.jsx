@@ -9,6 +9,7 @@ import OverviewTab from '../components/digital-twin/tabs/OverviewTab';
 import DocumentsTab from '../components/digital-twin/tabs/DocumentsTab';
 import TestTab from '../components/digital-twin/tabs/TestTab';
 import EnrichTab from '../components/digital-twin/tabs/EnrichTab';
+import ImportTab from '../components/digital-twin/tabs/ImportTab';
 import ExportTab from '../components/digital-twin/tabs/ExportTab';
 
 export default function DigitalTwin() {
@@ -50,6 +51,8 @@ export default function DigitalTwin() {
         return <TestTab onRefresh={fetchData} />;
       case 'enrich':
         return <EnrichTab onRefresh={fetchData} />;
+      case 'import':
+        return <ImportTab onRefresh={fetchData} />;
       case 'export':
         return <ExportTab onRefresh={fetchData} />;
       default:

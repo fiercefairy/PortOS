@@ -4,6 +4,7 @@ import {
   CheckCircle,
   Sparkles,
   Download,
+  Upload,
   Settings,
   BookOpen,
   Film,
@@ -30,6 +31,7 @@ export const TABS = [
   { id: 'documents', label: 'Documents', icon: FileText },
   { id: 'test', label: 'Test', icon: CheckCircle },
   { id: 'enrich', label: 'Enrich', icon: Sparkles },
+  { id: 'import', label: 'Import', icon: Upload },
   { id: 'export', label: 'Export', icon: Download }
 ];
 

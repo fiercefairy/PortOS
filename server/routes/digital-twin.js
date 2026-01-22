@@ -31,7 +31,8 @@ import {
   getListItemsInputSchema,
   analyzeTraitsInputSchema,
   updateTraitsInputSchema,
-  calculateConfidenceInputSchema
+  calculateConfidenceInputSchema,
+  importDataInputSchema
 } from '../lib/digitalTwinValidation.js';
 
 const router = Router();
@@ -546,6 +547,64 @@ router.post('/confidence/calculate', asyncHandler(async (req, res) => {
 router.get('/gaps', asyncHandler(async (req, res) => {
   const gaps = await digitalTwinService.getGapRecommendations();
   res.json({ gaps });
+}));
+
+// =============================================================================
+// EXTERNAL DATA IMPORT (Phase 4)
+// =============================================================================
+
+/**
+ * GET /api/digital-twin/import/sources
+ * Get list of supported import sources
+ */
+router.get('/import/sources', asyncHandler(async (req, res) => {
+  const sources = digitalTwinService.getImportSources();
+  res.json({ sources });
+}));
+
+/**
+ * POST /api/digital-twin/import/analyze
+ * Analyze imported external data
+ */
+router.post('/import/analyze', asyncHandler(async (req, res) => {
+  const validation = validate(importDataInputSchema, req.body);
+  if (!validation.success) {
+    throw new ServerError('Validation failed', {
+      status: 400,
+      code: 'VALIDATION_ERROR',
+      context: { details: validation.errors }
+    });
+  }
+
+  const { source, data, providerId, model } = validation.data;
+  const result = await digitalTwinService.analyzeImportedData(source, data, providerId, model);
+
+  if (result.error) {
+    throw new ServerError(result.error, {
+      status: 400,
+      code: 'IMPORT_ANALYSIS_ERROR'
+    });
+  }
+
+  res.json(result);
+}));
+
+/**
+ * POST /api/digital-twin/import/save
+ * Save import analysis as a document
+ */
+router.post('/import/save', asyncHandler(async (req, res) => {
+  const { source, suggestedDoc } = req.body;
+
+  if (!source || !suggestedDoc || !suggestedDoc.filename || !suggestedDoc.content) {
+    throw new ServerError('Missing required fields: source and suggestedDoc', {
+      status: 400,
+      code: 'VALIDATION_ERROR'
+    });
+  }
+
+  const document = await digitalTwinService.saveImportAsDocument(source, suggestedDoc);
+  res.json({ document, message: 'Document saved successfully' });
 }));
 
 export default router;

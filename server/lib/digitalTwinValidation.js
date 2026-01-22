@@ -299,3 +299,82 @@ export const calculateConfidenceInputSchema = z.object({
   providerId: z.string().min(1).optional(),
   model: z.string().min(1).optional()
 });
+
+// --- Phase 4: External Data Import Schemas ---
+
+// Import source enum
+export const importSourceEnum = z.enum([
+  'goodreads',
+  'spotify',
+  'lastfm',
+  'letterboxd',
+  'ical'
+]);
+
+// Goodreads book entry (parsed from CSV)
+export const goodreadsBookSchema = z.object({
+  title: z.string(),
+  author: z.string().optional(),
+  rating: z.number().min(0).max(5).optional(),
+  dateRead: z.string().optional(),
+  shelves: z.array(z.string()).optional(),
+  review: z.string().optional()
+});
+
+// Spotify track/artist entry (parsed from JSON export)
+export const spotifyEntrySchema = z.object({
+  trackName: z.string().optional(),
+  artistName: z.string(),
+  albumName: z.string().optional(),
+  playCount: z.number().int().optional(),
+  msPlayed: z.number().int().optional()
+});
+
+// Letterboxd film entry
+export const letterboxdFilmSchema = z.object({
+  title: z.string(),
+  year: z.number().int().optional(),
+  rating: z.number().min(0).max(5).optional(),
+  watchedDate: z.string().optional(),
+  review: z.string().optional(),
+  tags: z.array(z.string()).optional()
+});
+
+// Calendar event for pattern analysis
+export const calendarEventSchema = z.object({
+  summary: z.string(),
+  start: z.string(),
+  end: z.string().optional(),
+  recurring: z.boolean().optional(),
+  categories: z.array(z.string()).optional()
+});
+
+// Import data input (raw data to parse)
+export const importDataInputSchema = z.object({
+  source: importSourceEnum,
+  data: z.string().min(1).max(10000000), // Up to 10MB of text data
+  providerId: z.string().min(1),
+  model: z.string().min(1)
+});
+
+// Import analysis result
+export const importAnalysisResultSchema = z.object({
+  source: importSourceEnum,
+  itemCount: z.number().int(),
+  insights: z.object({
+    patterns: z.array(z.string()).optional(),
+    preferences: z.array(z.string()).optional(),
+    personalityInferences: z.object({
+      bigFive: bigFiveSchema.partial().optional(),
+      values: z.array(z.string()).optional(),
+      interests: z.array(z.string()).optional()
+    }).optional()
+  }),
+  suggestedDocuments: z.array(z.object({
+    filename: z.string(),
+    title: z.string(),
+    category: documentCategoryEnum,
+    content: z.string()
+  })).optional(),
+  rawSummary: z.string().optional()
+});

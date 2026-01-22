@@ -665,6 +665,17 @@ export const calculateDigitalTwinConfidence = (providerId, model) => request('/d
 });
 export const getDigitalTwinGaps = () => request('/digital-twin/gaps');
 
+// --- Digital Twin External Import (Phase 4) ---
+export const getDigitalTwinImportSources = () => request('/digital-twin/import/sources');
+export const analyzeDigitalTwinImport = (source, data, providerId, model) => request('/digital-twin/import/analyze', {
+  method: 'POST',
+  body: JSON.stringify({ source, data, providerId, model })
+});
+export const saveDigitalTwinImport = (source, suggestedDoc) => request('/digital-twin/import/save', {
+  method: 'POST',
+  body: JSON.stringify({ source, suggestedDoc })
+});
+
 // Default export for simplified imports
 export default {
   get: (endpoint, options) => request(endpoint, { method: 'GET', ...options }),

@@ -590,6 +590,108 @@ export async function shouldSkipTaskType(taskType) {
 }
 
 /**
+ * Check if any skipped task types are eligible for automatic rehabilitation
+ * Task types that have been skipped for a grace period get a "fresh start" opportunity
+ *
+ * Auto-rehabilitation rules:
+ * - Task must have been skipped (success rate < 30% with 5+ attempts)
+ * - Must have been at least rehabilitationGracePeriodMs since last completion
+ * - Reset the task type's learning data to give it a fresh chance
+ *
+ * This allows CoS to automatically retry previously-failing task types
+ * after enough time has passed for fixes to be applied.
+ *
+ * @param {number} gracePeriodMs - Minimum time since last attempt (default: 7 days)
+ * @returns {Object} Summary of rehabilitated task types
+ */
+export async function checkAndRehabilitateSkippedTasks(gracePeriodMs = 7 * 24 * 60 * 60 * 1000) {
+  const data = await loadLearningData();
+  const rehabilitated = [];
+  const now = Date.now();
+
+  for (const [taskType, metrics] of Object.entries(data.byTaskType)) {
+    // Only consider task types that would be skipped (< 30% success with 5+ attempts)
+    if (metrics.completed < 5 || metrics.successRate >= 30) {
+      continue;
+    }
+
+    // Check if enough time has passed since last attempt
+    const lastCompletedTime = metrics.lastCompleted
+      ? new Date(metrics.lastCompleted).getTime()
+      : 0;
+    const timeSinceLastAttempt = now - lastCompletedTime;
+
+    if (timeSinceLastAttempt >= gracePeriodMs) {
+      // This task type is eligible for rehabilitation
+      emitLog('info', `Auto-rehabilitating ${taskType} (was ${metrics.successRate}% success, ${Math.round(timeSinceLastAttempt / (24 * 60 * 60 * 1000))} days since last attempt)`, {
+        taskType,
+        previousSuccessRate: metrics.successRate,
+        previousAttempts: metrics.completed,
+        daysSinceLastAttempt: Math.round(timeSinceLastAttempt / (24 * 60 * 60 * 1000))
+      }, '📚 TaskLearning');
+
+      // Reset this task type's data
+      await resetTaskTypeLearning(taskType);
+
+      rehabilitated.push({
+        taskType,
+        previousSuccessRate: metrics.successRate,
+        previousAttempts: metrics.completed,
+        daysSinceLastAttempt: Math.round(timeSinceLastAttempt / (24 * 60 * 60 * 1000))
+      });
+    }
+  }
+
+  if (rehabilitated.length > 0) {
+    emitLog('success', `Auto-rehabilitated ${rehabilitated.length} skipped task type(s)`, {
+      rehabilitated: rehabilitated.map(r => r.taskType)
+    }, '📚 TaskLearning');
+  }
+
+  return { rehabilitated, count: rehabilitated.length };
+}
+
+/**
+ * Get all skipped task types with their rehabilitation eligibility status
+ * Useful for UI display and debugging
+ * @param {number} gracePeriodMs - Grace period for rehabilitation eligibility
+ * @returns {Array} List of skipped task types with status info
+ */
+export async function getSkippedTaskTypesWithStatus(gracePeriodMs = 7 * 24 * 60 * 60 * 1000) {
+  const data = await loadLearningData();
+  const skipped = [];
+  const now = Date.now();
+
+  for (const [taskType, metrics] of Object.entries(data.byTaskType)) {
+    // Only include task types that would be skipped
+    if (metrics.completed < 5 || metrics.successRate >= 30) {
+      continue;
+    }
+
+    const lastCompletedTime = metrics.lastCompleted
+      ? new Date(metrics.lastCompleted).getTime()
+      : 0;
+    const timeSinceLastAttempt = now - lastCompletedTime;
+    const eligibleForRehabilitation = timeSinceLastAttempt >= gracePeriodMs;
+    const timeUntilEligible = eligibleForRehabilitation
+      ? 0
+      : gracePeriodMs - timeSinceLastAttempt;
+
+    skipped.push({
+      taskType,
+      successRate: metrics.successRate,
+      completed: metrics.completed,
+      lastCompleted: metrics.lastCompleted,
+      daysSinceLastAttempt: Math.round(timeSinceLastAttempt / (24 * 60 * 60 * 1000)),
+      eligibleForRehabilitation,
+      daysUntilEligible: Math.ceil(timeUntilEligible / (24 * 60 * 60 * 1000))
+    });
+  }
+
+  return skipped;
+}
+
+/**
  * Reset learning data for a specific task type
  * Used when a previously-failing task type has been fixed and should be retried
  * Subtracts the task type's metrics from totals and removes the task type entry

@@ -17,7 +17,7 @@ import { getActiveProvider } from './providers.js';
 import { parseTasksMarkdown, groupTasksByStatus, getNextTask, getAutoApprovedTasks, getAwaitingApprovalTasks, updateTaskStatus, generateTasksMarkdown } from '../lib/taskParser.js';
 import { isAppOnCooldown, getNextAppForReview, markAppReviewStarted, markIdleReviewStarted } from './appActivity.js';
 import { getAllApps } from './apps.js';
-import { getAdaptiveCooldownMultiplier, getSkippedTaskTypes, getPerformanceSummary } from './taskLearning.js';
+import { getAdaptiveCooldownMultiplier, getSkippedTaskTypes, getPerformanceSummary, checkAndRehabilitateSkippedTasks } from './taskLearning.js';
 
 const execAsync = promisify(exec);
 
@@ -101,6 +101,7 @@ const DEFAULT_CONFIG = {
   comprehensiveAppImprovement: true,       // Use comprehensive analysis for managed apps (same as PortOS self-improvement)
   immediateExecution: true,                // Execute new tasks immediately, don't wait for interval
   proactiveMode: true,                     // Be proactive about finding work
+  rehabilitationGracePeriodDays: 7,        // Days before auto-retrying skipped task types (learning-based)
   autoFixThresholds: {
     maxLinesChanged: 50,                   // Auto-approve if <= this many lines changed
     allowedCategories: [                   // Categories that can auto-execute
@@ -589,6 +590,18 @@ export async function evaluateTasks() {
         totalCompleted: perfSummary.totalCompleted,
         topPerformers: perfSummary.topPerformers.length,
         needsAttention: perfSummary.needsAttention.length
+      });
+    }
+  }
+
+  // Periodically check for task types eligible for auto-rehabilitation (every 100 evaluations, ~2 hours)
+  // This gives previously-failing task types a fresh chance after their grace period expires
+  if (evalCount % 100 === 0 && evalCount > 0) {
+    const gracePeriodMs = (state.config.rehabilitationGracePeriodDays || 7) * 24 * 60 * 60 * 1000;
+    const rehabilitationResult = await checkAndRehabilitateSkippedTasks(gracePeriodMs).catch(() => ({ count: 0 }));
+    if (rehabilitationResult.count > 0) {
+      emitLog('success', `Auto-rehabilitated ${rehabilitationResult.count} skipped task type(s) for retry`, {
+        rehabilitated: rehabilitationResult.rehabilitated?.map(r => r.taskType) || []
       });
     }
   }

@@ -6,11 +6,12 @@
  * to provide smarter task prioritization and model selection.
  */
 
-import { readFile, writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { cosEvents, emitLog } from './cos.js';
+import { readJSONFile } from '../lib/fileUtils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -51,12 +52,7 @@ async function loadLearningData() {
     await mkdir(DATA_DIR, { recursive: true });
   }
 
-  if (!existsSync(LEARNING_FILE)) {
-    return { ...DEFAULT_LEARNING_DATA };
-  }
-
-  const content = await readFile(LEARNING_FILE, 'utf-8');
-  return JSON.parse(content);
+  return readJSONFile(LEARNING_FILE, { ...DEFAULT_LEARNING_DATA });
 }
 
 /**

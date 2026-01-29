@@ -6,11 +6,12 @@
  * error patterns, and accomplishments.
  */
 
-import { readFile, writeFile, mkdir, readdir } from 'fs/promises';
+import { writeFile, mkdir, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { cosEvents, emitLog, getAgents } from './cos.js';
+import { readJSONFile } from '../lib/fileUtils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -68,11 +69,7 @@ function getDigestPath(weekId) {
  */
 async function loadDigest(weekId) {
   const path = getDigestPath(weekId);
-  if (!existsSync(path)) {
-    return null;
-  }
-  const content = await readFile(path, 'utf-8');
-  return JSON.parse(content);
+  return readJSONFile(path, null);
 }
 
 /**

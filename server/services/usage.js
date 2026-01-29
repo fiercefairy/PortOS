@@ -1,7 +1,6 @@
-import { readFile, writeFile } from 'fs/promises';
-import { existsSync } from 'fs';
+import { writeFile } from 'fs/promises';
 import { join } from 'path';
-import { ensureDir, PATHS } from '../lib/fileUtils.js';
+import { ensureDir, PATHS, readJSONFile } from '../lib/fileUtils.js';
 
 const DATA_DIR = PATHS.data;
 const USAGE_FILE = join(DATA_DIR, 'usage.json');
@@ -34,9 +33,8 @@ function getEmptyUsage() {
 export async function loadUsage() {
   await ensureDir(DATA_DIR);
 
-  if (existsSync(USAGE_FILE)) {
-    usageData = JSON.parse(await readFile(USAGE_FILE, 'utf-8'));
-  } else {
+  usageData = await readJSONFile(USAGE_FILE, null);
+  if (!usageData) {
     usageData = getEmptyUsage();
     await saveUsage();
   }

@@ -8,6 +8,7 @@ import { promisify } from 'util';
 import { homedir } from 'os';
 import { createApp, getReservedPorts } from '../services/apps.js';
 import { asyncHandler, ServerError } from '../lib/errorHandler.js';
+import { safeJSONParse } from '../lib/fileUtils.js';
 
 const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
@@ -289,7 +290,8 @@ app.listen(PORT, '0.0.0.0', () => {
 
       // Update package.json to add express and server script
       const pkgPath = join(repoPath, 'package.json');
-      const pkg = JSON.parse(await readFile(pkgPath, 'utf-8'));
+      const pkgContent = await readFile(pkgPath, 'utf-8');
+      const pkg = safeJSONParse(pkgContent, { dependencies: {}, devDependencies: {}, scripts: {} });
       pkg.dependencies = pkg.dependencies || {};
       pkg.dependencies.express = '^4.21.2';
       pkg.dependencies.cors = '^2.8.5';

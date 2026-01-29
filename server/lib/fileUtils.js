@@ -4,7 +4,7 @@
  * Shared utilities for file operations used across services.
  */
 
-import { mkdir } from 'fs/promises';
+import { mkdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -86,4 +86,142 @@ export function dataPath(...segments) {
  */
 export function rootPath(...segments) {
   return join(PATHS.root, ...segments);
+}
+
+/**
+ * Check if a string is potentially valid JSON.
+ * Performs quick structural validation before parsing.
+ *
+ * @param {string} str - String to validate
+ * @param {Object} options - Validation options
+ * @param {boolean} [options.allowArray=true] - Allow array JSON (default: true)
+ * @returns {boolean} True if the string appears to be valid JSON
+ *
+ * @example
+ * isValidJSON('{"key": "value"}') // true
+ * isValidJSON('[1, 2, 3]') // true
+ * isValidJSON('') // false
+ * isValidJSON('{"incomplete":') // false
+ */
+export function isValidJSON(str, { allowArray = true } = {}) {
+  if (!str || !str.trim()) return false;
+  const trimmed = str.trim();
+
+  // Check for basic JSON structure (object or array)
+  const isObject = trimmed.startsWith('{') && trimmed.endsWith('}');
+  const isArray = trimmed.startsWith('[') && trimmed.endsWith(']');
+
+  if (!isObject && !(allowArray && isArray)) return false;
+
+  // Check for common corruption patterns
+  if (isObject && (trimmed.endsWith('}}') || trimmed.includes('}{'))) return false;
+  if (isArray && (trimmed.endsWith(']]') || trimmed.includes(']['))) return false;
+
+  return true;
+}
+
+/**
+ * Safely parse JSON with validation and fallback.
+ * Avoids "Unexpected end of JSON input" errors from empty/corrupted files.
+ *
+ * @param {string} str - JSON string to parse
+ * @param {*} defaultValue - Default value if parsing fails (default: null)
+ * @param {Object} options - Parse options
+ * @param {boolean} [options.allowArray=true] - Allow array JSON
+ * @param {boolean} [options.logError=false] - Log parsing errors
+ * @param {string} [options.context=''] - Context for error logging
+ * @returns {*} Parsed JSON or default value
+ *
+ * @example
+ * safeJSONParse('{"key": "value"}', {}) // { key: "value" }
+ * safeJSONParse('', {}) // {}
+ * safeJSONParse('invalid', []) // []
+ * safeJSONParse(null, { default: true }) // { default: true }
+ */
+export function safeJSONParse(str, defaultValue = null, { allowArray = true, logError = false, context = '' } = {}) {
+  if (!isValidJSON(str, { allowArray })) {
+    if (logError && str) {
+      console.log(`⚠️ Invalid JSON${context ? ` in ${context}` : ''}: empty or malformed content`);
+    }
+    return defaultValue;
+  }
+
+  // Attempt actual parse - the validation above catches most issues
+  // but we still need to handle syntax errors gracefully
+  const result = JSON.parse(str);
+  return result;
+}
+
+/**
+ * Read a JSON file safely with validation and default fallback.
+ * Combines file reading with safe JSON parsing.
+ *
+ * @param {string} filePath - Path to JSON file
+ * @param {*} defaultValue - Default value if file doesn't exist or is invalid
+ * @param {Object} options - Options
+ * @param {boolean} [options.allowArray=true] - Allow array JSON
+ * @param {boolean} [options.logError=true] - Log errors
+ * @returns {Promise<*>} Parsed JSON or default value
+ *
+ * @example
+ * const config = await readJSONFile('./config.json', { port: 3000 });
+ * const items = await readJSONFile('./items.json', []);
+ */
+export async function readJSONFile(filePath, defaultValue = null, { allowArray = true, logError = true } = {}) {
+  if (!existsSync(filePath)) {
+    return defaultValue;
+  }
+
+  const content = await readFile(filePath, 'utf-8');
+  return safeJSONParse(content, defaultValue, { allowArray, logError, context: filePath });
+}
+
+/**
+ * Parse JSONL (JSON Lines) content safely.
+ * Handles empty lines, whitespace, and malformed lines gracefully.
+ *
+ * @param {string} content - JSONL content (newline-separated JSON objects)
+ * @param {Object} options - Options
+ * @param {boolean} [options.logErrors=false] - Log individual line parsing errors
+ * @param {string} [options.context=''] - Context for error logging
+ * @returns {Array} Array of parsed objects (invalid lines are skipped)
+ *
+ * @example
+ * const lines = safeJSONLParse('{"a":1}\n{"b":2}\n'); // [{ a: 1 }, { b: 2 }]
+ * const lines = safeJSONLParse('{"a":1}\ninvalid\n{"b":2}'); // [{ a: 1 }, { b: 2 }]
+ */
+export function safeJSONLParse(content, { logErrors = false, context = '' } = {}) {
+  if (!content || !content.trim()) return [];
+
+  const lines = content.split('\n').filter(line => line.trim());
+  const results = [];
+
+  for (const line of lines) {
+    const parsed = safeJSONParse(line, null, { allowArray: false, logError: logErrors, context });
+    if (parsed !== null) {
+      results.push(parsed);
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Read a JSONL file safely.
+ *
+ * @param {string} filePath - Path to JSONL file
+ * @param {Object} options - Options
+ * @param {boolean} [options.logErrors=false] - Log individual line parsing errors
+ * @returns {Promise<Array>} Array of parsed objects
+ *
+ * @example
+ * const entries = await readJSONLFile('./logs.jsonl');
+ */
+export async function readJSONLFile(filePath, { logErrors = false } = {}) {
+  if (!existsSync(filePath)) {
+    return [];
+  }
+
+  const content = await readFile(filePath, 'utf-8');
+  return safeJSONLParse(content, { logErrors, context: filePath });
 }

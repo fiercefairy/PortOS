@@ -13,6 +13,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import EventEmitter from 'events';
+import { readJSONFile, safeJSONParse } from '../lib/fileUtils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -99,14 +100,8 @@ export async function loadMeta() {
 
   await ensureBrainDir();
 
-  if (!existsSync(FILES.meta)) {
-    cache.data = { ...DEFAULT_META };
-    cache.timestamp = Date.now();
-    return cache.data;
-  }
-
-  const content = await readFile(FILES.meta, 'utf-8');
-  cache.data = { ...DEFAULT_META, ...JSON.parse(content) };
+  const loaded = await readJSONFile(FILES.meta, null);
+  cache.data = loaded ? { ...DEFAULT_META, ...loaded } : { ...DEFAULT_META };
   cache.timestamp = Date.now();
   return cache.data;
 }
@@ -148,14 +143,7 @@ async function loadJsonStore(type) {
   await ensureBrainDir();
   const filePath = FILES[type];
 
-  if (!existsSync(filePath)) {
-    cache.data = { records: {} };
-    cache.timestamp = Date.now();
-    return cache.data;
-  }
-
-  const content = await readFile(filePath, 'utf-8');
-  cache.data = JSON.parse(content);
+  cache.data = await readJSONFile(filePath, { records: {} });
   cache.timestamp = Date.now();
   return cache.data;
 }
@@ -288,7 +276,7 @@ async function loadJsonlStore(type) {
 
   const content = await readFile(filePath, 'utf-8');
   const lines = content.trim().split('\n').filter(line => line.trim());
-  cache.data = lines.map(line => JSON.parse(line));
+  cache.data = lines.map(line => safeJSONParse(line, null)).filter(item => item !== null);
   cache.timestamp = Date.now();
   return cache.data;
 }

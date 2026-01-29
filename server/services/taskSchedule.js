@@ -16,11 +16,12 @@
  * - 'custom': Custom interval in milliseconds
  */
 
-import { readFile, writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { cosEvents, emitLog } from './cos.js';
+import { readJSONFile } from '../lib/fileUtils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -616,12 +617,10 @@ async function ensureDir() {
 export async function loadSchedule() {
   await ensureDir();
 
-  if (!existsSync(SCHEDULE_FILE)) {
+  const loaded = await readJSONFile(SCHEDULE_FILE, null);
+  if (!loaded) {
     return { ...DEFAULT_SCHEDULE };
   }
-
-  const content = await readFile(SCHEDULE_FILE, 'utf-8');
-  const loaded = JSON.parse(content);
 
   // Merge with defaults to ensure all task types have settings
   const schedule = {

@@ -1,8 +1,7 @@
-import { readFile, writeFile } from 'fs/promises';
-import { existsSync } from 'fs';
+import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { ensureDir, PATHS } from '../lib/fileUtils.js';
+import { ensureDir, PATHS, readJSONFile } from '../lib/fileUtils.js';
 
 const DATA_DIR = PATHS.data;
 const HISTORY_FILE = join(DATA_DIR, 'history.json');
@@ -26,14 +25,7 @@ async function loadHistory() {
 
   await ensureDataDir();
 
-  if (!existsSync(HISTORY_FILE)) {
-    historyCache = { entries: [] };
-    cacheTimestamp = now;
-    return historyCache;
-  }
-
-  const content = await readFile(HISTORY_FILE, 'utf-8');
-  historyCache = JSON.parse(content);
+  historyCache = await readJSONFile(HISTORY_FILE, { entries: [] });
   cacheTimestamp = now;
   return historyCache;
 }

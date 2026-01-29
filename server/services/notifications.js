@@ -8,12 +8,11 @@
  * - Health issues
  */
 
-import { readFile, writeFile } from 'fs/promises';
-import { existsSync } from 'fs';
+import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { EventEmitter } from 'events';
-import { ensureDir, PATHS } from '../lib/fileUtils.js';
+import { ensureDir, PATHS, readJSONFile } from '../lib/fileUtils.js';
 
 const DATA_DIR = PATHS.data;
 const NOTIFICATIONS_FILE = join(DATA_DIR, 'notifications.json');
@@ -55,13 +54,7 @@ async function loadNotifications() {
 
   await ensureDirectory();
 
-  if (!existsSync(NOTIFICATIONS_FILE)) {
-    notificationsCache = { version: 1, notifications: [] };
-    return notificationsCache;
-  }
-
-  const content = await readFile(NOTIFICATIONS_FILE, 'utf-8');
-  notificationsCache = JSON.parse(content);
+  notificationsCache = await readJSONFile(NOTIFICATIONS_FILE, { version: 1, notifications: [] });
   return notificationsCache;
 }
 

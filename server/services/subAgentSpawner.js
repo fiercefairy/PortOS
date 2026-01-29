@@ -25,6 +25,7 @@ import { getMemorySection } from './memoryRetriever.js';
 import { extractAndStoreMemories } from './memoryExtractor.js';
 import { getDigitalTwinForPrompt } from './digital-twin.js';
 import { suggestModelTier } from './taskLearning.js';
+import { readJSONFile } from '../lib/fileUtils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -201,9 +202,9 @@ async function completeAgentRun(runId, output, exitCode, duration, errorAnalysis
   const runDir = join(RUNS_DIR, runId);
   const metaPath = join(runDir, 'metadata.json');
 
-  if (!existsSync(metaPath)) return;
+  const metadata = await readJSONFile(metaPath, null);
+  if (!metadata) return;
 
-  const metadata = JSON.parse(await readFile(metaPath, 'utf-8'));
   metadata.endTime = new Date().toISOString();
   metadata.duration = duration;
   metadata.exitCode = exitCode;
@@ -1298,12 +1299,10 @@ Begin working on the task now.`;
 async function getAppWorkspace(appName) {
   const appsFile = join(ROOT_DIR, 'data/apps.json');
 
-  if (!existsSync(appsFile)) {
+  const data = await readJSONFile(appsFile, null);
+  if (!data) {
     return ROOT_DIR;
   }
-
-  const content = await readFile(appsFile, 'utf-8');
-  const data = JSON.parse(content);
 
   // Handle both object format { apps: { id: {...} } } and array format [...]
   const apps = data.apps || data;

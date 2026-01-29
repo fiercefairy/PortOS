@@ -5,7 +5,7 @@
  * Stores facts, learnings, observations, decisions, preferences, and context.
  */
 
-import { readFile, writeFile, mkdir, readdir, rm } from 'fs/promises';
+import { writeFile, mkdir, readdir, rm } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -13,6 +13,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { cosEvents, updateAgent } from './cos.js';
 import { findTopK, findAboveThreshold, clusterBySimilarity, cosineSimilarity } from '../lib/vectorMath.js';
 import * as notifications from './notifications.js';
+import { readJSONFile } from '../lib/fileUtils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -73,13 +74,8 @@ async function loadIndex() {
 
   await ensureDirectories();
 
-  if (!existsSync(INDEX_FILE)) {
-    indexCache = { version: 1, lastUpdated: new Date().toISOString(), count: 0, memories: [] };
-    return indexCache;
-  }
-
-  const content = await readFile(INDEX_FILE, 'utf-8');
-  indexCache = JSON.parse(content);
+  const defaultIndex = { version: 1, lastUpdated: new Date().toISOString(), count: 0, memories: [] };
+  indexCache = await readJSONFile(INDEX_FILE, defaultIndex);
   return indexCache;
 }
 
@@ -101,13 +97,8 @@ async function loadEmbeddings() {
 
   await ensureDirectories();
 
-  if (!existsSync(EMBEDDINGS_FILE)) {
-    embeddingsCache = { model: null, dimension: 0, vectors: {} };
-    return embeddingsCache;
-  }
-
-  const content = await readFile(EMBEDDINGS_FILE, 'utf-8');
-  embeddingsCache = JSON.parse(content);
+  const defaultEmbeddings = { model: null, dimension: 0, vectors: {} };
+  embeddingsCache = await readJSONFile(EMBEDDINGS_FILE, defaultEmbeddings);
   return embeddingsCache;
 }
 
@@ -125,10 +116,7 @@ async function saveEmbeddings(embeddings) {
  */
 async function loadMemory(id) {
   const memoryFile = join(MEMORIES_DIR, id, 'memory.json');
-  if (!existsSync(memoryFile)) return null;
-
-  const content = await readFile(memoryFile, 'utf-8');
-  return JSON.parse(content);
+  return readJSONFile(memoryFile, null);
 }
 
 /**

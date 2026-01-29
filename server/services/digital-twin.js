@@ -22,6 +22,7 @@ import {
   documentMetaSchema,
   testHistoryEntrySchema
 } from '../lib/digitalTwinValidation.js';
+import { safeJSONParse } from '../lib/fileUtils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -260,7 +261,7 @@ export async function loadMeta() {
   }
 
   const content = await readFile(META_FILE, 'utf-8');
-  const parsed = JSON.parse(content);
+  const parsed = safeJSONParse(content, DEFAULT_META);
   const validated = digitalTwinMetaSchema.safeParse(parsed);
 
   cache.meta.data = validated.success ? validated.data : { ...DEFAULT_META, ...parsed };

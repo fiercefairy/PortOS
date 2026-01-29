@@ -28,6 +28,6 @@
   },
   "dependencies": {
     "express": "^5.2.1",
-    "portos-ai-toolkit": "github:atomantic/portos-ai-toolkit#v0.1.3"
+    "portos-ai-toolkit": "github:atomantic/portos-ai-toolkit#v0.2.0"
   }
 }

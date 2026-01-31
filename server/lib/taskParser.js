@@ -88,6 +88,22 @@ function parseTaskLine(line) {
 }
 
 /**
+ * Unescape newlines in metadata values
+ * Converts \\n back to actual newlines
+ */
+function unescapeNewlines(value) {
+  return value.replace(/\\n/g, '\n');
+}
+
+/**
+ * Escape newlines in metadata values
+ * Converts newlines to \\n for single-line storage
+ */
+function escapeNewlines(value) {
+  return value.replace(/\n/g, '\\n');
+}
+
+/**
  * Parse metadata line (indented under task)
  * Format:   - Key: Value
  */
@@ -97,7 +113,7 @@ function parseMetadataLine(line) {
 
   return {
     key: match[1].toLowerCase(),
-    value: match[2].trim()
+    value: unescapeNewlines(match[2].trim())
   };
 }
 
@@ -205,10 +221,11 @@ export function generateTasksMarkdown(tasks, includeApprovalFlags = false) {
         : '';
       lines.push(`- ${checkbox} #${task.id} | ${task.priority}${approvalFlag} | ${task.description}`);
 
-      // Add metadata
+      // Add metadata (escape newlines in values for single-line storage)
       for (const [key, value] of Object.entries(task.metadata)) {
         const capitalizedKey = key.charAt(0).toUpperCase() + key.slice(1);
-        lines.push(`  - ${capitalizedKey}: ${value}`);
+        const escapedValue = escapeNewlines(String(value));
+        lines.push(`  - ${capitalizedKey}: ${escapedValue}`);
       }
     }
 

@@ -239,6 +239,10 @@ export const addCosTask = (task) => request('/cos/tasks', {
   method: 'POST',
   body: JSON.stringify(task)
 });
+export const enhanceCosTaskPrompt = (data) => request('/cos/tasks/enhance', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
 export const updateCosTask = (id, updates) => request(`/cos/tasks/${id}`, {
   method: 'PUT',
   body: JSON.stringify(updates)

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Plus, Play, Image, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Play, Image, X, ChevronDown, ChevronRight, Sparkles, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   DndContext,
@@ -29,6 +29,8 @@ export default function TasksTab({ tasks, onRefresh, providers, apps }) {
   const [durations, setDurations] = useState(null);
   const [showCompletedUserTasks, setShowCompletedUserTasks] = useState(false);
   const [showCompletedSystemTasks, setShowCompletedSystemTasks] = useState(false);
+  const [enhancePrompt, setEnhancePrompt] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
   const fileInputRef = useRef(null);
 
   // Fetch task duration estimates from learning data
@@ -153,8 +155,31 @@ export default function TasksTab({ tasks, onRefresh, providers, apps }) {
       return;
     }
 
+    let finalDescription = newTask.description;
+
+    // If enhance checkbox is checked, call the enhance API first
+    if (enhancePrompt) {
+      setIsEnhancing(true);
+      const enhanceResult = await api.enhanceCosTaskPrompt({
+        description: newTask.description,
+        context: newTask.context
+      }).catch(err => {
+        toast.error(`Enhancement failed: ${err.message}`);
+        setIsEnhancing(false);
+        return null;
+      });
+
+      if (!enhanceResult) {
+        return;
+      }
+
+      finalDescription = enhanceResult.enhancedDescription;
+      toast.success('Prompt enhanced');
+      setIsEnhancing(false);
+    }
+
     await api.addCosTask({
-      description: newTask.description,
+      description: finalDescription,
       context: newTask.context,
       model: newTask.model || undefined,
       provider: newTask.provider || undefined,
@@ -170,6 +195,7 @@ export default function TasksTab({ tasks, onRefresh, providers, apps }) {
     setNewTask({ description: '', context: '', model: '', provider: '', app: '' });
     setScreenshots([]);
     setAddToTop(false);
+    setEnhancePrompt(false);
     setShowAddTask(false);
     onRefresh();
   };
@@ -219,21 +245,35 @@ export default function TasksTab({ tasks, onRefresh, providers, apps }) {
                   aria-required="true"
                 />
               </div>
-              <div className="flex items-center gap-3">
-                <label htmlFor="add-position" className="text-sm text-gray-400">Queue Position:</label>
-                <button
-                  id="add-position"
-                  type="button"
-                  onClick={() => setAddToTop(!addToTop)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                    addToTop
-                      ? 'bg-port-accent/20 text-port-accent border border-port-accent/50'
-                      : 'bg-port-bg text-gray-400 border border-port-border'
-                  }`}
-                  aria-pressed={addToTop}
-                >
-                  {addToTop ? 'Top of Queue' : 'Bottom of Queue'}
-                </button>
+              <div className="flex items-center gap-6 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <label htmlFor="add-position" className="text-sm text-gray-400">Queue Position:</label>
+                  <button
+                    id="add-position"
+                    type="button"
+                    onClick={() => setAddToTop(!addToTop)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                      addToTop
+                        ? 'bg-port-accent/20 text-port-accent border border-port-accent/50'
+                        : 'bg-port-bg text-gray-400 border border-port-border'
+                    }`}
+                    aria-pressed={addToTop}
+                  >
+                    {addToTop ? 'Top of Queue' : 'Bottom of Queue'}
+                  </button>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={enhancePrompt}
+                    onChange={(e) => setEnhancePrompt(e.target.checked)}
+                    className="w-4 h-4 rounded border-port-border bg-port-bg text-port-accent focus:ring-port-accent focus:ring-offset-0"
+                  />
+                  <span className="flex items-center gap-1.5 text-sm text-gray-400">
+                    <Sparkles size={14} className="text-yellow-500" />
+                    Enhance with AI
+                  </span>
+                </label>
               </div>
               <div>
                 <label htmlFor="task-context" className="sr-only">Context</label>
@@ -344,17 +384,29 @@ export default function TasksTab({ tasks, onRefresh, providers, apps }) {
                   onClick={() => {
                     setShowAddTask(false);
                     setScreenshots([]);
+                    setEnhancePrompt(false);
                   }}
                   className="px-3 py-1.5 text-sm text-gray-400 hover:text-white transition-colors"
+                  disabled={isEnhancing}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleAddTask}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-port-accent/20 hover:bg-port-accent/30 text-port-accent rounded-lg text-sm transition-colors"
+                  disabled={isEnhancing}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-port-accent/20 hover:bg-port-accent/30 text-port-accent rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[40px]"
                 >
-                  <Plus size={14} aria-hidden="true" />
-                  Add
+                  {isEnhancing ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                      Enhancing...
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={14} aria-hidden="true" />
+                      {enhancePrompt ? 'Enhance & Add' : 'Add'}
+                    </>
+                  )}
                 </button>
               </div>
             </div>

@@ -9,6 +9,7 @@ import * as appActivity from '../services/appActivity.js';
 import * as taskLearning from '../services/taskLearning.js';
 import * as weeklyDigest from '../services/weeklyDigest.js';
 import * as taskSchedule from '../services/taskSchedule.js';
+import { enhanceTaskPrompt } from '../services/taskEnhancer.js';
 import { asyncHandler, ServerError } from '../lib/errorHandler.js';
 
 const router = Router();
@@ -91,6 +92,18 @@ router.post('/tasks/reorder', asyncHandler(async (req, res) => {
   }
 
   const result = await cos.reorderTasks(taskIds);
+  res.json(result);
+}));
+
+// POST /api/cos/tasks/enhance - Enhance a task prompt with AI
+router.post('/tasks/enhance', asyncHandler(async (req, res) => {
+  const { description, context } = req.body;
+
+  if (!description) {
+    throw new ServerError('Description is required', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+
+  const result = await enhanceTaskPrompt(description, context);
   res.json(result);
 }));
 

@@ -14,7 +14,13 @@ export default {
         'port-success': '#22c55e',
         'port-warning': '#f59e0b',
         'port-error': '#ef4444'
-      }
+      },
+      keyframes: {
+        scanline: {
+          '0%': { top: '0%' },
+          '100%': { top: '100%' },
+        },
+      },
     },
   },
   plugins: [],

@@ -268,6 +268,44 @@ export async function addComment(instanceId, ticketId, comment) {
 }
 
 /**
+ * Get available transitions for a JIRA ticket
+ */
+export async function getTransitions(instanceId, ticketId) {
+  const config = await getInstances();
+  const instance = config.instances[instanceId];
+
+  if (!instance) {
+    throw new Error(`JIRA instance ${instanceId} not found`);
+  }
+
+  const client = createJiraClient(instance);
+  const response = await client.get(`/rest/api/2/issue/${ticketId}/transitions`);
+
+  return response.data.transitions.map(t => ({
+    id: t.id,
+    name: t.name,
+    to: t.to?.name
+  }));
+}
+
+/**
+ * Delete a JIRA ticket
+ */
+export async function deleteTicket(instanceId, ticketId) {
+  const config = await getInstances();
+  const instance = config.instances[instanceId];
+
+  if (!instance) {
+    throw new Error(`JIRA instance ${instanceId} not found`);
+  }
+
+  const client = createJiraClient(instance);
+  await client.delete(`/rest/api/2/issue/${ticketId}`);
+
+  return { success: true, ticketId };
+}
+
+/**
  * Transition JIRA ticket (change status)
  */
 export async function transitionTicket(instanceId, ticketId, transitionId) {
@@ -394,6 +432,8 @@ export default {
   createTicket,
   updateTicket,
   addComment,
+  getTransitions,
+  deleteTicket,
   transitionTicket,
   getMyCurrentSprintTickets,
   getActiveSprints,

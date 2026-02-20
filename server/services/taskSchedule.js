@@ -385,7 +385,9 @@ Check PortOS dependencies for updates and security vulnerabilities:
 
   'release-check': `[Self-Improvement] Release Check — dev → main
 
-Check if the dev branch has accumulated enough work for a release, and if so, create a PR to main, get Copilot review, iterate on feedback, and merge.
+Check if the dev branch has accumulated enough work for a release, and if so, create a PR to main, wait for Copilot code review, iterate on feedback until clean, and merge.
+
+NOTE: The repo has a GitHub ruleset that automatically requests a Copilot code review on every push to a PR targeting main. You do NOT need to manually request reviews — just create/push the PR and wait.
 
 ## Step 1: Evaluate Readiness
 
@@ -413,71 +415,57 @@ gh pr create --base main --head dev --title "Release $(node -p \\"require('./pac
 
 Capture the PR number and URL.
 
-## Step 4: Request Copilot Review
+## Step 4: Wait for Copilot Review
 
-Try the API method first:
+Copilot review is triggered automatically on push. Poll every 15 seconds until the review appears:
 \`\`\`bash
-gh api repos/atomantic/PortOS/pulls/PR_NUM/requested_reviewers \\
-  --method POST \\
-  --input - <<< '{"reviewers":["copilot-pull-request-reviewer"]}'
+gh api repos/atomantic/PortOS/pulls/PR_NUM/reviews --jq '.[] | select(.user.login == "copilot-pull-request-reviewer") | .state'
 \`\`\`
 
-If you get a 422 error, fall back to Playwright browser automation:
-1. Navigate to the PR URL
-2. Take a browser_snapshot
-3. Click the Reviewers gear icon
-4. Look for and click the Copilot review request button/option
+Wait until you see APPROVED or CHANGES_REQUESTED. Timeout after 5 minutes of polling.
 
-## Step 5: Poll for Review Completion
+## Step 5: Address Feedback Loop (max 5 iterations)
 
-Poll every 15 seconds until a Copilot review appears:
-\`\`\`bash
-gh api repos/atomantic/PortOS/pulls/PR_NUM/reviews --jq '.[].state'
-\`\`\`
+### 5a. Fetch unresolved review threads
 
-Wait until you see a review from "copilot-pull-request-reviewer" or "github-actions[bot]" with state APPROVED or CHANGES_REQUESTED. Timeout after 5 minutes of polling.
-
-## Step 6: Address Feedback Loop (max 5 iterations)
-
-For each iteration:
-
-### 6a. Fetch unresolved review threads
-
-Use gh api graphql with a POST body file (to avoid shell escaping issues with GraphQL variables):
+Use gh api graphql (JSON input to avoid shell escaping issues with GraphQL variables):
 
 \`\`\`bash
-echo '{"query":"query{repository(owner:\\"atomantic\\",name:\\"PortOS\\"){pullRequest(number:PR_NUM){reviewThreads(first:100){nodes{isResolved,comments(first:10){nodes{body,path,line,author{login}}}}}}}}"}' | gh api graphql --input -
+echo '{"query":"query{repository(owner:\\"atomantic\\",name:\\"PortOS\\"){pullRequest(number:PR_NUM){reviewThreads(first:100){nodes{id,isResolved,comments(first:10){nodes{body,path,line,author{login}}}}}}}}"}' | gh api graphql --input -
 \`\`\`
 
-### 6b. If unresolved threads exist:
+### 5b. If no unresolved threads: skip to Step 6 (Merge).
+
+### 5c. If unresolved threads exist:
 - Read each referenced file path
 - Apply the suggested fixes
 - Run \`cd server && npm test\` to verify
 - Commit changes: \`git add <files> && git commit -m "fix: address Copilot review feedback"\`
 - Push: \`git pull --rebase --autostash && git push\`
 
-### 6c. Resolve threads via GraphQL mutation:
+### 5d. Resolve threads via GraphQL mutation:
 
-For each thread, get the threadId from the GraphQL response above and resolve it:
+For each thread, use the thread node id from 5a:
 \`\`\`bash
-echo '{"query":"mutation{resolveReviewThread(input:{threadId:\\"THREAD_ID\\"}){thread{isResolved}}}"}' | gh api graphql --input -
+echo '{"query":"mutation{resolveReviewThread(input:{threadId:\\"THREAD_NODE_ID\\"}){thread{isResolved}}}"}' | gh api graphql --input -
 \`\`\`
 
-### 6d. Request another Copilot review (repeat Step 4)
-### 6e. Poll again (repeat Step 5)
+### 5e. Wait for new Copilot review (repeat Step 4)
+
+The push in 5c automatically triggers a new Copilot review. Poll for it, then loop back to 5a.
 
 If after 5 iterations there are still unresolved threads, stop and report what remains.
 
-## Step 7: Merge
+## Step 6: Merge
 
-Once review is clean (APPROVED or no unresolved threads):
+Only merge when Copilot's most recent review has NO unresolved threads:
 \`\`\`bash
 gh pr merge PR_NUM --merge
 \`\`\`
 
 If merge fails (e.g., branch protections), try: \`gh pr merge PR_NUM --merge --admin\`
 
-## Step 8: Report
+## Step 7: Report
 
 Summarize:
 - Version released

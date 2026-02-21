@@ -95,11 +95,11 @@ router.post('/repo', asyncHandler(async (req, res) => {
     const envContent = await readFile(envPath, 'utf-8').catch(() => '');
     const portMatch = envContent.match(/PORT\s*=\s*(\d+)/i);
     if (portMatch) {
-      result.detectedPorts.main = parseInt(portMatch[1]);
+      result.detectedPorts.main = parseInt(portMatch[1], 10);
     }
     const vitePortMatch = envContent.match(/VITE_PORT\s*=\s*(\d+)/i);
     if (vitePortMatch) {
-      result.detectedPorts.vite = parseInt(vitePortMatch[1]);
+      result.detectedPorts.vite = parseInt(vitePortMatch[1], 10);
     }
   }
 
@@ -110,7 +110,7 @@ router.post('/repo', asyncHandler(async (req, res) => {
       const content = await readFile(configPath, 'utf-8').catch(() => '');
       const portMatch = content.match(/port\s*:\s*(\d+)/);
       if (portMatch) {
-        result.detectedPorts.vite = parseInt(portMatch[1]);
+        result.detectedPorts.vite = parseInt(portMatch[1], 10);
       }
     }
   }
@@ -127,7 +127,7 @@ router.post('/port', asyncHandler(async (req, res) => {
   }
 
   const result = {
-    port: parseInt(port),
+    port: parseInt(port, 10),
     inUse: false,
     process: null
   };
@@ -149,7 +149,7 @@ router.post('/port', asyncHandler(async (req, res) => {
       if (process.platform === 'darwin' && parts.length >= 2) {
         result.process = {
           command: parts[0],
-          pid: parseInt(parts[1])
+          pid: parseInt(parts[1], 10)
         };
       }
     }

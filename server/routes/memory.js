@@ -26,8 +26,8 @@ router.get('/', asyncHandler(async (req, res) => {
     categories: req.query.categories ? req.query.categories.split(',') : undefined,
     tags: req.query.tags ? req.query.tags.split(',') : undefined,
     status: req.query.status || 'active',
-    limit: parseInt(req.query.limit) || 50,
-    offset: parseInt(req.query.offset) || 0,
+    limit: parseInt(req.query.limit, 10) || 50,
+    offset: parseInt(req.query.offset, 10) || 0,
     sortBy: req.query.sortBy || 'createdAt',
     sortOrder: req.query.sortOrder || 'desc'
   };
@@ -60,7 +60,7 @@ router.get('/timeline', asyncHandler(async (req, res) => {
     startDate: req.query.startDate,
     endDate: req.query.endDate,
     types: req.query.types ? req.query.types.split(',') : undefined,
-    limit: parseInt(req.query.limit) || 100
+    limit: parseInt(req.query.limit, 10) || 100
   };
 
   const timeline = await memory.getTimeline(options);
@@ -151,7 +151,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 
 // GET /api/memory/:id/related - Get related memories
 router.get('/:id/related', asyncHandler(async (req, res) => {
-  const limit = parseInt(req.query.limit) || 10;
+  const limit = parseInt(req.query.limit, 10) || 10;
   const related = await memory.getRelatedMemories(req.params.id, limit);
   res.json(related);
 }));

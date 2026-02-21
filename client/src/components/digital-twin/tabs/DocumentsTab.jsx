@@ -209,7 +209,7 @@ export default function DocumentsTab({ onRefresh }) {
                       min="1"
                       max="10"
                       value={selectedDoc.weight || 5}
-                      onChange={(e) => handleWeightChange(selectedDoc, parseInt(e.target.value))}
+                      onChange={(e) => handleWeightChange(selectedDoc, parseInt(e.target.value, 10))}
                       className="w-16 h-1 accent-port-accent"
                     />
                     <span className="text-xs text-gray-400 w-4">{selectedDoc.weight || 5}</span>
@@ -273,7 +273,7 @@ export default function DocumentsTab({ onRefresh }) {
                   min="1"
                   max="10"
                   value={selectedDoc.weight || 5}
-                  onChange={(e) => handleWeightChange(selectedDoc, parseInt(e.target.value))}
+                  onChange={(e) => handleWeightChange(selectedDoc, parseInt(e.target.value, 10))}
                   className="flex-1 h-1 accent-port-accent"
                 />
                 <span className="text-xs text-gray-400 w-4">{selectedDoc.weight || 5}</span>

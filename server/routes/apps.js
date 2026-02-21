@@ -280,7 +280,7 @@ router.get('/:id/status', loadApp, asyncHandler(async (req, res) => {
 // GET /api/apps/:id/logs - Get logs
 router.get('/:id/logs', loadApp, asyncHandler(async (req, res) => {
   const app = req.loadedApp;
-  const lines = parseInt(req.query.lines) || 100;
+  const lines = parseInt(req.query.lines, 10) || 100;
   const processName = req.query.process || app.pm2ProcessNames?.[0];
 
   if (!processName) {

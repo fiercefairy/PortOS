@@ -652,7 +652,7 @@ export async function parseTestSuite() {
   let match;
   while ((match = testPattern.exec(content)) !== null) {
     tests.push({
-      testId: parseInt(match[1]),
+      testId: parseInt(match[1], 10),
       testName: match[2].trim(),
       prompt: match[3].trim().replace(/^"|"$/g, ''),
       expectedBehavior: match[4].trim(),
@@ -2247,7 +2247,7 @@ function parseGoodreadsCSV(csvData) {
     if (!lines[i].trim()) continue;
     const cols = parseCSVLine(lines[i]);
 
-    const rating = ratingIdx >= 0 ? parseInt(cols[ratingIdx]) : 0;
+    const rating = ratingIdx >= 0 ? parseInt(cols[ratingIdx], 10) : 0;
     // Only include books that were actually read (have a rating > 0 or date read)
     if (rating > 0 || (dateReadIdx >= 0 && cols[dateReadIdx])) {
       books.push({
@@ -2369,7 +2369,7 @@ function parseLetterboxdCSV(csvData) {
 
     films.push({
       title: cols[nameIdx] || cols[0] || '',
-      year: yearIdx >= 0 && cols[yearIdx] ? parseInt(cols[yearIdx]) : undefined,
+      year: yearIdx >= 0 && cols[yearIdx] ? parseInt(cols[yearIdx], 10) : undefined,
       rating: ratingIdx >= 0 && cols[ratingIdx] ? parseFloat(cols[ratingIdx]) : undefined,
       watchedDate: dateIdx >= 0 ? cols[dateIdx] : undefined,
       review: reviewIdx >= 0 ? cols[reviewIdx] : undefined,

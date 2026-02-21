@@ -161,7 +161,7 @@ router.get('/epigenetic/recommendations', asyncHandler(async (req, res) => {
 
 // GET /api/digital-twin/genome/epigenetic/compliance — Get compliance summary
 router.get('/epigenetic/compliance', asyncHandler(async (req, res) => {
-  const days = parseInt(req.query.days) || 30;
+  const days = parseInt(req.query.days, 10) || 30;
   const summary = await epigeneticService.getComplianceSummary(days);
   res.json(summary);
 }));

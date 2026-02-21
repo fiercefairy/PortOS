@@ -27,7 +27,7 @@ router.post('/check', asyncHandler(async (req, res) => {
 
 // POST /api/ports/allocate - Allocate available ports
 router.post('/allocate', asyncHandler(async (req, res) => {
-  const count = parseInt(req.body.count) || 1;
+  const count = parseInt(req.body.count, 10) || 1;
 
   if (count < 1 || count > 10) {
     throw new ServerError('count must be between 1 and 10', {

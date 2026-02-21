@@ -162,8 +162,8 @@ export default function CreateApp() {
       name,
       repoPath,
       icon,
-      uiPort: uiPort ? parseInt(uiPort) : null,
-      apiPort: apiPort ? parseInt(apiPort) : null,
+      uiPort: uiPort ? parseInt(uiPort, 10) : null,
+      apiPort: apiPort ? parseInt(apiPort, 10) : null,
       startCommands: startCommands.split('\n').filter(Boolean),
       pm2ProcessNames: pm2Names
         ? pm2Names.split(',').map(s => s.trim()).filter(Boolean)

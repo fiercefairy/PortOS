@@ -52,7 +52,7 @@ export function parseEcosystemConfig(content) {
   const portConstants = {};
   const constMatches = content.matchAll(/(?:const|let|var)\s+(\w*PORT\w*)\s*=\s*(\d+)/g);
   for (const match of constMatches) {
-    portConstants[match[1]] = parseInt(match[2]);
+    portConstants[match[1]] = parseInt(match[2], 10);
   }
 
   // Extract PORTS object - handles both flat and nested structures
@@ -78,7 +78,7 @@ export function parseEcosystemConfig(content) {
     // Parse flat entries: KEY: 5550
     const flatEntries = portsBlock.matchAll(/(\w+)\s*:\s*(\d+)/g);
     for (const entry of flatEntries) {
-      portConstants[`PORTS.${entry[1]}`] = parseInt(entry[2]);
+      portConstants[`PORTS.${entry[1]}`] = parseInt(entry[2], 10);
     }
 
     // Parse nested entries: key: { subkey: 5550 }
@@ -89,7 +89,7 @@ export function parseEcosystemConfig(content) {
       const nestedPorts = {};
       const subEntries = nestedContent.matchAll(/(\w+)\s*:\s*(\d+)/g);
       for (const subEntry of subEntries) {
-        const port = parseInt(subEntry[2]);
+        const port = parseInt(subEntry[2], 10);
         portConstants[`PORTS.${parentKey}.${subEntry[1]}`] = port;
         nestedPorts[subEntry[1]] = port;
       }
@@ -179,7 +179,7 @@ export function parseEcosystemConfig(content) {
       const portsContent = portsObjMatch[1];
       const portEntries = portsContent.matchAll(/(\w+)\s*:\s*(\d+)/g);
       for (const entry of portEntries) {
-        ports[entry[1]] = parseInt(entry[2]);
+        ports[entry[1]] = parseInt(entry[2], 10);
       }
     }
 
@@ -201,10 +201,10 @@ export function parseEcosystemConfig(content) {
       // Handles: 4420, PORTS.API, process.env.PORT || 4420, Number(...) || 4420
       const resolvePortValue = (value) => {
         const trimmed = value.trim();
-        if (/^\d+$/.test(trimmed)) return parseInt(trimmed);
+        if (/^\d+$/.test(trimmed)) return parseInt(trimmed, 10);
         // Expression with || fallback: "process.env.PORT || 4420"
         const fallbackMatch = trimmed.match(/\|\|\s*['"]?(\d+)['"]?\s*$/);
-        if (fallbackMatch) return parseInt(fallbackMatch[1]);
+        if (fallbackMatch) return parseInt(fallbackMatch[1], 10);
         // PORTS.XXX or constant reference
         if (portConstants[trimmed]) return portConstants[trimmed];
         return null;
@@ -251,7 +251,7 @@ export function parseEcosystemConfig(content) {
       if (Object.keys(ports).length === 0) {
         const argsPortMatch = appBlock.match(/args\s*:\s*['"][^'"]*--port\s+(\d+)/);
         if (argsPortMatch) {
-          ports.ui = parseInt(argsPortMatch[1]);
+          ports.ui = parseInt(argsPortMatch[1], 10);
         }
       }
 
@@ -259,7 +259,7 @@ export function parseEcosystemConfig(content) {
       if (Object.keys(ports).length === 0) {
         const directPortMatch = appBlock.match(/\bport\s*:\s*(\d+)/);
         if (directPortMatch) {
-          ports.api = parseInt(directPortMatch[1]);
+          ports.api = parseInt(directPortMatch[1], 10);
         }
       }
     }
@@ -290,7 +290,7 @@ export function parseEcosystemConfig(content) {
  */
 function extractVitePort(content) {
   const portMatch = content.match(/port\s*:\s*(\d+)/);
-  return portMatch ? parseInt(portMatch[1]) : null;
+  return portMatch ? parseInt(portMatch[1], 10) : null;
 }
 
 /**
@@ -426,9 +426,9 @@ export async function streamDetection(socket, dirPath) {
   if (existsSync(envPath)) {
     const content = await readFile(envPath, 'utf-8').catch(() => '');
     const portMatch = content.match(/PORT\s*=\s*(\d+)/i);
-    if (portMatch) result.apiPort = parseInt(portMatch[1]);
+    if (portMatch) result.apiPort = parseInt(portMatch[1], 10);
     const viteMatch = content.match(/VITE_PORT\s*=\s*(\d+)/i);
-    if (viteMatch) result.uiPort = parseInt(viteMatch[1]);
+    if (viteMatch) result.uiPort = parseInt(viteMatch[1], 10);
     configFiles.push('.env');
   }
 
@@ -438,7 +438,7 @@ export async function streamDetection(socket, dirPath) {
     if (existsSync(configPath)) {
       const content = await readFile(configPath, 'utf-8').catch(() => '');
       const portMatch = content.match(/port\s*:\s*(\d+)/);
-      if (portMatch) result.uiPort = parseInt(portMatch[1]);
+      if (portMatch) result.uiPort = parseInt(portMatch[1], 10);
       configFiles.push(viteConfig);
     }
   }
@@ -489,7 +489,7 @@ export async function streamDetection(socket, dirPath) {
         // Extract UI port from CLIENT_URL (still needed as it's not in process configs)
         const clientUrlMatch = content.match(/CLIENT_URL\s*:\s*['"]https?:\/\/[^:]+:(\d+)/);
         if (clientUrlMatch && !result.uiPort) {
-          result.uiPort = parseInt(clientUrlMatch[1]);
+          result.uiPort = parseInt(clientUrlMatch[1], 10);
         }
 
         configFiles.push(ecosystemFile);

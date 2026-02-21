@@ -272,7 +272,7 @@ export default function OverviewTab({ status, settings, onRefresh }) {
                 <input
                   type="number"
                   value={settingsForm.maxContextTokens || 4000}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, maxContextTokens: parseInt(e.target.value) })}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, maxContextTokens: parseInt(e.target.value, 10) })}
                   className="w-32 px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white"
                 />
               </div>

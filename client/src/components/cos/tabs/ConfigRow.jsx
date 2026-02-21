@@ -16,7 +16,7 @@ export default function ConfigRow({ label, value, editing, type, inputValue, onC
               <input
                 type="number"
                 value={inputValue}
-                onChange={e => onChange(parseInt(e.target.value) || 0)}
+                onChange={e => onChange(parseInt(e.target.value, 10) || 0)}
                 className="w-24 px-2 py-1 bg-port-bg border border-port-border rounded text-white text-sm text-right"
               />
               {suffix && <span className="text-gray-500 text-sm">{suffix}</span>}

@@ -197,9 +197,9 @@ PortOS is an internal/VPN app so auth, CORS, rate limiting, and HTTPS are out of
 - **Files:** All `server/routes/*.js`
 - **Complexity:** Simple (but wide)
 
-### S10: Fix parseInt missing radix
-- Several parseInt calls lack explicit radix 10
-- **Files:** `server/services/agents.js:243-248`, `server/services/git.js`, `server/services/productivity.js`, `server/services/eventScheduler.js`
+### ~~S10: Fix parseInt missing radix~~ ✅ COMPLETE (v0.18.x)
+- ~~Several parseInt calls lack explicit radix 10~~
+- Fixed 45+ call sites across 18 files (routes, services, client, tests)
 - **Complexity:** Simple
 
 ---

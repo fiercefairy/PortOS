@@ -226,7 +226,7 @@ export default function SchedulesTab({ agentId }) {
               <label className="block text-sm text-gray-400 mb-1">Interval</label>
               <select
                 value={formData.schedule.intervalMs}
-                onChange={(e) => setFormData({ ...formData, schedule: { ...formData.schedule, intervalMs: parseInt(e.target.value) } })}
+                onChange={(e) => setFormData({ ...formData, schedule: { ...formData.schedule, intervalMs: parseInt(e.target.value, 10) } })}
                 className="w-full px-3 py-2 bg-port-bg border border-port-border rounded text-white"
               >
                 {INTERVAL_PRESETS.map(preset => (
@@ -248,7 +248,7 @@ export default function SchedulesTab({ agentId }) {
                     ...formData,
                     schedule: {
                       ...formData.schedule,
-                      randomWindow: { ...formData.schedule.randomWindow, minMs: parseInt(e.target.value) }
+                      randomWindow: { ...formData.schedule.randomWindow, minMs: parseInt(e.target.value, 10) }
                     }
                   })}
                   className="w-full px-3 py-2 bg-port-bg border border-port-border rounded text-white"
@@ -268,7 +268,7 @@ export default function SchedulesTab({ agentId }) {
                     ...formData,
                     schedule: {
                       ...formData.schedule,
-                      randomWindow: { ...formData.schedule.randomWindow, maxMs: parseInt(e.target.value) }
+                      randomWindow: { ...formData.schedule.randomWindow, maxMs: parseInt(e.target.value, 10) }
                     }
                   })}
                   className="w-full px-3 py-2 bg-port-bg border border-port-border rounded text-white"
@@ -288,7 +288,7 @@ export default function SchedulesTab({ agentId }) {
             <input
               type="number"
               value={formData.rateLimit.maxPerDay || 50}
-              onChange={(e) => setFormData({ ...formData, rateLimit: { ...formData.rateLimit, maxPerDay: parseInt(e.target.value) } })}
+              onChange={(e) => setFormData({ ...formData, rateLimit: { ...formData.rateLimit, maxPerDay: parseInt(e.target.value, 10) } })}
               className="w-32 px-3 py-2 bg-port-bg border border-port-border rounded text-white"
               min="1"
               max="1000"

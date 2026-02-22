@@ -1,5 +1,7 @@
 # Port OS - Implementation Plan
 
+See [GOALS.md](./GOALS.md) for project goals and direction.
+
 ## Quick Reference
 
 ### Tech Stack

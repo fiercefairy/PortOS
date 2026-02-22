@@ -74,45 +74,12 @@ pm2 logs
 
 ### Planned
 
-- [ ] **M7**: App Templates - Template management and app scaffolding from templates
 - [ ] **M34 P3,P5-P7**: Digital Twin - Behavioral feedback loop, multi-modal capture, advanced testing, personas
 - [ ] **M42**: Unified Digital Twin Identity System - See [Identity System](./docs/features/identity-system.md)
 
 ---
 
 ## Planned Feature Details
-
-### M7: App Templates
-
-Templates allow creating new apps from pre-configured project structures.
-
-**Built-in Template: PortOS Stack**
-- Express.js API server
-- React + Vite frontend
-- Tailwind CSS styling
-- PM2 ecosystem configuration
-- GitHub Actions CI/CD workflows
-- Auto-versioning system
-
-**Features**
-1. Template Selection - Browse available templates with feature descriptions
-2. App Creation - Scaffold new project with chosen name and target directory
-3. Custom Templates - Register additional templates from local paths
-4. Template Management - View, edit, delete custom templates
-
-**Pages**
-- `/templates` - Template browser and app creation
-- `/templates/new` - Register custom template
-
-**API Endpoints**
-| Route | Description |
-|-------|-------------|
-| GET /api/templates | List all templates |
-| POST /api/templates | Add custom template |
-| POST /api/templates/create | Create app from template |
-| DELETE /api/templates/:id | Remove custom template |
-
----
 
 ## Documentation
 

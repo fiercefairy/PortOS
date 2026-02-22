@@ -10,7 +10,7 @@ PortOS transforms a local development machine into an intelligent personal opera
 
 ### 1. Centralized App Lifecycle Management
 
-Single dashboard for managing active git repos, PM2 processes, logs, and JIRA integration. Register existing apps or scaffold new ones from templates. Real-time status monitoring, streaming log output, and smart project detection eliminate the need to juggle terminal windows and browser tabs across projects.
+Single dashboard for managing active git repos, PM2 processes, logs, and JIRA integration. Real-time status monitoring, streaming log output, and smart project detection eliminate the need to juggle terminal windows and browser tabs across projects.
 
 ### 2. Autonomous AI Agent Orchestration
 
@@ -46,7 +46,6 @@ Tailscale VPN enables secure access from any device without public internet expo
 
 ## Secondary Goals
 
-- **App Templates**: Scaffold new projects from pre-configured templates (Express + React + Tailwind + PM2 stack and custom templates)
 - **Behavioral Feedback Loop**: "Sounds like me" response validation with adaptive weighting to continuously refine the digital twin
 - **Mortality-Aware Goal Tracking**: Birth date + genome longevity markers to urgency-score goals based on projected lifespan
 - **Multi-Modal Identity Capture**: Voice, video, and image-based identity modeling beyond text
@@ -67,7 +66,7 @@ PortOS is built for Adam Eivy — a single developer managing active git repos, 
 
 | Goal | Status | Notes |
 |------|--------|-------|
-| Centralized App Management | In Progress | Core complete (M0-M4, M9, M17-M18). App Templates (M7) still planned. |
+| Centralized App Management | Complete | Core infrastructure (M0-M4, M9, M17-M18) all shipped. |
 | Autonomous AI Orchestration | In Progress | CoS fully operational (M14, M19-M31, M35, M37, M40). Learning system active. Continuous refinement. |
 | Personal Knowledge Management | In Progress | Brain (M32) and Memory (M16, M31) complete. Digest system running. Ongoing quality tuning. |
 | Digital Identity Modeling | In Progress | Soul (M33), Digital Twin (M34 P1-P2,P4), Genome, Autobiography complete. Identity orchestrator (M42) planned next. |

@@ -185,17 +185,15 @@ PortOS is an internal/VPN app so auth, CORS, rate limiting, and HTTPS are out of
 - Fixed: replaced bare `JSON.parse` with `safeJSONParse` from `lib/fileUtils.js` in 7 files (8 call sites): `agentContentGenerator.js`, `pm2Standardizer.js`, `automationScheduler.js`, `git.js` (2), `aiDetect.js`, `memoryClassifier.js`, `clinvar.js`
 - `digital-twin.js` and `cos.js` were already using `safeJSONParse`
 
-### S8: Add iteration limit to cron parser
-- `eventScheduler.js` loops minute-by-minute for up to 2 years — invalid cron expressions cause CPU spin
-- Add max iteration count and validate cron fields upfront
-- **File:** `server/services/eventScheduler.js:53-62`
-- **Complexity:** Simple
+### ~~S8: Add iteration limit to cron parser~~ ✅ COMPLETE
+- ~~`eventScheduler.js` loops minute-by-minute for up to 2 years — invalid cron expressions cause CPU spin~~
+- Fixed: `MAX_CRON_ITERATIONS = 525960` iteration counter, `validateCronFieldRange()` upfront validation, early `null` return on invalid expressions
+- **File:** `server/services/eventScheduler.js`
 
-### S9: Extract validation boilerplate to helper
-- Same 6-line validation-error block duplicated 74+ times across all route files
-- Extract to `lib/validation.js` `validateRequest(schema, data)` helper
-- **Files:** All `server/routes/*.js`
-- **Complexity:** Simple (but wide)
+### ~~S9: Extract validation boilerplate to helper~~ ✅ COMPLETE
+- ~~Same 6-line validation-error block duplicated 74+ times across all route files~~
+- Fixed: `validateRequest(schema, data)` helper in `lib/validation.js` now used across 80 call sites in 12 route files
+- **Files:** `server/lib/validation.js`, all `server/routes/*.js`
 
 ### ~~S10: Fix parseInt missing radix~~ ✅ COMPLETE (v0.18.x)
 - ~~Several parseInt calls lack explicit radix 10~~

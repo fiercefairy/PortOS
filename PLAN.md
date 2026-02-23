@@ -115,39 +115,31 @@ pm2 logs
 
 PortOS is an internal/VPN app so auth, CORS, rate limiting, and HTTPS are out of scope. These items address real bugs, crash risks, and secret leaks that matter regardless of network posture.
 
-### S1: Patch npm dependency CVEs
-- Run `npm audit fix` in server/ and client/
-- systeminformation (command injection), lodash (prototype pollution), qs (DoS)
-- **Complexity:** Simple
+### ~~S1: Patch npm dependency CVEs~~ ✅ RESOLVED
+- ~~Run `npm audit fix` in server/ and client/~~
+- Fixed: All actionable CVEs resolved. Remaining: 1 low-severity pm2 ReDoS (GHSA-x5gf-qvw8-r2rm, CVSS 4.3) — no fix published by maintainers, not exploitable via PortOS routes
+- Client: 0 vulnerabilities
 
-### S2: Sanitize provider API responses
-- Strip `apiKey` and `secretEnvVars` from all provider GET endpoints
-- Return `hasApiKey: boolean` instead of the actual key
-- **Files:** `server/routes/providers.js`, portos-ai-toolkit provider routes
-- **Complexity:** Simple
+### ~~S2: Sanitize provider API responses~~ ✅ COMPLETE
+- ~~Strip `apiKey` and `secretEnvVars` from all provider GET endpoints~~
+- Fixed: `sanitizeProvider()` in `server/routes/providers.js` strips `apiKey`, redacts `secretEnvVars` values to `'***'`, returns `hasApiKey: boolean`
+- All GET endpoints use sanitization
 
-### S3: Whitelist env vars in PTY shell spawn
-- Replace `...process.env` spread with explicit allowlist so secrets aren't accessible via `env` command in terminal
-- **File:** `server/services/shell.js:21-69`
-- **Complexity:** Simple
+### ~~S3: Whitelist env vars in PTY shell spawn~~ ✅ COMPLETE
+- ~~Replace `...process.env` spread with explicit allowlist~~
+- Fixed: `buildSafeEnv()` in `server/services/shell.js` uses `SAFE_ENV_PREFIXES` allowlist — no `...process.env` spread
 
-### S4: Fix mutex lock bug + extract shared utility
-- `cos.js` `withStateLock` is missing `try/finally` — if `fn()` throws, the lock is never released (deadlock)
-- `memory.js` has identical pattern duplicated — extract to `lib/asyncMutex.js`
-- **Files:** `server/services/cos.js:150-161`, `server/services/memory.js:47-56`
-- **Complexity:** Medium
+### ~~S4: Fix mutex lock bug + extract shared utility~~ ✅ COMPLETE
+- ~~`cos.js` `withStateLock` is missing `try/finally`~~
+- Fixed: `createMutex()` in `server/lib/asyncMutex.js` with proper `try/finally`. Used by both `cos.js` and `memory.js`
 
-### S5: Add Zod validation to Socket.IO events
-- `shell:start`, `shell:input`, `logs:subscribe`, PM2 commands accept raw input
-- Add Zod schemas matching the HTTP route validation patterns
-- **File:** `server/services/socket.js:32-307`
-- **Complexity:** Medium
+### ~~S5: Add Zod validation to Socket.IO events~~ ✅ COMPLETE
+- ~~Socket events accept raw input~~
+- Fixed: `server/lib/socketValidation.js` has Zod schemas for all socket events. `validateSocketData()` helper used in `socket.js`
 
-### S6: Sanitize error context in Socket.IO broadcasts
-- Error handler broadcasts full `context` object to all clients which may contain secrets
-- Filter sensitive fields before emitting `error:occurred`
-- **File:** `server/lib/errorHandler.js:113-121`
-- **Complexity:** Simple
+### ~~S6: Sanitize error context in Socket.IO broadcasts~~ ✅ COMPLETE
+- ~~Error handler broadcasts full `context` object which may contain secrets~~
+- Fixed: `sanitizeContext()` in `server/lib/errorHandler.js` strips sensitive fields (apikey, token, secret, password, etc.) with circular-reference protection
 
 ### ~~S7: Guard unprotected JSON.parse calls~~ ✅
 - ~~10+ locations call `JSON.parse` on external/file data without try-catch~~

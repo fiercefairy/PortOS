@@ -852,12 +852,26 @@ function analyzeAgentFailure(output, task, model) {
     }
   }
 
-  // Generic failure - not actionable by default
+  // No pattern matched — extract meaningful context from the output
+  // so the learning system and dashboard show actual error details
+  // instead of a generic "unknown error" message
+  const lines = output.split('\n').filter(l => l.trim());
+  const lastLines = lines.slice(-20);
+
+  // Look for lines that contain error-ish keywords (case-insensitive)
+  const errorKeywords = /\b(error|fail|exception|fatal|panic|abort|crash|denied|refused|invalid|cannot|could not|unable to)\b/i;
+  const errorLines = lastLines.filter(l => errorKeywords.test(l)).slice(0, 5);
+
+  // Use matched error lines or fall back to last few lines of output
+  const contextLines = errorLines.length > 0 ? errorLines : lastLines.slice(-5);
+  const summary = contextLines[0]?.trim().substring(0, 120) || 'Agent failed with unrecognized error';
+
   return {
     category: 'unknown',
     actionable: false,
-    message: 'Agent failed with unknown error',
-    suggestedFix: 'Review agent output logs for details'
+    message: summary,
+    details: contextLines.map(l => l.trim()).join('\n'),
+    suggestedFix: 'Error did not match known patterns. Review the details or agent output logs.'
   };
 }
 

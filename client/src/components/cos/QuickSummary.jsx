@@ -12,7 +12,8 @@ import {
   ChevronDown,
   ChevronRight,
   Award,
-  Hourglass
+  Hourglass,
+  Calendar
 } from 'lucide-react';
 import * as api from '../../services/api';
 
@@ -42,7 +43,7 @@ export default function QuickSummary() {
     return null;
   }
 
-  const { today, streak, nextJob, queue, velocity } = summary;
+  const { today, streak, nextJob, queue, velocity, weekComparison } = summary;
 
   // Only show if there's meaningful data to display
   const hasActivity = today.completed > 0 || today.running > 0 || streak.current > 0 || queue.total > 0;
@@ -143,6 +144,38 @@ export default function QuickSummary() {
               {velocityDisplay.percentage}%
             </span>
             <span className="text-gray-500 text-xs">vs avg</span>
+          </div>
+        )}
+
+        {/* Week over Week Comparison */}
+        {weekComparison && weekComparison.lastWeek?.tasks > 0 && (
+          <div className="flex items-center gap-1.5" title={`This week: ${weekComparison.thisWeek?.tasks || 0} tasks, Last week (same days): ${weekComparison.lastWeek?.tasks} tasks`}>
+            <Calendar size={14} className={
+              weekComparison.trend === 'up' ? 'text-port-success' :
+              weekComparison.trend === 'down' ? 'text-port-warning' :
+              'text-gray-400'
+            } />
+            <span className="text-gray-400">Week:</span>
+            <span className={`font-medium flex items-center gap-1 ${
+              weekComparison.trend === 'up' ? 'text-port-success' :
+              weekComparison.trend === 'down' ? 'text-port-warning' :
+              'text-white'
+            }`}>
+              {weekComparison.thisWeek?.tasks || 0}
+              {weekComparison.changePercent !== null && (
+                <span className={`text-xs flex items-center ${
+                  weekComparison.trend === 'up' ? 'text-port-success' :
+                  weekComparison.trend === 'down' ? 'text-port-warning' :
+                  'text-gray-500'
+                }`}>
+                  {weekComparison.trend === 'up' ? <TrendingUp size={10} /> :
+                   weekComparison.trend === 'down' ? <TrendingDown size={10} /> :
+                   <Minus size={10} />}
+                  {Math.abs(weekComparison.changePercent)}%
+                </span>
+              )}
+            </span>
+            <span className="text-gray-500 text-xs">vs last</span>
           </div>
         )}
 

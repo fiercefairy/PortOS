@@ -202,9 +202,10 @@ export function getThemes() {
 }
 
 /**
- * Pick the next prompt, cycling through themes and avoiding repeats
+ * Pick the next prompt, cycling through themes and avoiding repeats.
+ * @param {string} [excludePromptId] - Prompt ID to exclude (used by skip to avoid returning the same prompt)
  */
-export async function getNextPrompt() {
+export async function getNextPrompt(excludePromptId) {
   const data = await loadStories();
   const usedPrompts = data.usedPrompts || [];
 
@@ -226,6 +227,14 @@ export async function getNextPrompt() {
     data.usedPrompts = [];
     await saveStories(data);
     available = allPrompts;
+  }
+
+  // Exclude the currently displayed prompt so skip returns a different one
+  if (excludePromptId) {
+    const filtered = available.filter(p => p.id !== excludePromptId);
+    if (filtered.length > 0) {
+      available = filtered;
+    }
   }
 
   // Pick from the least-used theme to keep balance
@@ -414,9 +423,7 @@ export async function checkAndPrompt() {
 
   // Check if there's already an unread autobiography notification
   const alreadyNotified = await notificationExists(
-    NOTIFICATION_TYPES.AUTOBIOGRAPHY_PROMPT,
-    'type',
-    'autobiography_prompt'
+    NOTIFICATION_TYPES.AUTOBIOGRAPHY_PROMPT
   );
 
   if (alreadyNotified) {
@@ -432,7 +439,6 @@ export async function checkAndPrompt() {
     priority: 'low',
     link: `/digital-twin/autobiography?prompt=${prompt.id}`,
     metadata: {
-      type: 'autobiography_prompt',
       promptId: prompt.id,
       themeId: prompt.themeId
     }

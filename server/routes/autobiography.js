@@ -81,7 +81,7 @@ router.get('/themes', asyncHandler(async (req, res) => {
  * Get the next prompt
  */
 router.get('/prompt', asyncHandler(async (req, res) => {
-  const prompt = await autobiographyService.getNextPrompt();
+  const prompt = await autobiographyService.getNextPrompt(req.query.exclude || undefined);
   res.json(prompt);
 }));
 

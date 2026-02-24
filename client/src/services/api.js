@@ -1084,7 +1084,8 @@ export const updateAutobiographyConfig = (config) => request('/digital-twin/auto
   body: JSON.stringify(config)
 });
 export const getAutobiographyThemes = () => request('/digital-twin/autobiography/themes');
-export const getAutobiographyPrompt = () => request('/digital-twin/autobiography/prompt');
+export const getAutobiographyPrompt = (exclude) =>
+  request(`/digital-twin/autobiography/prompt${exclude ? `?exclude=${exclude}` : ''}`);
 export const getAutobiographyPromptById = (id) => request(`/digital-twin/autobiography/prompt/${id}`);
 export const getAutobiographyStories = (theme = null) =>
   request(`/digital-twin/autobiography/stories${theme ? `?theme=${theme}` : ''}`);

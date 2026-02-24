@@ -67,7 +67,7 @@ export default function AutobiographyTab({ onRefresh }) {
       loadPromptById(promptParam);
       setSearchParams({}, { replace: true });
     }
-  }, [loading, searchParams]);
+  }, [loading, searchParams, setSearchParams]);
 
   const loadPromptById = async (promptId) => {
     const prompt = await api.getAutobiographyPromptById(promptId).catch(() => null);
@@ -91,7 +91,7 @@ export default function AutobiographyTab({ onRefresh }) {
   };
 
   const skipPrompt = async () => {
-    const prompt = await api.getAutobiographyPrompt().catch(() => null);
+    const prompt = await api.getAutobiographyPrompt(currentPrompt?.id).catch(() => null);
     if (prompt && prompt.id !== currentPrompt?.id) {
       setCurrentPrompt(prompt);
       setStoryContent('');

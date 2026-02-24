@@ -77,6 +77,7 @@ When CoS agents or AI tools work on managed apps outside PortOS, all research, p
 - **Zod validation** - all route inputs validated via `lib/validation.js`
 - **Command allowlist** - shell execution restricted to approved commands only
 - **No hardcoded localhost** - use `window.location.hostname` for URLs; app accessed via Tailscale remotely
+- **Alphabetical navigation** - sidebar nav items in `Layout.jsx` are alphabetically ordered after the Dashboard+CyberCity top section and separator; children within collapsible sections are also alphabetical
 - **Single-line logging** - use emoji prefixes and string interpolation, never log full JSON blobs or arrays
   ```js
   console.log(`🚀 Server started on port ${PORT}`);

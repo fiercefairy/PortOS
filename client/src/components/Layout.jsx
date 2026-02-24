@@ -59,25 +59,23 @@ const navItems = [
     ]
   },
   { to: '/apps', label: 'Apps', icon: Package, single: true },
-  { to: '/instances', label: 'Instances', icon: Network, single: true },
   { href: '//:5560', label: 'Autofixer', icon: Wrench, external: true, dynamicHost: true },
   { to: '/browser', label: 'Browser', icon: Globe, single: true },
-  { to: '/jira', label: 'JIRA', icon: Ticket, single: true },
   {
     label: 'Chief of Staff',
     icon: Crown,
     showBadge: true,
     children: [
-      { to: '/cos/briefing', label: 'Briefing', icon: Newspaper },
-      { to: '/cos/tasks', label: 'Tasks', icon: FileText },
       { to: '/cos/agents', label: 'Agents', icon: Cpu },
-      { to: '/cos/scripts', label: 'Scripts', icon: Terminal },
-      { to: '/cos/schedule', label: 'Schedule', icon: Clock },
+      { to: '/cos/briefing', label: 'Briefing', icon: Newspaper },
+      { to: '/cos/config', label: 'Config', icon: Settings },
       { to: '/cos/digest', label: 'Digest', icon: Calendar },
+      { to: '/cos/health', label: 'Health', icon: Activity },
       { to: '/cos/learning', label: 'Learning', icon: GraduationCap },
       { to: '/cos/memory', label: 'Memory', icon: Brain },
-      { to: '/cos/health', label: 'Health', icon: Activity },
-      { to: '/cos/config', label: 'Config', icon: Settings }
+      { to: '/cos/schedule', label: 'Schedule', icon: Clock },
+      { to: '/cos/scripts', label: 'Scripts', icon: Terminal },
+      { to: '/cos/tasks', label: 'Tasks', icon: FileText }
     ]
   },
   {
@@ -101,6 +99,8 @@ const navItems = [
       { to: '/digital-twin', label: 'Digital Twin', icon: Heart }
     ]
   },
+  { to: '/instances', label: 'Instances', icon: Network, single: true },
+  { to: '/jira', label: 'JIRA', icon: Ticket, single: true },
   { to: '/security', label: 'Security', icon: Camera, single: true },
   { to: '/shell', label: 'Shell', icon: SquareTerminal, single: true },
   { to: '/uploads', label: 'Uploads', icon: Upload, single: true }

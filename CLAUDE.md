@@ -96,12 +96,13 @@ port-error: #ef4444
 
 ## Git Workflow
 
-- **dev**: Active development (auto-bumps patch on CI pass)
+- **dev**: Active development
 - **main**: Production releases only
-- PR `dev → main` creates tagged release and preps next version
-- **Use `/gitup` to push** - The dev branch receives auto version bump commits from CI. Always use `git pull --rebase --autostash && git push` (or `/gitup`) instead of plain `git push`.
+- PR `dev → main` creates tagged release and archives changelog
+- **Version bumps are manual** — include `npm version <major|minor|patch> --no-git-tag-version` in your commit (CI does not auto-bump)
+- **Use `/gitup` to push** — always use `git pull --rebase --autostash && git push` (or `/gitup`) instead of plain `git push`
 - Update `.changelog/v{major}.{minor}.x.md` when making changes (see Release Changelog Process below)
-- commit code after each feature or bug fix
+- Commit code after each feature or bug fix
 
 See `docs/VERSIONING.md` for details.
 
@@ -144,11 +145,10 @@ When you merge to `main`, the GitHub Actions workflow automatically:
 3. Creates the GitHub release with substituted changelog
 4. Archives the changelog on `main`: renames `v0.10.x.md` → `v0.10.5.md` using `git mv`
 5. Checks out dev branch and merges main into dev (shared commit history avoids future conflicts)
-6. Bumps dev to next minor version (e.g., 0.11.0)
 
 **Result:**
 - Both `dev` and `main` have `.changelog/v0.10.5.md` via shared commit ancestry
 - Git history shows: `v0.10.x.md` → `v0.10.5.md` (rename)
-- You create `.changelog/v0.11.x.md` to start the next development cycle
+- You create a new `.changelog/v{next}.x.md` to start the next development cycle
 
 See `.changelog/README.md` for detailed format and best practices.

@@ -2,15 +2,15 @@
 
 ## Version Format
 
-PortOS uses semantic versioning with the format **Major.Release.Build**:
+PortOS uses semantic versioning: **Major.Minor.Patch**
 
 | Component | Description | When Incremented |
 |-----------|-------------|------------------|
-| **Major** | Breaking changes | Manually by maintainer |
-| **Release** | New features/releases | Auto on merge to `main` |
-| **Build** | Development iterations | Auto on push to `dev` |
+| **Major** | Breaking changes | Manual — in commit |
+| **Minor** | New features | Manual — in commit |
+| **Patch** | Bug fixes, refactors | Manual — in commit |
 
-Example progression: `0.2.0` → `0.2.1` → `0.2.2` → (release) → `0.3.0`
+Example progression: `0.22.0` → `0.22.1` (fix) → `0.23.0` (feature) → `1.0.0` (breaking)
 
 ## Branches
 
@@ -19,91 +19,65 @@ Example progression: `0.2.0` → `0.2.1` → `0.2.2` → (release) → `0.3.0`
 | `main` | Production releases only |
 | `dev` | Active development |
 
-## Automated Workflow
+## Workflow
+
+### Version Bumping (Manual)
+
+Version bumps happen in the same commit as the code change:
+
+```bash
+# Bump version (choose one)
+npm version patch --no-git-tag-version   # bug fix
+npm version minor --no-git-tag-version   # new feature
+npm version major --no-git-tag-version   # breaking change
+
+# Stage version files along with your code changes
+git add package.json package-lock.json [other files]
+git commit -m "feat: add new feature"
+```
 
 ### On Push to `dev`
 
-1. CI runs tests and linting
-2. If tests pass, GitHub Actions auto-increments the **Build** number
-3. Commits with `[skip ci]` to avoid infinite loops
-
-```
-Push commit → CI passes → Auto-commit: "build: bump version to 0.2.1 [skip ci]"
-```
+CI runs tests and linting. No version changes.
 
 ### On Merge `dev` → `main`
 
 1. Release workflow triggers
-2. Creates git tag with current version (e.g., `v0.2.5`)
-3. Generates GitHub release with changelog
-4. Preps `dev` branch for next release cycle:
-   - Increments **Release** number
-   - Resets **Build** to 0
-   - Example: `0.2.5` → `0.3.0`
+2. Creates git tag with current version (e.g., `v0.23.0`)
+3. Generates GitHub release with changelog from `.changelog/v{major}.{minor}.x.md`
+4. Archives the changelog (renames `v0.23.x.md` → `v0.23.0.md`)
+5. Merges `main` back into `dev` to share the changelog archive commit
 
 ## Manual Steps
 
 ### Regular Development
 
 ```bash
-# Work on dev branch
 git checkout dev
 git pull
 
-# Make changes, commit, push
-git add .
-git commit -m "feat: add new feature"
-git push
-# CI will auto-bump: 0.2.0 → 0.2.1
+# Make changes, bump version, commit, push
+npm version patch --no-git-tag-version
+git add package.json package-lock.json [changed files]
+git commit -m "fix: resolve issue"
+git pull --rebase --autostash && git push
 ```
 
 ### Creating a Release
 
 ```bash
-# Ensure dev is up to date
 git checkout dev
 git pull
 
-# Create PR from dev to main (via GitHub UI or CLI)
-gh pr create --base main --head dev --title "Release v0.2.X"
+# Create PR from dev to main
+gh pr create --base main --head dev --title "Release v0.23.x"
 
 # After PR is merged:
-# - GitHub creates tag v0.2.X
+# - GitHub creates tag v0.23.0
 # - GitHub creates release with changelog
-# - dev branch is auto-updated to 0.3.0
-```
-
-### Major Version Bump
-
-For breaking changes, manually update before merging:
-
-```bash
-git checkout dev
-
-# Update all package.json files
-npm version 1.0.0 --no-git-tag-version
-cd client && npm version 1.0.0 --no-git-tag-version && cd ..
-cd server && npm version 1.0.0 --no-git-tag-version && cd ..
-
-git add -A
-git commit -m "build: prep v1.0.0 major release [skip ci]"
-git push
-
-# Then create PR to main
+# - Changelog archived on main, merged back to dev
 ```
 
 ## CI Skip
 
-Use `[skip ci]` in commit messages to prevent CI from running:
-
-- Auto-version bump commits include this automatically
-- Use manually when making non-code changes (docs, etc.)
-
-## Files Updated by Automation
-
-The following files are updated by GitHub Actions:
-
-- `/package.json`
-- `/package-lock.json`
-- `/client/package.json`
-- `/server/package.json`
+Use `[skip ci]` in commit messages to prevent CI from running (used by automation for changelog archives and merges).

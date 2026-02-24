@@ -1226,6 +1226,16 @@ export const navigateBrowser = (url) => request('/browser/navigate', {
   body: JSON.stringify({ url })
 });
 
+// Instances (Federation)
+export const getInstances = () => request('/instances');
+export const getSelfInstance = () => request('/instances/self');
+export const updateSelfInstance = (data) => request('/instances/self', { method: 'PUT', body: JSON.stringify(data) });
+export const addPeer = (data) => request('/instances/peers', { method: 'POST', body: JSON.stringify(data) });
+export const updatePeer = (id, data) => request(`/instances/peers/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const removePeer = (id) => request(`/instances/peers/${id}`, { method: 'DELETE' });
+export const probePeer = (id) => request(`/instances/peers/${id}/probe`, { method: 'POST' });
+export const queryPeer = (id, path) => request(`/instances/peers/${id}/query?path=${encodeURIComponent(path)}`);
+
 // Default export for simplified imports
 export default {
   get: (endpoint, options) => request(endpoint, { method: 'GET', ...options }),

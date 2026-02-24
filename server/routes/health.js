@@ -3,16 +3,20 @@ import os from 'os';
 import { listProcesses } from '../services/pm2.js';
 import * as apps from '../services/apps.js';
 import * as cos from '../services/cos.js';
+import { getSelf } from '../services/instances.js';
 
 const router = Router();
 
-router.get('/health', (req, res) => {
+router.get('/health', async (req, res) => {
   console.log('💓 GET /api/health');
+  const self = await getSelf().catch(() => null);
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    version: '0.1.0'
+    version: '0.1.0',
+    hostname: os.hostname(),
+    instanceId: self?.instanceId ?? null
   });
 });
 
@@ -24,10 +28,11 @@ router.get('/health/system', async (req, res) => {
   const startTime = Date.now();
 
   // Gather data in parallel
-  const [pm2Processes, allApps, cosStatus] = await Promise.all([
+  const [pm2Processes, allApps, cosStatus, self] = await Promise.all([
     listProcesses().catch(() => []),
     apps.getAllApps({ includeArchived: false }).catch(() => []),
-    cos.getStatus().catch(() => null)
+    cos.getStatus().catch(() => null),
+    getSelf().catch(() => null)
   ]);
 
   // System metrics
@@ -120,6 +125,8 @@ router.get('/health/system', async (req, res) => {
 
   res.json({
     timestamp: new Date().toISOString(),
+    hostname: os.hostname(),
+    instanceId: self?.instanceId ?? null,
     overallHealth,
     warnings,
     system: {

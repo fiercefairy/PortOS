@@ -16,6 +16,7 @@ import Uploads from './pages/Uploads';
 import Shell from './pages/Shell';
 import BrowserPage from './pages/Browser';
 import Jira from './pages/Jira';
+import Instances from './pages/Instances';
 
 // Lazy load heavier pages for code splitting
 // DevTools pages are large (~2300 lines total) so lazy load them
@@ -65,6 +66,7 @@ export default function App() {
           <Route path="uploads" element={<Uploads />} />
           <Route path="shell" element={<Shell />} />
           <Route path="browser" element={<BrowserPage />} />
+          <Route path="instances" element={<Instances />} />
           <Route path="jira" element={<Jira />} />
           <Route path="city" element={<CyberCity />} />
           <Route path="city/settings" element={<CyberCity />} />

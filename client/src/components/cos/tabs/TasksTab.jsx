@@ -33,7 +33,7 @@ export default function TasksTab({ tasks, onRefresh, providers, apps }) {
   const [enhancePrompt, setEnhancePrompt] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [templates, setTemplates] = useState([]);
-  const [showTemplates, setShowTemplates] = useState(true);
+  const [showTemplates, setShowTemplates] = useState(false);
   const [createJiraTicket, setCreateJiraTicket] = useState(false);
   const fileInputRef = useRef(null);
   const attachmentInputRef = useRef(null);

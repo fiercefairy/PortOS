@@ -1398,8 +1398,7 @@ export async function spawnAgentForTask(task) {
   // existing auto-detection (managed apps = worktree, non-managed = conflict-based).
   let worktreeInfo = null;
   const isManagedApp = !!task.metadata?.app;
-  const explicitWorktree = task.metadata?.useworktree === 'true' || task.metadata?.useworktree === true
-    || task.metadata?.useWorktree === 'true' || task.metadata?.useWorktree === true;
+  const explicitWorktree = task.metadata?.useWorktree === 'true' || task.metadata?.useWorktree === true;
 
   if (explicitWorktree && !jiraBranchName) {
     // User explicitly requested worktree via task creation UI
@@ -1421,7 +1420,7 @@ export async function spawnAgentForTask(task) {
         agentId, worktreePath: worktreeInfo.worktreePath, branchName: worktreeInfo.branchName, baseBranch: worktreeInfo.baseBranch
       });
     }
-  } else if (isManagedApp && !jiraBranchName && !explicitWorktree) {
+  } else if (isManagedApp && !jiraBranchName) {
     // Managed apps: auto-detect — always use a worktree based on the latest default branch
     // to prevent cross-agent contamination (dirty state, stale branches, other agents' commits).
     const { baseBranch: detectedBase } = await git.getRepoBranches(workspacePath).catch(() => ({ baseBranch: null }));
@@ -1442,7 +1441,7 @@ export async function spawnAgentForTask(task) {
         agentId, worktreePath: worktreeInfo.worktreePath, branchName: worktreeInfo.branchName, baseBranch: worktreeInfo.baseBranch
       });
     }
-  } else if (!jiraBranchName && !explicitWorktree) {
+  } else if (!jiraBranchName) {
     // Non-managed (PortOS) tasks: use worktree only when conflict is detected
     const { getAgents } = await import('./cos.js');
     const allAgents = await getAgents();

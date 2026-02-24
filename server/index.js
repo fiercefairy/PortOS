@@ -40,6 +40,8 @@ import moltworldToolsRoutes from './routes/moltworldTools.js';
 import moltworldWsRoutes from './routes/moltworldWs.js';
 import jiraRoutes from './routes/jira.js';
 import autobiographyRoutes from './routes/autobiography.js';
+import instancesRoutes from './routes/instances.js';
+import { ensureSelf, startPolling } from './services/instances.js';
 import { initSocket } from './services/socket.js';
 import { initScriptRunner } from './services/scriptRunner.js';
 import { errorMiddleware, setupProcessErrorHandlers, asyncHandler } from './lib/errorHandler.js';
@@ -208,6 +210,7 @@ app.use('/api/digital-twin', digitalTwinRoutes);
 app.use('/api/lmstudio', lmstudioRoutes);
 app.use('/api/browser', browserRoutes);
 app.use('/api/jira', jiraRoutes);
+app.use('/api/instances', instancesRoutes);
 
 // Initialize script runner
 initScriptRunner().catch(err => console.error(`❌ Script runner init failed: ${err.message}`));
@@ -236,4 +239,7 @@ httpServer.listen(PORT, HOST, () => {
 
   // Set up process error handlers with io instance
   setupProcessErrorHandlers(io);
+
+  // Initialize instance identity and start peer polling
+  ensureSelf().then(() => startPolling()).catch(err => console.error(`❌ Instance init failed: ${err.message}`));
 });

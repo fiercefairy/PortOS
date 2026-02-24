@@ -14,6 +14,7 @@ import { activityEvents } from './agentActivity.js';
 import { brainEvents } from './brainStorage.js';
 import { moltworldWsEvents } from './moltworldWs.js';
 import { queueEvents } from './moltworldQueue.js';
+import { instanceEvents } from './instanceEvents.js';
 import * as shellService from './shell.js';
 import {
   validateSocketData,
@@ -36,6 +37,8 @@ const errorSubscribers = new Set();
 const notificationSubscribers = new Set();
 // Store agent subscribers
 const agentSubscribers = new Set();
+// Store instance subscribers
+const instanceSubscribers = new Set();
 // Store io instance for broadcasting
 let ioInstance = null;
 
@@ -238,6 +241,17 @@ export function initSocket(io) {
       socket.emit('agents:unsubscribed');
     });
 
+    // Instance subscriptions
+    socket.on('instances:subscribe', () => {
+      instanceSubscribers.add(socket);
+      socket.emit('instances:subscribed');
+    });
+
+    socket.on('instances:unsubscribe', () => {
+      instanceSubscribers.delete(socket);
+      socket.emit('instances:unsubscribed');
+    });
+
     // Handle error recovery requests (can trigger auto-fix agents)
     socket.on('error:recover', async (rawData) => {
       const data = validateSocketData(errorRecoverSchema, rawData, socket, 'error:recover');
@@ -295,6 +309,7 @@ export function initSocket(io) {
       errorSubscribers.delete(socket);
       notificationSubscribers.delete(socket);
       agentSubscribers.delete(socket);
+      instanceSubscribers.delete(socket);
       // Clean up any shell sessions for this socket
       const shellsClosed = shellService.cleanupSocketSessions(socket);
       if (shellsClosed > 0) {
@@ -332,6 +347,9 @@ export function initSocket(io) {
 
   // Set up Moltworld queue event forwarding
   setupMoltworldQueueEventForwarding();
+
+  // Set up instance event forwarding
+  setupInstanceEventForwarding();
 }
 
 function cleanupStream(socketId) {
@@ -499,4 +517,16 @@ function setupMoltworldQueueEventForwarding() {
   queueEvents.on('added', (data) => broadcastToAgents('moltworld:queue:added', data));
   queueEvents.on('updated', (data) => broadcastToAgents('moltworld:queue:updated', data));
   queueEvents.on('removed', (data) => broadcastToAgents('moltworld:queue:removed', data));
+}
+
+// Broadcast to instance subscribers only
+function broadcastToInstances(event, data) {
+  for (const socket of instanceSubscribers) {
+    socket.emit(event, data);
+  }
+}
+
+// Set up instance event forwarding
+function setupInstanceEventForwarding() {
+  instanceEvents.on('peers:updated', (data) => broadcastToInstances('instances:peers:updated', data));
 }

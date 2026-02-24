@@ -1,0 +1,93 @@
+/**
+ * Instances API Routes
+ *
+ * Federation endpoints for managing PortOS peer instances.
+ */
+
+import { Router } from 'express';
+import { z } from 'zod';
+import * as instances from '../services/instances.js';
+import { asyncHandler, ServerError } from '../lib/errorHandler.js';
+
+const router = Router();
+
+// Validation schemas
+const addPeerSchema = z.object({
+  address: z.string().regex(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/, 'Must be a valid IP address'),
+  port: z.number().int().min(1).max(65535).default(5554),
+  name: z.string().optional()
+});
+
+const updatePeerSchema = z.object({
+  name: z.string().optional(),
+  enabled: z.boolean().optional()
+});
+
+const querySchema = z.object({
+  path: z.string().startsWith('/api/', 'Path must start with /api/')
+});
+
+// GET /api/instances — list self + all peers
+router.get('/', asyncHandler(async (req, res) => {
+  const self = await instances.getSelf();
+  const peers = await instances.getPeers();
+  res.json({ self, peers });
+}));
+
+// GET /api/instances/self — get this instance's identity
+router.get('/self', asyncHandler(async (req, res) => {
+  const self = await instances.getSelf();
+  res.json(self);
+}));
+
+// PUT /api/instances/self — update display name
+router.put('/self', asyncHandler(async (req, res) => {
+  const { name } = req.body;
+  if (!name || typeof name !== 'string') {
+    throw new ServerError('Name is required', { status: 400 });
+  }
+  const updated = await instances.updateSelf(name.trim());
+  if (!updated) throw new ServerError('Self identity not initialized', { status: 500 });
+  res.json(updated);
+}));
+
+// POST /api/instances/peers — add a peer
+router.post('/peers', asyncHandler(async (req, res) => {
+  const data = addPeerSchema.parse(req.body);
+  const peer = await instances.addPeer(data);
+  res.status(201).json(peer);
+}));
+
+// PUT /api/instances/peers/:id — update peer
+router.put('/peers/:id', asyncHandler(async (req, res) => {
+  const data = updatePeerSchema.parse(req.body);
+  const peer = await instances.updatePeer(req.params.id, data);
+  if (!peer) throw new ServerError('Peer not found', { status: 404 });
+  res.json(peer);
+}));
+
+// DELETE /api/instances/peers/:id — remove peer
+router.delete('/peers/:id', asyncHandler(async (req, res) => {
+  const removed = await instances.removePeer(req.params.id);
+  if (!removed) throw new ServerError('Peer not found', { status: 404 });
+  res.json({ success: true });
+}));
+
+// POST /api/instances/peers/:id/probe — force immediate probe
+router.post('/peers/:id/probe', asyncHandler(async (req, res) => {
+  const peers = await instances.getPeers();
+  const peer = peers.find(p => p.id === req.params.id);
+  if (!peer) throw new ServerError('Peer not found', { status: 404 });
+  const result = await instances.probePeer(peer);
+  res.json(result);
+}));
+
+// GET /api/instances/peers/:id/query — proxy GET to peer
+router.get('/peers/:id/query', asyncHandler(async (req, res) => {
+  const { path } = querySchema.parse(req.query);
+  const result = await instances.queryPeer(req.params.id, path);
+  if (result.error) throw new ServerError(result.error, { status: 502 });
+  res.json(result.data);
+}));
+
+export default router;

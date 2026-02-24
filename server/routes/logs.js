@@ -31,7 +31,7 @@ router.get('/processes', asyncHandler(async (req, res) => {
 // GET /api/logs/:processName - Get logs for a process (static or streaming)
 router.get('/:processName', asyncHandler(async (req, res) => {
   const { processName } = req.params;
-  const lines = parseInt(req.query.lines) || 100;
+  const lines = parseInt(req.query.lines, 10) || 100;
   const follow = req.query.follow === 'true';
 
   // Security: Validate process name to prevent command injection
@@ -111,7 +111,7 @@ router.get('/app/:appId', asyncHandler(async (req, res) => {
     throw new ServerError('App not found', { status: 404, code: 'NOT_FOUND' });
   }
 
-  const lines = parseInt(req.query.lines) || 100;
+  const lines = parseInt(req.query.lines, 10) || 100;
   const results = {};
 
   for (const processName of app.pm2ProcessNames || []) {

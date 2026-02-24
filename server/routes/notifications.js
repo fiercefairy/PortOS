@@ -13,7 +13,7 @@ router.get('/', asyncHandler(async (req, res) => {
   const options = {
     type: req.query.type,
     unreadOnly: req.query.unreadOnly === 'true',
-    limit: req.query.limit ? parseInt(req.query.limit) : undefined
+    limit: req.query.limit ? parseInt(req.query.limit, 10) : undefined
   };
 
   const result = await notifications.getNotifications(options);

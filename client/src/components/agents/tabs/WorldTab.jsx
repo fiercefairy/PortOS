@@ -277,8 +277,8 @@ export default function WorldTab({ agentId }) {
   const handleExplore = async (random = false) => {
     if (!accountId) return;
     setMoving(true);
-    const x = random ? undefined : (moveX !== '' ? parseInt(moveX) : undefined);
-    const y = random ? undefined : (moveY !== '' ? parseInt(moveY) : undefined);
+    const x = random ? undefined : (moveX !== '' ? parseInt(moveX, 10) : undefined);
+    const y = random ? undefined : (moveY !== '' ? parseInt(moveY, 10) : undefined);
 
     if (wsConnected && !random && x != null && y != null) {
       await api.moltworldWsMove(x, y, moveThinking || undefined).catch(() => null);
@@ -325,7 +325,7 @@ export default function WorldTab({ agentId }) {
     setBuilding(true);
     const result = await api.moltworldBuild(
       accountId, agentId,
-      parseInt(buildX), parseInt(buildY), parseInt(buildZ || '0'),
+      parseInt(buildX, 10), parseInt(buildY, 10), parseInt(buildZ || '0', 10),
       blockType, buildAction
     ).catch(() => null);
     setBuilding(false);
@@ -369,9 +369,9 @@ export default function WorldTab({ agentId }) {
   const handleAddToQueue = async () => {
     const params = { ...newActionParams };
     // Convert numeric fields
-    if (params.x != null) params.x = parseInt(params.x);
-    if (params.y != null) params.y = parseInt(params.y);
-    if (params.z != null) params.z = parseInt(params.z);
+    if (params.x != null) params.x = parseInt(params.x, 10);
+    if (params.y != null) params.y = parseInt(params.y, 10);
+    if (params.z != null) params.z = parseInt(params.z, 10);
 
     await api.moltworldAddToQueue(agentId, newActionType, params).catch(() => null);
     setShowAddForm(false);

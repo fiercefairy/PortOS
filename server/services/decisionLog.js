@@ -76,6 +76,11 @@ async function saveDecisions(data) {
 
 /**
  * Record a decision
+ * Consecutive identical decisions (same type + reason) are collapsed into a
+ * single entry with an incrementing `count` field. This keeps the 200-entry
+ * buffer focused on meaningful decisions instead of flooding it with
+ * repetitive idle/not_due entries every evaluation cycle.
+ *
  * @param {string} type - Decision type from DECISION_TYPES
  * @param {string} reason - Human-readable reason
  * @param {Object} context - Additional context (taskType, successRate, etc.)
@@ -83,11 +88,29 @@ async function saveDecisions(data) {
 export async function recordDecision(type, reason, context = {}) {
   const data = await loadDecisions();
 
+  // Collapse consecutive identical decisions (same type + reason)
+  const prev = data.decisions[0];
+  if (prev && prev.type === type && prev.reason === reason) {
+    prev.count = (prev.count || 1) + 1;
+    prev.lastTimestamp = new Date().toISOString();
+    // Keep context from latest occurrence
+    prev.context = context;
+
+    // Update stats
+    data.stats.totalDecisions++;
+    data.stats.byType[type] = (data.stats.byType[type] || 0) + 1;
+
+    await saveDecisions(data);
+    cosEvents.emit('decision', { ...prev });
+    return prev;
+  }
+
   const decision = {
     id: `dec-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 4)}`,
     type,
     reason,
     context,
+    count: 1,
     timestamp: new Date().toISOString()
   };
 
@@ -135,16 +158,17 @@ export async function getRecentDecisions(limit = 20, type = null) {
 export async function getDecisionSummary() {
   const data = await loadDecisions();
 
-  // Get decisions from last 24 hours
+  // Get decisions from last 24 hours (use lastTimestamp for collapsed entries)
   const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-  const recentDecisions = data.decisions.filter(
-    d => new Date(d.timestamp).getTime() > oneDayAgo
-  );
+  const recentDecisions = data.decisions.filter(d => {
+    const ts = new Date(d.lastTimestamp || d.timestamp).getTime();
+    return ts > oneDayAgo;
+  });
 
-  // Group by type
+  // Group by type, using collapsed count
   const byType = {};
   for (const d of recentDecisions) {
-    byType[d.type] = (byType[d.type] || 0) + 1;
+    byType[d.type] = (byType[d.type] || 0) + (d.count || 1);
   }
 
   // Get impactful decisions (skips, switches, capacity issues, cooldowns)
@@ -168,9 +192,12 @@ export async function getDecisionSummary() {
     ? Math.round((explainedCount / totalRecent) * 100)
     : 100;
 
+  // Total is the sum of collapsed counts, not just entry count
+  const totalOccurrences = recentDecisions.reduce((sum, d) => sum + (d.count || 1), 0);
+
   return {
     last24Hours: {
-      total: recentDecisions.length,
+      total: totalOccurrences,
       byType,
       skipped: byType[DECISION_TYPES.TASK_SKIPPED] || 0,
       switched: byType[DECISION_TYPES.TASK_SWITCHED] || 0,

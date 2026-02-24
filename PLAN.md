@@ -1,5 +1,7 @@
 # Port OS - Implementation Plan
 
+See [GOALS.md](./GOALS.md) for project goals and direction.
+
 ## Quick Reference
 
 ### Tech Stack
@@ -72,45 +74,12 @@ pm2 logs
 
 ### Planned
 
-- [ ] **M7**: App Templates - Template management and app scaffolding from templates
 - [ ] **M34 P3,P5-P7**: Digital Twin - Behavioral feedback loop, multi-modal capture, advanced testing, personas
 - [ ] **M42**: Unified Digital Twin Identity System - See [Identity System](./docs/features/identity-system.md)
 
 ---
 
 ## Planned Feature Details
-
-### M7: App Templates
-
-Templates allow creating new apps from pre-configured project structures.
-
-**Built-in Template: PortOS Stack**
-- Express.js API server
-- React + Vite frontend
-- Tailwind CSS styling
-- PM2 ecosystem configuration
-- GitHub Actions CI/CD workflows
-- Auto-versioning system
-
-**Features**
-1. Template Selection - Browse available templates with feature descriptions
-2. App Creation - Scaffold new project with chosen name and target directory
-3. Custom Templates - Register additional templates from local paths
-4. Template Management - View, edit, delete custom templates
-
-**Pages**
-- `/templates` - Template browser and app creation
-- `/templates/new` - Register custom template
-
-**API Endpoints**
-| Route | Description |
-|-------|-------------|
-| GET /api/templates | List all templates |
-| POST /api/templates | Add custom template |
-| POST /api/templates/create | Create app from template |
-| DELETE /api/templates/:id | Remove custom template |
-
----
 
 ## Documentation
 
@@ -146,61 +115,50 @@ Templates allow creating new apps from pre-configured project structures.
 
 PortOS is an internal/VPN app so auth, CORS, rate limiting, and HTTPS are out of scope. These items address real bugs, crash risks, and secret leaks that matter regardless of network posture.
 
-### S1: Patch npm dependency CVEs
-- Run `npm audit fix` in server/ and client/
-- systeminformation (command injection), lodash (prototype pollution), qs (DoS)
-- **Complexity:** Simple
+### ~~S1: Patch npm dependency CVEs~~ ✅ RESOLVED
+- ~~Run `npm audit fix` in server/ and client/~~
+- Fixed: All actionable CVEs resolved. Remaining: 1 low-severity pm2 ReDoS (GHSA-x5gf-qvw8-r2rm, CVSS 4.3) — no fix published by maintainers, not exploitable via PortOS routes
+- Client: 0 vulnerabilities
 
-### S2: Sanitize provider API responses
-- Strip `apiKey` and `secretEnvVars` from all provider GET endpoints
-- Return `hasApiKey: boolean` instead of the actual key
-- **Files:** `server/routes/providers.js`, portos-ai-toolkit provider routes
-- **Complexity:** Simple
+### ~~S2: Sanitize provider API responses~~ ✅ COMPLETE
+- ~~Strip `apiKey` and `secretEnvVars` from all provider GET endpoints~~
+- Fixed: `sanitizeProvider()` in `server/routes/providers.js` strips `apiKey`, redacts `secretEnvVars` values to `'***'`, returns `hasApiKey: boolean`
+- All GET endpoints use sanitization
 
-### S3: Whitelist env vars in PTY shell spawn
-- Replace `...process.env` spread with explicit allowlist so secrets aren't accessible via `env` command in terminal
-- **File:** `server/services/shell.js:21-69`
-- **Complexity:** Simple
+### ~~S3: Whitelist env vars in PTY shell spawn~~ ✅ COMPLETE
+- ~~Replace `...process.env` spread with explicit allowlist~~
+- Fixed: `buildSafeEnv()` in `server/services/shell.js` uses `SAFE_ENV_PREFIXES` allowlist — no `...process.env` spread
 
-### S4: Fix mutex lock bug + extract shared utility
-- `cos.js` `withStateLock` is missing `try/finally` — if `fn()` throws, the lock is never released (deadlock)
-- `memory.js` has identical pattern duplicated — extract to `lib/asyncMutex.js`
-- **Files:** `server/services/cos.js:150-161`, `server/services/memory.js:47-56`
-- **Complexity:** Medium
+### ~~S4: Fix mutex lock bug + extract shared utility~~ ✅ COMPLETE
+- ~~`cos.js` `withStateLock` is missing `try/finally`~~
+- Fixed: `createMutex()` in `server/lib/asyncMutex.js` with proper `try/finally`. Used by both `cos.js` and `memory.js`
 
-### S5: Add Zod validation to Socket.IO events
-- `shell:start`, `shell:input`, `logs:subscribe`, PM2 commands accept raw input
-- Add Zod schemas matching the HTTP route validation patterns
-- **File:** `server/services/socket.js:32-307`
-- **Complexity:** Medium
+### ~~S5: Add Zod validation to Socket.IO events~~ ✅ COMPLETE
+- ~~Socket events accept raw input~~
+- Fixed: `server/lib/socketValidation.js` has Zod schemas for all socket events. `validateSocketData()` helper used in `socket.js`
 
-### S6: Sanitize error context in Socket.IO broadcasts
-- Error handler broadcasts full `context` object to all clients which may contain secrets
-- Filter sensitive fields before emitting `error:occurred`
-- **File:** `server/lib/errorHandler.js:113-121`
-- **Complexity:** Simple
+### ~~S6: Sanitize error context in Socket.IO broadcasts~~ ✅ COMPLETE
+- ~~Error handler broadcasts full `context` object which may contain secrets~~
+- Fixed: `sanitizeContext()` in `server/lib/errorHandler.js` strips sensitive fields (apikey, token, secret, password, etc.) with circular-reference protection
 
-### S7: Guard unprotected JSON.parse calls
-- 10+ locations call `JSON.parse` on external/file data without try-catch
-- Wrap in safe parser or add try-catch
-- **Files:** `server/services/digital-twin.js` (11 locations), `server/services/cos.js:273`, `server/lib/taskParser.js:106`
-- **Complexity:** Simple
+### ~~S7: Guard unprotected JSON.parse calls~~ ✅
+- ~~10+ locations call `JSON.parse` on external/file data without try-catch~~
+- Fixed: replaced bare `JSON.parse` with `safeJSONParse` from `lib/fileUtils.js` in 7 files (8 call sites): `agentContentGenerator.js`, `pm2Standardizer.js`, `automationScheduler.js`, `git.js` (2), `aiDetect.js`, `memoryClassifier.js`, `clinvar.js`
+- `digital-twin.js` and `cos.js` were already using `safeJSONParse`
 
-### S8: Add iteration limit to cron parser
-- `eventScheduler.js` loops minute-by-minute for up to 2 years — invalid cron expressions cause CPU spin
-- Add max iteration count and validate cron fields upfront
-- **File:** `server/services/eventScheduler.js:53-62`
-- **Complexity:** Simple
+### ~~S8: Add iteration limit to cron parser~~ ✅ COMPLETE
+- ~~`eventScheduler.js` loops minute-by-minute for up to 2 years — invalid cron expressions cause CPU spin~~
+- Fixed: `MAX_CRON_ITERATIONS = 525960` iteration counter, `validateCronFieldRange()` upfront validation, early `null` return on invalid expressions
+- **File:** `server/services/eventScheduler.js`
 
-### S9: Extract validation boilerplate to helper
-- Same 6-line validation-error block duplicated 74+ times across all route files
-- Extract to `lib/validation.js` `validateRequest(schema, data)` helper
-- **Files:** All `server/routes/*.js`
-- **Complexity:** Simple (but wide)
+### ~~S9: Extract validation boilerplate to helper~~ ✅ COMPLETE
+- ~~Same 6-line validation-error block duplicated 74+ times across all route files~~
+- Fixed: `validateRequest(schema, data)` helper in `lib/validation.js` now used across 80 call sites in 12 route files
+- **Files:** `server/lib/validation.js`, all `server/routes/*.js`
 
-### S10: Fix parseInt missing radix
-- Several parseInt calls lack explicit radix 10
-- **Files:** `server/services/agents.js:243-248`, `server/services/git.js`, `server/services/productivity.js`, `server/services/eventScheduler.js`
+### ~~S10: Fix parseInt missing radix~~ ✅ COMPLETE (v0.18.x)
+- ~~Several parseInt calls lack explicit radix 10~~
+- Fixed 45+ call sites across 18 files (routes, services, client, tests)
 - **Complexity:** Simple
 
 ---

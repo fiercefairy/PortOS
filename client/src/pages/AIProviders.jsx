@@ -577,7 +577,7 @@ function ProviderForm({ provider, onClose, onSave, allProviders = [] }) {
     const data = {
       ...formData,
       args: formData.args ? formData.args.split(' ').filter(Boolean) : [],
-      timeout: parseInt(formData.timeout)
+      timeout: parseInt(formData.timeout, 10)
     };
 
     // Only send apiKey if user entered a new value (avoid overwriting existing key with empty string)

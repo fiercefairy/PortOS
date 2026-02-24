@@ -12,7 +12,7 @@ router.get('/', asyncHandler(async (req, res) => {
 
 // GET /api/agents/:pid - Get specific process info
 router.get('/:pid', asyncHandler(async (req, res) => {
-  const pid = parseInt(req.params.pid);
+  const pid = parseInt(req.params.pid, 10);
   const info = await getProcessInfo(pid);
   if (!info) {
     throw new ServerError('Process not found', { status: 404, code: 'NOT_FOUND' });
@@ -22,7 +22,7 @@ router.get('/:pid', asyncHandler(async (req, res) => {
 
 // DELETE /api/agents/:pid - Kill a process
 router.delete('/:pid', asyncHandler(async (req, res) => {
-  const pid = parseInt(req.params.pid);
+  const pid = parseInt(req.params.pid, 10);
   await killProcess(pid);
   res.json({ success: true, pid });
 }));

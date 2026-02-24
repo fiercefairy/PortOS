@@ -55,7 +55,7 @@ export default function ProductivityTab() {
   }, []);
 
   const formatHour = useCallback((hour) => {
-    const h = parseInt(hour);
+    const h = parseInt(hour, 10);
     if (h === 0) return '12AM';
     if (h === 12) return '12PM';
     return h < 12 ? `${h}AM` : `${h - 12}PM`;
@@ -77,7 +77,7 @@ export default function ProductivityTab() {
   const sortedHourlyPatterns = useMemo(() => {
     if (!data?.hourlyPatterns) return [];
     return Object.entries(data.hourlyPatterns)
-      .map(([hour, p]) => ({ hour: parseInt(hour), ...p }))
+      .map(([hour, p]) => ({ hour: parseInt(hour, 10), ...p }))
       .sort((a, b) => a.hour - b.hour);
   }, [data?.hourlyPatterns]);
 
@@ -85,7 +85,7 @@ export default function ProductivityTab() {
   const sortedDailyPatterns = useMemo(() => {
     if (!data?.dailyPatterns) return [];
     return Object.entries(data.dailyPatterns)
-      .map(([day, p]) => ({ day: parseInt(day), dayName: DAY_NAMES[parseInt(day)], ...p }))
+      .map(([day, p]) => ({ day: parseInt(day, 10), dayName: DAY_NAMES[parseInt(day, 10)], ...p }))
       .sort((a, b) => a.day - b.day);
   }, [data?.dailyPatterns]);
 

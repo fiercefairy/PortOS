@@ -639,8 +639,8 @@ function EditAppModal({ app, onClose, onSave }) {
       name: formData.name,
       icon: formData.icon,
       repoPath: formData.repoPath,
-      uiPort: formData.uiPort ? parseInt(formData.uiPort) : null,
-      apiPort: formData.apiPort ? parseInt(formData.apiPort) : null,
+      uiPort: formData.uiPort ? parseInt(formData.uiPort, 10) : null,
+      apiPort: formData.apiPort ? parseInt(formData.apiPort, 10) : null,
       startCommands: formData.startCommands.split('\n').filter(Boolean),
       pm2ProcessNames: formData.pm2ProcessNames
         ? formData.pm2ProcessNames.split(',').map(s => s.trim()).filter(Boolean)

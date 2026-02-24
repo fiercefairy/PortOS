@@ -652,7 +652,7 @@ export async function parseTestSuite() {
   let match;
   while ((match = testPattern.exec(content)) !== null) {
     tests.push({
-      testId: parseInt(match[1]),
+      testId: parseInt(match[1], 10),
       testName: match[2].trim(),
       prompt: match[3].trim().replace(/^"|"$/g, ''),
       expectedBehavior: match[4].trim(),
@@ -1121,14 +1121,47 @@ export async function processEnrichmentAnswer(data) {
     });
   }
 
+  // Boost confidence for the dimension this category maps to
+  const categoryToDimension = {
+    personality_assessments: 'openness',
+    daily_routines: 'conscientiousness',
+    communication: 'communication',
+    values: 'values',
+    non_negotiables: 'boundaries',
+    decision_heuristics: 'decision_making',
+    error_intolerance: 'boundaries',
+    core_memories: 'identity',
+    career_skills: 'conscientiousness',
+    taste: 'openness'
+  };
+  const dimension = categoryToDimension[category];
+  if (dimension) {
+    if (!meta.confidence) meta.confidence = { overall: 0, dimensions: {}, gaps: [], lastCalculated: now() };
+    if (!meta.confidence.dimensions) meta.confidence.dimensions = {};
+    const currentConf = meta.confidence.dimensions[dimension] || 0;
+    meta.confidence.dimensions[dimension] = Math.min(1, Math.round((currentConf + CONFIDENCE_BOOST) * 100) / 100);
+
+    const dimValues = Object.values(meta.confidence.dimensions);
+    meta.confidence.overall = dimValues.length > 0
+      ? Math.round((dimValues.reduce((a, b) => a + b, 0) / dimValues.length) * 100) / 100
+      : 0;
+
+    meta.confidence.gaps = generateGapRecommendations(meta.confidence.dimensions);
+    meta.confidence.lastCalculated = now();
+  }
+
   await saveMeta(meta);
 
-  console.log(`🧬 Enrichment answer processed for ${category}`);
+  digitalTwinEvents.emit('confidence:calculated', meta.confidence);
+
+  console.log(`🧬 Enrichment answer processed for ${category}${dimension ? ` → ${dimension} confidence=${meta.confidence.dimensions[dimension]}` : ''}`);
 
   return {
     category,
     targetDoc: config.targetDoc,
-    contentAdded: formattedContent
+    contentAdded: formattedContent,
+    dimension,
+    newConfidence: dimension ? meta.confidence.dimensions[dimension] : undefined
   };
 }
 
@@ -2247,7 +2280,7 @@ function parseGoodreadsCSV(csvData) {
     if (!lines[i].trim()) continue;
     const cols = parseCSVLine(lines[i]);
 
-    const rating = ratingIdx >= 0 ? parseInt(cols[ratingIdx]) : 0;
+    const rating = ratingIdx >= 0 ? parseInt(cols[ratingIdx], 10) : 0;
     // Only include books that were actually read (have a rating > 0 or date read)
     if (rating > 0 || (dateReadIdx >= 0 && cols[dateReadIdx])) {
       books.push({
@@ -2369,7 +2402,7 @@ function parseLetterboxdCSV(csvData) {
 
     films.push({
       title: cols[nameIdx] || cols[0] || '',
-      year: yearIdx >= 0 && cols[yearIdx] ? parseInt(cols[yearIdx]) : undefined,
+      year: yearIdx >= 0 && cols[yearIdx] ? parseInt(cols[yearIdx], 10) : undefined,
       rating: ratingIdx >= 0 && cols[ratingIdx] ? parseFloat(cols[ratingIdx]) : undefined,
       watchedDate: dateIdx >= 0 ? cols[dateIdx] : undefined,
       review: reviewIdx >= 0 ? cols[reviewIdx] : undefined,

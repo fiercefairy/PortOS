@@ -505,6 +505,12 @@ router.get('/learning/recommendations/:taskType', asyncHandler(async (req, res) 
   res.json(recommendations);
 }));
 
+// POST /api/cos/learning/recalculate-model-tiers - Rebuild byModelTier from routingAccuracy
+router.post('/learning/recalculate-model-tiers', asyncHandler(async (req, res) => {
+  const result = await taskLearning.recalculateModelTierMetrics();
+  res.json({ success: true, ...result });
+}));
+
 // ============================================================
 // Weekly Digest Routes
 // ============================================================
@@ -583,7 +589,7 @@ router.get('/schedule', asyncHandler(async (req, res) => {
 
 // GET /api/cos/upcoming - Get upcoming tasks preview
 router.get('/upcoming', asyncHandler(async (req, res) => {
-  const limit = parseInt(req.query.limit) || 10;
+  const limit = parseInt(req.query.limit, 10) || 10;
   const upcoming = await taskSchedule.getUpcomingTasks(limit);
   res.json(upcoming);
 }));
@@ -914,14 +920,14 @@ router.post('/productivity/recalculate', asyncHandler(async (req, res) => {
 
 // GET /api/cos/productivity/trends - Get daily task completion trends for charting
 router.get('/productivity/trends', asyncHandler(async (req, res) => {
-  const days = parseInt(req.query.days) || 30;
+  const days = parseInt(req.query.days, 10) || 30;
   const trends = await productivity.getDailyTrends(days);
   res.json(trends);
 }));
 
 // GET /api/cos/productivity/calendar - Get activity calendar for GitHub-style heatmap
 router.get('/productivity/calendar', asyncHandler(async (req, res) => {
-  const weeks = parseInt(req.query.weeks) || 12;
+  const weeks = parseInt(req.query.weeks, 10) || 12;
   const calendar = await productivity.getActivityCalendar(weeks);
   res.json(calendar);
 }));

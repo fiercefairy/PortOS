@@ -7,8 +7,8 @@ const router = Router();
 // GET /api/history - Get history entries
 router.get('/', async (req, res, next) => {
   const options = {
-    limit: parseInt(req.query.limit) || 100,
-    offset: parseInt(req.query.offset) || 0,
+    limit: parseInt(req.query.limit, 10) || 100,
+    offset: parseInt(req.query.offset, 10) || 0,
     action: req.query.action || undefined,
     target: req.query.target || undefined,
     success: req.query.success !== undefined ? req.query.success === 'true' : undefined
@@ -38,7 +38,7 @@ router.delete('/:id', async (req, res, next) => {
 
 // DELETE /api/history - Clear history
 router.delete('/', async (req, res, next) => {
-  const olderThanDays = req.query.olderThanDays ? parseInt(req.query.olderThanDays) : null;
+  const olderThanDays = req.query.olderThanDays ? parseInt(req.query.olderThanDays, 10) : null;
   const result = await history.clearHistory(olderThanDays).catch(next);
   if (result) res.json(result);
 });

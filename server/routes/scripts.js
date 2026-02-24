@@ -103,7 +103,7 @@ router.post('/:id/run', async (req, res, next) => {
 
 // GET /api/cos/scripts/:id/runs - Get script run history
 router.get('/:id/runs', async (req, res, next) => {
-  const limit = parseInt(req.query.limit) || 10;
+  const limit = parseInt(req.query.limit, 10) || 10;
   const runs = await scriptRunner.getScriptRuns(req.params.id, limit).catch(next);
 
   if (runs) res.json({ runs });

@@ -68,8 +68,8 @@ describe('Agent Service Logic', () => {
       if (etime.includes('-')) {
         // Days-HH:MM:SS format
         const [days, rest] = etime.split('-');
-        const timeParts = rest.split(':').map(p => parseInt(p));
-        const d = parseInt(days);
+        const timeParts = rest.split(':').map(p => parseInt(p, 10));
+        const d = parseInt(days, 10);
         const [h, m, s] = timeParts.length === 3 ? timeParts : [0, ...timeParts];
         return ((d * 24 + h) * 60 + m) * 60 * 1000 + s * 1000;
       }
@@ -205,8 +205,8 @@ describe('Agent Service Logic', () => {
       const parts = line.trim().split(/\s+/);
       if (parts.length < 6) return null;
 
-      const pid = parseInt(parts[0]);
-      const ppid = parseInt(parts[1]);
+      const pid = parseInt(parts[0], 10);
+      const ppid = parseInt(parts[1], 10);
       const cpu = parseFloat(parts[2]);
       const mem = parseFloat(parts[3]);
       const etime = parts[4];

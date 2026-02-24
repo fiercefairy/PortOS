@@ -29,7 +29,8 @@ export const NOTIFICATION_TYPES = {
   TASK_APPROVAL: 'task_approval',
   CODE_REVIEW: 'code_review',
   HEALTH_ISSUE: 'health_issue',
-  BRIEFING_READY: 'briefing_ready'
+  BRIEFING_READY: 'briefing_ready',
+  AUTOBIOGRAPHY_PROMPT: 'autobiography_prompt'
 };
 
 // Priority levels
@@ -254,10 +255,14 @@ export async function clearAll() {
 }
 
 /**
- * Check if a notification already exists (prevent duplicates)
+ * Check if a notification already exists (prevent duplicates).
+ * When metadataField/metadataValue are omitted, matches by type alone.
  */
 export async function exists(type, metadataField, metadataValue) {
   const data = await loadNotifications();
+  if (!metadataField) {
+    return data.notifications.some(n => n.type === type);
+  }
   return data.notifications.some(
     n => n.type === type && n.metadata[metadataField] === metadataValue
   );

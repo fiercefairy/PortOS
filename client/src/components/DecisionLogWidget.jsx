@@ -185,7 +185,12 @@ const DecisionLogWidget = memo(function DecisionLogWidget() {
                         {decision.reason}
                       </p>
                       <div className="text-xs text-gray-500 mt-0.5">
-                        {formatRelativeTime(decision.timestamp)}
+                        {formatRelativeTime(decision.lastTimestamp || decision.timestamp)}
+                        {(decision.count || 1) > 1 && (
+                          <span className="ml-2 text-gray-400">
+                            ({decision.count}x)
+                          </span>
+                        )}
                         {decision.context?.successRate !== undefined && (
                           <span className="ml-2">
                             Success rate: {decision.context.successRate}%

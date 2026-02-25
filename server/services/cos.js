@@ -368,34 +368,92 @@ export async function start() {
   // Then reset any orphaned in_progress tasks (no running agent)
   await resetOrphanedTasks();
 
-  // Start evaluation loop using event scheduler
-  scheduleEvent({
-    id: 'cos-evaluation',
-    type: 'interval',
-    intervalMs: state.config.evaluationIntervalMs,
-    handler: async () => {
-      await evaluateTasks();
-    },
-    metadata: { description: 'CoS task evaluation loop' }
-  });
-
-  // Start health check loop using event scheduler
+  // Health check + orphan cleanup (15 min)
   scheduleEvent({
     id: 'cos-health-check',
     type: 'interval',
     intervalMs: state.config.healthCheckIntervalMs,
     handler: async () => {
       await runHealthCheck();
-      // Periodic zombie detection — catches agents whose process died mid-run
       const cleaned = await cleanupOrphanedAgents();
       if (cleaned > 0) {
         emitLog('info', `🧹 Periodic cleanup: ${cleaned} orphaned agent(s)`);
       }
     },
-    metadata: { description: 'CoS health check + orphan cleanup loop' }
+    metadata: { description: 'CoS health check + orphan cleanup' }
   });
 
-  // Run initial evaluation and health check
+  // Performance summary (10 min)
+  scheduleEvent({
+    id: 'cos-performance-summary',
+    type: 'interval',
+    intervalMs: 10 * 60 * 1000,
+    handler: async () => {
+      const perfSummary = await getPerformanceSummary().catch(() => null);
+      if (perfSummary && perfSummary.totalCompleted > 0) {
+        emitLog('info', `Performance: ${perfSummary.overallSuccessRate}% success over ${perfSummary.totalCompleted} tasks`, {
+          successRate: perfSummary.overallSuccessRate,
+          totalCompleted: perfSummary.totalCompleted,
+          topPerformers: perfSummary.topPerformers.length,
+          needsAttention: perfSummary.needsAttention.length
+        });
+      }
+    },
+    metadata: { description: 'CoS performance summary' }
+  });
+
+  // Learning insights (20 min)
+  scheduleEvent({
+    id: 'cos-learning-insights',
+    type: 'interval',
+    intervalMs: 20 * 60 * 1000,
+    handler: async () => {
+      const learningInsights = await getLearningInsights().catch(() => null);
+      if (learningInsights?.recommendations?.length > 0) {
+        const recommendations = learningInsights.recommendations.slice(0, 3);
+        for (const rec of recommendations) {
+          const level = rec.type === 'warning' ? 'warn' : rec.type === 'action' ? 'info' : 'debug';
+          emitLog(level, `🧠 Learning: ${rec.message}`, { recommendationType: rec.type });
+        }
+        cosEvents.emit('learning:recommendations', {
+          recommendations,
+          insights: {
+            bestPerforming: learningInsights.insights?.bestPerforming?.slice(0, 2) || [],
+            worstPerforming: learningInsights.insights?.worstPerforming?.slice(0, 2) || [],
+            commonErrors: learningInsights.insights?.commonErrors?.slice(0, 2) || []
+          },
+          totals: learningInsights.totals
+        });
+      }
+    },
+    metadata: { description: 'CoS learning insights' }
+  });
+
+  // Rehabilitation check (2 hours)
+  scheduleEvent({
+    id: 'cos-rehabilitation-check',
+    type: 'interval',
+    intervalMs: 2 * 60 * 60 * 1000,
+    handler: async () => {
+      const s = await loadState();
+      const gracePeriodMs = (s.config.rehabilitationGracePeriodDays || 7) * 24 * 60 * 60 * 1000;
+      const result = await checkAndRehabilitateSkippedTasks(gracePeriodMs).catch(() => ({ count: 0 }));
+      if (result.count > 0) {
+        emitLog('success', `Auto-rehabilitated ${result.count} skipped task type(s)`, {
+          rehabilitated: result.rehabilitated?.map(r => r.taskType) || []
+        });
+      }
+    },
+    metadata: { description: 'CoS rehabilitation check for skipped tasks' }
+  });
+
+  // Register autonomous job schedules (individual timers per job)
+  await registerJobSchedules();
+
+  // Schedule improvement task checks based on next due time
+  await scheduleNextImprovementCheck();
+
+  // Run initial evaluation to fill available slots, then health check
   emitLog('info', 'Running initial task evaluation...');
   await evaluateTasks();
   await runHealthCheck();
@@ -413,9 +471,13 @@ export async function stop() {
     return { success: false, error: 'Not running' };
   }
 
-  // Cancel scheduled events
-  cancelEvent('cos-evaluation');
+  // Cancel all scheduled events
   cancelEvent('cos-health-check');
+  cancelEvent('cos-performance-summary');
+  cancelEvent('cos-learning-insights');
+  cancelEvent('cos-rehabilitation-check');
+  cancelEvent('cos-improvement-check');
+  await unregisterJobSchedules();
 
   await withStateLock(async () => {
     const state = await loadState();
@@ -472,9 +534,9 @@ export async function resume() {
     return { success: true };
   });
 
-  // Trigger immediate evaluation on resume (outside lock to avoid holding it)
+  // Trigger immediate task dequeue on resume (outside lock to avoid holding it)
   if (result.success && daemonRunning) {
-    setTimeout(() => evaluateTasks(), 500);
+    setTimeout(() => dequeueNextTask(), 500);
   }
 
   return result;
@@ -898,60 +960,9 @@ export async function evaluateTasks() {
     availableSlots
   });
 
-  // Periodically log performance summary with learning insights (every 10 evaluations)
-  const evalCount = state.stats.evaluationCount || 0;
-  if (evalCount % 10 === 0 && evalCount > 0) {
-    const perfSummary = await getPerformanceSummary().catch(() => null);
-    if (perfSummary && perfSummary.totalCompleted > 0) {
-      emitLog('info', `Performance: ${perfSummary.overallSuccessRate}% success rate over ${perfSummary.totalCompleted} tasks`, {
-        successRate: perfSummary.overallSuccessRate,
-        totalCompleted: perfSummary.totalCompleted,
-        topPerformers: perfSummary.topPerformers.length,
-        needsAttention: perfSummary.needsAttention.length
-      });
-
-      // Surface learning recommendations every 20 evaluations (less frequent to avoid noise)
-      if (evalCount % 20 === 0) {
-        const learningInsights = await getLearningInsights().catch(() => null);
-        if (learningInsights?.recommendations?.length > 0) {
-          const recommendations = learningInsights.recommendations.slice(0, 3);
-          for (const rec of recommendations) {
-            const level = rec.type === 'warning' ? 'warn' : rec.type === 'action' ? 'info' : 'debug';
-            emitLog(level, `🧠 Learning: ${rec.message}`, { recommendationType: rec.type });
-          }
-          // Emit event for UI consumption
-          cosEvents.emit('learning:recommendations', {
-            recommendations,
-            insights: {
-              bestPerforming: learningInsights.insights?.bestPerforming?.slice(0, 2) || [],
-              worstPerforming: learningInsights.insights?.worstPerforming?.slice(0, 2) || [],
-              commonErrors: learningInsights.insights?.commonErrors?.slice(0, 2) || []
-            },
-            totals: learningInsights.totals
-          });
-        }
-      }
-    }
-  }
-
-  // Periodically check for task types eligible for auto-rehabilitation (every 100 evaluations, ~2 hours)
-  // This gives previously-failing task types a fresh chance after their grace period expires
-  if (evalCount % 100 === 0 && evalCount > 0) {
-    const gracePeriodMs = (state.config.rehabilitationGracePeriodDays || 7) * 24 * 60 * 60 * 1000;
-    const rehabilitationResult = await checkAndRehabilitateSkippedTasks(gracePeriodMs).catch(() => ({ count: 0 }));
-    if (rehabilitationResult.count > 0) {
-      emitLog('success', `Auto-rehabilitated ${rehabilitationResult.count} skipped task type(s) for retry`, {
-        rehabilitated: rehabilitationResult.rehabilitated?.map(r => r.taskType) || []
-      });
-    }
-  }
-
-  // Update evaluation count
-  await withStateLock(async () => {
-    const s = await loadState();
-    s.stats.evaluationCount = (s.stats.evaluationCount || 0) + 1;
-    await saveState(s);
-  });
+  // Note: Performance summaries, learning insights, and rehabilitation checks
+  // are now handled by dedicated maintenance intervals (cos-performance-summary,
+  // cos-learning-insights, cos-rehabilitation-check) instead of evalCount gating.
 
   // Spawn all ready tasks (up to available slots)
   for (const task of tasksToSpawn) {
@@ -3168,8 +3179,16 @@ async function tryImmediateSpawn(task) {
 }
 
 /**
- * When an agent completes (freeing a slot), immediately try to dequeue and spawn the next pending task.
- * Checks user tasks first, then auto-approved system tasks.
+ * Event-driven task dequeue — the primary way tasks get spawned.
+ *
+ * Triggered by: agent:completed, tasks:user:added, tasks:cos:added, status:resumed
+ * Fills all available slots using the same priority order as evaluateTasks:
+ *   0. On-demand requests
+ *   1. User tasks
+ *   2. Auto-approved system tasks
+ *   3. Mission-driven proactive tasks (if proactiveMode)
+ *   4. Idle review task (if idleReviewEnabled)
+ * Returns silently when idle — no log noise.
  */
 async function dequeueNextTask() {
   if (!daemonRunning) return;
@@ -3185,35 +3204,147 @@ async function dequeueNextTask() {
 
   const perProjectLimit = state.config.maxConcurrentAgentsPerProject || state.config.maxConcurrentAgents;
   const agentsByProject = countRunningAgentsByProject(state.agents);
+  const spawnProjectCounts = { ...agentsByProject };
+  let spawned = 0;
 
-  // Check user tasks first (highest priority)
+  const canSpawn = (task) => {
+    if (spawned >= availableSlots) return false;
+    const project = task.metadata?.app || '_self';
+    return (spawnProjectCounts[project] || 0) < perProjectLimit;
+  };
+
+  const trackSpawn = (task) => {
+    const project = task.metadata?.app || '_self';
+    spawnProjectCounts[project] = (spawnProjectCounts[project] || 0) + 1;
+    spawned++;
+  };
+
+  // Priority 0: On-demand task requests
+  const taskScheduleMod = await import('./taskSchedule.js');
+  const onDemandRequests = await taskScheduleMod.getOnDemandRequests();
+
+  for (const request of onDemandRequests) {
+    if (spawned >= availableSlots) break;
+
+    let task = null;
+    if (request.category === 'selfImprovement' && state.config.selfImprovementEnabled) {
+      await taskScheduleMod.clearOnDemandRequest(request.id);
+      emitLog('info', `Processing on-demand self-improvement: ${request.taskType}`, { requestId: request.id });
+      await taskScheduleMod.recordExecution(`self-improve:${request.taskType}`);
+      await withStateLock(async () => {
+        const s = await loadState();
+        s.stats.lastSelfImprovement = new Date().toISOString();
+        s.stats.lastSelfImprovementType = request.taskType;
+        await saveState(s);
+      });
+      task = await generateSelfImprovementTaskForType(request.taskType, state);
+    } else if (request.category === 'appImprovement' && state.config.appImprovementEnabled) {
+      const apps = await getActiveApps().catch(() => []);
+      let targetApp = null;
+
+      if (request.appId) {
+        targetApp = apps.find(a => a.id === request.appId);
+        if (!targetApp) {
+          emitLog('warn', `On-demand request for unknown app: ${request.appId}`, { requestId: request.id });
+          await taskScheduleMod.clearOnDemandRequest(request.id);
+          continue;
+        }
+      } else {
+        targetApp = await getNextAppForReview(apps, 0);
+        if (!targetApp && apps.length > 0) targetApp = apps[0];
+        if (!targetApp) {
+          emitLog('warn', 'On-demand app improvement requested but no apps available', { requestId: request.id });
+          await taskScheduleMod.clearOnDemandRequest(request.id);
+          continue;
+        }
+      }
+
+      await taskScheduleMod.clearOnDemandRequest(request.id);
+      emitLog('info', `Processing on-demand app improvement: ${request.taskType} for ${targetApp.name}`, { requestId: request.id, appId: targetApp.id });
+      await markAppReviewStarted(targetApp.id, `on-demand-${Date.now()}`);
+      await taskScheduleMod.recordExecution(`app-improve:${request.taskType}`, targetApp.id);
+      task = await generateManagedAppImprovementTaskForType(request.taskType, targetApp, state);
+    }
+
+    if (task && canSpawn(task)) {
+      cosEvents.emit('task:ready', task);
+      trackSpawn(task);
+    }
+  }
+
+  // Priority 1: User tasks
   const userTaskData = await getUserTasks();
   const pendingUserTasks = userTaskData.grouped?.pending || [];
 
   for (const task of pendingUserTasks) {
-    if (!isWithinProjectLimit(task, agentsByProject, perProjectLimit)) continue;
-    emitLog('info', `⚡ Dequeue on slot free: ${task.id} (${task.priority || 'MEDIUM'})`, {
-      taskId: task.id,
-      availableSlots
-    });
-    cosEvents.emit('task:ready', { ...task, taskType: 'user' });
-    return; // One at a time — let the next completion trigger more
+    if (spawned >= availableSlots) break;
+    const userTask = { ...task, taskType: 'user' };
+    if (!canSpawn(userTask)) continue;
+    cosEvents.emit('task:ready', userTask);
+    trackSpawn(userTask);
   }
 
-  // No user tasks — check auto-approved system tasks
+  // Priority 2: Auto-approved system tasks
   const cosTaskData = await getCosTasks();
   const autoApproved = cosTaskData.autoApproved || [];
 
   for (const task of autoApproved) {
+    if (spawned >= availableSlots) break;
     const appId = task.metadata?.app;
     if (appId) {
       const onCooldown = await isAppOnCooldown(appId, state.config.appReviewCooldownMs);
       if (onCooldown) continue;
     }
-    if (!isWithinProjectLimit(task, agentsByProject, perProjectLimit)) continue;
-    emitLog('info', `⚡ Dequeue system task on slot free: ${task.id}`, { taskId: task.id, availableSlots });
-    cosEvents.emit('task:ready', { ...task, taskType: 'internal' });
-    return;
+    const sysTask = { ...task, taskType: 'internal' };
+    if (!canSpawn(sysTask)) continue;
+    cosEvents.emit('task:ready', sysTask);
+    trackSpawn(sysTask);
+  }
+
+  const hasPendingUserTasks = pendingUserTasks.length > 0;
+
+  // Priority 3: Mission-driven proactive tasks
+  if (spawned < availableSlots && !hasPendingUserTasks && state.config.proactiveMode) {
+    const missionTasks = await generateMissionTasks({ maxTasks: availableSlots - spawned }).catch(err => {
+      emitLog('debug', `Mission task generation failed: ${err.message}`);
+      return [];
+    });
+
+    for (const missionTask of missionTasks) {
+      if (spawned >= availableSlots) break;
+      const cosTask = {
+        id: missionTask.id,
+        description: missionTask.description,
+        priority: missionTask.priority?.toUpperCase() || 'MEDIUM',
+        status: 'pending',
+        metadata: missionTask.metadata,
+        taskType: 'internal',
+        approvalRequired: !missionTask.autoApprove
+      };
+      if (!canSpawn(cosTask)) continue;
+      cosEvents.emit('task:ready', cosTask);
+      trackSpawn(cosTask);
+      emitLog('info', `Generated mission task: ${missionTask.id}`, {
+        missionId: missionTask.metadata?.missionId
+      });
+    }
+  }
+
+  // Priority 4: Idle review task (only when completely idle)
+  if (spawned === 0 && state.config.idleReviewEnabled && !hasPendingUserTasks) {
+    const freshCosTasks = await getCosTasks();
+    const pendingSystemTasks = freshCosTasks.autoApproved?.length || 0;
+    if (pendingSystemTasks === 0) {
+      const idleTask = await generateIdleReviewTask(state);
+      if (idleTask && canSpawn(idleTask)) {
+        cosEvents.emit('task:ready', idleTask);
+        trackSpawn(idleTask);
+      }
+    }
+  }
+
+  if (spawned > 0) {
+    emitLog('info', `⚡ Dequeued ${spawned} task(s)`, { spawned, availableSlots });
   }
 }
 
@@ -3399,6 +3530,186 @@ export async function approveTask(taskId) {
 }
 
 /**
+ * Compute the next fire time for an autonomous job
+ * @param {Object} job - The job object with intervalMs, lastRun, scheduledTime, weekdaysOnly
+ * @returns {number} Timestamp (ms) of next fire time
+ */
+function computeNextJobFireTime(job) {
+  const lastRun = job.lastRun ? new Date(job.lastRun).getTime() : 0;
+  let nextDue = lastRun + job.intervalMs;
+
+  // If job has scheduledTime, adjust to that time of day
+  if (job.scheduledTime) {
+    const [hours, minutes] = job.scheduledTime.split(':').map(Number);
+    const nextDueDate = new Date(nextDue);
+    nextDueDate.setHours(hours, minutes, 0, 0);
+    if (nextDueDate.getTime() > nextDue) {
+      nextDue = nextDueDate.getTime();
+    }
+  }
+
+  // If weekdaysOnly, skip to next weekday
+  if (job.weekdaysOnly) {
+    const nextDate = new Date(nextDue);
+    const day = nextDate.getDay();
+    if (day === 0) nextDue += 24 * 60 * 60 * 1000; // Sunday → Monday
+    if (day === 6) nextDue += 2 * 24 * 60 * 60 * 1000; // Saturday → Monday
+  }
+
+  return nextDue;
+}
+
+/**
+ * Register a single autonomous job as a one-shot scheduled event.
+ * After execution, re-registers for the next fire time.
+ */
+async function registerSingleJobSchedule(jobId) {
+  const { getJob } = await import('./autonomousJobs.js');
+  const job = await getJob(jobId);
+  if (!job || !job.enabled) {
+    cancelEvent(`job:${jobId}`);
+    return;
+  }
+
+  const nextFire = computeNextJobFireTime(job);
+  const delayMs = Math.max(nextFire - Date.now(), 1000);
+
+  scheduleEvent({
+    id: `job:${jobId}`,
+    type: 'once',
+    delayMs,
+    handler: () => executeScheduledJob(jobId),
+    metadata: { description: `Autonomous job: ${job.name}`, jobId }
+  });
+}
+
+/**
+ * Execute a scheduled autonomous job and re-register its timer.
+ */
+async function executeScheduledJob(jobId) {
+  if (!daemonRunning) return;
+
+  const paused = await isPaused();
+  if (paused) {
+    // Re-register for later
+    await registerSingleJobSchedule(jobId);
+    return;
+  }
+
+  const { getJob } = await import('./autonomousJobs.js');
+  const job = await getJob(jobId);
+  if (!job || !job.enabled) return;
+
+  const state = await loadState();
+  if (!state.config.autonomousJobsEnabled) {
+    // Re-register so it fires when re-enabled
+    await registerSingleJobSchedule(jobId);
+    return;
+  }
+
+  // Script jobs execute directly without spawning an AI agent
+  if (isScriptJob(job)) {
+    await executeScriptJob(job).catch(err => {
+      emitLog('error', `Script job failed: ${job.name} - ${err.message}`, { jobId: job.id });
+    });
+    emitLog('info', `Script job executed: ${job.name}`, { jobId: job.id });
+  } else {
+    // Check capacity before spawning an agent
+    const runningAgents = Object.values(state.agents).filter(a => a.status === 'running').length;
+    if (runningAgents >= state.config.maxConcurrentAgents) {
+      emitLog('debug', `Job ${job.name} deferred - no agent slots`, { jobId });
+      // Retry in 60s
+      scheduleEvent({
+        id: `job:${jobId}`,
+        type: 'once',
+        delayMs: 60000,
+        handler: () => executeScheduledJob(jobId),
+        metadata: { description: `Autonomous job: ${job.name} (retry)`, jobId }
+      });
+      return;
+    }
+
+    const task = await generateTaskFromJob(job);
+    emitLog('info', `Autonomous job firing: ${job.name}`, { jobId, category: job.category });
+    cosEvents.emit('task:ready', task);
+  }
+
+  // Re-register for next fire time
+  await registerSingleJobSchedule(jobId);
+}
+
+/**
+ * Register all enabled autonomous jobs as individual one-shot scheduled events.
+ */
+async function registerJobSchedules() {
+  const { getEnabledJobs } = await import('./autonomousJobs.js');
+  const jobs = await getEnabledJobs();
+
+  for (const job of jobs) {
+    await registerSingleJobSchedule(job.id);
+  }
+
+  if (jobs.length > 0) {
+    emitLog('info', `📅 Registered ${jobs.length} autonomous job schedule(s)`);
+  }
+}
+
+/**
+ * Cancel all autonomous job scheduled events.
+ */
+async function unregisterJobSchedules() {
+  const { getAllJobs } = await import('./autonomousJobs.js');
+  const jobs = await getAllJobs();
+
+  for (const job of jobs) {
+    cancelEvent(`job:${job.id}`);
+  }
+}
+
+/**
+ * Schedule a one-shot timer for the next due improvement task.
+ * When it fires, queues eligible improvement tasks and re-schedules.
+ */
+async function scheduleNextImprovementCheck() {
+  if (!daemonRunning) return;
+
+  const taskSchedule = await import('./taskSchedule.js');
+  const upcoming = await taskSchedule.getUpcomingTasks(1);
+
+  // Default: check again in 1 hour if nothing scheduled
+  let delayMs = 60 * 60 * 1000;
+  let description = 'Periodic improvement check (1h)';
+
+  if (upcoming.length > 0 && upcoming[0].status === 'scheduled' && upcoming[0].eligibleIn > 0) {
+    delayMs = upcoming[0].eligibleIn;
+    description = `Next improvement: ${upcoming[0].taskType} in ${upcoming[0].eligibleInFormatted}`;
+  }
+
+  scheduleEvent({
+    id: 'cos-improvement-check',
+    type: 'once',
+    delayMs: Math.max(delayMs, 1000),
+    handler: async () => {
+      if (!daemonRunning) return;
+      const paused = await isPaused();
+      if (paused) {
+        await scheduleNextImprovementCheck();
+        return;
+      }
+
+      const state = await loadState();
+      if (state.config.idleReviewEnabled) {
+        const cosTaskData = await getCosTasks();
+        await queueEligibleImprovementTasks(state, cosTaskData);
+      }
+
+      await scheduleNextImprovementCheck();
+    },
+    metadata: { description }
+  });
+}
+
+/**
  * Initialize on module load
  */
 async function init() {
@@ -3427,6 +3738,37 @@ async function init() {
     await recordJobExecution(jobId).catch(err =>
       console.error(`❌ Failed to record job execution for ${jobId}: ${err.message}`)
     );
+  });
+
+  // Event-driven triggers: file watcher changes → dequeueNextTask
+  cosEvents.on('tasks:user:added', () => {
+    if (daemonRunning) setImmediate(() => dequeueNextTask());
+  });
+
+  cosEvents.on('tasks:cos:added', () => {
+    if (daemonRunning) setImmediate(() => dequeueNextTask());
+  });
+
+  // Autonomous job lifecycle → re-register/cancel individual job timers
+  cosEvents.on('jobs:toggled', async ({ id }) => {
+    if (daemonRunning) await registerSingleJobSchedule(id);
+  });
+
+  cosEvents.on('jobs:updated', async ({ id }) => {
+    if (daemonRunning) await registerSingleJobSchedule(id);
+  });
+
+  cosEvents.on('jobs:created', async ({ id }) => {
+    if (daemonRunning) await registerSingleJobSchedule(id);
+  });
+
+  cosEvents.on('jobs:deleted', async ({ id }) => {
+    cancelEvent(`job:${id}`);
+  });
+
+  // Schedule changes → re-compute next improvement check
+  cosEvents.on('schedule:changed', async () => {
+    if (daemonRunning) await scheduleNextImprovementCheck();
   });
 
   const state = await loadState();

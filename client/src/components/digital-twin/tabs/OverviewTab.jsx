@@ -568,7 +568,7 @@ export default function OverviewTab({ status, settings, onRefresh }) {
             </div>
             <button
               onClick={() => navigate('/digital-twin/test')}
-              className="px-4 py-2 min-h-[40px] text-sm text-port-accent hover:text-white transition-colors"
+              className="px-3 py-1.5 text-sm text-port-accent hover:text-white transition-colors"
             >
               View Details
             </button>

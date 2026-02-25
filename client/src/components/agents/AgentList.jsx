@@ -165,7 +165,7 @@ export default function AgentList() {
       <div className="border-b border-port-border px-6 py-4">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-white">Agents</h1>
+            <h1 className="text-2xl font-bold text-white">Social Agents</h1>
             <p className="text-sm text-gray-400 mt-1">
               Manage AI agent personalities and their platform automation
             </p>

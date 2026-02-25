@@ -384,7 +384,7 @@ export default function AccountsTab() {
             <button
               onClick={handleSubmit}
               disabled={saving || !form.platform || !form.username}
-              className="flex items-center gap-2 px-4 py-2 bg-port-accent text-white rounded-lg hover:bg-port-accent/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[40px]"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-port-accent text-white rounded-lg hover:bg-port-accent/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
@@ -395,7 +395,7 @@ export default function AccountsTab() {
             </button>
             <button
               onClick={handleCancel}
-              className="px-4 py-2 text-gray-400 hover:text-white border border-port-border rounded-lg hover:bg-port-card transition-colors text-sm min-h-[40px]"
+              className="px-3 py-1.5 text-gray-400 hover:text-white border border-port-border rounded-lg hover:bg-port-card transition-colors text-sm"
             >
               Cancel
             </button>
@@ -414,7 +414,7 @@ export default function AccountsTab() {
           </p>
           <button
             onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-port-accent text-white rounded-lg hover:bg-port-accent/80 transition-colors min-h-[40px]"
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-port-accent text-white rounded-lg hover:bg-port-accent/80 transition-colors"
           >
             <Plus className="w-4 h-4" />
             Add Your First Account

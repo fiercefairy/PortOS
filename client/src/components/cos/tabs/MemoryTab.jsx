@@ -97,7 +97,7 @@ export default function MemoryTab({ apps = [] }) {
             <button
               key={v}
               onClick={() => setView(v)}
-              className={`px-4 py-2 min-h-[40px] text-sm rounded-lg transition-colors ${
+              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                 view === v ? 'bg-port-accent text-white' : 'bg-port-border text-gray-400 hover:text-white'
               }`}
             >
@@ -115,18 +115,18 @@ export default function MemoryTab({ apps = [] }) {
           onChange={(e) => setSearchQuery(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           placeholder="Search memories semantically..."
-          className="flex-1 bg-port-card border border-port-border rounded-lg px-4 py-2 min-h-[40px] text-white placeholder-gray-500 focus:border-port-accent outline-none"
+          className="flex-1 bg-port-card border border-port-border rounded-lg px-3 py-1.5 text-sm text-white placeholder-gray-500 focus:border-port-accent outline-none"
         />
         <button
           onClick={handleSearch}
-          className="px-4 py-2 min-h-[40px] bg-port-accent hover:bg-port-accent/80 text-white rounded-lg transition-colors"
+          className="px-3 py-1.5 text-sm bg-port-accent hover:bg-port-accent/80 text-white rounded-lg transition-colors"
         >
           Search
         </button>
         {searchResults && (
           <button
             onClick={() => { setSearchResults(null); setSearchQuery(''); }}
-            className="px-3 py-2 min-h-[40px] min-w-[40px] flex items-center justify-center bg-port-border text-gray-400 hover:text-white rounded-lg transition-colors"
+            className="px-2 py-1.5 flex items-center justify-center bg-port-border text-gray-400 hover:text-white rounded-lg transition-colors"
           >
             <X size={18} />
           </button>

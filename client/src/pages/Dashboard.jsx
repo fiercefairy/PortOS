@@ -98,37 +98,7 @@ export default function Dashboard() {
         <QuickTaskWidget />
       </div>
 
-      {/* Row 2 — Status at a glance */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        <div className="lg:col-span-8">
-          <SystemHealthWidget />
-        </div>
-        {apps.length > 0 && (
-          <div className="lg:col-span-4">
-            <div className="bg-port-card border border-port-border rounded-xl p-4 h-full">
-              <h3 className="text-sm font-semibold text-white mb-3">Quick Stats</h3>
-              <div className="grid grid-cols-2 gap-2">
-                <StatCard label="Total Apps" value={appStats.total} icon="📦" />
-                <StatCard label="Online" value={appStats.online} icon="🟢" />
-                <StatCard label="Stopped" value={appStats.stopped} icon="🟡" />
-                <StatCard label="Not Started" value={appStats.notStarted} icon="⚪" />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Row 3 — AI/CoS intelligence */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <CosDashboardWidget />
-        <GoalProgressWidget />
-        <UpcomingTasksWidget />
-      </div>
-
-      {/* Row 4 — Decision log */}
-      <DecisionLogWidget />
-
-      {/* Row 5 — Apps */}
+      {/* Row 2 — Apps */}
       {apps.length === 0 ? (
         <div className="bg-port-card border border-port-border rounded-xl p-8 sm:p-12 text-center">
           <div className="text-4xl mb-4">📦</div>
@@ -144,51 +114,73 @@ export default function Dashboard() {
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
           {sortedApps.map(app => (
             <AppTile key={app.id} app={app} onUpdate={fetchData} />
           ))}
         </div>
       )}
 
-      {/* Row 6 — Activity data */}
+      {/* Row 3 — AI/CoS intelligence */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <CosDashboardWidget />
+        <GoalProgressWidget />
+        <UpcomingTasksWidget />
+      </div>
+
+      {/* Row 4 — Status, stats, decisions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <SystemHealthWidget />
+        {apps.length > 0 && (
+          <div className="bg-port-card border border-port-border rounded-xl p-4 h-full">
+            <h3 className="text-sm font-semibold text-white mb-3">Quick Stats</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <StatCard label="Total Apps" value={appStats.total} icon="📦" />
+              <StatCard label="Online" value={appStats.online} icon="🟢" />
+              <StatCard label="Stopped" value={appStats.stopped} icon="🟡" />
+              <StatCard label="Not Started" value={appStats.notStarted} icon="⚪" />
+            </div>
+          </div>
+        )}
+        <DecisionLogWidget />
+      </div>
+
+      {/* Row 5 — Activity data */}
       {(usage?.currentStreak > 0 || usage?.longestStreak > 0 || usage?.hourlyActivity) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Activity Streak */}
           {usage && (usage.currentStreak > 0 || usage.longestStreak > 0) && (
-            <div className="bg-port-card border border-port-border rounded-xl p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="text-3xl sm:text-4xl" aria-hidden="true">
-                    {usage.currentStreak >= 7 ? '🔥' : usage.currentStreak >= 3 ? '⚡' : '✨'}
+            <div className="bg-port-card border border-port-border rounded-xl p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="text-2xl" aria-hidden="true">
+                  {usage.currentStreak >= 7 ? '🔥' : usage.currentStreak >= 3 ? '⚡' : '✨'}
+                </div>
+                <div>
+                  <div className="text-xl font-bold text-white">
+                    {usage.currentStreak} day{usage.currentStreak !== 1 ? 's' : ''}
                   </div>
-                  <div>
-                    <div className="text-xl sm:text-2xl font-bold text-white">
-                      {usage.currentStreak} day{usage.currentStreak !== 1 ? 's' : ''}
-                    </div>
-                    <div className="text-xs sm:text-sm text-gray-500">Current streak</div>
-                  </div>
+                  <div className="text-xs text-gray-500">Current streak</div>
                 </div>
                 {usage.longestStreak > usage.currentStreak && (
-                  <div className="sm:ml-auto text-left sm:text-right">
-                    <div className="text-base sm:text-lg font-semibold text-port-accent">
+                  <div className="ml-auto text-right">
+                    <div className="text-sm font-semibold text-port-accent">
                       {usage.longestStreak} days
                     </div>
-                    <div className="text-xs text-gray-500">Longest streak</div>
+                    <div className="text-xs text-gray-500">Best</div>
                   </div>
                 )}
                 {usage.currentStreak === usage.longestStreak && usage.currentStreak > 0 && (
-                  <div className="sm:ml-auto px-3 py-1.5 bg-port-success/20 text-port-success text-xs sm:text-sm rounded-full w-fit">
+                  <div className="ml-auto px-2 py-1 bg-port-success/20 text-port-success text-xs rounded-full">
                     Personal best!
                   </div>
                 )}
               </div>
               {/* Mini streak visualization */}
-              <div className="mt-4 flex gap-1.5 sm:gap-1">
+              <div className="flex gap-1">
                 {usage.last7Days?.map((day) => (
                   <div
                     key={day.date}
-                    className={`flex-1 h-3 sm:h-2 rounded-full ${
+                    className={`flex-1 h-2 rounded-full ${
                       day.sessions > 0 ? 'bg-port-success' : 'bg-port-border'
                     }`}
                     title={`${day.label}: ${day.sessions} sessions`}
@@ -196,7 +188,7 @@ export default function Dashboard() {
                 ))}
               </div>
               <div className="mt-1 flex justify-between text-xs text-gray-500">
-                <span>7 days ago</span>
+                <span>7d ago</span>
                 <span>Today</span>
               </div>
             </div>
@@ -204,7 +196,9 @@ export default function Dashboard() {
 
           {/* Hourly Activity Heatmap */}
           {usage?.hourlyActivity && (
-            <HourlyActivityHeatmap hourlyActivity={usage.hourlyActivity} />
+            <div className="lg:col-span-2">
+              <HourlyActivityHeatmap hourlyActivity={usage.hourlyActivity} />
+            </div>
           )}
         </div>
       )}

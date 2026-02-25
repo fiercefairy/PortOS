@@ -240,7 +240,7 @@ export default function BrowserPage() {
           <div className="mt-4 flex justify-end">
             <button
               onClick={handleSaveConfig}
-              className="px-4 py-2 bg-port-accent text-white rounded-lg text-sm font-medium hover:bg-port-accent/80 transition-colors"
+              className="px-3 py-1.5 bg-port-accent text-white rounded-lg text-sm hover:bg-port-accent/80 transition-colors"
             >
               Save Config
             </button>
@@ -355,40 +355,40 @@ export default function BrowserPage() {
           {/* Controls */}
           <div className="bg-port-card border border-port-border rounded-xl p-5">
             <h3 className="text-lg font-semibold text-white mb-4">Controls</h3>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2">
               {!isRunning ? (
                 <button
                   onClick={() => handleAction('launch', launchBrowser)}
                   disabled={actionLoading !== null}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-port-success text-white rounded-lg font-medium hover:bg-port-success/80 transition-colors disabled:opacity-50 min-h-[40px]"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-port-success text-white rounded-lg hover:bg-port-success/80 transition-colors disabled:opacity-50"
                 >
                   {actionLoading === 'launch'
-                    ? <RefreshCw size={18} className="animate-spin" />
-                    : <Play size={18} />
+                    ? <RefreshCw size={14} className="animate-spin" />
+                    : <Play size={14} />
                   }
-                  Launch Browser
+                  Launch
                 </button>
               ) : (
                 <>
                   <button
                     onClick={() => handleAction('stop', stopBrowser)}
                     disabled={actionLoading !== null}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-port-error text-white rounded-lg font-medium hover:bg-port-error/80 transition-colors disabled:opacity-50 min-h-[40px]"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-port-error text-white rounded-lg hover:bg-port-error/80 transition-colors disabled:opacity-50"
                   >
                     {actionLoading === 'stop'
-                      ? <RefreshCw size={18} className="animate-spin" />
-                      : <Square size={18} />
+                      ? <RefreshCw size={14} className="animate-spin" />
+                      : <Square size={14} />
                     }
                     Stop
                   </button>
                   <button
                     onClick={() => handleAction('restart', restartBrowser)}
                     disabled={actionLoading !== null}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-port-warning text-white rounded-lg font-medium hover:bg-port-warning/80 transition-colors disabled:opacity-50 min-h-[40px]"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-port-warning text-white rounded-lg hover:bg-port-warning/80 transition-colors disabled:opacity-50"
                   >
                     {actionLoading === 'restart'
-                      ? <RefreshCw size={18} className="animate-spin" />
-                      : <RefreshCw size={18} />
+                      ? <RefreshCw size={14} className="animate-spin" />
+                      : <RefreshCw size={14} />
                     }
                     Restart
                   </button>
@@ -418,7 +418,7 @@ export default function BrowserPage() {
                 <button
                   type="submit"
                   disabled={!navUrl.trim() || actionLoading !== null}
-                  className="flex items-center gap-2 px-5 py-2 bg-port-accent text-white rounded-lg font-medium hover:bg-port-accent/80 transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-port-accent text-white rounded-lg hover:bg-port-accent/80 transition-colors disabled:opacity-50"
                 >
                   {actionLoading === 'navigate'
                     ? <RefreshCw size={16} className="animate-spin" />

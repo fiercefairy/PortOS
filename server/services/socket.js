@@ -350,6 +350,9 @@ export function initSocket(io) {
 
   // Set up instance event forwarding
   setupInstanceEventForwarding();
+
+  // Set up peer agent event forwarding
+  setupPeerAgentEventForwarding();
 }
 
 function cleanupStream(socketId) {
@@ -529,4 +532,13 @@ function broadcastToInstances(event, data) {
 // Set up instance event forwarding
 function setupInstanceEventForwarding() {
   instanceEvents.on('peers:updated', (data) => broadcastToInstances('instances:peers:updated', data));
+}
+
+// Set up peer agent event forwarding (remote agent streaming)
+function setupPeerAgentEventForwarding() {
+  instanceEvents.on('peer:agents:updated', (data) => broadcastToInstances('instances:peer:agents:updated', data));
+  instanceEvents.on('peer:agent:spawned', (data) => broadcastToInstances('instances:peer:agent:spawned', data));
+  instanceEvents.on('peer:agent:updated', (data) => broadcastToInstances('instances:peer:agent:updated', data));
+  instanceEvents.on('peer:agent:output', (data) => broadcastToInstances('instances:peer:agent:output', data));
+  instanceEvents.on('peer:agent:completed', (data) => broadcastToInstances('instances:peer:agent:completed', data));
 }

@@ -11,6 +11,7 @@ import crypto from 'crypto';
 import { dataPath, readJSONFile, ensureDir, PATHS } from '../lib/fileUtils.js';
 import { createMutex } from '../lib/asyncMutex.js';
 import { instanceEvents } from './instanceEvents.js';
+import { connectToPeer, disconnectFromPeer } from './peerSocketRelay.js';
 
 const INSTANCES_FILE = dataPath('instances.json');
 const PROBE_TIMEOUT_MS = 5000;
@@ -110,6 +111,7 @@ export async function addPeer({ address, port = 5554, name }) {
 }
 
 export async function removePeer(id) {
+  disconnectFromPeer(id);
   return withData(async (data) => {
     const idx = data.peers.findIndex(p => p.id === id);
     if (idx === -1) return null;
@@ -121,6 +123,7 @@ export async function removePeer(id) {
 }
 
 export async function updatePeer(id, updates) {
+  if (updates.enabled === false) disconnectFromPeer(id);
   return withData(async (data) => {
     const peer = data.peers.find(p => p.id === id);
     if (!peer) return null;
@@ -138,7 +141,7 @@ export async function probePeer(peer) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
 
-  let status, lastHealth, lastSeen, remoteInstanceId;
+  let status, lastHealth, lastSeen, remoteInstanceId, remoteApps;
   try {
     const res = await fetch(url, { signal: controller.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -147,6 +150,18 @@ export async function probePeer(peer) {
     lastHealth = json;
     lastSeen = new Date().toISOString();
     remoteInstanceId = json.instanceId ?? null;
+
+    // Fetch apps from the peer (piggybacks on probe cycle)
+    const appsUrl = `http://${peer.address}:${peer.port}/api/apps`;
+    const appsRes = await fetch(appsUrl, { signal: controller.signal }).catch(() => null);
+    if (appsRes?.ok) {
+      const appsJson = await appsRes.json().catch(() => null);
+      const appsList = Array.isArray(appsJson) ? appsJson : appsJson?.apps;
+      remoteApps = appsList?.map(a => ({
+        id: a.id, name: a.name, icon: a.icon,
+        overallStatus: a.overallStatus, uiPort: a.uiPort, apiPort: a.apiPort, type: a.type
+      })) ?? null;
+    }
   } catch {
     status = 'offline';
     lastHealth = peer.lastHealth; // preserve last known
@@ -161,9 +176,17 @@ export async function probePeer(peer) {
     entry.status = status;
     entry.lastSeen = lastSeen;
     entry.lastHealth = lastHealth;
+    entry.lastApps = remoteApps ?? entry.lastApps ?? null;
     if (remoteInstanceId) entry.instanceId = remoteInstanceId;
     return entry;
   });
+
+  // Manage peer socket relay based on status
+  if (status === 'online') {
+    connectToPeer(peer);
+  } else {
+    disconnectFromPeer(peer.id);
+  }
 
   // Announce ourselves on successful probe (fire-and-forget)
   if (status === 'online') {

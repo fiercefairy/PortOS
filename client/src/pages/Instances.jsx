@@ -1,16 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Network, Plus, Trash2, RefreshCw, Edit3, Check, X,
-  Wifi, WifiOff, CircleDot, ChevronDown, ChevronRight,
-  Cpu, HardDrive, Activity, Bot, MonitorSmartphone, Search,
+  Wifi, WifiOff, CircleDot,
+  Cpu, HardDrive, Activity, Bot, MonitorSmartphone,
   ArrowUpRight, ArrowDownLeft, ArrowLeftRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import socket from '../services/socket';
 import {
   getInstances, updateSelfInstance, addPeer, updatePeer,
-  removePeer, connectPeer, probePeer, queryPeer
+  removePeer, connectPeer, probePeer
 } from '../services/api';
+import PeerAppsList from '../components/instances/PeerAppsList';
+import PeerAgentsSection from '../components/instances/PeerAgentsSection';
 
 const STATUS_COLORS = {
   online: 'text-port-success',
@@ -23,13 +25,6 @@ const STATUS_ICONS = {
   offline: WifiOff,
   unknown: CircleDot
 };
-
-const QUERY_PRESETS = [
-  { label: 'Health', path: '/api/health/system' },
-  { label: 'Apps', path: '/api/apps' },
-  { label: 'CoS Status', path: '/api/cos/status' },
-  { label: 'Processes', path: '/api/health' }
-];
 
 function formatBytes(bytes) {
   if (!bytes) return '—';
@@ -203,76 +198,6 @@ function AddPeerForm({ onAdd }) {
   );
 }
 
-function QueryPanel({ peerId }) {
-  const [expanded, setExpanded] = useState(false);
-  const [selectedPreset, setSelectedPreset] = useState(0);
-  const [customPath, setCustomPath] = useState('');
-  const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  const runQuery = async () => {
-    const path = customPath.trim() || QUERY_PRESETS[selectedPreset].path;
-    if (!path.startsWith('/api/')) {
-      toast.error('Path must start with /api/');
-      return;
-    }
-    setLoading(true);
-    setResult(null);
-    const data = await queryPeer(peerId, path).catch(err => ({ _error: err.message }));
-    setResult(data);
-    setLoading(false);
-  };
-
-  return (
-    <div className="mt-3 border-t border-port-border pt-3">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-white transition-colors"
-      >
-        <Search size={12} />
-        <span>Query</span>
-        {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-      </button>
-      {expanded && (
-        <div className="mt-2 space-y-2">
-          <div className="flex gap-2">
-            <select
-              value={selectedPreset}
-              onChange={e => { setSelectedPreset(Number(e.target.value)); setCustomPath(''); }}
-              className="bg-port-bg border border-port-border rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-port-accent"
-            >
-              {QUERY_PRESETS.map((p, i) => (
-                <option key={i} value={i}>{p.label}</option>
-              ))}
-            </select>
-            <input
-              value={customPath}
-              onChange={e => setCustomPath(e.target.value)}
-              placeholder="or custom /api/..."
-              className="flex-1 bg-port-bg border border-port-border rounded px-2 py-1 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-port-accent"
-            />
-            <button
-              onClick={runQuery}
-              disabled={loading}
-              className="bg-port-accent/20 hover:bg-port-accent/30 text-port-accent px-2 py-1 rounded text-xs transition-colors disabled:opacity-50"
-            >
-              {loading ? '...' : 'Run'}
-            </button>
-          </div>
-          {result && (
-            <pre className="bg-port-bg rounded p-2 text-xs text-gray-300 overflow-auto max-h-64 whitespace-pre-wrap">
-              {result._error
-                ? <span className="text-port-error">{result._error}</span>
-                : JSON.stringify(result, null, 2)
-              }
-            </pre>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function DirectionBadge({ directions = [] }) {
   const hasInbound = directions.includes('inbound');
   const hasOutbound = directions.includes('outbound');
@@ -428,7 +353,10 @@ function PeerCard({ peer, onRefresh }) {
         Last seen: {timeAgo(peer.lastSeen)}
       </div>
 
-      <QueryPanel peerId={peer.id} />
+      <PeerAppsList apps={peer.lastApps} peerAddress={peer.address} />
+      {peer.status === 'online' && (
+        <PeerAgentsSection peerId={peer.id} peerName={peer.name} />
+      )}
     </div>
   );
 }

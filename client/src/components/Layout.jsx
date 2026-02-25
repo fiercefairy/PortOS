@@ -35,7 +35,8 @@ import {
   Newspaper,
   Building2,
   Ticket,
-  Network
+  Network,
+  Flame
 } from 'lucide-react';
 import packageJson from '../../package.json';
 import Logo from './Logo';
@@ -49,7 +50,6 @@ const navItems = [
   { to: '/', label: 'Dashboard', icon: Home, single: true },
   { to: '/city', label: 'CyberCity', icon: Building2, single: true },
   { separator: true },
-  { to: '/agents', label: 'Agents', icon: Users, single: true },
   {
     label: 'AI Config',
     icon: Bot,
@@ -59,8 +59,6 @@ const navItems = [
     ]
   },
   { to: '/apps', label: 'Apps', icon: Package, single: true },
-  { href: '//:5560', label: 'Autofixer', icon: Wrench, external: true, dynamicHost: true },
-  { to: '/browser', label: 'Browser', icon: Globe, single: true },
   {
     label: 'Chief of Staff',
     icon: Crown,
@@ -71,10 +69,12 @@ const navItems = [
       { to: '/cos/config', label: 'Config', icon: Settings },
       { to: '/cos/digest', label: 'Digest', icon: Calendar },
       { to: '/cos/health', label: 'Health', icon: Activity },
+      { to: '/cos/jobs', label: 'Jobs', icon: Bot },
       { to: '/cos/learning', label: 'Learning', icon: GraduationCap },
       { to: '/cos/memory', label: 'Memory', icon: Brain },
       { to: '/cos/schedule', label: 'Schedule', icon: Clock },
       { to: '/cos/scripts', label: 'Scripts', icon: Terminal },
+      { to: '/cos/productivity', label: 'Streaks', icon: Flame },
       { to: '/cos/tasks', label: 'Tasks', icon: FileText }
     ]
   },
@@ -84,6 +84,8 @@ const navItems = [
     children: [
       { to: '/devtools/agents', label: 'AI Agents', icon: Cpu },
       { to: '/devtools/runs', label: 'AI Runs', icon: Play },
+      { href: '//:5560', label: 'Autofixer', icon: Wrench, external: true, dynamicHost: true },
+      { to: '/browser', label: 'Browser', icon: Globe },
       { to: '/devtools/runner', label: 'Code', icon: Code2 },
       { to: '/devtools/git', label: 'Git Status', icon: GitBranch },
       { to: '/devtools/history', label: 'History', icon: History },
@@ -103,6 +105,7 @@ const navItems = [
   { to: '/jira', label: 'JIRA', icon: Ticket, single: true },
   { to: '/security', label: 'Security', icon: Camera, single: true },
   { to: '/shell', label: 'Shell', icon: SquareTerminal, single: true },
+  { to: '/agents', label: 'Social Agents', icon: Users, single: true },
   { to: '/uploads', label: 'Uploads', icon: Upload, single: true }
 ];
 
@@ -142,7 +145,7 @@ export default function Layout() {
     navItems.forEach(item => {
       if (item.children) {
         const isChildActive = item.children.some(child =>
-          location.pathname === child.to || location.pathname.startsWith(child.to + '/')
+          child.to && (location.pathname === child.to || location.pathname.startsWith(child.to + '/'))
         );
         if (isChildActive) {
           setExpandedSections(prev => ({ ...prev, [item.label]: true }));
@@ -173,7 +176,7 @@ export default function Layout() {
       return isActive(item.to);
     }
     if (item.children) {
-      return item.children.some(child => isActive(child.to));
+      return item.children.some(child => child.to && isActive(child.to));
     }
     return false;
   };
@@ -294,19 +297,20 @@ export default function Layout() {
               {item.label}
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            {/* Badge for expanded state on collapsible sections */}
-            {item.showBadge && unreadCount > 0 && !collapsed && (
-              <span className="min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold rounded-full bg-yellow-500 text-black px-1">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-            {!collapsed && (
-              expandedSections[item.label]
+          {!collapsed && (
+            <div className="flex items-center gap-2">
+              {/* Badge for expanded state on collapsible sections */}
+              {item.showBadge && unreadCount > 0 && (
+                <span className="min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold rounded-full bg-yellow-500 text-black px-1">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+              {expandedSections[item.label]
                 ? <ChevronDown size={16} />
                 : <ChevronRight size={16} />
-            )}
-          </div>
+              }
+            </div>
+          )}
         </button>
 
         {/* Children items */}
@@ -314,6 +318,26 @@ export default function Layout() {
           <div className="ml-4 mt-1">
             {item.children.map((child) => {
               const ChildIcon = child.icon;
+              if (child.external) {
+                const childHref = child.dynamicHost
+                  ? `${window.location.protocol}//${window.location.hostname}${child.href.replace('//', '')}`
+                  : child.href;
+                return (
+                  <a
+                    key={child.href}
+                    href={childHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-sm transition-colors text-gray-500 hover:text-white hover:bg-port-border/50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <ChildIcon size={16} />
+                      <span>{child.label}</span>
+                    </div>
+                    <ExternalLink size={12} className="text-gray-500" />
+                  </a>
+                );
+              }
               return (
                 <NavLink
                   key={child.to}

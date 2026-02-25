@@ -8,11 +8,16 @@ vi.mock('./cosEvents.js', () => ({
 vi.mock('../lib/fileUtils.js', () => ({
   readJSONFile: vi.fn(),
   ensureDir: vi.fn().mockResolvedValue(),
-  PATHS: { cos: '/mock/data/cos' }
+  PATHS: { cos: '/mock/data/cos', digitalTwin: '/mock/data/digital-twin', data: '/mock/data' }
 }))
 
 vi.mock('fs/promises', () => ({
-  writeFile: vi.fn().mockResolvedValue()
+  writeFile: vi.fn().mockResolvedValue(),
+  readFile: vi.fn().mockResolvedValue('{}')
+}))
+
+vi.mock('./autobiography.js', () => ({
+  checkAndPrompt: vi.fn().mockResolvedValue({ prompted: true, prompt: { id: 'test-1', text: 'test' } })
 }))
 
 // Import after mocks
@@ -27,10 +32,13 @@ import {
   toggleJob,
   generateTaskFromJob,
   getJobStats,
-  INTERVAL_OPTIONS
+  INTERVAL_OPTIONS,
+  isScriptJob,
+  executeScriptJob
 } from './autonomousJobs.js'
 import { readJSONFile } from '../lib/fileUtils.js'
 import { cosEvents } from './cosEvents.js'
+import { checkAndPrompt } from './autobiography.js'
 
 describe('autonomousJobs', () => {
   const mockJobsData = {
@@ -125,7 +133,7 @@ describe('autonomousJobs', () => {
 
       // Verify only expected test jobs plus any default jobs are present
       const testJobIds = new Set(['job-test-1', 'job-1', 'job-2'])
-      const defaultJobPrefixes = ['job-github-', 'job-brain-', 'job-daily-', 'job-project-', 'job-moltworld-', 'job-jira-', 'job-autobiography-']
+      const defaultJobPrefixes = ['job-github-', 'job-brain-', 'job-daily-', 'job-moltworld-', 'job-jira-', 'job-autobiography-']
       const unexpectedJobs = due.filter(j => !testJobIds.has(j.id) && !defaultJobPrefixes.some(p => j.id.startsWith(p)))
       expect(unexpectedJobs).toHaveLength(0)
     })
@@ -260,7 +268,7 @@ describe('autonomousJobs', () => {
       expect(jobs.length).toBeGreaterThan(1)
       expect(jobs.find(j => j.id === 'job-custom-only')).toBeDefined()
       expect(jobs.find(j => j.id === 'job-github-repo-maintenance')).toBeDefined()
-      expect(jobs.find(j => j.id === 'job-brain-processing')).toBeDefined()
+      expect(jobs.find(j => j.id === 'job-brain-review')).toBeDefined()
     })
   })
 
@@ -449,6 +457,80 @@ describe('autonomousJobs', () => {
       expect(stats.disabled).toBeGreaterThanOrEqual(1)
       expect(stats.byCategory.test).toBe(1)
       expect(stats.totalRuns).toBeGreaterThanOrEqual(8)
+    })
+  })
+
+  describe('script jobs', () => {
+    it('isScriptJob returns true for script-type jobs', () => {
+      const scriptJob = {
+        id: 'job-test',
+        type: 'script',
+        scriptHandler: 'autobiography-prompt'
+      }
+      expect(isScriptJob(scriptJob)).toBe(true)
+    })
+
+    it('isScriptJob returns false for regular jobs', () => {
+      const regularJob = {
+        id: 'job-test',
+        name: 'Regular Job',
+        promptTemplate: 'Do something'
+      }
+      expect(isScriptJob(regularJob)).toBe(false)
+    })
+
+    it('isScriptJob returns false if handler not registered', () => {
+      const invalidJob = {
+        id: 'job-test',
+        type: 'script',
+        scriptHandler: 'nonexistent-handler'
+      }
+      expect(isScriptJob(invalidJob)).toBe(false)
+    })
+
+    it('executeScriptJob calls the handler and records execution', async () => {
+      readJSONFile.mockResolvedValueOnce({
+        version: 1,
+        lastUpdated: '2025-01-01T00:00:00.000Z',
+        jobs: [
+          {
+            id: 'job-autobiography-prompt',
+            name: 'Autobiography Story Prompt',
+            type: 'script',
+            scriptHandler: 'autobiography-prompt',
+            enabled: true,
+            intervalMs: 86400000,
+            lastRun: null,
+            runCount: 0
+          }
+        ]
+      })
+
+      const scriptJob = {
+        id: 'job-autobiography-prompt',
+        name: 'Autobiography Story Prompt',
+        type: 'script',
+        scriptHandler: 'autobiography-prompt'
+      }
+
+      const result = await executeScriptJob(scriptJob)
+
+      expect(checkAndPrompt).toHaveBeenCalled()
+      expect(result).toEqual({ prompted: true, prompt: { id: 'test-1', text: 'test' } })
+      expect(cosEvents.emit).toHaveBeenCalledWith('jobs:script-executed', {
+        id: 'job-autobiography-prompt',
+        result: { prompted: true, prompt: { id: 'test-1', text: 'test' } }
+      })
+    })
+
+    it('executeScriptJob throws for non-script jobs', async () => {
+      const regularJob = {
+        id: 'job-test',
+        name: 'Regular Job',
+        promptTemplate: 'Do something'
+      }
+
+      await expect(executeScriptJob(regularJob)).rejects.toThrow('not a script job')
     })
   })
 })

@@ -11,6 +11,7 @@ import crypto from 'crypto';
 import { dataPath, readJSONFile, ensureDir, PATHS } from '../lib/fileUtils.js';
 import { createMutex } from '../lib/asyncMutex.js';
 import { instanceEvents } from './instanceEvents.js';
+import { connectToPeer, disconnectFromPeer } from './peerSocketRelay.js';
 
 const INSTANCES_FILE = dataPath('instances.json');
 const PROBE_TIMEOUT_MS = 5000;
@@ -85,26 +86,32 @@ export async function getPeers() {
 }
 
 export async function addPeer({ address, port = 5554, name }) {
-  return withData(async (data) => {
-    const peer = {
+  const peer = await withData(async (data) => {
+    const entry = {
       id: crypto.randomUUID(),
       address,
       port,
       name: name || address,
+      instanceId: null,
       addedAt: new Date().toISOString(),
       lastSeen: null,
       lastHealth: null,
       status: 'unknown',
-      enabled: true
+      enabled: true,
+      directions: ['outbound']
     };
-    data.peers.push(peer);
-    console.log(`🌐 Peer added: ${peer.name} (${peer.address}:${peer.port})`);
+    data.peers.push(entry);
+    console.log(`🌐 Peer added: ${entry.name} (${entry.address}:${entry.port})`);
     instanceEvents.emit('peers:updated', data.peers);
-    return peer;
+    return entry;
   });
+  // Announce ourselves to the remote peer (fire-and-forget)
+  announceSelf(peer.address, peer.port);
+  return peer;
 }
 
 export async function removePeer(id) {
+  disconnectFromPeer(id);
   return withData(async (data) => {
     const idx = data.peers.findIndex(p => p.id === id);
     if (idx === -1) return null;
@@ -116,6 +123,7 @@ export async function removePeer(id) {
 }
 
 export async function updatePeer(id, updates) {
+  if (updates.enabled === false) disconnectFromPeer(id);
   return withData(async (data) => {
     const peer = data.peers.find(p => p.id === id);
     if (!peer) return null;
@@ -133,7 +141,8 @@ export async function probePeer(peer) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
 
-  let status, lastHealth, lastSeen;
+  const previousStatus = peer.status;
+  let status, lastHealth, lastSeen, remoteInstanceId, remoteApps;
   try {
     const res = await fetch(url, { signal: controller.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -141,6 +150,19 @@ export async function probePeer(peer) {
     status = 'online';
     lastHealth = json;
     lastSeen = new Date().toISOString();
+    remoteInstanceId = json.instanceId ?? null;
+
+    // Fetch apps from the peer (piggybacks on probe cycle)
+    const appsUrl = `http://${peer.address}:${peer.port}/api/apps`;
+    const appsRes = await fetch(appsUrl, { signal: controller.signal }).catch(() => null);
+    if (appsRes?.ok) {
+      const appsJson = await appsRes.json().catch(() => null);
+      const appsList = Array.isArray(appsJson) ? appsJson : appsJson?.apps;
+      remoteApps = appsList?.map(a => ({
+        id: a.id, name: a.name, icon: a.icon,
+        overallStatus: a.overallStatus, uiPort: a.uiPort, apiPort: a.apiPort, type: a.type
+      })) ?? null;
+    }
   } catch {
     status = 'offline';
     lastHealth = peer.lastHealth; // preserve last known
@@ -149,14 +171,30 @@ export async function probePeer(peer) {
     clearTimeout(timeout);
   }
 
-  return withData(async (data) => {
-    const stored = data.peers.find(p => p.id === peer.id);
-    if (!stored) return null;
-    stored.status = status;
-    stored.lastSeen = lastSeen;
-    stored.lastHealth = lastHealth;
-    return stored;
+  const stored = await withData(async (data) => {
+    const entry = data.peers.find(p => p.id === peer.id);
+    if (!entry) return null;
+    entry.status = status;
+    entry.lastSeen = lastSeen;
+    entry.lastHealth = lastHealth;
+    entry.lastApps = remoteApps ?? entry.lastApps ?? null;
+    if (remoteInstanceId) entry.instanceId = remoteInstanceId;
+    return entry;
   });
+
+  // Manage peer socket relay based on status
+  if (status === 'online') {
+    connectToPeer(peer);
+  } else {
+    disconnectFromPeer(peer.id);
+  }
+
+  // Announce ourselves only when peer transitions to online (not every poll cycle)
+  if (status === 'online' && previousStatus !== 'online') {
+    announceSelf(peer.address, peer.port);
+  }
+
+  return stored;
 }
 
 export async function probeAllPeers() {
@@ -191,6 +229,113 @@ export async function queryPeer(id, apiPath) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+// --- Announce (Bidirectional Registration) ---
+
+export async function handleAnnounce({ address, port, instanceId, name }) {
+  const result = await withData(async (data) => {
+    // Check for existing peer by instanceId
+    let existing = data.peers.find(p => p.instanceId === instanceId);
+    // Fallback: check by address + port
+    if (!existing) {
+      existing = data.peers.find(p => p.address === address && p.port === port);
+    }
+
+    if (existing) {
+      existing.lastSeen = new Date().toISOString();
+      existing.status = 'online';
+      existing.instanceId = instanceId;
+      if (name) existing.name = name;
+      // Mark that this peer has announced to us (inbound connection)
+      existing.directions = existing.directions || [];
+      if (!existing.directions.includes('inbound')) existing.directions.push('inbound');
+      console.log(`🌐 Peer announced (existing): ${existing.name} (${address}:${port})`);
+      instanceEvents.emit('peers:updated', data.peers);
+      return { created: false, peer: existing };
+    }
+
+    // Create new peer entry from remote announcement
+    const peer = {
+      id: crypto.randomUUID(),
+      address,
+      port,
+      name: name || address,
+      instanceId,
+      addedAt: new Date().toISOString(),
+      lastSeen: new Date().toISOString(),
+      lastHealth: null,
+      status: 'online',
+      enabled: true,
+      directions: ['inbound']
+    };
+    data.peers.push(peer);
+    console.log(`🌐 Peer announced (new): ${peer.name} (${address}:${port})`);
+    instanceEvents.emit('peers:updated', data.peers);
+    return { created: true, peer };
+  });
+
+  // Immediately probe newly announced peers to populate health data
+  if (result.created) {
+    probePeer(result.peer).catch(() => {});
+  }
+
+  return result;
+}
+
+async function announceSelf(address, port) {
+  const data = await loadData();
+  if (!data.self) return;
+
+  const selfPort = parseInt(process.env.PORT, 10) || 5554;
+  const url = `http://${address}:${port}/api/instances/peers/announce`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        port: selfPort,
+        instanceId: data.self.instanceId,
+        name: data.self.name
+      }),
+      signal: controller.signal
+    });
+    if (res.ok) {
+      console.log(`🌐 Announced self to ${address}:${port}`);
+      // Mark outbound direction on the local peer record
+      await markDirection(address, port, 'outbound');
+    } else {
+      console.log(`🌐 Announce to ${address}:${port} failed: HTTP ${res.status}`);
+    }
+  } catch (err) {
+    console.log(`🌐 Announce to ${address}:${port} unreachable: ${err.message}`);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function connectPeer(id) {
+  const data = await loadData();
+  const peer = data.peers.find(p => p.id === id);
+  if (!peer) return null;
+  await announceSelf(peer.address, peer.port);
+  const probed = await probePeer(peer);
+  return probed;
+}
+
+async function markDirection(address, port, direction) {
+  await withData(async (data) => {
+    const peer = data.peers.find(p => p.address === address && p.port === port);
+    if (!peer) return;
+    peer.directions = peer.directions || [];
+    if (!peer.directions.includes(direction)) {
+      peer.directions.push(direction);
+      instanceEvents.emit('peers:updated', data.peers);
+    }
+  });
 }
 
 // --- Polling ---

@@ -1,15 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Network, Plus, Trash2, RefreshCw, Edit3, Check, X,
-  Wifi, WifiOff, CircleDot, ChevronDown, ChevronRight,
-  Cpu, HardDrive, Activity, Bot, MonitorSmartphone, Search
+  Wifi, WifiOff, CircleDot,
+  Cpu, HardDrive, Activity, Bot, MonitorSmartphone,
+  ArrowUpRight, ArrowDownLeft, ArrowLeftRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import socket from '../services/socket';
 import {
   getInstances, updateSelfInstance, addPeer, updatePeer,
-  removePeer, probePeer, queryPeer
+  removePeer, connectPeer, probePeer
 } from '../services/api';
+import PeerAppsList from '../components/instances/PeerAppsList';
+import PeerAgentsSection from '../components/instances/PeerAgentsSection';
 
 const STATUS_COLORS = {
   online: 'text-port-success',
@@ -22,13 +25,6 @@ const STATUS_ICONS = {
   offline: WifiOff,
   unknown: CircleDot
 };
-
-const QUERY_PRESETS = [
-  { label: 'Health', path: '/api/health/system' },
-  { label: 'Apps', path: '/api/apps' },
-  { label: 'CoS Status', path: '/api/cos/status' },
-  { label: 'Processes', path: '/api/health' }
-];
 
 function formatBytes(bytes) {
   if (!bytes) return '—';
@@ -202,83 +198,52 @@ function AddPeerForm({ onAdd }) {
   );
 }
 
-function QueryPanel({ peerId }) {
-  const [expanded, setExpanded] = useState(false);
-  const [selectedPreset, setSelectedPreset] = useState(0);
-  const [customPath, setCustomPath] = useState('');
-  const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(false);
+function DirectionBadge({ directions = [] }) {
+  const hasInbound = directions.includes('inbound');
+  const hasOutbound = directions.includes('outbound');
 
-  const runQuery = async () => {
-    const path = customPath.trim() || QUERY_PRESETS[selectedPreset].path;
-    if (!path.startsWith('/api/')) {
-      toast.error('Path must start with /api/');
-      return;
-    }
-    setLoading(true);
-    setResult(null);
-    const data = await queryPeer(peerId, path).catch(err => ({ _error: err.message }));
-    setResult(data);
-    setLoading(false);
-  };
-
-  return (
-    <div className="mt-3 border-t border-port-border pt-3">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-white transition-colors"
-      >
-        <Search size={12} />
-        <span>Query</span>
-        {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-      </button>
-      {expanded && (
-        <div className="mt-2 space-y-2">
-          <div className="flex gap-2">
-            <select
-              value={selectedPreset}
-              onChange={e => { setSelectedPreset(Number(e.target.value)); setCustomPath(''); }}
-              className="bg-port-bg border border-port-border rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-port-accent"
-            >
-              {QUERY_PRESETS.map((p, i) => (
-                <option key={i} value={i}>{p.label}</option>
-              ))}
-            </select>
-            <input
-              value={customPath}
-              onChange={e => setCustomPath(e.target.value)}
-              placeholder="or custom /api/..."
-              className="flex-1 bg-port-bg border border-port-border rounded px-2 py-1 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-port-accent"
-            />
-            <button
-              onClick={runQuery}
-              disabled={loading}
-              className="bg-port-accent/20 hover:bg-port-accent/30 text-port-accent px-2 py-1 rounded text-xs transition-colors disabled:opacity-50"
-            >
-              {loading ? '...' : 'Run'}
-            </button>
-          </div>
-          {result && (
-            <pre className="bg-port-bg rounded p-2 text-xs text-gray-300 overflow-auto max-h-64 whitespace-pre-wrap">
-              {result._error
-                ? <span className="text-port-error">{result._error}</span>
-                : JSON.stringify(result, null, 2)
-              }
-            </pre>
-          )}
-        </div>
-      )}
-    </div>
-  );
+  if (hasInbound && hasOutbound) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] text-port-success bg-port-success/10 rounded px-1.5 py-0.5" title="Bidirectional — we added them and they added us">
+        <ArrowLeftRight size={10} /> mutual
+      </span>
+    );
+  }
+  if (hasOutbound) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] text-port-accent bg-port-accent/10 rounded px-1.5 py-0.5" title="Outbound — we added this peer">
+        <ArrowUpRight size={10} /> outbound
+      </span>
+    );
+  }
+  if (hasInbound) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] text-port-warning bg-port-warning/10 rounded px-1.5 py-0.5" title="Inbound — this peer added us">
+        <ArrowDownLeft size={10} /> inbound
+      </span>
+    );
+  }
+  return null;
 }
 
 function PeerCard({ peer, onRefresh }) {
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState('');
   const [probing, setProbing] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
 
   const StatusIcon = STATUS_ICONS[peer.status] || CircleDot;
+  const isInboundOnly = peer.directions?.includes('inbound') && !peer.directions?.includes('outbound');
+
+  const handleConnect = async () => {
+    setConnecting(true);
+    const result = await connectPeer(peer.id).catch(() => null);
+    setConnecting(false);
+    if (!result) return;
+    onRefresh();
+    toast.success(`Connected to ${peer.name}`);
+  };
 
   const handleProbe = async () => {
     setProbing(true);
@@ -366,7 +331,21 @@ function PeerCard({ peer, onRefresh }) {
         </div>
       </div>
 
-      <p className="text-xs text-gray-500 font-mono mb-3">{peer.address}:{peer.port}</p>
+      <div className="flex items-center gap-2 mb-3">
+        <p className="text-xs text-gray-500 font-mono">{peer.address}:{peer.port}</p>
+        <DirectionBadge directions={peer.directions} />
+        {isInboundOnly && (
+          <button
+            onClick={handleConnect}
+            disabled={connecting}
+            className="inline-flex items-center gap-1 text-[10px] text-port-accent bg-port-accent/10 hover:bg-port-accent/20 rounded px-1.5 py-0.5 transition-colors disabled:opacity-50"
+            title="Connect back to make this mutual"
+          >
+            <ArrowLeftRight size={10} />
+            {connecting ? 'Connecting...' : 'Connect'}
+          </button>
+        )}
+      </div>
 
       <HealthSummary health={peer.lastHealth} />
 
@@ -374,7 +353,10 @@ function PeerCard({ peer, onRefresh }) {
         Last seen: {timeAgo(peer.lastSeen)}
       </div>
 
-      <QueryPanel peerId={peer.id} />
+      <PeerAppsList apps={peer.lastApps} peerAddress={peer.address} />
+      {peer.status === 'online' && (
+        <PeerAgentsSection peerId={peer.id} peerName={peer.name} />
+      )}
     </div>
   );
 }

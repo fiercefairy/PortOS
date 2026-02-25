@@ -23,6 +23,12 @@ const updatePeerSchema = z.object({
   enabled: z.boolean().optional()
 });
 
+const announceSchema = z.object({
+  port: z.number().int().min(1).max(65535),
+  instanceId: z.string().uuid(),
+  name: z.string().optional()
+});
+
 const querySchema = z.object({
   path: z.string().startsWith('/api/', 'Path must start with /api/')
 });
@@ -51,6 +57,29 @@ router.put('/self', asyncHandler(async (req, res) => {
   res.json(updated);
 }));
 
+// POST /api/instances/peers/announce — receive announcement from remote peer
+router.post('/peers/announce', asyncHandler(async (req, res) => {
+  const data = announceSchema.parse(req.body);
+  // Derive caller IP from req.ip, stripping ::ffff: prefix for IPv4-mapped addresses
+  const rawIp = req.ip || req.socket.remoteAddress || '';
+  const address = rawIp.replace(/^::ffff:/, '');
+  console.log(`🌐 Announce received from ${data.name || 'unknown'} (raw IP: ${rawIp}, resolved: ${address}, port: ${data.port})`);
+  if (!address) throw new ServerError('Could not determine caller IP', { status: 400 });
+
+  const result = await instances.handleAnnounce({
+    address,
+    port: data.port,
+    instanceId: data.instanceId,
+    name: data.name
+  });
+
+  const self = await instances.getSelf();
+  res.status(result.created ? 201 : 200).json({
+    self: { instanceId: self?.instanceId, name: self?.name },
+    peer: result.peer
+  });
+}));
+
 // POST /api/instances/peers — add a peer
 router.post('/peers', asyncHandler(async (req, res) => {
   const data = addPeerSchema.parse(req.body);
@@ -71,6 +100,13 @@ router.delete('/peers/:id', asyncHandler(async (req, res) => {
   const removed = await instances.removePeer(req.params.id);
   if (!removed) throw new ServerError('Peer not found', { status: 404 });
   res.json({ success: true });
+}));
+
+// POST /api/instances/peers/:id/connect — announce ourselves to this peer (make it mutual)
+router.post('/peers/:id/connect', asyncHandler(async (req, res) => {
+  const result = await instances.connectPeer(req.params.id);
+  if (!result) throw new ServerError('Peer not found', { status: 404 });
+  res.json(result);
 }));
 
 // POST /api/instances/peers/:id/probe — force immediate probe

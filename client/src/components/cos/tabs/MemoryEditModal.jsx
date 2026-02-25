@@ -114,7 +114,7 @@ export default function MemoryEditModal({ memory, apps, onSave, onClose }) {
                   key={type}
                   type="button"
                   onClick={() => setFormData({ ...formData, type })}
-                  className={`px-4 py-2 min-h-[40px] text-sm rounded-lg border transition-colors ${
+                  className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
                     formData.type === type
                       ? MEMORY_TYPE_COLORS[type]
                       : 'border-port-border text-gray-500 hover:text-gray-300'

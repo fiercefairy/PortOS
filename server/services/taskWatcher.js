@@ -8,7 +8,7 @@
 import { watch } from 'chokidar';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { cosEvents, getUserTasks, getCosTasks, getConfig, evaluateTasks, isRunning, isPaused } from './cos.js';
+import { cosEvents, getUserTasks, getCosTasks, getConfig } from './cos.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -18,47 +18,6 @@ let watcher = null;
 let isWatching = false;
 let lastUserTasks = null;
 let lastCosTasks = null;
-
-// Debounce timer for immediate evaluation
-let immediateEvalTimeout = null;
-const IMMEDIATE_EVAL_DEBOUNCE_MS = 500;
-
-/**
- * Trigger immediate task evaluation (debounced)
- * Called when new tasks are added and immediateExecution is enabled
- */
-async function triggerImmediateEvaluation(reason = 'task-added') {
-  // Clear any pending evaluation
-  if (immediateEvalTimeout) {
-    clearTimeout(immediateEvalTimeout);
-  }
-
-  // Debounce to avoid rapid-fire evaluations
-  immediateEvalTimeout = setTimeout(async () => {
-    const config = await getConfig();
-
-    // Check if immediate execution is enabled
-    if (!config.immediateExecution) {
-      return;
-    }
-
-    // Check if CoS is running and not paused
-    if (!isRunning()) {
-      return;
-    }
-
-    const paused = await isPaused();
-    if (paused) {
-      return;
-    }
-
-    console.log(`⚡ Triggering immediate evaluation: ${reason}`);
-    cosEvents.emit('evaluation:immediate', { reason });
-
-    // Run evaluation
-    await evaluateTasks();
-  }, IMMEDIATE_EVAL_DEBOUNCE_MS);
-}
 
 /**
  * Start watching task files
@@ -157,8 +116,6 @@ async function handleUserTasksChange() {
 
   if (changes.added.length > 0) {
     cosEvents.emit('tasks:user:added', { tasks: changes.added });
-    // Trigger immediate evaluation for new user tasks
-    triggerImmediateEvaluation('user-task-added');
   }
 
   if (changes.completed.length > 0) {
@@ -167,10 +124,10 @@ async function handleUserTasksChange() {
 
   if (changes.modified.length > 0) {
     cosEvents.emit('tasks:user:modified', { tasks: changes.modified });
-    // Check if any task was changed to pending (might need immediate eval)
+    // Emit added event for tasks changed to pending so cos.js picks them up
     const pendingChanges = changes.modified.filter(c => c.new.status === 'pending' && c.old.status !== 'pending');
     if (pendingChanges.length > 0) {
-      triggerImmediateEvaluation('task-status-changed-to-pending');
+      cosEvents.emit('tasks:user:added', { tasks: pendingChanges.map(c => c.new) });
     }
   }
 
@@ -198,11 +155,6 @@ async function handleCosTasksChange() {
 
   if (changes.added.length > 0) {
     cosEvents.emit('tasks:cos:added', { tasks: changes.added });
-    // Trigger immediate evaluation for new auto-approved system tasks
-    const autoApprovedTasks = changes.added.filter(t => t.autoApproved);
-    if (autoApprovedTasks.length > 0) {
-      triggerImmediateEvaluation('system-task-added');
-    }
   }
 
   if (changes.completed.length > 0) {
@@ -211,12 +163,12 @@ async function handleCosTasksChange() {
 
   if (changes.modified.length > 0) {
     cosEvents.emit('tasks:cos:modified', { tasks: changes.modified });
-    // Check if any task was approved (changed from approvalRequired to autoApproved)
+    // Emit added event for newly approved tasks so cos.js picks them up
     const approvedTasks = changes.modified.filter(c =>
       c.new.autoApproved && !c.old.autoApproved
     );
     if (approvedTasks.length > 0) {
-      triggerImmediateEvaluation('task-approved');
+      cosEvents.emit('tasks:cos:added', { tasks: approvedTasks.map(c => c.new) });
     }
   }
 

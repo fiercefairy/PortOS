@@ -15,6 +15,7 @@ import {
   CyberCoSAvatar,
   SigilCoSAvatar,
   EsotericCoSAvatar,
+  NexusCoSAvatar,
   StateLabel,
   TerminalCoSPanel,
   StatusIndicator,
@@ -443,6 +444,8 @@ export default function ChiefOfStaff() {
                   ? <SigilCoSAvatar state={agentState} speaking={speaking} />
                 : avatarStyle === 'esoteric'
                   ? <EsotericCoSAvatar state={agentState} speaking={speaking} />
+                : avatarStyle === 'nexus'
+                  ? <NexusCoSAvatar state={agentState} speaking={speaking} />
                 : <CoSCharacter state={agentState} speaking={speaking} />
               }
               <div className="hidden lg:block">

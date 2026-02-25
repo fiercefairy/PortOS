@@ -91,7 +91,7 @@ function OutputBlocks({ output }) {
   );
 }
 
-export default function AgentCard({ agent, onKill, onDelete, onResume, completed, liveOutput, durations, onFeedbackChange }) {
+export default function AgentCard({ agent, onKill, onDelete, onResume, completed, liveOutput, durations, onFeedbackChange, remote, peerName }) {
   const [expanded, setExpanded] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [fullOutput, setFullOutput] = useState(null);
@@ -142,9 +142,9 @@ export default function AgentCard({ agent, onKill, onDelete, onResume, completed
     return () => clearInterval(interval);
   }, [completed]);
 
-  // Fetch process stats for running agents
+  // Fetch process stats for running agents (skip for remote peers)
   useEffect(() => {
-    if (completed) return;
+    if (completed || remote) return;
 
     const fetchStats = async () => {
       const stats = await api.getCosAgentStats(agent.id).catch(() => null);
@@ -163,9 +163,9 @@ export default function AgentCard({ agent, onKill, onDelete, onResume, completed
     setKilling(false);
   };
 
-  // Fetch full output when expanded for completed agents
+  // Fetch full output when expanded for completed agents (skip for remote)
   useEffect(() => {
-    if (expanded && completed && !fullOutput && !loadingOutput) {
+    if (expanded && completed && !fullOutput && !loadingOutput && !remote) {
       setLoadingOutput(true);
       api.getCosAgent(agent.id)
         .then(data => {
@@ -274,6 +274,11 @@ export default function AgentCard({ agent, onKill, onDelete, onResume, completed
           <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
             <Cpu size={16} aria-hidden="true" className={`flex-shrink-0 ${completed ? 'text-gray-500' : 'text-port-accent animate-pulse'}`} />
             <span className="font-mono text-sm text-gray-400 truncate">{agent.id}</span>
+            {remote && peerName && (
+              <span className="px-1.5 py-0.5 text-xs bg-port-accent/20 text-port-accent rounded flex-shrink-0" title={`Remote agent on ${peerName}`}>
+                {peerName}
+              </span>
+            )}
             {agent.metadata?.taskApp && (agent.metadata.taskAppName || agent.metadata.workspaceName) && !/^[0-9a-f]{8}-[0-9a-f]{4}-/.test(agent.metadata.taskAppName || agent.metadata.workspaceName) && (
               <span className="px-1.5 py-0.5 text-xs bg-cyan-500/20 text-cyan-400 rounded flex-shrink-0" title={agent.metadata.workspacePath || agent.metadata.taskApp}>
                 {agent.metadata.taskAppName || agent.metadata.workspaceName}
@@ -510,8 +515,8 @@ export default function AgentCard({ agent, onKill, onDelete, onResume, completed
           </div>
         )}
 
-        {/* Feedback section - shown for completed non-system agents */}
-        {completed && !isSystemAgent && (
+        {/* Feedback section - shown for completed non-system local agents */}
+        {completed && !isSystemAgent && !remote && (
           <div className="mt-3 pt-3 border-t border-port-border/50">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs text-gray-500">Was this helpful?</span>

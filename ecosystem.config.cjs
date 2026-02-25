@@ -1,6 +1,14 @@
 // =============================================================================
-// Port Configuration - All ports defined here as single source of truth
+// PM2 Ecosystem Configuration - shared constants and app definitions
 // =============================================================================
+const LOG_DATE_FORMAT = 'YYYY-MM-DDTHH:mm:ss.SSS[Z]';
+
+// Shared env inherited by all apps (merged into each app's env)
+const BASE_ENV = {
+  NODE_ENV: 'development',
+  TZ: 'UTC'  // All log timestamps and Date operations in UTC
+};
+
 const PORTS = {
   API: 5554,           // Express API server
   UI: 5555,            // Vite dev server (client)
@@ -20,8 +28,9 @@ module.exports = {
       script: 'server/index.js',
       cwd: __dirname,
       interpreter: 'node',
+      log_date_format: LOG_DATE_FORMAT,
       env: {
-        NODE_ENV: 'development',
+        ...BASE_ENV,
         PORT: PORTS.API,
         HOST: '0.0.0.0'
       },
@@ -33,11 +42,12 @@ module.exports = {
       script: 'server/cos-runner/index.js',
       cwd: __dirname,
       interpreter: 'node',
+      log_date_format: LOG_DATE_FORMAT,
       // CoS Agent Runner - isolated process for spawning Claude CLI agents
       // Does NOT restart when portos-server restarts, preventing orphaned agents
       // Security: Binds to localhost only - not exposed externally
       env: {
-        NODE_ENV: 'development',
+        ...BASE_ENV,
         PORT: PORTS.COS,
         HOST: '127.0.0.1'
       },
@@ -55,9 +65,10 @@ module.exports = {
       name: 'portos-ui',
       script: `${__dirname}/node_modules/.bin/vite`,
       cwd: `${__dirname}/client`,
+      log_date_format: LOG_DATE_FORMAT,
       args: `--host 0.0.0.0 --port ${PORTS.UI}`,
       env: {
-        NODE_ENV: 'development',
+        ...BASE_ENV,
         VITE_PORT: PORTS.UI
       },
       watch: false
@@ -67,8 +78,9 @@ module.exports = {
       script: 'autofixer/server.js',
       cwd: __dirname,
       interpreter: 'node',
+      log_date_format: LOG_DATE_FORMAT,
       env: {
-        NODE_ENV: 'development',
+        ...BASE_ENV,
         PORT: PORTS.AUTOFIXER,
         PATH: process.env.PATH // Inherit PATH for nvm/node access in child processes
       },
@@ -83,8 +95,9 @@ module.exports = {
       script: 'autofixer/ui.js',
       cwd: __dirname,
       interpreter: 'node',
+      log_date_format: LOG_DATE_FORMAT,
       env: {
-        NODE_ENV: 'development',
+        ...BASE_ENV,
         PORT: PORTS.AUTOFIXER_UI
       },
       watch: false,
@@ -98,10 +111,11 @@ module.exports = {
       script: 'browser/server.js',
       cwd: __dirname,
       interpreter: 'node',
+      log_date_format: LOG_DATE_FORMAT,
       // Security: CDP binds to 127.0.0.1 by default (set CDP_HOST=0.0.0.0 to expose)
       // Remote access should go through portos-server proxy with authentication
       env: {
-        NODE_ENV: 'development',
+        ...BASE_ENV,
         CDP_PORT: PORTS.CDP,
         CDP_HOST: '127.0.0.1',
         PORT: PORTS.CDP_HEALTH

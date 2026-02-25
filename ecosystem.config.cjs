@@ -20,6 +20,7 @@ module.exports = {
       script: 'server/index.js',
       cwd: __dirname,
       interpreter: 'node',
+      log_date_format: 'HH:mm:ss',
       env: {
         NODE_ENV: 'development',
         PORT: PORTS.API,
@@ -33,6 +34,7 @@ module.exports = {
       script: 'server/cos-runner/index.js',
       cwd: __dirname,
       interpreter: 'node',
+      log_date_format: 'HH:mm:ss',
       // CoS Agent Runner - isolated process for spawning Claude CLI agents
       // Does NOT restart when portos-server restarts, preventing orphaned agents
       // Security: Binds to localhost only - not exposed externally
@@ -55,6 +57,7 @@ module.exports = {
       name: 'portos-ui',
       script: `${__dirname}/node_modules/.bin/vite`,
       cwd: `${__dirname}/client`,
+      log_date_format: 'HH:mm:ss',
       args: `--host 0.0.0.0 --port ${PORTS.UI}`,
       env: {
         NODE_ENV: 'development',
@@ -67,6 +70,7 @@ module.exports = {
       script: 'autofixer/server.js',
       cwd: __dirname,
       interpreter: 'node',
+      log_date_format: 'HH:mm:ss',
       env: {
         NODE_ENV: 'development',
         PORT: PORTS.AUTOFIXER,
@@ -83,6 +87,7 @@ module.exports = {
       script: 'autofixer/ui.js',
       cwd: __dirname,
       interpreter: 'node',
+      log_date_format: 'HH:mm:ss',
       env: {
         NODE_ENV: 'development',
         PORT: PORTS.AUTOFIXER_UI
@@ -98,6 +103,7 @@ module.exports = {
       script: 'browser/server.js',
       cwd: __dirname,
       interpreter: 'node',
+      log_date_format: 'HH:mm:ss',
       // Security: CDP binds to 127.0.0.1 by default (set CDP_HOST=0.0.0.0 to expose)
       // Remote access should go through portos-server proxy with authentication
       env: {

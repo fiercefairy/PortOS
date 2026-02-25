@@ -30,9 +30,6 @@ const SystemHealthWidget = memo(function SystemHealthWidget() {
     };
 
     loadData();
-    // Refresh every 30 seconds
-    const interval = setInterval(loadData, 30000);
-    return () => clearInterval(interval);
   }, []);
 
   // Don't render while loading

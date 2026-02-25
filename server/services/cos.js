@@ -56,9 +56,12 @@ export function emitLog(level, message, data = {}, prefix = '') {
     message,
     ...data
   };
-  const emoji = level === 'error' ? '❌' : level === 'warn' ? '⚠️' : level === 'success' ? '✅' : level === 'debug' ? '🔍' : 'ℹ️';
-  const prefixStr = prefix ? ` ${prefix}` : '';
-  console.log(`${emoji}${prefixStr} ${message}`);
+  // Debug messages go to socket only (UI), not console — set COS_LOG_LEVEL=debug to include them
+  if (level !== 'debug' || process.env.COS_LOG_LEVEL === 'debug') {
+    const emoji = level === 'error' ? '❌' : level === 'warn' ? '⚠️' : level === 'success' ? '✅' : level === 'debug' ? '🔍' : 'ℹ️';
+    const prefixStr = prefix ? ` ${prefix}` : '';
+    console.log(`${emoji}${prefixStr} ${message}`);
+  }
   cosEvents.emit('log', logEntry);
 }
 
@@ -886,7 +889,8 @@ export async function evaluateTasks() {
   const inProgressCount = userTaskData.grouped?.in_progress?.length || 0;
   const pendingSystemCount = cosTaskData.grouped?.pending?.length || 0;
 
-  emitLog('info', `Evaluation: ${pendingUserCount} user pending, ${inProgressCount} in_progress, ${pendingSystemCount} system, spawning ${tasksToSpawn.length}`, {
+  const evalLevel = tasksToSpawn.length > 0 ? 'info' : 'debug';
+  emitLog(evalLevel, `Evaluation: ${pendingUserCount} user pending, ${inProgressCount} in_progress, ${pendingSystemCount} system, spawning ${tasksToSpawn.length}`, {
     pendingUser: pendingUserCount,
     inProgress: inProgressCount,
     pendingSystem: pendingSystemCount,
@@ -975,7 +979,7 @@ export async function evaluateTasks() {
       : hasPendingUserTasks
         ? 'User tasks exist but all on cooldown or at capacity'
         : 'No user tasks, system tasks, or idle work available';
-    emitLog('info', `No tasks to process - idle: ${idleReason}`);
+    emitLog('debug', `No tasks to process - idle: ${idleReason}`);
     await recordDecision(
       DECISION_TYPES.IDLE,
       idleReason,
@@ -1066,7 +1070,7 @@ async function generateIdleReviewTask(state) {
   // All apps on cooldown or no apps - fall back to self-improvement
   // This ensures CoS is ALWAYS working on something
   if (state.config.selfImprovementEnabled) {
-    emitLog('info', 'No apps available for review - running self-improvement instead');
+    emitLog('debug', 'No apps available for review - running self-improvement instead');
     return await generateSelfImprovementTask(state);
   }
 
@@ -1292,7 +1296,7 @@ async function generateSelfImprovementTask(state) {
   const nextTypeResult = await taskSchedule.getNextSelfImprovementTaskType(lastType);
 
   if (!nextTypeResult) {
-    emitLog('info', 'No self-improvement tasks are eligible to run based on schedule');
+    emitLog('debug', 'No self-improvement tasks are eligible to run based on schedule');
     await recordDecision(
       DECISION_TYPES.NOT_DUE,
       'No self-improvement tasks are eligible based on schedule',
@@ -1361,7 +1365,7 @@ async function generateSelfImprovementTask(state) {
 
   // Log if there's a recommendation from learning system
   if (cooldownInfo.recommendation) {
-    emitLog('info', `Learning insight for ${nextType}: ${cooldownInfo.recommendation}`, {
+    emitLog('debug', `Learning insight for ${nextType}: ${cooldownInfo.recommendation}`, {
       taskType: nextType,
       multiplier: cooldownInfo.multiplier
     });

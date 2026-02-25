@@ -8,7 +8,6 @@ import { getSelf } from '../services/instances.js';
 const router = Router();
 
 router.get('/health', async (req, res) => {
-  console.log('💓 GET /api/health');
   const self = await getSelf().catch(() => null);
   res.json({
     status: 'ok',
@@ -121,7 +120,6 @@ router.get('/health/system', async (req, res) => {
   }
 
   const responseTime = Date.now() - startTime;
-  console.log(`💓 GET /api/health/system (${responseTime}ms)`);
 
   res.json({
     timestamp: new Date().toISOString(),

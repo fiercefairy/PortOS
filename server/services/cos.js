@@ -287,6 +287,7 @@ const DEFAULT_CONFIG = {
   appImprovementEnabled: true,             // Deprecated: use improvementEnabled
   improvementEnabled: true,                // Allow CoS to run improvement tasks on all apps (including PortOS)
   avatarStyle: 'svg',                      // UI preference: 'svg' | 'ascii' | 'cyber' | 'sigil'
+  dynamicAvatar: true,                     // Avatar changes based on active agent context
   // Always-on mode settings
   alwaysOn: true,                          // CoS starts automatically and stays active
   appReviewCooldownMs: 1800000,            // 30 min between working on same app (was 1 hour)

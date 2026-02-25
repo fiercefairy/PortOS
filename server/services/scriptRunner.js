@@ -189,7 +189,7 @@ export async function createScript(data) {
     command: data.command,
     schedule: data.schedule || 'on-demand',
     cronExpression: data.cronExpression || null,
-    enabled: data.enabled !== false,
+    enabled: data.enabled === true,
     triggerAction: data.triggerAction || 'log-only', // 'spawn-agent' | 'create-task' | 'log-only'
     triggerPrompt: data.triggerPrompt || '',
     triggerPriority: data.triggerPriority || 'MEDIUM',

@@ -64,7 +64,7 @@ module.exports = {
     },
     {
       name: 'portos-ui',
-      script: path.join(__dirname, 'node_modules', '.bin', 'vite'),
+      script: path.join(__dirname, 'client', 'node_modules', 'vite', 'bin', 'vite.js'),
       cwd: path.join(__dirname, 'client'),
       log_date_format: LOG_DATE_FORMAT,
       args: `--host 0.0.0.0 --port ${PORTS.UI}`,

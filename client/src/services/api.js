@@ -108,11 +108,11 @@ export const detectWithAi = (path, providerId) => request('/detect/ai', {
 });
 
 // Templates & Scaffold
-export const getTemplates = () => request('/templates');
+export const getTemplates = () => request('/scaffold/templates');
 
 export const getDirectories = (path = null) => {
   const params = path ? `?path=${encodeURIComponent(path)}` : '';
-  return request(`/directories${params}`);
+  return request(`/scaffold/directories${params}`);
 };
 
 export const scaffoldApp = (data) => request('/scaffold', {
@@ -120,7 +120,7 @@ export const scaffoldApp = (data) => request('/scaffold', {
   body: JSON.stringify(data)
 });
 
-export const createFromTemplate = (data) => request('/templates/create', {
+export const createFromTemplate = (data) => request('/scaffold/templates/create', {
   method: 'POST',
   body: JSON.stringify(data)
 });

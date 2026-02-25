@@ -69,6 +69,7 @@ export function emitLog(level, message, data = {}, prefix = '') {
 
 // In-memory daemon state
 let daemonRunning = false;
+let initialStartup = false;
 
 // Lightweight index mapping agentId → YYYY-MM-DD date bucket (~50KB vs 16MB full cache)
 // Lazy-loaded from data/cos/agents/index.json on first access
@@ -604,9 +605,12 @@ export async function start() {
   // Schedule improvement task checks based on next due time
   await scheduleNextImprovementCheck();
 
-  // Run initial evaluation to fill available slots, then health check
+  // Run initial evaluation to pick up existing pending tasks, then health check
+  // Skip improvement task generation on startup to avoid spawning agents on fresh installs
   emitLog('info', 'Running initial task evaluation...');
+  initialStartup = true;
   await evaluateTasks();
+  initialStartup = false;
   await runHealthCheck();
 
   cosEvents.emit('status', { running: true });
@@ -1008,7 +1012,8 @@ export async function evaluateTasks() {
 
   // Background: Queue eligible self-improvement tasks as system tasks
   // Only queue if there are NO pending user tasks (user tasks always take priority)
-  if (state.config.idleReviewEnabled && !hasPendingUserTasks) {
+  // Skip on initial startup to avoid auto-spawning agents on fresh installs
+  if (state.config.idleReviewEnabled && !hasPendingUserTasks && !initialStartup) {
     await queueEligibleImprovementTasks(state, cosTaskData);
   }
 
@@ -1973,7 +1978,7 @@ export async function runHealthCheck() {
   };
 
   // Check PM2 processes
-  const pm2Result = await execAsync('pm2 jlist 2>/dev/null || echo "[]"').catch(() => ({ stdout: '[]' }));
+  const pm2Result = await execAsync('pm2 jlist').catch(() => ({ stdout: '[]' }));
   // pm2 jlist may output ANSI codes and warnings before JSON, extract the JSON array
   // Look for '[{' (array with objects) or '[]' (empty array) to avoid matching ANSI codes like [31m
   const pm2Output = pm2Result.stdout || '[]';
@@ -2053,7 +2058,9 @@ export async function runHealthCheck() {
   }
 
   // Get system memory
-  const memResult = await execAsync('vm_stat 2>/dev/null || free -m 2>/dev/null').catch(() => ({ stdout: '' }));
+  const memCmd = process.platform === 'win32' ? 'wmic OS get FreePhysicalMemory,TotalVisibleMemorySize /VALUE' :
+    process.platform === 'darwin' ? 'vm_stat' : 'free -m';
+  const memResult = await execAsync(memCmd).catch(() => ({ stdout: '' }));
   metrics.memory = { raw: memResult.stdout.slice(0, 500) }; // Truncate for storage
 
   // Store health check result with lock to prevent race conditions
@@ -2406,11 +2413,12 @@ export async function getAgentProcessStats(agentId) {
  */
 async function isPidAlive(pid) {
   if (!pid) return false;
-  const { execFile } = await import('child_process');
-  const { promisify } = await import('util');
-  const execFileAsync = promisify(execFile);
-  const result = await execFileAsync('ps', ['-p', String(pid), '-o', 'pid=']).catch(() => ({ stdout: '' }));
-  return result.stdout.trim() !== '';
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

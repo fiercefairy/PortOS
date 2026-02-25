@@ -1777,6 +1777,15 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
     const agentState = await getAgentState(agentId).catch(() => null);
     const workspace = agentState?.metadata?.workspacePath || ROOT_DIR;
 
+    // Resolve JIRA ticket URL for linking in PR description
+    let jiraTicketUrl = agent.task?.metadata?.jiraTicketUrl || null;
+    if (!jiraTicketUrl && jiraInstanceId) {
+      const jiraConfig = await jiraService.getInstances().catch(() => null);
+      const baseUrl = jiraConfig?.instances?.[jiraInstanceId]?.baseUrl;
+      if (baseUrl) jiraTicketUrl = `${baseUrl}/browse/${jiraTicketId}`;
+    }
+    const jiraTicketRef = jiraTicketUrl ? `[${jiraTicketId}](${jiraTicketUrl})` : jiraTicketId;
+
     // Push the feature branch
     await git.push(workspace, jiraBranch).catch(err => {
       emitLog('warn', `Failed to push JIRA branch ${jiraBranch}: ${err.message}`, { agentId, ticketId: jiraTicketId });
@@ -1790,7 +1799,7 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
 
       const prResult = await git.createPR(workspace, {
         title: `${jiraTicketId}: ${(task.description || 'CoS automated task').substring(0, 100)}`,
-        body: `Resolves ${jiraTicketId}\n\nAutomated PR created by PortOS Chief of Staff.\n\n**Task:** ${task.description || ''}`,
+        body: `Resolves ${jiraTicketRef}\n\nAutomated PR created by PortOS Chief of Staff.\n\n**Task:** ${task.description || ''}`,
         base: targetBranch,
         head: jiraBranch
       }).catch(err => {

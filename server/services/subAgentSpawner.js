@@ -9,7 +9,7 @@
 import { spawn, execSync } from 'child_process';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { writeFile, mkdir, readFile } from 'fs/promises';
+import { writeFile, mkdir, readFile, readdir, rm, stat } from 'fs/promises';
 import { existsSync } from 'fs';
 import { homedir } from 'os';
 import { v4 as uuidv4 } from 'uuid';
@@ -1055,6 +1055,23 @@ export async function initSpawner() {
   await initProviderStatus().catch(err => {
     console.error(`⚠️ Failed to initialize provider status: ${err.message}`);
   });
+
+  // Prune old run data (keep 30 days)
+  if (existsSync(RUNS_DIR)) {
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const entries = await readdir(RUNS_DIR, { withFileTypes: true }).catch(() => []);
+    let pruned = 0;
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const runDir = join(RUNS_DIR, entry.name);
+      const dirStat = await stat(runDir).catch(() => null);
+      if (dirStat && dirStat.mtime.getTime() < cutoff) {
+        await rm(runDir, { recursive: true }).catch(() => {});
+        pruned++;
+      }
+    }
+    if (pruned > 0) console.log(`🗑️ Pruned ${pruned} old run directories (>30 days)`);
+  }
 
   // Check if CoS Runner is available
   useRunner = await isRunnerAvailable();

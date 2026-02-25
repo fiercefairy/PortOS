@@ -10,7 +10,7 @@ import { writeFile, mkdir, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { cosEvents, emitLog, getAgents } from './cos.js';
+import { cosEvents, emitLog, getAgents, getAgentDates, getAgentsByDate } from './cos.js';
 import { readJSONFile, formatDuration } from '../lib/fileUtils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -100,11 +100,17 @@ export async function generateWeeklyDigest(weekId = null) {
 
   emitLog('info', `Generating weekly digest for ${targetWeekId}`, { weekId: targetWeekId }, '📊 WeeklyDigest');
 
-  // Get all agents
-  const agents = await getAgents();
+  // Load only agents from dates in this week (not all agents)
+  const dates = await getAgentDates();
+  const weekDates = dates
+    .map(d => d.date)
+    .filter(d => getWeekId(new Date(d + 'T12:00:00')) === targetWeekId);
+  const dateAgents = await Promise.all(weekDates.map(d => getAgentsByDate(d)));
+  // Also include running agents from state that completed this week
+  const stateAgents = await getAgents();
+  const allAgents = [...dateAgents.flat(), ...stateAgents];
 
-  // Filter agents completed this week
-  const weekAgents = agents.filter(a => {
+  const weekAgents = allAgents.filter(a => {
     if (!a.completedAt) return false;
     const completedWeek = getWeekId(new Date(a.completedAt));
     return completedWeek === targetWeekId;

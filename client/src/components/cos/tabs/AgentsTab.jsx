@@ -60,17 +60,21 @@ export default function AgentsTab({ agents, onRefresh, liveOutputs, providers, a
     onRefresh();
   };
 
-  const handleDelete = async (agentId) => {
+  const handleDelete = useCallback(async (agentId) => {
     await api.deleteCosAgent(agentId).catch(err => toast.error(err.message));
-    setLoadedAgents(prev => prev.filter(a => a.id !== agentId));
-    setDateBuckets(prev => prev.map(d => {
-      const agent = loadedAgents.find(a => a.id === agentId);
-      if (agent?.completedAt?.startsWith(d.date)) return { ...d, count: Math.max(0, d.count - 1) };
-      return d;
-    }).filter(d => d.count > 0));
+    setLoadedAgents(prev => {
+      const deleted = prev.find(a => a.id === agentId);
+      if (deleted?.completedAt) {
+        const dateStr = deleted.completedAt.slice(0, 10);
+        setDateBuckets(buckets => buckets.map(d =>
+          d.date === dateStr ? { ...d, count: Math.max(0, d.count - 1) } : d
+        ).filter(d => d.count > 0));
+      }
+      return prev.filter(a => a.id !== agentId);
+    });
     toast.success('Agent removed');
     onRefresh();
-  };
+  }, [onRefresh]);
 
   const handleResumeClick = (agent) => {
     setResumingAgent(agent);

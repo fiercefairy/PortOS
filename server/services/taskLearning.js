@@ -69,7 +69,7 @@ async function saveLearningData(data) {
   const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
   if (data.byTaskType) {
     for (const [type, stats] of Object.entries(data.byTaskType)) {
-      if ((stats.completed || 0) < 2 && stats.lastSeen && new Date(stats.lastSeen).getTime() < cutoff) {
+      if ((stats.completed || 0) < 2 && stats.lastCompleted && new Date(stats.lastCompleted).getTime() < cutoff) {
         delete data.byTaskType[type];
       }
     }

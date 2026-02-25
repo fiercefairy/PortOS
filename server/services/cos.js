@@ -2831,7 +2831,8 @@ export async function cleanupZombieAgents() {
       const idx = await loadAgentIndex();
       for (const agentId of cleaned) {
         const agent = state.agents[agentId];
-        const dateStr = agent.completedAt.slice(0, 10);
+        const dateStr = agent.completedAt?.slice(0, 10);
+        if (!dateStr) continue;
         const bucketDir = join(AGENTS_DIR, dateStr);
         await mkdir(bucketDir, { recursive: true });
 
@@ -3312,7 +3313,8 @@ export async function archiveStaleAgents() {
       // Ensure agent is persisted to date-bucketed disk before removing from state
       if (!idx.has(id)) {
         const agent = state.agents[id];
-        const dateStr = agent.completedAt.slice(0, 10);
+        const dateStr = agent.completedAt?.slice(0, 10);
+        if (!dateStr) continue;
         const bucketDir = join(AGENTS_DIR, dateStr);
         await mkdir(bucketDir, { recursive: true });
 

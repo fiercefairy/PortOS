@@ -1935,12 +1935,6 @@ export function GitPage() {
             <Download size={16} className={updating ? 'animate-bounce' : ''} />
             {updating ? 'Updating...' : 'Update'}
           </button>
-          <button
-            onClick={loadGitInfo}
-            className="p-2 text-gray-400 hover:text-white"
-          >
-            <RefreshCw size={18} />
-          </button>
         </div>
       </div>
 

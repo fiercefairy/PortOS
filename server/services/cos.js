@@ -185,6 +185,7 @@ const DEFAULT_CONFIG = {
   autonomousJobsEnabled: true,             // Enable recurring autonomous jobs (git maintenance, brain processing, etc.)
   autonomyLevel: 'standby',                // Default autonomy level preset (standby/assistant/manager/yolo)
   rehabilitationGracePeriodDays: 7,        // Days before auto-retrying skipped task types (learning-based)
+  completedAgentRetentionMs: 86400000,     // 24h - auto-archive completed agents from state.json after this
   autoFixThresholds: {
     maxLinesChanged: 50,                   // Auto-approve if <= this many lines changed
     allowedCategories: [                   // Categories that can auto-execute
@@ -368,6 +369,12 @@ export async function start() {
   // Then reset any orphaned in_progress tasks (no running agent)
   await resetOrphanedTasks();
 
+  // Archive stale completed agents from state.json on startup
+  const { archived } = await archiveStaleAgents().catch(() => ({ archived: 0 }));
+  if (archived > 0) {
+    emitLog('info', `📦 Startup: archived ${archived} stale agent(s) from state`);
+  }
+
   // Health check + orphan cleanup (15 min)
   scheduleEvent({
     id: 'cos-health-check',
@@ -379,8 +386,12 @@ export async function start() {
       if (cleaned > 0) {
         emitLog('info', `🧹 Periodic cleanup: ${cleaned} orphaned agent(s)`);
       }
+      const { archived } = await archiveStaleAgents().catch(() => ({ archived: 0 }));
+      if (archived > 0) {
+        emitLog('info', `📦 Auto-archived ${archived} stale agent(s) from state`);
+      }
     },
-    metadata: { description: 'CoS health check + orphan cleanup' }
+    metadata: { description: 'CoS health check + orphan cleanup + agent archival' }
   });
 
   // Performance summary (10 min)
@@ -3029,6 +3040,52 @@ function formatRelativeTime(timestamp) {
   if (diffDays === 1) return 'yesterday';
   if (diffDays < 7) return `${diffDays}d ago`;
   return then.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/**
+ * Archive stale completed agents from state.json.
+ * Agents are already persisted to disk (metadata.json) and the in-memory cache
+ * by completeAgent(), so removing them from state.json only reduces file bloat.
+ * They remain accessible via getAgents()/getAgent() through the cache.
+ */
+export async function archiveStaleAgents() {
+  return withStateLock(async () => {
+    const state = await loadState();
+    const retentionMs = state.config.completedAgentRetentionMs ?? 86400000;
+    const cutoff = Date.now() - retentionMs;
+
+    const staleIds = Object.keys(state.agents).filter(id => {
+      const agent = state.agents[id];
+      if (agent.status !== 'completed') return false;
+      const completedAt = agent.completedAt ? new Date(agent.completedAt).getTime() : 0;
+      return completedAt > 0 && completedAt < cutoff;
+    });
+
+    if (staleIds.length === 0) return { archived: 0 };
+
+    for (const id of staleIds) {
+      // Ensure agent is persisted to disk before removing from state
+      const agentDir = join(AGENTS_DIR, id);
+      if (!existsSync(join(agentDir, 'metadata.json'))) {
+        await mkdir(agentDir, { recursive: true });
+        const { output, ...agentWithoutOutput } = state.agents[id];
+        await writeFile(join(agentDir, 'metadata.json'), JSON.stringify(agentWithoutOutput, null, 2)).catch(() => {});
+      }
+
+      // Ensure agent is in cache before removing from state
+      if (completedAgentCache) {
+        const { output, ...agentWithoutOutput } = state.agents[id];
+        completedAgentCache.set(id, agentWithoutOutput);
+      }
+
+      delete state.agents[id];
+    }
+
+    await saveState(state);
+    console.log(`📦 Archived ${staleIds.length} stale agents from state.json (retained on disk)`);
+    cosEvents.emit('agents:changed', { action: 'auto-archive', archived: staleIds.length });
+    return { archived: staleIds.length };
+  });
 }
 
 /**

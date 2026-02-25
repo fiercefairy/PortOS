@@ -133,7 +133,7 @@ describe('autonomousJobs', () => {
 
       // Verify only expected test jobs plus any default jobs are present
       const testJobIds = new Set(['job-test-1', 'job-1', 'job-2'])
-      const defaultJobPrefixes = ['job-github-', 'job-brain-', 'job-daily-', 'job-project-', 'job-moltworld-', 'job-jira-', 'job-autobiography-']
+      const defaultJobPrefixes = ['job-github-', 'job-brain-', 'job-daily-', 'job-moltworld-', 'job-jira-', 'job-autobiography-']
       const unexpectedJobs = due.filter(j => !testJobIds.has(j.id) && !defaultJobPrefixes.some(p => j.id.startsWith(p)))
       expect(unexpectedJobs).toHaveLength(0)
     })
@@ -268,7 +268,7 @@ describe('autonomousJobs', () => {
       expect(jobs.length).toBeGreaterThan(1)
       expect(jobs.find(j => j.id === 'job-custom-only')).toBeDefined()
       expect(jobs.find(j => j.id === 'job-github-repo-maintenance')).toBeDefined()
-      expect(jobs.find(j => j.id === 'job-brain-processing')).toBeDefined()
+      expect(jobs.find(j => j.id === 'job-brain-review')).toBeDefined()
     })
   })
 

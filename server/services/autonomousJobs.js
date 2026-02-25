@@ -42,12 +42,10 @@ const JOBS_SKILLS_DIR = join(__dirname, '../../data/prompts/skills/jobs')
 const JOB_SKILL_MAP = {
   'job-daily-briefing': 'daily-briefing',
   'job-github-repo-maintenance': 'github-repo-maintenance',
-  'job-brain-processing': 'brain-processing',
-  'job-project-review': 'project-review',
+  'job-brain-review': 'brain-review',
   'job-moltworld-exploration': 'moltworld-exploration',
-  'job-jira-app-maintenance': 'jira-app-maintenance',
-  'job-autobiography-prompt': 'autobiography-prompt',
-  'job-jira-ticket-implementation': 'jira-ticket-implementation'
+  'job-jira-sprint-manager': 'jira-sprint-manager',
+  'job-autobiography-prompt': 'autobiography-prompt'
 }
 
 // Time constants
@@ -95,28 +93,40 @@ Save the report via the CoS report system.`,
     updatedAt: null
   },
   {
-    id: 'job-brain-processing',
-    name: 'Brain Inbox Processing',
-    description: 'Review brain inbox items that need attention, process ideas into actionable tasks, and surface patterns.',
-    category: 'brain-processing',
+    id: 'job-brain-review',
+    name: 'Brain Review',
+    description: 'Process brain inbox items, review active projects for staleness, surface patterns, and create actionable tasks.',
+    category: 'brain-review',
     interval: 'daily',
     intervalMs: DAY,
     enabled: false,
     priority: 'MEDIUM',
     autonomyLevel: 'manager',
-    promptTemplate: `[Autonomous Job] Brain Inbox Processing
+    promptTemplate: `[Autonomous Job] Brain Review
 
-You are acting as my Chief of Staff, processing my brain inbox.
+You are acting as my Chief of Staff, reviewing my brain inbox and active projects.
 
-Tasks to perform:
+Phase 1 — Inbox Processing:
 1. Call GET /api/brain/inbox?status=needs_review to find items needing review
 2. Call GET /api/brain/summary to understand the current brain state
 3. For items in needs_review status, analyze the content and suggest classifications
 4. Look for patterns across recent brain captures — recurring themes, related ideas
 5. For high-value active ideas (GET /api/brain/ideas?status=active) that could become projects, create CoS tasks to explore them. Skip ideas with status=done — they've already been ingested
-6. Generate a brief summary of insights from the brain inbox
 
-Focus on surfacing actionable insights. Don't just classify — think about what these ideas mean and how they connect.`,
+Phase 2 — Project Review:
+6. Call GET /api/brain/projects?status=active to get active projects (skip done/archived)
+7. For each active project:
+   - Assess if the next action is still relevant
+   - Check if there are related brain captures since last review
+   - Suggest updated next actions if stale
+8. Identify projects that might be stalled (no activity in 2+ weeks)
+9. Look for connections between projects and recent inbox items
+
+Phase 3 — Actions:
+10. Create CoS tasks for actionable items from both inbox and projects
+11. Generate a summary report covering inbox insights and project health
+
+Focus on surfacing actionable insights and moving projects forward. Don't just classify — think about what these ideas mean and how they connect.`,
     lastRun: null,
     runCount: 0,
     createdAt: null,
@@ -145,36 +155,6 @@ Tasks to perform:
 5. Suggest 2-3 focus areas for today based on open tasks and recent activity
 
 Write the briefing in a concise, actionable format. Save it as a CoS report.`,
-    lastRun: null,
-    runCount: 0,
-    createdAt: null,
-    updatedAt: null
-  },
-  {
-    id: 'job-project-review',
-    name: 'Brain Project Review',
-    description: 'Review active brain projects, check progress, suggest next actions, and identify stalled projects.',
-    category: 'project-review',
-    interval: 'weekly',
-    intervalMs: WEEK,
-    enabled: false,
-    priority: 'LOW',
-    autonomyLevel: 'assistant',
-    promptTemplate: `[Autonomous Job] Brain Project Review
-
-You are acting as my Chief of Staff, reviewing active projects from my brain.
-
-Tasks to perform:
-1. Call GET /api/brain/projects?status=active to get active projects (skip done/archived)
-2. For each active project:
-   - Assess if the next action is still relevant
-   - Check if there are related brain captures since last review
-   - Suggest updated next actions if stale
-3. Identify projects that might be stalled (no activity in 2+ weeks)
-4. Look for connections between projects that could be leveraged
-5. For any actionable suggestions, create CoS tasks
-
-Report a project health summary when done.`,
     lastRun: null,
     runCount: 0,
     createdAt: null,
@@ -210,34 +190,47 @@ After the script finishes, report the exploration summary including SIM earned a
     updatedAt: null
   },
   {
-    id: 'job-jira-app-maintenance',
-    name: 'JIRA App Maintenance',
-    description: 'Review JIRA tickets assigned to me in current sprint for JIRA-enabled apps, evaluate next steps, and take action (improve tickets, add comments, plan work, or create PRs).',
-    category: 'jira-app-maintenance',
+    id: 'job-jira-sprint-manager',
+    name: 'JIRA Sprint Manager',
+    description: 'Triage current sprint tickets for JIRA-enabled apps, then implement the highest-priority ready ticket in a worktree with a merge request.',
+    category: 'jira-sprint-manager',
     interval: 'daily',
     intervalMs: DAY,
-    enabled: false,
-    priority: 'MEDIUM',
-    autonomyLevel: 'manager',
-    promptTemplate: `[Autonomous Job] JIRA App Maintenance
+    scheduledTime: '09:00',
+    weekdaysOnly: true,
+    enabled: true,
+    priority: 'HIGH',
+    autonomyLevel: 'yolo',
+    promptTemplate: `[Autonomous Job] JIRA Sprint Manager
 
-You are acting as my Chief of Staff, managing JIRA tickets for apps with JIRA integration enabled.
+You are acting as my Chief of Staff, triaging and implementing JIRA tickets for apps with JIRA integration enabled.
 
-Tasks to perform:
+This job runs Monday-Friday. It triages all sprint tickets first, then implements the top-priority ready ticket.
+
+Phase 1 — Triage:
 1. Call GET /api/apps to get all managed apps
-2. Filter for apps with jira.enabled = true
+2. Filter for apps with jira.enabled = true and jira.instanceId + jira.projectKey set
 3. For each JIRA-enabled app:
    - Call GET /api/jira/:instanceId/my-sprint-tickets/:projectKey to get tickets assigned to me in current sprint
    - For each ticket, evaluate what needs to be done next:
      a) Does the ticket need clarification or better requirements? Add a comment with questions
-     b) Is the ticket well-defined and ready to work? Create a CoS task to plan or implement it
-     c) Is the ticket blocked or needs discussion? Add a comment noting blockers
-     d) Should this be worked on now based on priority? Create an agent task to implement and PR
+     b) Is the ticket blocked or needs discussion? Add a comment noting blockers
+     c) Is the ticket well-defined and ready to work? Mark it as a candidate for implementation
 4. Prioritize tickets marked as HIGH or Blocker
-5. Create CoS tasks for actionable items
-6. Generate a summary report of JIRA maintenance activities
 
-Focus on moving tickets forward. Don't just report - take action by improving ticket quality, creating tasks, or spawning agents to implement solutions.`,
+Phase 2 — Implement:
+5. From the triage results, select the highest priority ticket in "To Do" or "Ready" status that is well-defined
+6. For the selected ticket:
+   - Create a git worktree using the worktree manager
+   - Implement the ticket requirements
+   - Commit changes and push the branch
+   - Create a merge request using gh CLI
+   - Transition the ticket to "In Review" status
+   - Add a comment to JIRA with the MR link
+7. If no tickets are ready to implement, skip Phase 2
+
+Phase 3 — Report:
+8. Generate a summary report covering triage actions taken and implementation work completed`,
     lastRun: null,
     runCount: 0,
     createdAt: null,
@@ -259,45 +252,6 @@ Focus on moving tickets forward. Don't just report - take action by improving ti
     createdAt: null,
     updatedAt: null
   },
-  {
-    id: 'job-jira-ticket-implementation',
-    name: 'JIRA Ticket Implementation',
-    description: 'For JIRA-connected apps, pick up the next ready ticket from sprint, implement it in a git worktree, create a merge request, and move the ticket to In Review.',
-    category: 'jira-ticket-implementation',
-    interval: 'daily',
-    intervalMs: DAY,
-    scheduledTime: '09:00',
-    weekdaysOnly: true,
-    enabled: false,
-    priority: 'HIGH',
-    autonomyLevel: 'yolo',
-    promptTemplate: `[Autonomous Job] JIRA Ticket Implementation
-
-You are acting as my Chief of Staff, implementing JIRA tickets for apps with JIRA integration enabled.
-
-This job runs Monday-Friday and focuses on actually implementing tickets, not just reviewing them.
-
-Tasks to perform:
-1. Call GET /api/apps to find JIRA-enabled apps
-2. For each app with jira.enabled = true and jira.instanceId + jira.projectKey set:
-   - Call GET /api/jira/:instanceId/my-sprint-tickets/:projectKey
-   - Filter for tickets in "To Do" or "Ready" status that are well-defined
-   - Select the highest priority ticket that is ready to implement
-3. For the selected ticket:
-   - Create a git worktree using the worktree manager
-   - Implement the ticket requirements
-   - Commit changes and push the branch
-   - Create a merge request using gh CLI
-   - Transition the ticket to "In Review" status
-   - Add a comment to JIRA with the MR link
-4. Generate a summary report of work completed
-
-Focus on tickets that are ready to implement. Skip tickets that need clarification.`,
-    lastRun: null,
-    runCount: 0,
-    createdAt: null,
-    updatedAt: null
-  }
 ]
 
 /**

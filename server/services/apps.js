@@ -78,6 +78,11 @@ async function loadApps() {
 
   const data = await readJSONFile(APPS_FILE, { apps: {} });
 
+  // Normalize: ensure data.apps is always an object
+  if (!data.apps || typeof data.apps !== 'object') {
+    data.apps = {};
+  }
+
   // Ensure PortOS baseline app is always present
   if (!data.apps[PORTOS_APP_ID]) {
     data.apps[PORTOS_APP_ID] = buildPortosApp();

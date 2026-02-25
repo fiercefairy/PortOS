@@ -2,6 +2,9 @@ import toast from 'react-hot-toast';
 
 const API_BASE = '/api';
 
+// Stable ID for the PortOS baseline app (mirrors server PORTOS_APP_ID)
+export const PORTOS_APP_ID = 'portos-default';
+
 async function request(endpoint, options = {}) {
   const { silent, ...fetchOptions } = options;
   const url = `${API_BASE}${endpoint}`;

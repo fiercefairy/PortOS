@@ -400,7 +400,7 @@ export default function Apps() {
                     ) : (
                       <div className="flex items-center gap-2">
                         {/* Archive/Unarchive button (hidden for PortOS baseline) */}
-                        {app.id !== 'portos-default' && (
+                        {app.id !== api.PORTOS_APP_ID && (
                           <button
                             onClick={() => app.archived ? handleUnarchive(app) : handleArchive(app)}
                             disabled={archiving[app.id]}
@@ -423,7 +423,7 @@ export default function Apps() {
                           >
                             Edit
                           </button>
-                          {app.id !== 'portos-default' && (
+                          {app.id !== api.PORTOS_APP_ID && (
                             <button
                               onClick={() => setConfirmingDelete(app.id)}
                               className="px-3 py-1.5 bg-port-error/10 text-port-error hover:bg-port-error/20 transition-colors text-xs border-l border-port-border focus:outline-none focus:ring-2 focus:ring-port-error"

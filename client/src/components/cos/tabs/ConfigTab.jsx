@@ -394,7 +394,13 @@ export default function ConfigTab({ config, onUpdate, onEvaluate, avatarStyle, s
         <div className="bg-port-card border border-port-border rounded-lg p-4">
           <ProviderModelSelector
             providers={providers}
-            selectedProviderId={embeddingProviderId || hookProviderId}
+            selectedProviderId={
+              providers?.some((p) => p.id === embeddingProviderId)
+                ? embeddingProviderId
+                : providers?.some((p) => p.id === hookProviderId)
+                  ? hookProviderId
+                  : ''
+            }
             selectedModel={embeddingModel || hookModel}
             availableModels={availableModels}
             onProviderChange={async (id) => {

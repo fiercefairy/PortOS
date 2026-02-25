@@ -25,7 +25,7 @@ import { readJSONFile } from '../lib/fileUtils.js';
 import { getAdaptiveCooldownMultiplier } from './taskLearning.js';
 import { isTaskTypeEnabledForApp, getAppTaskTypeInterval, getActiveApps, getAppTaskTypeOverrides } from './apps.js';
 
-const PORTOS_UI_URL = `http://localhost:${process.env.PORT_UI || 5555}`;
+const PORTOS_UI_URL = process.env.PORTOS_UI_URL || `http://localhost:${process.env.PORT_UI || 5555}`;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

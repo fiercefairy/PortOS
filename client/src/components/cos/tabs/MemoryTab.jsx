@@ -283,7 +283,13 @@ export default function MemoryTab({ apps = [] }) {
                       <div className="mt-3">
                         <ProviderModelSelector
                           providers={providers}
-                          selectedProviderId={embeddingProviderId || hookProviderId}
+                          selectedProviderId={
+                            providers?.some((p) => p.id === embeddingProviderId)
+                              ? embeddingProviderId
+                              : providers?.some((p) => p.id === hookProviderId)
+                                ? hookProviderId
+                                : ''
+                          }
                           selectedModel={embeddingModel || hookModel}
                           availableModels={availableModels}
                           onProviderChange={(id) => { setEmbeddingProviderId(id); setProviderHook(id); setEmbeddingModel(''); }}

@@ -441,27 +441,25 @@ export async function onTaskCompleted(agent) {
   else data.dailyHistory[dateStr].failures++;
   data.dailyHistory[dateStr].successRate = Math.round((data.dailyHistory[dateStr].successes / data.dailyHistory[dateStr].tasks) * 100);
 
-  // Update streaks
-  const today = getDateString();
-  if (data.streaks.lastActiveDate !== today) {
-    if (isConsecutiveDay(data.streaks.lastActiveDate, today)) {
+  // Update streaks using agent's completion date (not "now")
+  if (data.streaks.lastActiveDate !== dateStr) {
+    if (isConsecutiveDay(data.streaks.lastActiveDate, dateStr)) {
       data.streaks.currentDaily++;
     } else {
       data.streaks.currentDaily = 1;
     }
     data.streaks.longestDaily = Math.max(data.streaks.longestDaily, data.streaks.currentDaily);
-    data.streaks.lastActiveDate = today;
+    data.streaks.lastActiveDate = dateStr;
   }
 
-  const thisWeek = getWeekId();
-  if (data.streaks.lastActiveWeek !== thisWeek) {
-    if (isConsecutiveWeek(data.streaks.lastActiveWeek, thisWeek)) {
+  if (data.streaks.lastActiveWeek !== weekId) {
+    if (isConsecutiveWeek(data.streaks.lastActiveWeek, weekId)) {
       data.streaks.currentWeekly++;
     } else {
       data.streaks.currentWeekly = 1;
     }
     data.streaks.longestWeekly = Math.max(data.streaks.longestWeekly, data.streaks.currentWeekly);
-    data.streaks.lastActiveWeek = thisWeek;
+    data.streaks.lastActiveWeek = weekId;
   }
 
   // Prune dailyHistory older than 90 days

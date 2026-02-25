@@ -431,10 +431,11 @@ export async function getStatus() {
   // Count active agents from state
   const activeAgents = Object.values(state.agents).filter(a => a.status === 'running').length;
 
-  // Derive tasksCompleted from index (all completed agents on disk) + state,
+  // Derive tasksCompleted from union of index (disk) + state completed agents,
   // since state.stats.tasksCompleted can drift after state resets
-  const stateCompleted = Object.values(state.agents).filter(a => a.status === 'completed').length;
-  const tasksCompleted = Math.max(state.stats.tasksCompleted, idx.size + stateCompleted);
+  const stateCompletedIds = Object.keys(state.agents).filter(id => state.agents[id].status === 'completed');
+  const stateOnlyCompleted = stateCompletedIds.filter(id => !idx.has(id)).length;
+  const tasksCompleted = Math.max(state.stats.tasksCompleted, idx.size + stateOnlyCompleted);
 
   return {
     running: daemonRunning,
@@ -2722,7 +2723,8 @@ export async function getAgent(agentId) {
 
   // For completed agents, read full output from file
   if (agent.status === 'completed') {
-    const agentDir = getAgentDir(agentId);
+    const dateStr = agent.completedAt?.slice(0, 10);
+    const agentDir = dateStr ? getAgentDir(agentId, dateStr) : getAgentDir(agentId);
     const outputFile = join(agentDir, 'output.txt');
     if (existsSync(outputFile)) {
       const fullOutput = await readFile(outputFile, 'utf-8');
@@ -3292,9 +3294,11 @@ function formatRelativeTime(timestamp) {
 
 /**
  * Archive stale completed agents from state.json.
- * Agents are already persisted to disk (metadata.json) and the in-memory cache
- * by completeAgent(), so removing them from state.json only reduces file bloat.
- * They remain accessible via getAgents()/getAgent() through the cache.
+ * Completed agents are already persisted to per-agent metadata files on disk
+ * (metadata.json) by completeAgent(), so removing them from state.json only
+ * reduces the size of the in-memory state and the state.json file.
+ * Archived agents remain accessible via the date index (getAgentsByDate()/getAgent()),
+ * which loads them from disk as needed; getAgents() returns only state.agents.
  */
 export async function archiveStaleAgents() {
   return withStateLock(async () => {
@@ -3327,9 +3331,18 @@ export async function archiveStaleAgents() {
         const targetDir = join(bucketDir, id);
 
         if (existsSync(flatDir) && !existsSync(targetDir)) {
-          // Write metadata then move
+          // Write metadata then move (with cross-filesystem fallback)
           await writeFile(join(flatDir, 'metadata.json'), JSON.stringify(agentWithoutOutput, null, 2)).catch(() => {});
-          await rename(flatDir, targetDir).catch(() => {});
+          await rename(flatDir, targetDir).catch(async () => {
+            await mkdir(targetDir, { recursive: true });
+            const files = await readdir(flatDir).catch(() => []);
+            for (const file of files) {
+              const content = await readFile(join(flatDir, file)).catch(() => null);
+              if (content !== null) await writeFile(join(targetDir, file), content);
+            }
+            await rm(flatDir, { recursive: true }).catch(() => {});
+          });
+          if (!existsSync(targetDir)) continue; // Skip index update if move failed
         } else if (!existsSync(targetDir)) {
           await mkdir(targetDir, { recursive: true });
           await writeFile(join(targetDir, 'metadata.json'), JSON.stringify(agentWithoutOutput, null, 2)).catch(() => {});

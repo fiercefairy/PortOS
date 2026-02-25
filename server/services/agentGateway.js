@@ -51,9 +51,6 @@ function cleanExpiredCache() {
   }
 }
 
-// Run cache cleanup every 5 minutes
-setInterval(cleanExpiredCache, 5 * 60 * 1000)
-
 /**
  * Route a request through the gateway
  * Handles deduplication and caching

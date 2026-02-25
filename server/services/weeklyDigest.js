@@ -105,10 +105,12 @@ export async function generateWeeklyDigest(weekId = null) {
   const weekDates = dates
     .map(d => d.date)
     .filter(d => getWeekId(new Date(d + 'T12:00:00')) === targetWeekId);
-  const dateAgents = await Promise.all(weekDates.map(d => getAgentsByDate(d)));
-  // Also include running agents from state that completed this week
+  const flatDateAgents = (await Promise.all(weekDates.map(d => getAgentsByDate(d)))).flat();
+  const dateAgentIds = new Set(flatDateAgents.map(a => a.id));
+  // Also include state agents not yet in the date index (avoid double-counting)
   const stateAgents = await getAgents();
-  const allAgents = [...dateAgents.flat(), ...stateAgents];
+  const dedupedStateAgents = stateAgents.filter(a => !dateAgentIds.has(a.id));
+  const allAgents = [...flatDateAgents, ...dedupedStateAgents];
 
   const weekAgents = allAgents.filter(a => {
     if (!a.completedAt) return false;

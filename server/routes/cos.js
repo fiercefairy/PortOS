@@ -208,7 +208,7 @@ router.post('/health/check', asyncHandler(async (req, res) => {
   res.json(result);
 }));
 
-// GET /api/cos/agents - Get running agents (auto-cleans zombies)
+// GET /api/cos/agents - Get state-resident agents (running + recently completed, auto-cleans zombies)
 router.get('/agents', asyncHandler(async (req, res) => {
   await cos.cleanupZombieAgents();
   const agents = await cos.getAgents();

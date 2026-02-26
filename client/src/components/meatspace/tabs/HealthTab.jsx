@@ -4,6 +4,8 @@ import StepsCard from '../StepsCard';
 import HeartRateCard from '../HeartRateCard';
 import SleepCard from '../SleepCard';
 import HrvCard from '../HrvCard';
+import AlcoholHrvCorrelation from '../AlcoholHrvCorrelation';
+import ActivityBloodCorrelation from '../ActivityBloodCorrelation';
 
 const RANGES = [
   { id: '7d', label: '7d', days: 7 },
@@ -80,8 +82,13 @@ export default function HealthTab() {
         <HrvCard data={hrvData} loading={loading} />
       </div>
 
-      {/* Correlation charts — wired in Task 2 */}
-      <div />
+      {/* Correlation charts */}
+      {correlationData && (
+        <>
+          <AlcoholHrvCorrelation data={correlationData} range={range} />
+          <ActivityBloodCorrelation data={correlationData} range={range} />
+        </>
+      )}
     </div>
   );
 }

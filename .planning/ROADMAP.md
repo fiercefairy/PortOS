@@ -89,10 +89,11 @@ Plans:
   2. Typing a query returns results from all data sources (Brain, Memory, Apps, History, Health, etc.) via server-side fan-out
   3. Results are categorized by source with icons and text snippets
   4. Clicking a result navigates to the deep-linked location (specific brain capture, agent run, health entry, etc.)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 05-01: TBD
+- [ ] 05-01-PLAN.md -- Server search engine: fan-out search service with 5 source adapters, GET /api/search route, Zod validation, client API function (SRC-02, SRC-03)
+- [ ] 05-02-PLAN.md -- Cmd+K overlay UI: useCmdKSearch hook, CmdKSearch portal component with keyboard nav, highlighted snippets, deep-link navigation, Layout.jsx mount (SRC-01, SRC-03, SRC-04)
 
 ## Progress
 
@@ -106,4 +107,4 @@ Note: Phases 1 and 2 have no dependency on each other and can execute in paralle
 | 2. Data Backup & Recovery | 2/2 | Complete    | 2026-02-26 |
 | 3. Apple Health Integration | 2/3 | Complete    | 2026-02-26 |
 | 4. Cross-Domain Insights Engine | 0/2 | Planned | - |
-| 5. Unified Search (Cmd+K) | 0/1 | Not started | - |
+| 5. Unified Search (Cmd+K) | 0/2 | Not started | - |

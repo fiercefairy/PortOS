@@ -6,13 +6,9 @@ import AlcoholChart from '../AlcoholChart';
 import StandardDrinkCalculator from '../StandardDrinkCalculator';
 
 const COMMON_DRINKS = [
-  { name: 'Beer (12oz)', oz: 12, abv: 5 },
-  { name: 'IPA (16oz)', oz: 16, abv: 6.5 },
-  { name: 'Wine (5oz)', oz: 5, abv: 12 },
-  { name: 'Spirit (1.5oz)', oz: 1.5, abv: 40 },
-  { name: 'Cocktail (6oz)', oz: 6, abv: 15 },
-  { name: 'Hard Seltzer (12oz)', oz: 12, abv: 5 },
-  { name: 'Guinness (14.9oz)', oz: 14.9, abv: 4.2 }
+  { name: 'Guinness (14.9oz)', oz: 14.9, abv: 4.2 },
+  { name: 'Old Fashioned (2oz)', oz: 2, abv: 40 },
+  { name: 'N/A Beer (12oz)', oz: 12, abv: 0.4 }
 ];
 
 const RISK_COLORS = {
@@ -53,7 +49,7 @@ export default function AlcoholTab() {
   const [oz, setOz] = useState('');
   const [abv, setAbv] = useState('');
   const [count, setCount] = useState(1);
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Inline edit state
   const [editingKey, setEditingKey] = useState(null); // "date:index"

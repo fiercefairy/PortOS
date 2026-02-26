@@ -110,7 +110,7 @@ function parseBeverages(row, beverageNames, beverageABVs, beverageSizes) {
     const pureAlcoholOz = oz * (abv / 100);
     const standardDrinks = pureAlcoholOz / 0.6;
 
-    drinks.push({ name, abv, oz, count });
+    drinks.push({ name, abv, oz, count: 1 });
     totalStandardDrinks += standardDrinks;
   }
 

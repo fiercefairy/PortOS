@@ -1272,10 +1272,51 @@ export const updateMeatspaceLifestyle = (data) => request('/meatspace/lifestyle'
 });
 export const getDeathClock = () => request('/meatspace/death-clock');
 export const getLEV = () => request('/meatspace/lev');
+export const getAlcoholSummary = () => request('/meatspace/alcohol');
+export const getDailyAlcohol = (from, to) => {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  return request(`/meatspace/alcohol/daily?${params}`);
+};
+export const logAlcoholDrink = (data) => request('/meatspace/alcohol/log', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const removeAlcoholDrink = (date, index) => request(`/meatspace/alcohol/log/${date}/${index}`, {
+  method: 'DELETE'
+});
 export const importMeatspaceTSV = (content) => request('/meatspace/import/tsv', {
   method: 'POST',
   body: JSON.stringify({ content })
 });
+export const getBloodTests = () => request('/meatspace/blood');
+export const addBloodTest = (data) => request('/meatspace/blood', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const getBodyHistory = () => request('/meatspace/body');
+export const addBodyEntry = (data) => request('/meatspace/body', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const getEpigeneticTests = () => request('/meatspace/epigenetic');
+export const addEpigeneticTest = (data) => request('/meatspace/epigenetic', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const getEyeExams = () => request('/meatspace/eyes');
+export const addEyeExam = (data) => request('/meatspace/eyes', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const getNutritionSummary = () => request('/meatspace/nutrition');
+export const getDailyNutrition = (from, to) => {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  return request(`/meatspace/nutrition/daily?${params}`);
+};
 
 // JIRA
 export const getJiraInstances = () => request('/jira/instances');

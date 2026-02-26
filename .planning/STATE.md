@@ -18,34 +18,34 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Ship five next actions that transform PortOS from siloed features into a connected, protected, and searchable system
-**Current focus:** Phase 2 - Data Backup & Recovery
+**Current focus:** Phase 3 - Health Auto Export (next)
 
 ## Current Position
 
 Phase: 2 of 5 (Data Backup & Recovery)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-02-26 -- Plan 02-01 complete
+Plan: 2 of 2 in current phase (complete)
+Status: Phase complete — ready for Phase 3
+Last activity: 2026-02-26 -- Plan 02-02 complete (BackupWidget verified)
 
-Progress: [██░░░░░░░░] 20%
+Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: ~2 min
-- Total execution time: 0.03 hours
+- Total plans completed: 3
+- Average duration: ~10 min
+- Total execution time: ~0.5 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-genome-migration-cleanup | 1 | 108s | 108s |
-| 02-data-backup-recovery | 1 | 135s | 135s |
+| 02-data-backup-recovery | 2 | 255s + ~10min | ~7min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (108s), 02-01 (135s)
-- Trend: stable (~2 min/plan)
+- Last 5 plans: 01-01 (108s), 02-01 (135s), 02-02 (~10min)
+- Trend: stable (~2-10 min/plan)
 
 *Updated after each plan completion*
 
@@ -67,6 +67,8 @@ Recent decisions affecting current work:
 - startBackupScheduler is async (reads settings) — called with .catch() in index.js like other async inits
 - [Phase 02-data-backup-recovery]: RestorePanel uses inline expandable within snapshot row — avoids URL-less modal per CLAUDE.md
 - [Phase 02-data-backup-recovery]: Restore requires dry-run preview before enabling Restore button — prevents accidental destructive restore
+- [Phase 02-data-backup-recovery plan 02]: BackupWidget placed in Dashboard Row 4 (system-status row) alongside SystemHealthWidget
+- [Phase 02-data-backup-recovery plan 02]: SnapshotList fetches lazily (only when expanded) to avoid unnecessary API calls
 
 ### Pending Todos
 
@@ -81,5 +83,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 02-01-PLAN.md (backup engine and API)
+Stopped at: Completed 02-02-PLAN.md (BackupWidget — human verification approved)
 Resume file: None

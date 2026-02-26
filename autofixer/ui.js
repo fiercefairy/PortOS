@@ -21,7 +21,7 @@ function execPm2(pm2Args) {
     child.stdout.on('data', (d) => { stdout += d.toString(); });
     child.stderr.on('data', (d) => { stderr += d.toString(); });
     child.on('close', (code) => {
-      if (code !== 0 && stderr) return reject(new Error(stderr));
+      if (code !== 0) return reject(new Error(stderr || `pm2 exited with code ${code}`));
       resolve({ stdout, stderr });
     });
     child.on('error', reject);

@@ -24,7 +24,7 @@ export default function FolderPicker({ value, onChange }) {
       setCurrentPath(result.currentPath);
       setParentPath(result.parentPath);
       setDirectories(result.directories || []);
-      if (result.drives) setDrives(result.drives);
+      setDrives(result.drives ?? null);
     }
     setLoading(false);
   };

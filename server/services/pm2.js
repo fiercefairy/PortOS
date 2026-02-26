@@ -1,7 +1,7 @@
 import pm2 from 'pm2';
 import { spawn } from 'child_process';
 import { existsSync } from 'fs';
-import { readFile, writeFile, unlink } from 'fs/promises';
+import { writeFile, unlink } from 'fs/promises';
 import { join, dirname } from 'path';
 import { createRequire } from 'module';
 import { extractJSONArray, safeJSONParse } from '../lib/fileUtils.js';
@@ -19,7 +19,7 @@ const PM2_BIN = join(dirname(require.resolve('pm2/package.json')), 'bin', 'pm2')
  * which PM2's fork mode tries to require() as JavaScript — causing SyntaxError.
  */
 function isJsScript(script) {
-  return /\.(?:js|mjs|cjs|ts)$/.test(script);
+  return /\.(?:js|mjs|cjs|ts)$/i.test(script);
 }
 
 /**

@@ -32,7 +32,8 @@ function spawnPm2Cli(action, name, pm2Home) {
   return new Promise((resolve, reject) => {
     const child = spawn('pm2', [action, name], {
       shell: IS_WIN,
-      env: buildEnv(pm2Home)
+      env: buildEnv(pm2Home),
+      windowsHide: true
     });
     let stderr = '';
     child.stderr.on('data', (data) => { stderr += data.toString(); });
@@ -165,7 +166,8 @@ export async function getAppStatus(name, pm2Home = null) {
   return new Promise((resolve) => {
     const child = spawn('pm2', ['jlist'], {
       shell: IS_WIN,
-      env: buildEnv(pm2Home)
+      env: buildEnv(pm2Home),
+      windowsHide: true
     });
     let stdout = '';
 
@@ -212,7 +214,8 @@ export async function listProcesses(pm2Home = null) {
   return new Promise((resolve) => {
     const child = spawn('pm2', ['jlist'], {
       shell: IS_WIN,
-      env: buildEnv(pm2Home)
+      env: buildEnv(pm2Home),
+      windowsHide: true
     });
     let stdout = '';
 
@@ -252,7 +255,8 @@ export async function getLogs(name, lines = 100, pm2Home = null) {
     const args = ['logs', name, '--lines', String(lines), '--nostream', '--raw'];
     const child = spawn('pm2', args, {
       shell: IS_WIN,
-      env: buildEnv(pm2Home)
+      env: buildEnv(pm2Home),
+      windowsHide: true
     });
 
     let stdout = '';
@@ -328,7 +332,8 @@ export async function startFromEcosystem(cwd, processNames = [], pm2Home = null)
     const child = spawn('pm2', args, {
       cwd,
       shell: IS_WIN,
-      env: buildEnv(pm2Home)
+      env: buildEnv(pm2Home),
+      windowsHide: true
     });
     let stdout = '';
     let stderr = '';

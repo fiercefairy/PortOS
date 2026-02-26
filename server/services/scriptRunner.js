@@ -339,7 +339,8 @@ export async function executeScript(scriptId) {
     const child = spawn(validation.baseCommand, validation.args || [], {
       cwd: join(__dirname, '../../'),
       timeout: 60000, // 1 minute timeout
-      shell: false
+      shell: false,
+      windowsHide: true
     });
 
     let output = '';

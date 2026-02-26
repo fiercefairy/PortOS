@@ -5,7 +5,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { promisify } from 'util';
 
-const exec = promisify(execCb);
+const exec = (cmd, opts) => promisify(execCb)(cmd, { windowsHide: true, ...opts });
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -868,7 +868,7 @@ app.get('/logs', async (req, res) => {
   // Get initial logs
   const initialLogsCmd = `pm2 logs ${processName} --lines 50 --nostream --raw`;
 
-  exec(initialLogsCmd, (error, stdout) => {
+  execCb(initialLogsCmd, { windowsHide: true }, (error, stdout) => {
     if (res.writableEnded) return;
 
     if (!error && stdout) {
@@ -885,7 +885,7 @@ app.get('/logs', async (req, res) => {
     }
 
     // Stream new logs
-    pm2Process = spawn('pm2', ['logs', processName, '--lines', '0', '--raw'], { shell: process.platform === 'win32' });
+    pm2Process = spawn('pm2', ['logs', processName, '--lines', '0', '--raw'], { shell: process.platform === 'win32', windowsHide: true });
 
     pm2Process.stdout.on('data', (data) => {
       if (res.writableEnded) {

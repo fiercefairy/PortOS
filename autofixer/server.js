@@ -6,7 +6,7 @@ import { promisify } from 'util';
 import { execFile as execFileCb } from 'child_process';
 
 const IS_WIN = process.platform === 'win32';
-const execFileAsync = (cmd, args, opts = {}) => promisify(execFileCb)(cmd, args, { shell: IS_WIN, ...opts });
+const execFileAsync = (cmd, args, opts = {}) => promisify(execFileCb)(cmd, args, { shell: IS_WIN, windowsHide: true, ...opts });
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -174,7 +174,8 @@ Fix the issue and restart the process. Be systematic and thorough. Use the Bash 
     const child = spawn('claude', ['-p', prompt], {
       cwd: app.repoPath,
       stdio: ['ignore', 'pipe', 'pipe'],
-      shell: false
+      shell: false,
+      windowsHide: true
     });
 
     child.stdout.on('data', (data) => {

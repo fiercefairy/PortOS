@@ -30,8 +30,10 @@ export const cosEvents = _cosEvents;
 
 const PORTOS_UI_URL = process.env.PORTOS_UI_URL || `http://localhost:${process.env.PORT_UI || 5555}`;
 
-const execAsync = promisify(exec);
-const execFileAsync = promisify(execFile);
+const _execAsync = promisify(exec);
+const _execFileAsync = promisify(execFile);
+const execAsync = (cmd, opts) => _execAsync(cmd, { windowsHide: true, ...opts });
+const execFileAsync = (cmd, args, opts) => _execFileAsync(cmd, args, { windowsHide: true, ...opts });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

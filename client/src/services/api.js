@@ -1085,15 +1085,20 @@ export const saveDigitalTwinImport = (source, suggestedDoc) => request('/digital
 export const getTasteProfile = () => request('/digital-twin/taste');
 export const getTasteSections = () => request('/digital-twin/taste/sections');
 export const getTasteNextQuestion = (section) => request(`/digital-twin/taste/${section}/next`);
-export const submitTasteAnswer = (section, questionId, answer) => request('/digital-twin/taste/answer', {
+export const submitTasteAnswer = (section, questionId, answer, meta = {}) => request('/digital-twin/taste/answer', {
   method: 'POST',
-  body: JSON.stringify({ section, questionId, answer })
+  body: JSON.stringify({ section, questionId, answer, ...meta })
 });
 export const getTasteSectionResponses = (section) => request(`/digital-twin/taste/${section}/responses`);
 export const generateTasteSummary = (providerId, model, section) => request('/digital-twin/taste/summary', {
   method: 'POST',
   body: JSON.stringify({ providerId, model, ...(section ? { section } : {}) })
 });
+export const getPersonalizedTasteQuestion = (section, providerId, model) =>
+  request(`/digital-twin/taste/${section}/personalized-question`, {
+    method: 'POST',
+    body: JSON.stringify({ providerId, model })
+  });
 export const resetTasteSection = (section) => request(`/digital-twin/taste/${section}`, {
   method: 'DELETE'
 });

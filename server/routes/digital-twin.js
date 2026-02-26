@@ -37,7 +37,8 @@ import {
   analyzeAssessmentInputSchema,
   tasteAnswerInputSchema,
   tasteSummaryInputSchema,
-  tasteSectionEnum
+  tasteSectionEnum,
+  tastePersonalizedQuestionInputSchema
 } from '../lib/digitalTwinValidation.js';
 
 const router = Router();
@@ -520,8 +521,8 @@ router.get('/taste/:section/next', asyncHandler(async (req, res) => {
  * Submit an answer for a taste question
  */
 router.post('/taste/answer', asyncHandler(async (req, res) => {
-  const { section, questionId, answer } = validateRequest(tasteAnswerInputSchema, req.body);
-  const result = await tasteService.submitAnswer(section, questionId, answer);
+  const { section, questionId, answer, source, generatedQuestion, identityContextUsed } = validateRequest(tasteAnswerInputSchema, req.body);
+  const result = await tasteService.submitAnswer(section, questionId, answer, { source, generatedQuestion, identityContextUsed });
   res.json(result);
 }));
 
@@ -553,6 +554,23 @@ router.post('/taste/summary', asyncHandler(async (req, res) => {
     : await tasteService.generateOverallSummary(providerId, model);
 
   res.json(result);
+}));
+
+/**
+ * POST /api/digital-twin/taste/:section/personalized-question
+ * Generate a personalized follow-up question using identity context
+ */
+router.post('/taste/:section/personalized-question', asyncHandler(async (req, res) => {
+  const parsed = tasteSectionEnum.safeParse(req.params.section);
+  if (!parsed.success) {
+    throw new ServerError(`Invalid taste section: ${req.params.section}`, {
+      status: 400,
+      code: 'VALIDATION_ERROR'
+    });
+  }
+  const { providerId, model } = validateRequest(tastePersonalizedQuestionInputSchema, req.body);
+  const question = await tasteService.generatePersonalizedTasteQuestion(parsed.data, providerId, model);
+  res.json(question);
 }));
 
 /**

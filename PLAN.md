@@ -159,7 +159,7 @@ All 10 audit items (S1–S10) from the 2025-02-19 security audit have been resol
 ## Next Actions
 
 1. ~~**M42 P1: Identity Orchestrator & Chronotype**~~ ✅ - Identity service, chronotype derivation from genome sleep/caffeine markers, 4 API endpoints, 36 tests
-2. **M42 P2.5: Personalized Taste Prompting** - Enhance TasteTab with twin-aware follow-up questions using identity context from existing documents
+2. ~~**M42 P2.5: Personalized Taste Prompting**~~ ✅ - LLM-personalized follow-ups using identity context, 2 new taste sections (Fashion & Digital), "Go Deeper" flow
 3. **M7: App Templates** - Implement template management UI and app scaffolding from templates
 4. **M34 P3: Behavioral Feedback Loop** - Add "sounds like me" response validation and adaptive weighting
 5. **M42 P3: Mortality-Aware Goal Tracking** - Birth date + genome longevity markers for urgency-scored goals

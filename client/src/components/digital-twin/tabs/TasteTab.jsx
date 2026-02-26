@@ -5,6 +5,8 @@ import {
   Music,
   Building,
   UtensilsCrossed,
+  Shirt,
+  Monitor,
   ChevronRight,
   ArrowLeft,
   Send,
@@ -15,7 +17,8 @@ import {
   RotateCcw,
   Eye,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Telescope
 } from 'lucide-react';
 import * as api from '../../../services/api';
 import toast from 'react-hot-toast';
@@ -25,7 +28,9 @@ const SECTION_ICONS = {
   music: Music,
   visual_art: Palette,
   architecture: Building,
-  food: UtensilsCrossed
+  food: UtensilsCrossed,
+  fashion: Shirt,
+  digital: Monitor
 };
 
 const SECTION_COLORS = {
@@ -33,7 +38,9 @@ const SECTION_COLORS = {
   music: 'green',
   visual_art: 'violet',
   architecture: 'amber',
-  food: 'orange'
+  food: 'orange',
+  fashion: 'pink',
+  digital: 'cyan'
 };
 
 export default function TasteTab({ onRefresh }) {
@@ -56,6 +63,10 @@ export default function TasteTab({ onRefresh }) {
   const [reviewSection, setReviewSection] = useState(null);
   const [reviewResponses, setReviewResponses] = useState([]);
   const [loadingReview, setLoadingReview] = useState(false);
+
+  // Personalized question state
+  const [personalizedQuestion, setPersonalizedQuestion] = useState(null);
+  const [loadingPersonalized, setLoadingPersonalized] = useState(false);
 
   // Expanded summaries
   const [expandedSummary, setExpandedSummary] = useState(null);
@@ -93,10 +104,16 @@ export default function TasteTab({ onRefresh }) {
     if (!answer.trim() || !currentQuestion) return;
 
     setSubmitting(true);
+    const meta = currentQuestion.isPersonalized ? {
+      source: 'personalized',
+      generatedQuestion: currentQuestion.text,
+      identityContextUsed: currentQuestion.identityContextUsed
+    } : {};
     const result = await api.submitTasteAnswer(
       activeSection,
       currentQuestion.questionId,
-      answer.trim()
+      answer.trim(),
+      meta
     ).catch(() => null);
 
     if (!result) {
@@ -108,8 +125,11 @@ export default function TasteTab({ onRefresh }) {
     toast.success('Response saved');
     setAnswer('');
 
-    // Use the next question returned inline from the submit response
-    if (result.nextQuestion) {
+    // If we just answered a personalized question, clear it and show section complete
+    if (currentQuestion.isPersonalized) {
+      setPersonalizedQuestion(null);
+      setCurrentQuestion(null);
+    } else if (result.nextQuestion) {
       setCurrentQuestion(result.nextQuestion);
     } else {
       setCurrentQuestion(null);
@@ -120,12 +140,37 @@ export default function TasteTab({ onRefresh }) {
     onRefresh?.();
   };
 
+  const handleGoDeeper = async () => {
+    if (!selectedProvider) {
+      toast.error('Select a provider first');
+      return;
+    }
+    setLoadingPersonalized(true);
+    const question = await api.getPersonalizedTasteQuestion(
+      activeSection,
+      selectedProvider.providerId,
+      selectedProvider.model
+    ).catch(() => null);
+
+    if (!question) {
+      toast('No personalized question available — try completing more identity documents', { icon: '⚠️' });
+      setLoadingPersonalized(false);
+      return;
+    }
+
+    setPersonalizedQuestion(question);
+    setCurrentQuestion(question);
+    setAnswer('');
+    setLoadingPersonalized(false);
+  };
+
   const exitSection = () => {
     setActiveSection(null);
     setCurrentQuestion(null);
     setAnswer('');
     setReviewSection(null);
     setReviewResponses([]);
+    setPersonalizedQuestion(null);
   };
 
   const handleReviewSection = async (sectionId) => {
@@ -229,11 +274,13 @@ export default function TasteTab({ onRefresh }) {
         ) : (
           <div className="space-y-4">
             {reviewResponses.map((r, i) => (
-              <div key={i} className="bg-port-card rounded-lg border border-port-border p-4">
+              <div key={i} className={`bg-port-card rounded-lg border ${r.isPersonalized ? 'border-purple-500/30' : 'border-port-border'} p-4`}>
                 <div className="flex items-start gap-2 mb-2">
-                  {r.isFollowUp && (
+                  {r.isPersonalized ? (
+                    <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">personalized</span>
+                  ) : r.isFollowUp ? (
                     <span className="text-xs px-2 py-0.5 bg-port-accent/20 text-port-accent rounded">follow-up</span>
-                  )}
+                  ) : null}
                   <p className="text-sm text-gray-400">{r.questionText}</p>
                 </div>
                 <p className="text-white whitespace-pre-wrap">{r.answer}</p>
@@ -280,7 +327,7 @@ export default function TasteTab({ onRefresh }) {
     const color = SECTION_COLORS[activeSection] || 'blue';
 
     // Section complete
-    if (!currentQuestion && !loadingQuestion) {
+    if (!currentQuestion && !loadingQuestion && !loadingPersonalized) {
       return (
         <div className="max-w-2xl mx-auto px-1">
           <div className="mb-6">
@@ -305,6 +352,14 @@ export default function TasteTab({ onRefresh }) {
             </div>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={handleGoDeeper}
+              disabled={loadingPersonalized || !selectedProvider}
+              className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-500 disabled:opacity-50"
+            >
+              {loadingPersonalized ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Telescope size={16} />}
+              Go Deeper
+            </button>
             <button
               onClick={() => handleReviewSection(activeSection)}
               className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-port-card border border-port-border text-white rounded-lg text-sm hover:border-port-accent"
@@ -351,7 +406,7 @@ export default function TasteTab({ onRefresh }) {
           <div className="mt-4">
             <div className="flex items-center justify-between text-sm mb-1">
               <span className="text-gray-400">
-                {currentQuestion?.isFollowUp ? 'Follow-up question' : `Question ${currentQuestion?.progress?.current || 1} of ${currentQuestion?.progress?.coreTotal || '?'}`}
+                {currentQuestion?.isPersonalized ? 'Personalized deep-dive' : currentQuestion?.isFollowUp ? 'Follow-up question' : `Question ${currentQuestion?.progress?.current || 1} of ${currentQuestion?.progress?.coreTotal || '?'}`}
               </span>
               <span className="text-gray-400">{section?.progress?.percentage || 0}% core complete</span>
             </div>
@@ -364,16 +419,25 @@ export default function TasteTab({ onRefresh }) {
           </div>
         </div>
 
-        {loadingQuestion ? (
-          <div className="flex items-center justify-center h-48">
+        {loadingQuestion || loadingPersonalized ? (
+          <div className="flex flex-col items-center justify-center h-48 gap-3">
             <RefreshCw className="w-6 h-6 text-port-accent animate-spin" />
+            {loadingPersonalized && (
+              <span className="text-sm text-gray-400">Generating personalized question...</span>
+            )}
           </div>
         ) : (
-          <div className="bg-port-card rounded-lg border border-port-border p-6">
+          <div className={`bg-port-card rounded-lg border ${currentQuestion?.isPersonalized ? 'border-purple-500/30' : 'border-port-border'} p-6`}>
             <div className="mb-6">
-              <span className="text-xs text-gray-500 uppercase tracking-wider">
-                {currentQuestion?.isFollowUp ? 'Follow-up — based on your previous answer' : 'Core Question'}
-              </span>
+              {currentQuestion?.isPersonalized ? (
+                <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded uppercase tracking-wider">
+                  Personalized — referencing your identity
+                </span>
+              ) : (
+                <span className="text-xs text-gray-500 uppercase tracking-wider">
+                  {currentQuestion?.isFollowUp ? 'Follow-up — based on your previous answer' : 'Core Question'}
+                </span>
+              )}
               <h3 className="text-xl text-white mt-2">{currentQuestion?.text}</h3>
             </div>
 
@@ -392,27 +456,41 @@ export default function TasteTab({ onRefresh }) {
             </div>
 
             <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              <button
-                onClick={() => {
-                  // Skip current question by submitting empty — move to next
-                  setAnswer('');
-                  setLoadingQuestion(true);
-                  api.getTasteNextQuestion(activeSection).then(q => {
-                    // If same question returned (can't skip core), just clear loading
-                    if (q?.questionId === currentQuestion?.questionId) {
-                      toast('Core questions cannot be skipped', { icon: '⚠️' });
-                    } else {
-                      setCurrentQuestion(q);
-                    }
-                    setLoadingQuestion(false);
-                  }).catch(() => setLoadingQuestion(false));
-                }}
-                disabled={!currentQuestion?.isFollowUp}
-                className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] text-gray-400 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <SkipForward size={18} />
-                Skip
-              </button>
+              {currentQuestion?.isPersonalized ? (
+                <button
+                  onClick={() => {
+                    setCurrentQuestion(null);
+                    setPersonalizedQuestion(null);
+                    setAnswer('');
+                  }}
+                  className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] text-gray-400 hover:text-white transition-colors"
+                >
+                  <ArrowLeft size={18} />
+                  Done exploring
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    // Skip current question by submitting empty — move to next
+                    setAnswer('');
+                    setLoadingQuestion(true);
+                    api.getTasteNextQuestion(activeSection).then(q => {
+                      // If same question returned (can't skip core), just clear loading
+                      if (q?.questionId === currentQuestion?.questionId) {
+                        toast('Core questions cannot be skipped', { icon: '⚠️' });
+                      } else {
+                        setCurrentQuestion(q);
+                      }
+                      setLoadingQuestion(false);
+                    }).catch(() => setLoadingQuestion(false));
+                  }}
+                  disabled={!currentQuestion?.isFollowUp}
+                  className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] text-gray-400 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <SkipForward size={18} />
+                  Skip
+                </button>
+              )}
 
               <button
                 onClick={submitAnswer}
@@ -449,7 +527,7 @@ export default function TasteTab({ onRefresh }) {
             <h2 className="text-lg font-semibold text-white">Aesthetic Taste Profile</h2>
           </div>
           <span className="text-gray-400">
-            {profile?.completedCount || 0}/{profile?.totalSections || 5} sections complete
+            {profile?.completedCount || 0}/{profile?.totalSections || 7} sections complete
           </span>
         </div>
 

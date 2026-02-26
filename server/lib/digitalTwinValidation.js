@@ -403,13 +403,21 @@ export const importAnalysisResultSchema = z.object({
 // --- Taste Questionnaire Schemas ---
 
 export const tasteSectionEnum = z.enum([
-  'movies', 'music', 'visual_art', 'architecture', 'food'
+  'movies', 'music', 'visual_art', 'architecture', 'food', 'fashion', 'digital'
 ]);
 
 export const tasteAnswerInputSchema = z.object({
   section: tasteSectionEnum,
   questionId: z.string().min(1),
-  answer: z.string().min(1).max(10000)
+  answer: z.string().min(1).max(10000),
+  source: z.enum(['core', 'follow_up', 'personalized']).optional(),
+  generatedQuestion: z.string().optional(),
+  identityContextUsed: z.array(z.string()).optional()
+});
+
+export const tastePersonalizedQuestionInputSchema = z.object({
+  providerId: z.string().min(1).optional(),
+  model: z.string().min(1).optional()
 });
 
 export const tasteSummaryInputSchema = z.object({

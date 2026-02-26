@@ -66,6 +66,7 @@ export const unarchiveApp = (id) => request(`/apps/${id}/unarchive`, { method: '
 export const openAppInEditor = (id) => request(`/apps/${id}/open-editor`, { method: 'POST' });
 export const openAppFolder = (id) => request(`/apps/${id}/open-folder`, { method: 'POST' });
 export const refreshAppConfig = (id) => request(`/apps/${id}/refresh-config`, { method: 'POST' });
+export const pullAndUpdateApp = (id) => request(`/apps/${id}/update`, { method: 'POST' });
 export const getAppStatus = (id) => request(`/apps/${id}/status`);
 export const getAppTaskTypes = (id) => request(`/apps/${id}/task-types`);
 export const updateAppTaskTypeOverride = (id, taskType, { enabled, interval } = {}) => request(`/apps/${id}/task-types/${taskType}`, {

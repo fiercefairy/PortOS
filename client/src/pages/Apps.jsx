@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ExternalLink, Play, Square, RotateCcw, FolderOpen, Terminal, Code, RefreshCw, Wrench, Archive, ArchiveRestore, ChevronDown, ChevronUp, Ticket, GitBranch } from 'lucide-react';
+import { ExternalLink, Play, Square, RotateCcw, FolderOpen, Terminal, Code, RefreshCw, Wrench, Archive, ArchiveRestore, ChevronDown, ChevronUp, Ticket, GitBranch, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import BrailleSpinner from '../components/BrailleSpinner';
 import StatusBadge from '../components/StatusBadge';
@@ -89,6 +89,7 @@ export default function Apps() {
   const [actionLoading, setActionLoading] = useState({});
   const [refreshingConfig, setRefreshingConfig] = useState({});
   const [standardizing, setStandardizing] = useState({});
+  const [updating, setUpdating] = useState({});
   const [archiving, setArchiving] = useState({});
   const [showArchived, setShowArchived] = useState(false);
   const [jiraTickets, setJiraTickets] = useState({});
@@ -136,6 +137,16 @@ export default function Apps() {
     setActionLoading(prev => ({ ...prev, [app.id]: 'restart' }));
     await api.restartApp(app.id).catch(() => null);
     setActionLoading(prev => ({ ...prev, [app.id]: null }));
+  };
+
+  const handleUpdate = async (app) => {
+    setUpdating(prev => ({ ...prev, [app.id]: true }));
+    const result = await api.pullAndUpdateApp(app.id).catch(() => null);
+    setUpdating(prev => ({ ...prev, [app.id]: false }));
+    if (result?.success) {
+      const stepCount = result.steps?.length || 0;
+      toast.success(`Updated ${app.name} (${stepCount} steps)`);
+    }
   };
 
   const handleRefreshConfig = async (app) => {
@@ -566,6 +577,15 @@ export default function Apps() {
                         className="px-3 py-1.5 bg-port-border hover:bg-port-border/80 text-white rounded-lg text-xs flex items-center gap-1"
                       >
                         <FolderOpen size={14} aria-hidden="true" /> Open Folder
+                      </button>
+                      <button
+                        onClick={() => handleUpdate(app)}
+                        disabled={updating[app.id]}
+                        className="px-3 py-1.5 bg-port-success/20 text-port-success hover:bg-port-success/30 rounded-lg text-xs flex items-center gap-1 disabled:opacity-50"
+                        aria-label="Pull latest code, install dependencies, run setup, and restart"
+                      >
+                        <Download size={14} aria-hidden="true" className={updating[app.id] ? 'animate-bounce' : ''} />
+                        {updating[app.id] ? 'Updating...' : 'Update'}
                       </button>
                       <button
                         onClick={() => handleRefreshConfig(app)}

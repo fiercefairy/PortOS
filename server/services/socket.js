@@ -24,8 +24,11 @@ import {
   errorRecoverSchema,
   shellInputSchema,
   shellResizeSchema,
-  shellStopSchema
+  shellStopSchema,
+  appUpdateSchema
 } from '../lib/socketValidation.js';
+import * as appsService from './apps.js';
+import * as appUpdater from './appUpdater.js';
 
 // Store active log streams per socket
 const activeStreams = new Map();
@@ -267,6 +270,33 @@ export function initSocket(io) {
         taskId: task.id,
         timestamp: Date.now()
       });
+    });
+
+    // App update handler — streams progress via socket
+    socket.on('app:update', async (rawData) => {
+      const data = validateSocketData(appUpdateSchema, rawData, socket, 'app:update');
+      if (!data) return;
+
+      const app = await appsService.getAppById(data.appId);
+      if (!app) {
+        socket.emit('app:update:error', { message: 'App not found' });
+        return;
+      }
+
+      console.log(`⬇️ Socket update started for ${app.name}`);
+      const emit = (step, status, message) => {
+        socket.emit('app:update:step', { step, status, message, timestamp: Date.now() });
+      };
+
+      const result = await appUpdater.updateApp(app, emit).catch(err => {
+        socket.emit('app:update:error', { message: err.message });
+        return null;
+      });
+
+      if (result) {
+        socket.emit('app:update:complete', { success: result.success, steps: result.steps });
+        console.log(`✅ Socket update complete for ${app.name}`);
+      }
     });
 
     // Shell session handlers

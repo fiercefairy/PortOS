@@ -77,7 +77,7 @@ export default function TestTab({ onRefresh }) {
     await api.submitBehavioralFeedback({
       contentType: 'test_response',
       validation,
-      contentSnippet: response,
+      contentSnippet: response?.slice(0, 2000),
       context: `Test: ${testName} | Model: ${model}`,
       providerId,
       model

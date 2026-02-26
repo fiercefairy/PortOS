@@ -411,8 +411,8 @@ export const tasteAnswerInputSchema = z.object({
   questionId: z.string().min(1),
   answer: z.string().min(1).max(10000),
   source: z.enum(['core', 'follow_up', 'personalized']).optional(),
-  generatedQuestion: z.string().optional(),
-  identityContextUsed: z.array(z.string()).optional()
+  generatedQuestion: z.string().max(2000).optional(),
+  identityContextUsed: z.array(z.string().max(1000)).max(50).optional()
 });
 
 export const tastePersonalizedQuestionInputSchema = z.object({

@@ -222,7 +222,7 @@ export default function TasteTab({ onRefresh }) {
     await api.submitBehavioralFeedback({
       contentType: 'taste_summary',
       validation,
-      contentSnippet: summary,
+      contentSnippet: summary?.slice(0, 2000),
       context: `Taste section: ${sectionId}`,
       providerId: selectedProvider?.providerId,
       model: selectedProvider?.model

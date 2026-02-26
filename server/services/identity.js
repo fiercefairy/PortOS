@@ -556,7 +556,6 @@ export async function getIdentityStatus() {
   }
 
   identity.updatedAt = new Date().toISOString();
-  await saveJSON(IDENTITY_FILE, identity);
 
   return identity;
 }

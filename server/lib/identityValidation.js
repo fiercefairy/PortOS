@@ -17,7 +17,14 @@ export const chronotypeBehavioralInputSchema = z.object({
 // --- Longevity Schemas ---
 
 export const birthDateInputSchema = z.object({
-  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD format')
+  birthDate: z.string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD format')
+    .refine((value) => {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return false;
+      const [y, m, d] = value.split('-').map(Number);
+      return date.getUTCFullYear() === y && date.getUTCMonth() + 1 === m && date.getUTCDate() === d;
+    }, 'Must be a valid calendar date')
 });
 
 // --- Goal Schemas ---

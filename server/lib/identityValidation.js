@@ -27,7 +27,11 @@ const validCalendarDate = z.string()
 
 export const birthDateInputSchema = z.object({
   birthDate: validCalendarDate.refine(
-    (value) => new Date(value) <= new Date(),
+    (value) => {
+      const today = new Date();
+      today.setUTCHours(23, 59, 59, 999);
+      return new Date(value) <= today;
+    },
     'Birth date cannot be in the future'
   )
 });

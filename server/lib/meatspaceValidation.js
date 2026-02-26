@@ -101,6 +101,16 @@ export const eyeExamSchema = z.object({
   leftAxis: z.number().nullable().optional()
 });
 
+export const eyeExamUpdateSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  rightSphere: z.number().nullable().optional(),
+  rightCylinder: z.number().nullable().optional(),
+  rightAxis: z.number().nullable().optional(),
+  leftSphere: z.number().nullable().optional(),
+  leftCylinder: z.number().nullable().optional(),
+  leftAxis: z.number().nullable().optional()
+});
+
 // =============================================================================
 // TSV IMPORT
 // =============================================================================

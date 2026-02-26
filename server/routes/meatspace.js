@@ -10,6 +10,7 @@ import {
   bodyEntrySchema,
   epigeneticTestSchema,
   eyeExamSchema,
+  eyeExamUpdateSchema,
   tsvImportSchema
 } from '../lib/meatspaceValidation.js';
 import * as meatspaceService from '../services/meatspace.js';
@@ -224,6 +225,33 @@ router.post('/eyes', asyncHandler(async (req, res) => {
   const data = validateRequest(eyeExamSchema, req.body);
   const exam = await healthService.addEyeExam(data);
   res.status(201).json(exam);
+}));
+
+/**
+ * PUT /api/meatspace/eyes/:index
+ * Update an eye exam
+ */
+router.put('/eyes/:index', asyncHandler(async (req, res) => {
+  const index = parseInt(req.params.index, 10);
+  const data = validateRequest(eyeExamUpdateSchema, req.body);
+  const exam = await healthService.updateEyeExam(index, data);
+  if (!exam) {
+    throw new ServerError('Eye exam not found', { status: 404, code: 'NOT_FOUND' });
+  }
+  res.json(exam);
+}));
+
+/**
+ * DELETE /api/meatspace/eyes/:index
+ * Remove an eye exam
+ */
+router.delete('/eyes/:index', asyncHandler(async (req, res) => {
+  const index = parseInt(req.params.index, 10);
+  const removed = await healthService.removeEyeExam(index);
+  if (!removed) {
+    throw new ServerError('Eye exam not found', { status: 404, code: 'NOT_FOUND' });
+  }
+  res.json(removed);
 }));
 
 // =============================================================================

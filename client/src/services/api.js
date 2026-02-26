@@ -1314,6 +1314,13 @@ export const addEyeExam = (data) => request('/meatspace/eyes', {
   method: 'POST',
   body: JSON.stringify(data)
 });
+export const updateEyeExam = (index, data) => request(`/meatspace/eyes/${index}`, {
+  method: 'PUT',
+  body: JSON.stringify(data)
+});
+export const removeEyeExam = (index) => request(`/meatspace/eyes/${index}`, {
+  method: 'DELETE'
+});
 export const getNutritionSummary = () => request('/meatspace/nutrition');
 export const getDailyNutrition = (from, to) => {
   const params = new URLSearchParams();

@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { mkdir, writeFile, readdir, copyFile, readFile, stat } from 'fs/promises';
 import { existsSync } from 'fs';
-import { join, dirname, resolve } from 'path';
+import { join, dirname, resolve, sep } from 'path';
 import { fileURLToPath } from 'url';
 import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
-import { homedir } from 'os';
+import { homedir, platform } from 'os';
 import { createApp, getReservedPorts } from '../services/apps.js';
 import { asyncHandler, ServerError } from '../lib/errorHandler.js';
 import { safeJSONParse } from '../lib/fileUtils.js';
@@ -23,7 +23,7 @@ router.get('/directories', asyncHandler(async (req, res) => {
 
   // Default to parent of PortOS project if no path provided
   const defaultPath = resolve(join(__dirname, '../../..'));
-  const targetPath = dirPath ? resolve(dirPath) : defaultPath;
+  const targetPath = dirPath === '~' ? homedir() : dirPath ? resolve(dirPath) : defaultPath;
 
   // Validate path exists and is a directory
   if (!existsSync(targetPath)) {
@@ -55,10 +55,22 @@ router.get('/directories', asyncHandler(async (req, res) => {
   const parentPath = dirname(targetPath);
   const canGoUp = parentPath !== targetPath; // Can't go above root
 
+  // On Windows, include available drive letters so users can navigate between drives
+  let drives = null;
+  if (platform() === 'win32') {
+    drives = [];
+    for (let i = 65; i <= 90; i++) {
+      const letter = String.fromCharCode(i);
+      const drivePath = `${letter}:${sep}`;
+      try { if (existsSync(drivePath)) drives.push(drivePath); } catch { /* skip inaccessible drives */ }
+    }
+  }
+
   res.json({
     currentPath: targetPath,
     parentPath: canGoUp ? parentPath : null,
-    directories
+    directories,
+    ...(drives && { drives })
   });
 }));
 

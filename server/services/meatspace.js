@@ -36,7 +36,6 @@ const DEFAULT_CONFIG = {
 };
 
 const LEV_TARGET_YEAR = 2045;
-const LEV_BIRTH_YEAR = 1979;
 const LEV_START_YEAR = 2000;
 
 // === File I/O ===
@@ -161,9 +160,10 @@ export function computeDeathClock(birthDate, genomeAdjustedLE, lifestyleAdj) {
 // === LEV Tracker ===
 
 export function computeLEV(birthDate, adjustedLE) {
+  const birthYear = new Date(birthDate).getFullYear();
   const now = new Date();
   const currentYear = now.getFullYear() + now.getMonth() / 12;
-  const ageAtLEV = LEV_TARGET_YEAR - LEV_BIRTH_YEAR;
+  const ageAtLEV = LEV_TARGET_YEAR - birthYear;
   const yearsToLEV = LEV_TARGET_YEAR - currentYear;
   const researchProgress = Math.round(((currentYear - LEV_START_YEAR) / (LEV_TARGET_YEAR - LEV_START_YEAR)) * 1000) / 10;
   const onTrack = adjustedLE > ageAtLEV;

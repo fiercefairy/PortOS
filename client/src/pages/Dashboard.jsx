@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import AppTile from '../components/AppTile';
+import BackupWidget from '../components/BackupWidget';
 import BrailleSpinner from '../components/BrailleSpinner';
 import SystemHealthWidget from '../components/SystemHealthWidget';
 import CosDashboardWidget from '../components/CosDashboardWidget';
@@ -132,6 +133,7 @@ export default function Dashboard() {
       {/* Row 4 — Status, stats, decisions */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         <SystemHealthWidget />
+        <BackupWidget />
         <DeathClockWidget />
         {apps.length > 0 && (
           <div className="bg-port-card border border-port-border rounded-xl p-4 h-full">

@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Ship five next actions that transform PortOS from siloed features into a connected, protected, and searchable system
-**Current focus:** Phase 4 (cross-domain insights engine) — Plan 01 complete, dashboard frontend next
+**Current focus:** Phase 4 (cross-domain insights engine) — Plans 01-02 complete, awaiting UI verification checkpoint
 
 ## Current Position
 
 Phase: 4 of 5 (Cross-Domain Insights Engine) — IN PROGRESS
-Plan: 1 of 2 in current phase (04-01 complete)
-Status: Plan 04-01 complete — insights engine backend with 5 endpoints and client API functions
-Last activity: 2026-02-26 -- Plan 04-01 complete (insights service, routes, validation, client API)
+Plan: 2 of 2 in current phase (04-02 at human-verify checkpoint)
+Status: Plan 04-02 tasks 1-2 complete — Insights dashboard UI built, awaiting human verification (Task 3 checkpoint)
+Last activity: 2026-02-26 -- Plan 04-02 Tasks 1-2 complete (insights components, page, routes, nav)
 
-Progress: [███████░░░] 70%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -46,9 +46,10 @@ Progress: [███████░░░] 70%
 | 03-apple-health-integration | 2 | 180s | 180s |
 | 03-apple-health-integration | 3 | ~15min | ~15min |
 | 04-cross-domain-insights-engine | 1 | 174s | 174s |
+| 04-cross-domain-insights-engine | 2 | 238s | 238s |
 
 **Recent Trend:**
-- Last 5 plans: 02-02 (~10min), 03-01 (210s), 03-02 (180s), 03-03 (~15min), 04-01 (174s)
+- Last 5 plans: 03-01 (210s), 03-02 (180s), 03-03 (~15min), 04-01 (174s), 04-02 (238s)
 - Trend: stable (~2-15 min/plan)
 
 *Updated after each plan completion*
@@ -87,6 +88,9 @@ Recent decisions affecting current work:
 - [Phase 04-cross-domain-insights-engine plan 01]: CATEGORY_BLOOD_MAP covers 6 categories; other genome categories get empty matchedBloodValues (no blood analyte mapping available)
 - [Phase 04-cross-domain-insights-engine plan 01]: LLM generation functions return { available: false, reason } (not throw) when provider unavailable or no taste data
 - [Phase 04-cross-domain-insights-engine plan 01]: narrativeRefresh preserves previousText + previousGeneratedAt for client-side diff rendering
+- [Phase 04-cross-domain-insights-engine plan 02]: Insights nav entry is a single item (not expandable) — sub-tabs navigate from within the page
+- [Phase 04-cross-domain-insights-engine plan 02]: /insights added to isFullWidth paths in Layout.jsx for proper full-height rendering matching MeatSpace pattern
+- [Phase 04-cross-domain-insights-engine plan 02]: CrossDomainTab diff only shows after refresh triggers and previousText differs (trimmed comparison prevents false diffs)
 
 ### Pending Todos
 
@@ -99,5 +103,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 04-01-PLAN.md — Insights engine backend (insightsService.js, routes, validation, client API)
+Stopped at: 04-02-PLAN.md Task 3 checkpoint:human-verify — Insights dashboard UI built, awaiting verification at http://localhost:5555/insights
 Resume file: None

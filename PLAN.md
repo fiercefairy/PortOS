@@ -124,11 +124,12 @@ pm2 logs
 - [Architecture Overview](./docs/ARCHITECTURE.md) - System design, data flow
 - [API Reference](./docs/API.md) - REST endpoints, WebSocket events
 - [Contributing Guide](./docs/CONTRIBUTING.md) - Code guidelines, git workflow
+- [GitHub Actions](./docs/GITHUB_ACTIONS.md) - CI/CD workflow patterns
 - [PM2 Configuration](./docs/PM2.md) - PM2 patterns and best practices
 - [Port Allocation](./docs/PORTS.md) - Port conventions and allocation
-- [Versioning & Releases](./docs/VERSIONING.md) - Version format, release process
-- [GitHub Actions](./docs/GITHUB_ACTIONS.md) - CI/CD workflow patterns
+- [Security Audit](./docs/SECURITY_AUDIT.md) - 2025-02-19 hardening audit (all resolved)
 - [Troubleshooting](./docs/TROUBLESHOOTING.md) - Common issues and solutions
+- [Versioning & Releases](./docs/VERSIONING.md) - Version format, release process
 
 ### Feature Documentation
 - [Agent Skills](./docs/features/agent-skills.md) - Task-type-specific prompt templates and routing
@@ -142,61 +143,16 @@ pm2 logs
 - [Digital Twin](./docs/features/digital-twin.md) - Quantitative personality modeling
 - [Error Handling](./docs/features/error-handling.md) - Graceful error handling with auto-fix
 - [Identity System](./docs/features/identity-system.md) - Unified identity architecture (M42 spec)
+- [JIRA Sprint Manager](./docs/features/jira-sprint-manager.md) - Autonomous JIRA triage and implementation
 - [Memory System](./docs/features/memory-system.md) - Semantic memory with LLM classification
 - [Prompt Manager](./docs/features/prompt-manager.md) - Customizable AI prompts
 - [Soul System](./docs/features/soul-system.md) - Digital twin identity scaffold
 
 ---
 
-## Security Hardening (from audit 2025-02-19)
+## Security Hardening ✅
 
-PortOS is an internal/VPN app so auth, CORS, rate limiting, and HTTPS are out of scope. These items address real bugs, crash risks, and secret leaks that matter regardless of network posture.
-
-### ~~S1: Patch npm dependency CVEs~~ ✅ RESOLVED
-- ~~Run `npm audit fix` in server/ and client/~~
-- Fixed: All actionable CVEs resolved. Remaining: 1 low-severity pm2 ReDoS (GHSA-x5gf-qvw8-r2rm, CVSS 4.3) — no fix published by maintainers, not exploitable via PortOS routes
-- Client: 0 vulnerabilities
-
-### ~~S2: Sanitize provider API responses~~ ✅ COMPLETE
-- ~~Strip `apiKey` and `secretEnvVars` from all provider GET endpoints~~
-- Fixed: `sanitizeProvider()` in `server/routes/providers.js` strips `apiKey`, redacts `secretEnvVars` values to `'***'`, returns `hasApiKey: boolean`
-- All GET endpoints use sanitization
-
-### ~~S3: Whitelist env vars in PTY shell spawn~~ ✅ COMPLETE
-- ~~Replace `...process.env` spread with explicit allowlist~~
-- Fixed: `buildSafeEnv()` in `server/services/shell.js` uses `SAFE_ENV_PREFIXES` allowlist — no `...process.env` spread
-
-### ~~S4: Fix mutex lock bug + extract shared utility~~ ✅ COMPLETE
-- ~~`cos.js` `withStateLock` is missing `try/finally`~~
-- Fixed: `createMutex()` in `server/lib/asyncMutex.js` with proper `try/finally`. Used by both `cos.js` and `memory.js`
-
-### ~~S5: Add Zod validation to Socket.IO events~~ ✅ COMPLETE
-- ~~Socket events accept raw input~~
-- Fixed: `server/lib/socketValidation.js` has Zod schemas for all socket events. `validateSocketData()` helper used in `socket.js`
-
-### ~~S6: Sanitize error context in Socket.IO broadcasts~~ ✅ COMPLETE
-- ~~Error handler broadcasts full `context` object which may contain secrets~~
-- Fixed: `sanitizeContext()` in `server/lib/errorHandler.js` strips sensitive fields (apikey, token, secret, password, etc.) with circular-reference protection
-
-### ~~S7: Guard unprotected JSON.parse calls~~ ✅
-- ~~10+ locations call `JSON.parse` on external/file data without try-catch~~
-- Fixed: replaced bare `JSON.parse` with `safeJSONParse` from `lib/fileUtils.js` in 7 files (8 call sites): `agentContentGenerator.js`, `pm2Standardizer.js`, `automationScheduler.js`, `git.js` (2), `aiDetect.js`, `memoryClassifier.js`, `clinvar.js`
-- `digital-twin.js` and `cos.js` were already using `safeJSONParse`
-
-### ~~S8: Add iteration limit to cron parser~~ ✅ COMPLETE
-- ~~`eventScheduler.js` loops minute-by-minute for up to 2 years — invalid cron expressions cause CPU spin~~
-- Fixed: `MAX_CRON_ITERATIONS = 525960` iteration counter, `validateCronFieldRange()` upfront validation, early `null` return on invalid expressions
-- **File:** `server/services/eventScheduler.js`
-
-### ~~S9: Extract validation boilerplate to helper~~ ✅ COMPLETE
-- ~~Same 6-line validation-error block duplicated 74+ times across all route files~~
-- Fixed: `validateRequest(schema, data)` helper in `lib/validation.js` now used across 80 call sites in 12 route files
-- **Files:** `server/lib/validation.js`, all `server/routes/*.js`
-
-### ~~S10: Fix parseInt missing radix~~ ✅ COMPLETE (v0.18.x)
-- ~~Several parseInt calls lack explicit radix 10~~
-- Fixed 45+ call sites across 18 files (routes, services, client, tests)
-- **Complexity:** Simple
+All 10 audit items (S1–S10) from the 2025-02-19 security audit have been resolved. See [Security Audit](./docs/SECURITY_AUDIT.md) for details.
 
 ---
 

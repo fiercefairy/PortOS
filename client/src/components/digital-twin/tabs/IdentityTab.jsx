@@ -230,10 +230,10 @@ export default function IdentityTab({ onRefresh }) {
 
               {chronotype.recommendations && (
                 <div className="space-y-1">
-                  {chronotype.recommendations.deepWork && (
+                  {(chronotype.recommendations.peakFocusStart || chronotype.recommendations.peakFocusEnd) && (
                     <div className="flex items-center gap-2 text-xs text-gray-400">
                       <Zap className="w-3 h-3 text-yellow-400" />
-                      Deep work: {chronotype.recommendations.deepWork}
+                      Peak focus: {chronotype.recommendations.peakFocusStart}–{chronotype.recommendations.peakFocusEnd}
                     </div>
                   )}
                   {chronotype.recommendations.caffeineCutoff && (

@@ -153,8 +153,8 @@ async function ensureIdentityDir() {
 
 async function loadJSON(filePath, defaultVal) {
   const raw = await readFile(filePath, 'utf-8').catch(() => null);
-  if (!raw) return { ...defaultVal };
-  return safeJSONParse(raw, { ...defaultVal });
+  if (!raw) return structuredClone(defaultVal);
+  return safeJSONParse(raw, structuredClone(defaultVal));
 }
 
 async function saveJSON(filePath, data) {
@@ -331,6 +331,8 @@ export function computeGoalUrgency(goal, timeHorizons) {
 
   const horizonYears = horizonMap[goal.horizon] ?? 5;
   const yearsRemaining = timeHorizons.yearsRemaining;
+
+  if (horizonYears <= 0 || yearsRemaining <= 0) return 1;
 
   // Urgency: higher when horizon approaches or exceeds remaining years
   // 0 = plenty of time, 1 = urgent

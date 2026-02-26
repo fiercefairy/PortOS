@@ -61,7 +61,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md -- Backend foundation: Zod validation, JSON ingest with dedup, day-partitioned storage, query service, REST routes, client API functions (HLT-01, HLT-02)
+- [x] 03-01-PLAN.md -- Backend foundation: Zod validation, JSON ingest with dedup, day-partitioned storage, query service, REST routes, client API functions (HLT-01, HLT-02)
 - [ ] 03-02-PLAN.md -- SAX streaming XML import with WebSocket progress, multer diskStorage upload, Import tab XML file picker UI (HLT-03, HLT-04)
 - [ ] 03-03-PLAN.md -- MeatSpace Health tab with steps/HR/sleep/HRV cards, range selector, alcohol-HRV and activity-blood correlation charts (HLT-05, HLT-06)
 
@@ -104,6 +104,6 @@ Note: Phases 1 and 2 have no dependency on each other and can execute in paralle
 |-------|----------------|--------|-----------|
 | 1. Genome Migration Cleanup | 1/1 | Complete    | 2026-02-26 |
 | 2. Data Backup & Recovery | 2/2 | Complete    | 2026-02-26 |
-| 3. Apple Health Integration | 0/3 | Not started | - |
+| 3. Apple Health Integration | 1/3 | In progress | - |
 | 4. Cross-Domain Insights Engine | 0/2 | Not started | - |
 | 5. Unified Search (Cmd+K) | 0/1 | Not started | - |

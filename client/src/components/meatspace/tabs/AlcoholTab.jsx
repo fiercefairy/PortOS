@@ -28,6 +28,12 @@ const RISK_BG = {
 };
 
 const DAYS_PER_PAGE = 50;
+const DAY_LABELS = ['Sun', 'M', 'T', 'W', 'TH', 'F', 'Sat'];
+
+function dayOfWeek(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return DAY_LABELS[new Date(y, m - 1, d).getDay()];
+}
 
 function computeStdDrinks(oz, abv, count) {
   const pureOz = (oz || 0) * (count || 1) * ((abv || 0) / 100);
@@ -327,6 +333,7 @@ export default function AlcoholTab() {
                         <td className="px-3 py-1.5">
                           {idx === 0 ? (
                             <div>
+                              <span className="text-gray-500 text-xs w-7 inline-block">{dayOfWeek(entry.date)}</span>
                               <span className="text-gray-300 font-medium">{entry.date}</span>
                               <span className={`ml-2 text-xs font-bold ${
                                 entry.alcohol.standardDrinks > (summary?.thresholds?.dailyMax || 2) ? 'text-port-error' : 'text-port-accent'

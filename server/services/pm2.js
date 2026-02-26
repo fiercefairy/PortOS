@@ -9,12 +9,11 @@ import { extractJSONArray, safeJSONParse } from '../lib/fileUtils.js';
 
 const IS_WIN = process.platform === 'win32';
 
-// Resolve PM2 CLI binary path from our local dependency.
-// On Windows, we run `node pm2/bin/pm2` directly to avoid pm2.cmd batch file
-// which creates visible CMD windows even with windowsHide:true
-// (cmd.exe → pm2.cmd → node is a chain where the middle .cmd flashes a window).
+// Resolve PM2 CLI binary path from our local dependency using require.resolve
+// to handle hoisted node_modules correctly.
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PM2_BIN = join(__dirname, '..', 'node_modules', 'pm2', 'bin', 'pm2');
+const require = createRequire(import.meta.url);
+const PM2_BIN = join(dirname(require.resolve('pm2/package.json')), 'bin', 'pm2');
 
 /**
  * Check if a script path is a JS file that PM2 can fork directly.
@@ -26,24 +25,18 @@ function isJsScript(script) {
 }
 
 /**
- * Spawn PM2 CLI directly via node, bypassing pm2.cmd on Windows.
- * On Windows, `spawn('pm2', args, {shell:true})` runs cmd.exe → pm2.cmd → node,
- * and the intermediate pm2.cmd batch file creates a visible CMD window even with
- * windowsHide:true. Running `node pm2/bin/pm2` directly avoids the .cmd wrapper entirely.
+ * Spawn PM2 CLI via local binary (node pm2/bin/pm2).
+ * Always uses the local PM2 binary to avoid depending on a global pm2 install.
+ * On Windows this also avoids pm2.cmd which creates visible CMD windows.
  * @param {string[]} pm2Args PM2 CLI arguments (e.g. ['jlist'], ['start', 'ecosystem.config.cjs'])
  * @param {object} opts Spawn options (cwd, env, etc.)
  * @returns {ChildProcess}
  */
 export function spawnPm2(pm2Args, opts = {}) {
-  if (IS_WIN) {
-    // Run node with PM2's JS binary directly — no cmd.exe, no .cmd wrapper
-    return spawn(process.execPath, [PM2_BIN, ...pm2Args], {
-      windowsHide: true,
-      ...opts
-    });
-  }
-  // On non-Windows, pm2 is a JS file with shebang, runs fine directly
-  return spawn('pm2', pm2Args, { windowsHide: true, ...opts });
+  return spawn(process.execPath, [PM2_BIN, ...pm2Args], {
+    windowsHide: true,
+    ...opts
+  });
 }
 
 /**

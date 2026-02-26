@@ -1,15 +1,13 @@
 {
   "name": "portos",
-  "version": "1.6.3",
+  "version": "1.6.4",
   "private": true,
   "description": "Local dev machine App OS portal",
   "author": "Adam Eivy (@antic|@atomantic)",
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
-    "dev:server": "cd server && npm run dev",
-    "dev:client": "cd client && npm run dev",
+    "dev": "node ./node_modules/pm2/bin/pm2 start ecosystem.config.cjs && node ./node_modules/pm2/bin/pm2 logs",
     "build": "cd client && npm run build",
     "start": "cd server && npm start",
     "pm2:start": "node ./node_modules/pm2/bin/pm2 start ecosystem.config.cjs",
@@ -28,7 +26,6 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
-    "concurrently": "^8.2.2",
     "pm2": "^5.4.3",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",

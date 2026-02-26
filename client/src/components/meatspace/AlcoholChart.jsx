@@ -11,10 +11,13 @@ const VIEWS = [
   { id: '90d', label: '90 Days', days: 90 }
 ];
 
+const GRAMS_PER_STD_DRINK = 14;
+
 export default function AlcoholChart({ sex = 'male', onRefreshKey }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('30d');
+  const [unit, setUnit] = useState('grams'); // 'grams' or 'drinks'
 
   const dailyMax = sex === 'female' ? 1 : 2;
 
@@ -38,10 +41,12 @@ export default function AlcoholChart({ sex = 'male', onRefreshKey }) {
     const end = new Date(toStr);
     while (cursor <= end) {
       const dateStr = cursor.toISOString().split('T')[0];
+      const drinks = dateMap[dateStr] || 0;
       chartData.push({
         date: dateStr,
         label: `${cursor.getMonth() + 1}/${cursor.getDate()}`,
-        drinks: dateMap[dateStr] || 0
+        drinks,
+        grams: Math.round(drinks * GRAMS_PER_STD_DRINK * 100) / 100
       });
       cursor.setDate(cursor.getDate() + 1);
     }
@@ -54,13 +59,19 @@ export default function AlcoholChart({ sex = 'male', onRefreshKey }) {
     fetchData();
   }, [fetchData, onRefreshKey]);
 
+  const dataKey = unit === 'grams' ? 'grams' : 'drinks';
+
   const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
-    const drinks = payload[0].value;
+    const drinks = payload[0].payload.drinks;
+    const grams = payload[0].payload.grams;
     return (
       <div className="bg-port-card border border-port-border rounded-lg p-2 text-sm">
         <p className="text-gray-400">{label}</p>
-        <p className={`font-semibold ${drinks > dailyMax ? 'text-port-error' : 'text-port-accent'}`}>
+        <p className={`font-semibold ${grams > 40 ? 'text-port-error' : grams > 10 ? 'text-port-warning' : 'text-port-success'}`}>
+          {grams}g
+        </p>
+        <p className={`text-xs ${drinks > dailyMax ? 'text-port-error' : 'text-gray-400'}`}>
           {drinks} std drinks
         </p>
       </div>
@@ -73,20 +84,38 @@ export default function AlcoholChart({ sex = 'male', onRefreshKey }) {
         <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">
           Daily Consumption
         </h3>
-        <div className="flex gap-1">
-          {VIEWS.map(v => (
-            <button
-              key={v.id}
-              onClick={() => setView(v.id)}
-              className={`px-2 py-1 text-xs rounded transition-colors ${
-                view === v.id
-                  ? 'bg-port-accent/10 text-port-accent'
-                  : 'text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              {v.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <div className="flex gap-1">
+            {['grams', 'drinks'].map(u => (
+              <button
+                key={u}
+                onClick={() => setUnit(u)}
+                className={`px-2 py-1 text-xs rounded transition-colors ${
+                  unit === u
+                    ? 'bg-port-accent/10 text-port-accent'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                {u === 'grams' ? 'Grams' : 'Drinks'}
+              </button>
+            ))}
+          </div>
+          <div className="w-px h-4 bg-port-border" />
+          <div className="flex gap-1">
+            {VIEWS.map(v => (
+              <button
+                key={v.id}
+                onClick={() => setView(v.id)}
+                className={`px-2 py-1 text-xs rounded transition-colors ${
+                  view === v.id
+                    ? 'bg-port-accent/10 text-port-accent'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -105,14 +134,31 @@ export default function AlcoholChart({ sex = 'male', onRefreshKey }) {
             />
             <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} />
             <Tooltip content={<CustomTooltip />} />
-            <ReferenceLine
-              y={dailyMax}
-              stroke="#f59e0b"
-              strokeDasharray="5 5"
-              label={{ value: 'Daily limit', fill: '#f59e0b', fontSize: 10, position: 'right' }}
-            />
+            {unit === 'grams' ? (
+              <>
+                <ReferenceLine
+                  y={10}
+                  stroke="#22c55e"
+                  strokeDasharray="5 5"
+                  label={{ value: '10g target', fill: '#22c55e', fontSize: 10, position: 'right' }}
+                />
+                <ReferenceLine
+                  y={40}
+                  stroke="#ef4444"
+                  strokeDasharray="5 5"
+                  label={{ value: '40g danger', fill: '#ef4444', fontSize: 10, position: 'right' }}
+                />
+              </>
+            ) : (
+              <ReferenceLine
+                y={dailyMax}
+                stroke="#f59e0b"
+                strokeDasharray="5 5"
+                label={{ value: 'Daily limit', fill: '#f59e0b', fontSize: 10, position: 'right' }}
+              />
+            )}
             <Bar
-              dataKey="drinks"
+              dataKey={dataKey}
               radius={[2, 2, 0, 0]}
               fill="#3b82f6"
               maxBarSize={view === '7d' ? 40 : view === '30d' ? 16 : 8}

@@ -28,7 +28,7 @@ const RISK_BG = {
 };
 
 const DAYS_PER_PAGE = 50;
-const DAY_LABELS = ['Sun', 'M', 'T', 'W', 'TH', 'F', 'Sat'];
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function dayOfWeek(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
@@ -174,32 +174,38 @@ export default function AlcoholTab() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div>
               <span className="text-xs text-gray-500">Today</span>
-              <p className={`text-2xl font-bold ${summary.today > summary.thresholds.dailyMax ? 'text-port-error' : 'text-white'}`}>
-                {summary.today}
+              <p className={`text-2xl font-bold ${summary.grams?.today > 40 ? 'text-port-error' : summary.grams?.today > 10 ? 'text-port-warning' : 'text-white'}`}>
+                {summary.grams?.today ?? 0}g
               </p>
-              <span className="text-xs text-gray-600">/ {summary.thresholds.dailyMax} max</span>
+              <span className="text-xs text-gray-600">{summary.today} drinks</span>
             </div>
             <div>
               <span className="text-xs text-gray-500">7-Day Avg</span>
-              <p className="text-2xl font-bold text-white">{summary.avg7day}</p>
-              <span className="text-xs text-gray-600">per day</span>
+              <p className={`text-2xl font-bold ${summary.grams?.avg7day > 40 ? 'text-port-error' : summary.grams?.avg7day > 10 ? 'text-port-warning' : 'text-white'}`}>
+                {summary.grams?.avg7day ?? 0}g
+              </p>
+              <span className="text-xs text-gray-600">{summary.avg7day} drinks/day</span>
             </div>
             <div>
               <span className="text-xs text-gray-500">30-Day Avg</span>
-              <p className="text-2xl font-bold text-white">{summary.avg30day}</p>
-              <span className="text-xs text-gray-600">per day</span>
+              <p className={`text-2xl font-bold ${summary.grams?.avg30day > 40 ? 'text-port-error' : summary.grams?.avg30day > 10 ? 'text-port-warning' : 'text-white'}`}>
+                {summary.grams?.avg30day ?? 0}g
+              </p>
+              <span className="text-xs text-gray-600">{summary.avg30day} drinks/day</span>
             </div>
             <div>
               <span className="text-xs text-gray-500">Weekly Total</span>
               <p className={`text-2xl font-bold ${summary.weeklyTotal > summary.thresholds.weeklyMax ? 'text-port-error' : 'text-white'}`}>
-                {summary.weeklyTotal}
+                {summary.grams?.weeklyTotal ?? 0}g
               </p>
-              <span className="text-xs text-gray-600">/ {summary.thresholds.weeklyMax} max</span>
+              <span className="text-xs text-gray-600">{summary.weeklyTotal} drinks / {summary.thresholds.weeklyMax} max</span>
             </div>
             <div>
               <span className="text-xs text-gray-500">All-Time Avg</span>
-              <p className="text-2xl font-bold text-gray-300">{summary.allTimeAvg}</p>
-              <span className="text-xs text-gray-600">per day</span>
+              <p className={`text-2xl font-bold ${summary.grams?.allTimeAvg > 40 ? 'text-port-error' : summary.grams?.allTimeAvg > 10 ? 'text-port-warning' : 'text-gray-300'}`}>
+                {summary.grams?.allTimeAvg ?? 0}g
+              </p>
+              <span className="text-xs text-gray-600">{summary.allTimeAvg} drinks/day</span>
             </div>
           </div>
         </div>

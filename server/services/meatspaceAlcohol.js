@@ -20,6 +20,9 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 // === Pure Functions ===
 
+// 1 standard drink = 0.6 oz pure alcohol = ~14g pure alcohol
+export const GRAMS_PER_STD_DRINK = 14;
+
 /**
  * Calculate standard drinks from oz and ABV.
  * 1 standard drink = 0.6 oz pure alcohol.
@@ -27,6 +30,13 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 export function computeStandardDrinks(oz, abv) {
   const pureAlcoholOz = oz * (abv / 100);
   return Math.round((pureAlcoholOz / 0.6) * 100) / 100;
+}
+
+/**
+ * Convert standard drinks to grams of pure alcohol.
+ */
+export function drinksToGrams(standardDrinks) {
+  return Math.round(standardDrinks * GRAMS_PER_STD_DRINK * 100) / 100;
 }
 
 /**
@@ -76,21 +86,31 @@ export function computeRollingAverages(entries, sex = 'male') {
     allTimeAvg = Math.round((totalDrinks / totalDays) * 100) / 100;
   }
 
-  // NIAAA thresholds
+  // NIAAA thresholds (drinks) + longevity thresholds (grams)
   const thresholds = sex === 'female'
     ? { dailyMax: 1, weeklyMax: 7 }
     : { dailyMax: 2, weeklyMax: 14 };
+  const gramThresholds = { dailyTarget: 10, dailyDanger: 40 };
 
   const avg7day = rollingAverage(7);
+  const avg30day = rollingAverage(30);
   const weeklyTotal = Math.round(avg7day * 7 * 100) / 100;
 
   return {
     today: todayDrinks,
     avg7day,
-    avg30day: rollingAverage(30),
+    avg30day,
     allTimeAvg,
     weeklyTotal,
     thresholds,
+    gramThresholds,
+    grams: {
+      today: drinksToGrams(todayDrinks),
+      avg7day: drinksToGrams(avg7day),
+      avg30day: drinksToGrams(avg30day),
+      allTimeAvg: drinksToGrams(allTimeAvg),
+      weeklyTotal: drinksToGrams(weeklyTotal)
+    },
     riskLevel: weeklyTotal > thresholds.weeklyMax ? 'high'
       : weeklyTotal > thresholds.weeklyMax * 0.7 ? 'moderate'
       : 'low',

@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in_progress
-last_updated: "2026-02-26T22:08:05.000Z"
+status: unknown
+last_updated: "2026-02-26T22:13:16.004Z"
 progress:
-  total_phases: 5
-  completed_phases: 1
-  total_plans: 6
-  completed_plans: 2
+  total_phases: 2
+  completed_phases: 2
+  total_plans: 3
+  completed_plans: 3
 ---
 
 # Project State
@@ -65,6 +65,8 @@ Recent decisions affecting current work:
 - createReadStream only available on 'fs' not 'fs/promises' — fixed import in backup.js
 - Exit code 24 from rsync means files vanished mid-transfer (acceptable for active systems)
 - startBackupScheduler is async (reads settings) — called with .catch() in index.js like other async inits
+- [Phase 02-data-backup-recovery]: RestorePanel uses inline expandable within snapshot row — avoids URL-less modal per CLAUDE.md
+- [Phase 02-data-backup-recovery]: Restore requires dry-run preview before enabling Restore button — prevents accidental destructive restore
 
 ### Pending Todos
 

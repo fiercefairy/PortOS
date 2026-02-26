@@ -18,10 +18,10 @@ Requirements for this milestone batch. Each maps to roadmap phases.
 - [x] **BAK-01**: Incremental rsync backup copies changed files from `./data/` to configurable external drive path
 - [x] **BAK-02**: SHA-256 manifest tracks file integrity across backups
 - [x] **BAK-03**: Daily backup runs via existing scheduler with configurable interval
-- [ ] **BAK-04**: Dashboard widget shows last backup time, next scheduled, health status (green/yellow/red)
-- [ ] **BAK-05**: One-click manual backup trigger from dashboard
-- [ ] **BAK-06**: Restore from named snapshot with dry-run mode showing what would change
-- [ ] **BAK-07**: Selective directory restore (e.g., only `data/brain/` without touching other dirs)
+- [x] **BAK-04**: Dashboard widget shows last backup time, next scheduled, health status (green/yellow/red)
+- [x] **BAK-05**: One-click manual backup trigger from dashboard
+- [x] **BAK-06**: Restore from named snapshot with dry-run mode showing what would change
+- [x] **BAK-07**: Selective directory restore (e.g., only `data/brain/` without touching other dirs)
 
 ### Apple Health
 
@@ -95,10 +95,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BAK-01 | Phase 2 | Complete |
 | BAK-02 | Phase 2 | Complete |
 | BAK-03 | Phase 2 | Complete |
-| BAK-04 | Phase 2 | Pending |
-| BAK-05 | Phase 2 | Pending |
-| BAK-06 | Phase 2 | Pending |
-| BAK-07 | Phase 2 | Pending |
+| BAK-04 | Phase 2 | Complete |
+| BAK-05 | Phase 2 | Complete |
+| BAK-06 | Phase 2 | Complete |
+| BAK-07 | Phase 2 | Complete |
 | HLT-01 | Phase 3 | Pending |
 | HLT-02 | Phase 3 | Pending |
 | HLT-03 | Phase 3 | Pending |

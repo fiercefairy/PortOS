@@ -247,18 +247,18 @@ export default function IdentityTab({ onRefresh }) {
 
               {chronotype.geneticMarkers && Object.keys(chronotype.geneticMarkers).length > 0 && (
                 <div className="flex flex-wrap gap-1">
-                  {Object.entries(chronotype.geneticMarkers).slice(0, 5).map(([key, marker]) => (
+                  {Object.entries(chronotype.geneticMarkers).slice(0, 5).map(([name, marker]) => (
                     <span
-                      key={key}
+                      key={name}
                       className={`text-xs px-1.5 py-0.5 rounded ${
-                        marker.signal === 'evening' || marker.signal === 'slow'
+                        marker.signal < 0
                           ? 'bg-indigo-500/20 text-indigo-400'
-                          : marker.signal === 'morning' || marker.signal === 'fast'
+                          : marker.signal > 0
                             ? 'bg-yellow-500/20 text-yellow-400'
                             : 'bg-gray-500/20 text-gray-400'
                       }`}
                     >
-                      {marker.gene}: {marker.signal}
+                      {name}: {marker.status}
                     </span>
                   ))}
                 </div>

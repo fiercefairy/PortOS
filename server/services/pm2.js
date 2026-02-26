@@ -475,14 +475,18 @@ async function startFromEcosystemWindows(cwd, ecosystemFile, processNames, pm2Ho
     }
 
     // Ensure windowsHide and restart safety on all apps
-    app.windowsHide = true;
+    if (!app.windowsHide) {
+      app.windowsHide = true;
+      needsPatch = true;
+    }
     if (app.autorestart !== false && !app.max_restarts) {
       app.max_restarts = 10;
+      needsPatch = true;
     }
   }
 
   if (!needsPatch) {
-    // All scripts are .js files, no patching needed
+    // No modifications needed — use original config as-is
     return spawnPm2StartEcosystem(cwd, ecosystemFile, processNames, pm2Home);
   }
 

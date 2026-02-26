@@ -75,7 +75,8 @@ pm2 logs
 ### Planned
 
 - [ ] **M34 P5-P7**: Digital Twin - Multi-modal capture, advanced testing, personas
-- [ ] **M42 P4-P5**: Unified Digital Twin Identity System - Identity Tab UI, Cross-Insights Engine. See [Identity System](./docs/features/identity-system.md)
+- [x] **M42 P4**: Unified Digital Twin Identity System - Identity Tab UI dashboard with completeness header, 5 summary cards, derive actions
+- [ ] **M42 P5**: Unified Digital Twin Identity System - Cross-Insights Engine. See [Identity System](./docs/features/identity-system.md)
 
 ---
 

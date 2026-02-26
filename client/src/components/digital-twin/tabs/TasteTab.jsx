@@ -321,18 +321,16 @@ export default function TasteTab({ onRefresh }) {
                   <p className="text-xs text-gray-500 mb-2">Does this summary capture your taste accurately?</p>
                   <div className="flex items-center gap-2">
                     {[
-                      { key: 'sounds_like_me', label: 'Sounds like me', icon: ThumbsUp, color: 'green' },
-                      { key: 'not_quite', label: 'Not quite', icon: Minus, color: 'yellow' },
-                      { key: 'doesnt_sound_like_me', label: 'Not me', icon: ThumbsDown, color: 'red' }
-                    ].map(({ key, label, icon: FbIcon, color }) => (
+                      { key: 'sounds_like_me', label: 'Sounds like me', icon: ThumbsUp, active: 'bg-green-500/20 text-green-400 border border-green-500/30', inactive: 'text-gray-400 border border-port-border hover:text-green-400 hover:border-green-500/30 disabled:opacity-30' },
+                      { key: 'not_quite', label: 'Not quite', icon: Minus, active: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30', inactive: 'text-gray-400 border border-port-border hover:text-yellow-400 hover:border-yellow-500/30 disabled:opacity-30' },
+                      { key: 'doesnt_sound_like_me', label: 'Not me', icon: ThumbsDown, active: 'bg-red-500/20 text-red-400 border border-red-500/30', inactive: 'text-gray-400 border border-port-border hover:text-red-400 hover:border-red-500/30 disabled:opacity-30' }
+                    ].map(({ key, label, icon: FbIcon, active, inactive }) => (
                       <button
                         key={key}
                         onClick={() => submitSummaryFeedback(reviewSection, section.summary, key)}
                         disabled={!!summaryFeedback[reviewSection]}
                         className={`flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-lg text-xs transition-colors ${
-                          summaryFeedback[reviewSection] === key
-                            ? `bg-${color}-500/20 text-${color}-400 border border-${color}-500/30`
-                            : `text-gray-400 border border-port-border hover:text-${color}-400 hover:border-${color}-500/30 disabled:opacity-30`
+                          summaryFeedback[reviewSection] === key ? active : inactive
                         }`}
                       >
                         <FbIcon size={14} />

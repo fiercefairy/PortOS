@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
+import { v4 as uuidv4 } from 'uuid';
 import { PATHS, ensureDir, safeJSONParse } from '../lib/fileUtils.js';
 import { getGenomeSummary } from './genome.js';
 import { getTasteProfile } from './taste-questionnaire.js';
@@ -682,7 +683,7 @@ export async function createGoal({ title, description, horizon, category }) {
   const goals = await loadJSON(GOALS_FILE, DEFAULT_GOALS);
   const longevity = await loadJSON(LONGEVITY_FILE, DEFAULT_LONGEVITY);
 
-  const id = `goal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const id = `goal-${uuidv4()}`;
   const goal = {
     id,
     title,
@@ -749,7 +750,7 @@ export async function addMilestone(goalId, { title, targetDate }) {
   if (!goal) return null;
 
   const milestone = {
-    id: `ms-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    id: `ms-${uuidv4()}`,
     title,
     targetDate: targetDate || null,
     completedAt: null,

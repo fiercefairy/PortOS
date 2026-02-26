@@ -27,8 +27,8 @@ Requirements for this milestone batch. Each maps to roadmap phases.
 
 - [x] **HLT-01**: POST `/api/health/ingest` accepts Health Auto Export JSON, validates with Zod, deduplicates by metric+timestamp
 - [x] **HLT-02**: Health data persists to day-partitioned `data/health/YYYY-MM-DD.json` files
-- [ ] **HLT-03**: Bulk XML import streams Apple Health export (500MB+) without OOM via SAX parser
-- [ ] **HLT-04**: XML import reports progress via WebSocket during processing
+- [x] **HLT-03**: Bulk XML import streams Apple Health export (500MB+) without OOM via SAX parser
+- [x] **HLT-04**: XML import reports progress via WebSocket during processing
 - [ ] **HLT-05**: MeatSpace dashboard cards for steps, heart rate, sleep, HRV trends
 - [ ] **HLT-06**: Correlate Apple Health data with existing MeatSpace data (alcohol vs HRV, activity vs blood work)
 
@@ -101,8 +101,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BAK-07 | Phase 2 | Complete |
 | HLT-01 | Phase 3 | Complete |
 | HLT-02 | Phase 3 | Complete |
-| HLT-03 | Phase 3 | Pending |
-| HLT-04 | Phase 3 | Pending |
+| HLT-03 | Phase 3 | Complete |
+| HLT-04 | Phase 3 | Complete |
 | HLT-05 | Phase 3 | Pending |
 | HLT-06 | Phase 3 | Pending |
 | INS-01 | Phase 4 | Pending |

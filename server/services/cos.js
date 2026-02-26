@@ -1981,7 +1981,7 @@ export async function runHealthCheck() {
   };
 
   // Check PM2 processes
-  const pm2Result = await execAsync('pm2 jlist').catch(() => ({ stdout: '[]' }));
+  const pm2Result = await execAsync('pm2 jlist', { windowsHide: true }).catch(() => ({ stdout: '[]' }));
   // pm2 jlist may output ANSI codes and warnings before JSON, extract the JSON array
   // Look for '[{' (array with objects) or '[]' (empty array) to avoid matching ANSI codes like [31m
   const pm2Output = pm2Result.stdout || '[]';
@@ -2063,7 +2063,7 @@ export async function runHealthCheck() {
   // Get system memory
   const memCmd = process.platform === 'win32' ? 'wmic OS get FreePhysicalMemory,TotalVisibleMemorySize /VALUE' :
     process.platform === 'darwin' ? 'vm_stat' : 'free -m';
-  const memResult = await execAsync(memCmd).catch(() => ({ stdout: '' }));
+  const memResult = await execAsync(memCmd, { windowsHide: true }).catch(() => ({ stdout: '' }));
   metrics.memory = { raw: memResult.stdout.slice(0, 500) }; // Truncate for storage
 
   // Store health check result with lock to prevent race conditions

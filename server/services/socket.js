@@ -140,7 +140,8 @@ export function initSocket(io) {
 
       // Spawn pm2 logs with --raw flag
       const logProcess = spawn('pm2', ['logs', processName, '--raw', '--lines', String(lines)], {
-        shell: process.platform === 'win32'
+        shell: process.platform === 'win32',
+        windowsHide: true
       });
 
       activeStreams.set(socket.id, { process: logProcess, processName });

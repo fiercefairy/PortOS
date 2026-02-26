@@ -3,6 +3,7 @@
 // =============================================================================
 const path = require('path');
 const LOG_DATE_FORMAT = 'YYYY-MM-DDTHH:mm:ss.SSS[Z]';
+const IS_WIN = process.platform === 'win32';
 
 // Shared env inherited by all apps (merged into each app's env)
 const BASE_ENV = {
@@ -30,6 +31,7 @@ module.exports = {
       cwd: __dirname,
       interpreter: 'node',
       log_date_format: LOG_DATE_FORMAT,
+      windowsHide: IS_WIN,
       env: {
         ...BASE_ENV,
         PORT: PORTS.API,
@@ -44,6 +46,7 @@ module.exports = {
       cwd: __dirname,
       interpreter: 'node',
       log_date_format: LOG_DATE_FORMAT,
+      windowsHide: IS_WIN,
       // CoS Agent Runner - isolated process for spawning Claude CLI agents
       // Does NOT restart when portos-server restarts, preventing orphaned agents
       // Security: Binds to localhost only - not exposed externally
@@ -67,6 +70,7 @@ module.exports = {
       script: path.join(__dirname, 'client', 'node_modules', 'vite', 'bin', 'vite.js'),
       cwd: path.join(__dirname, 'client'),
       log_date_format: LOG_DATE_FORMAT,
+      windowsHide: IS_WIN,
       args: `--host 0.0.0.0 --port ${PORTS.UI}`,
       env: {
         ...BASE_ENV,
@@ -80,6 +84,7 @@ module.exports = {
       cwd: __dirname,
       interpreter: 'node',
       log_date_format: LOG_DATE_FORMAT,
+      windowsHide: IS_WIN,
       env: {
         ...BASE_ENV,
         PORT: PORTS.AUTOFIXER,
@@ -97,6 +102,7 @@ module.exports = {
       cwd: __dirname,
       interpreter: 'node',
       log_date_format: LOG_DATE_FORMAT,
+      windowsHide: IS_WIN,
       env: {
         ...BASE_ENV,
         PORT: PORTS.AUTOFIXER_UI
@@ -113,6 +119,7 @@ module.exports = {
       cwd: __dirname,
       interpreter: 'node',
       log_date_format: LOG_DATE_FORMAT,
+      windowsHide: IS_WIN,
       // Security: CDP binds to 127.0.0.1 by default (set CDP_HOST=0.0.0.0 to expose)
       // Remote access should go through portos-server proxy with authentication
       env: {

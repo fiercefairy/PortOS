@@ -250,7 +250,8 @@ async function scaffoldApp(req, res) {
     const { stderr } = await new Promise((resolve) => {
       const child = spawn('npm', ['create', 'vite@latest', dirName, '--', '--template', 'react'], {
         cwd: parentDir,
-        shell: process.platform === 'win32'
+        shell: process.platform === 'win32',
+        windowsHide: true
       });
       let stderr = '';
       child.stderr.on('data', (data) => { stderr += data.toString(); });
@@ -1147,7 +1148,7 @@ module.exports = {
 
   // Run npm install
   const installCmd = template === 'portos-stack' ? 'npm run install:all' : 'npm install';
-  const { stderr: installErr } = await execAsync(installCmd, { cwd: repoPath })
+  const { stderr: installErr } = await execAsync(installCmd, { cwd: repoPath, windowsHide: true })
     .catch(err => ({ stderr: err.message }));
 
   if (installErr && !installErr.includes('npm warn')) {
@@ -1157,7 +1158,7 @@ module.exports = {
   }
 
   // Initialize git
-  await execAsync('git init', { cwd: repoPath });
+  await execAsync('git init', { cwd: repoPath, windowsHide: true });
 
   // Create .gitignore - more comprehensive for portos-stack
   const gitignoreContent = template === 'portos-stack'
@@ -1194,8 +1195,8 @@ Thumbs.db
     : 'node_modules\n.env\ndist\n';
 
   await writeFile(join(repoPath, '.gitignore'), gitignoreContent);
-  await execAsync('git add -A', { cwd: repoPath });
-  await execAsync('git commit -m "Initial commit"', { cwd: repoPath });
+  await execAsync('git add -A', { cwd: repoPath, windowsHide: true });
+  await execAsync('git commit -m "Initial commit"', { cwd: repoPath, windowsHide: true });
   addStep('Initialize git', 'done');
 
   // Create GitHub repo if requested
@@ -1205,7 +1206,7 @@ Thumbs.db
     const ghArgs = ['repo', 'create', repoName, '--source=.', '--push', '--private'];
 
     const { stderr: ghErr } = await new Promise((resolve) => {
-      const child = spawn('gh', ghArgs, { cwd: repoPath, shell: false });
+      const child = spawn('gh', ghArgs, { cwd: repoPath, shell: false, windowsHide: true });
       let stderr = '';
       child.stderr.on('data', (data) => { stderr += data.toString(); });
       child.on('close', () => resolve({ stderr }));

@@ -59,7 +59,8 @@ router.get('/:processName', asyncHandler(async (req, res) => {
   // Spawn pm2 logs with --raw flag for clean output
   // Security: safeProcessName is validated above to only contain safe characters
   const logProcess = spawn('pm2', ['logs', safeProcessName, '--raw', '--lines', String(lines)], {
-    shell: process.platform === 'win32'
+    shell: process.platform === 'win32',
+    windowsHide: true
   });
 
   let buffer = '';

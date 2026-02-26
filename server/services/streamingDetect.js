@@ -511,7 +511,7 @@ export async function streamDetection(socket, dirPath) {
   // Use custom PM2_HOME if detected from ecosystem config
   const pm2Env = result.pm2Home ? { ...process.env, PM2_HOME: result.pm2Home } : process.env;
   const pm2Cmd = 'pm2 jlist';
-  const { stdout } = await execAsync(pm2Cmd, { env: pm2Env }).catch(() => ({ stdout: '[]' }));
+  const { stdout } = await execAsync(pm2Cmd, { env: pm2Env, windowsHide: true }).catch(() => ({ stdout: '[]' }));
   // pm2 jlist may output ANSI codes and warnings before JSON
   let jsonStart = stdout.indexOf('[{');
   if (jsonStart < 0) {

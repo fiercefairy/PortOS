@@ -6,6 +6,7 @@ import { TABS } from '../components/meatspace/constants';
 import OverviewTab from '../components/meatspace/tabs/OverviewTab';
 import AlcoholTab from '../components/meatspace/tabs/AlcoholTab';
 import BloodTab from '../components/meatspace/tabs/BloodTab';
+import GenomeTab from '../components/meatspace/tabs/GenomeTab';
 import LifestyleTab from '../components/meatspace/tabs/LifestyleTab';
 
 export default function MeatSpace() {
@@ -25,6 +26,8 @@ export default function MeatSpace() {
         return <AlcoholTab />;
       case 'blood':
         return <BloodTab />;
+      case 'genome':
+        return <GenomeTab />;
       case 'lifestyle':
         return <LifestyleTab />;
       default:

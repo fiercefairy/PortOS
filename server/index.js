@@ -206,7 +206,7 @@ app.use('/api/standardize', standardizeRoutes);
 app.use('/api/brain', brainRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/digital-twin/social-accounts', socialAccountsRoutes);
-app.use('/api/digital-twin/genome', genomeRoutes);
+app.use('/api/meatspace/genome', genomeRoutes);
 app.use('/api/digital-twin/identity', identityRoutes);
 app.use('/api/digital-twin/autobiography', autobiographyRoutes);
 app.use('/api/digital-twin', digitalTwinRoutes);

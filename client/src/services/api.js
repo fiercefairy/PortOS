@@ -1178,53 +1178,53 @@ export const deleteSocialAccount = (id) => request(`/digital-twin/social-account
   method: 'DELETE'
 });
 
-// Digital Twin - Genome
-export const getGenomeSummary = () => request('/digital-twin/genome');
-export const uploadGenomeFile = (content, filename) => request('/digital-twin/genome/upload', {
+// MeatSpace - Genome
+export const getGenomeSummary = () => request('/meatspace/genome');
+export const uploadGenomeFile = (content, filename) => request('/meatspace/genome/upload', {
   method: 'POST',
   body: JSON.stringify({ content, filename })
 });
-export const scanGenomeMarkers = () => request('/digital-twin/genome/scan', { method: 'POST' });
-export const searchGenomeSNP = (rsid) => request('/digital-twin/genome/search', {
+export const scanGenomeMarkers = () => request('/meatspace/genome/scan', { method: 'POST' });
+export const searchGenomeSNP = (rsid) => request('/meatspace/genome/search', {
   method: 'POST',
   body: JSON.stringify({ rsid })
 });
-export const saveGenomeMarker = (data) => request('/digital-twin/genome/markers', {
+export const saveGenomeMarker = (data) => request('/meatspace/genome/markers', {
   method: 'POST',
   body: JSON.stringify(data)
 });
-export const updateGenomeMarkerNotes = (id, notes) => request(`/digital-twin/genome/markers/${id}/notes`, {
+export const updateGenomeMarkerNotes = (id, notes) => request(`/meatspace/genome/markers/${id}/notes`, {
   method: 'PUT',
   body: JSON.stringify({ notes })
 });
-export const deleteGenomeMarker = (id) => request(`/digital-twin/genome/markers/${id}`, { method: 'DELETE' });
-export const deleteGenomeData = () => request('/digital-twin/genome', { method: 'DELETE' });
+export const deleteGenomeMarker = (id) => request(`/meatspace/genome/markers/${id}`, { method: 'DELETE' });
+export const deleteGenomeData = () => request('/meatspace/genome', { method: 'DELETE' });
 
-// Digital Twin - Genome ClinVar
-export const getClinvarStatus = () => request('/digital-twin/genome/clinvar/status');
-export const syncClinvar = () => request('/digital-twin/genome/clinvar/sync', { method: 'POST' });
-export const scanClinvar = () => request('/digital-twin/genome/clinvar/scan', { method: 'POST' });
-export const deleteClinvar = () => request('/digital-twin/genome/clinvar', { method: 'DELETE' });
+// MeatSpace - Genome ClinVar
+export const getClinvarStatus = () => request('/meatspace/genome/clinvar/status');
+export const syncClinvar = () => request('/meatspace/genome/clinvar/sync', { method: 'POST' });
+export const scanClinvar = () => request('/meatspace/genome/clinvar/scan', { method: 'POST' });
+export const deleteClinvar = () => request('/meatspace/genome/clinvar', { method: 'DELETE' });
 
-// Digital Twin - Epigenetic Lifestyle Tracking
-export const getEpigeneticInterventions = () => request('/digital-twin/genome/epigenetic');
+// MeatSpace - Epigenetic Lifestyle Tracking
+export const getEpigeneticInterventions = () => request('/meatspace/genome/epigenetic');
 export const getEpigeneticRecommendations = (categories = []) =>
-  request(`/digital-twin/genome/epigenetic/recommendations${categories.length ? `?categories=${categories.join(',')}` : ''}`);
+  request(`/meatspace/genome/epigenetic/recommendations${categories.length ? `?categories=${categories.join(',')}` : ''}`);
 export const getEpigeneticCompliance = (days = 30) =>
-  request(`/digital-twin/genome/epigenetic/compliance?days=${days}`);
-export const addEpigeneticIntervention = (data) => request('/digital-twin/genome/epigenetic', {
+  request(`/meatspace/genome/epigenetic/compliance?days=${days}`);
+export const addEpigeneticIntervention = (data) => request('/meatspace/genome/epigenetic', {
   method: 'POST',
   body: JSON.stringify(data)
 });
-export const logEpigeneticEntry = (id, entry) => request(`/digital-twin/genome/epigenetic/${id}/log`, {
+export const logEpigeneticEntry = (id, entry) => request(`/meatspace/genome/epigenetic/${id}/log`, {
   method: 'POST',
   body: JSON.stringify(entry)
 });
-export const updateEpigeneticIntervention = (id, updates) => request(`/digital-twin/genome/epigenetic/${id}`, {
+export const updateEpigeneticIntervention = (id, updates) => request(`/meatspace/genome/epigenetic/${id}`, {
   method: 'PUT',
   body: JSON.stringify(updates)
 });
-export const deleteEpigeneticIntervention = (id) => request(`/digital-twin/genome/epigenetic/${id}`, {
+export const deleteEpigeneticIntervention = (id) => request(`/meatspace/genome/epigenetic/${id}`, {
   method: 'DELETE'
 });
 

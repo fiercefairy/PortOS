@@ -1,6 +1,7 @@
 import {
   Skull,
   Beer,
+  Dna,
   HeartPulse,
   ClipboardList,
   Activity
@@ -10,6 +11,7 @@ export const TABS = [
   { id: 'overview', label: 'Overview', icon: Activity },
   { id: 'alcohol', label: 'Alcohol', icon: Beer },
   { id: 'blood', label: 'Blood & Body', icon: HeartPulse },
+  { id: 'genome', label: 'Genome', icon: Dna },
   { id: 'lifestyle', label: 'Lifestyle', icon: ClipboardList }
 ];
 

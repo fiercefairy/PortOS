@@ -115,7 +115,6 @@ const navItems = [
       { to: '/digital-twin/documents', label: 'Documents', icon: FileText },
       { to: '/digital-twin/enrich', label: 'Enrich', icon: Sparkles },
       { to: '/digital-twin/export', label: 'Export', icon: Download },
-      { to: '/digital-twin/genome', label: 'Genome', icon: Dna },
       { to: '/digital-twin/goals', label: 'Goals', icon: Target },
       { to: '/digital-twin/identity', label: 'Identity', icon: Fingerprint },
       { to: '/digital-twin/import', label: 'Import', icon: Upload },
@@ -132,6 +131,7 @@ const navItems = [
     children: [
       { to: '/meatspace/alcohol', label: 'Alcohol', icon: Activity },
       { to: '/meatspace/blood', label: 'Blood & Body', icon: HeartPulse },
+      { to: '/meatspace/genome', label: 'Genome', icon: Dna },
       { to: '/meatspace/lifestyle', label: 'Lifestyle', icon: ClipboardList },
       { to: '/meatspace/overview', label: 'Overview', icon: Activity }
     ]

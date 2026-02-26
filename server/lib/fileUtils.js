@@ -21,6 +21,7 @@ export const PATHS = {
   cos: join(__lib_dirname, '../../data/cos'),
   brain: join(__lib_dirname, '../../data/brain'),
   digitalTwin: join(__lib_dirname, '../../data/digital-twin'),
+  health: join(__lib_dirname, '../../data/health'),
   runs: join(__lib_dirname, '../../data/runs'),
   memory: join(__lib_dirname, '../../data/cos/memory'),
   cosAgents: join(__lib_dirname, '../../data/cos/agents'),  // CoS sub-agents

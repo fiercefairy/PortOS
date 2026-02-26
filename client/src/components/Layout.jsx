@@ -24,6 +24,14 @@ import {
   Brain,
   Heart,
   Fingerprint,
+  CheckCircle,
+  Dna,
+  Download,
+  MessageSquare,
+  Palette,
+  PenLine,
+  Sparkles,
+  Target,
   Clock,
   Calendar,
   GraduationCap,
@@ -59,6 +67,7 @@ const navItems = [
     ]
   },
   { to: '/apps', label: 'Apps', icon: Package, single: true },
+  { to: '/brain', label: 'Brain', icon: Brain, single: true },
   {
     label: 'Chief of Staff',
     icon: Crown,
@@ -95,11 +104,22 @@ const navItems = [
     ]
   },
   {
-    label: 'Identity',
-    icon: Fingerprint,
+    label: 'Digital Twin',
+    icon: Heart,
     children: [
-      { to: '/brain', label: 'Brain', icon: Brain },
-      { to: '/digital-twin', label: 'Digital Twin', icon: Heart }
+      { to: '/digital-twin/accounts', label: 'Accounts', icon: Globe },
+      { to: '/digital-twin/autobiography', label: 'Autobiography', icon: PenLine },
+      { to: '/digital-twin/documents', label: 'Documents', icon: FileText },
+      { to: '/digital-twin/enrich', label: 'Enrich', icon: Sparkles },
+      { to: '/digital-twin/export', label: 'Export', icon: Download },
+      { to: '/digital-twin/genome', label: 'Genome', icon: Dna },
+      { to: '/digital-twin/goals', label: 'Goals', icon: Target },
+      { to: '/digital-twin/identity', label: 'Identity', icon: Fingerprint },
+      { to: '/digital-twin/import', label: 'Import', icon: Upload },
+      { to: '/digital-twin/interview', label: 'Interview', icon: MessageSquare },
+      { to: '/digital-twin/overview', label: 'Overview', icon: Heart },
+      { to: '/digital-twin/taste', label: 'Taste', icon: Palette },
+      { to: '/digital-twin/test', label: 'Test', icon: CheckCircle }
     ]
   },
   { to: '/instances', label: 'Instances', icon: Network, single: true },

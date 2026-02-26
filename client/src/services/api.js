@@ -1081,19 +1081,40 @@ export const saveDigitalTwinImport = (source, suggestedDoc) => request('/digital
   body: JSON.stringify({ source, suggestedDoc })
 });
 
+// Digital Twin - Behavioral Feedback Loop
+export const submitBehavioralFeedback = (data) => request('/digital-twin/feedback', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const getBehavioralFeedbackStats = () => request('/digital-twin/feedback/stats');
+export const recalculateFeedbackWeights = () => request('/digital-twin/feedback/recalculate', {
+  method: 'POST'
+});
+export const getRecentFeedback = (contentType, limit) => {
+  const params = new URLSearchParams();
+  if (contentType) params.set('contentType', contentType);
+  if (limit) params.set('limit', limit);
+  return request(`/digital-twin/feedback/recent?${params}`);
+};
+
 // Digital Twin - Taste Questionnaire
 export const getTasteProfile = () => request('/digital-twin/taste');
 export const getTasteSections = () => request('/digital-twin/taste/sections');
 export const getTasteNextQuestion = (section) => request(`/digital-twin/taste/${section}/next`);
-export const submitTasteAnswer = (section, questionId, answer) => request('/digital-twin/taste/answer', {
+export const submitTasteAnswer = (section, questionId, answer, meta = {}) => request('/digital-twin/taste/answer', {
   method: 'POST',
-  body: JSON.stringify({ section, questionId, answer })
+  body: JSON.stringify({ section, questionId, answer, ...meta })
 });
 export const getTasteSectionResponses = (section) => request(`/digital-twin/taste/${section}/responses`);
 export const generateTasteSummary = (providerId, model, section) => request('/digital-twin/taste/summary', {
   method: 'POST',
   body: JSON.stringify({ providerId, model, ...(section ? { section } : {}) })
 });
+export const getPersonalizedTasteQuestion = (section, providerId, model) =>
+  request(`/digital-twin/taste/${section}/personalized-question`, {
+    method: 'POST',
+    body: JSON.stringify({ providerId, model })
+  });
 export const resetTasteSection = (section) => request(`/digital-twin/taste/${section}`, {
   method: 'DELETE'
 });
@@ -1206,6 +1227,37 @@ export const updateEpigeneticIntervention = (id, updates) => request(`/digital-t
 export const deleteEpigeneticIntervention = (id) => request(`/digital-twin/genome/epigenetic/${id}`, {
   method: 'DELETE'
 });
+
+// Digital Twin - Identity
+export const getIdentityStatus = () => request('/digital-twin/identity');
+export const getChronotype = () => request('/digital-twin/identity/chronotype');
+export const deriveChronotype = () => request('/digital-twin/identity/chronotype/derive', { method: 'POST' });
+export const updateChronotypeBehavioral = (data) => request('/digital-twin/identity/chronotype', {
+  method: 'PUT',
+  body: JSON.stringify(data)
+});
+export const getLongevity = () => request('/digital-twin/identity/longevity');
+export const deriveLongevity = () => request('/digital-twin/identity/longevity/derive', { method: 'POST' });
+export const getGoals = () => request('/digital-twin/identity/goals');
+export const setBirthDate = (birthDate) => request('/digital-twin/identity/goals/birth-date', {
+  method: 'PUT',
+  body: JSON.stringify({ birthDate })
+});
+export const createGoal = (data) => request('/digital-twin/identity/goals', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const updateGoal = (id, data) => request(`/digital-twin/identity/goals/${id}`, {
+  method: 'PUT',
+  body: JSON.stringify(data)
+});
+export const deleteGoal = (id) => request(`/digital-twin/identity/goals/${id}`, { method: 'DELETE' });
+export const addGoalMilestone = (goalId, data) => request(`/digital-twin/identity/goals/${goalId}/milestones`, {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const completeGoalMilestone = (goalId, milestoneId) =>
+  request(`/digital-twin/identity/goals/${goalId}/milestones/${milestoneId}/complete`, { method: 'PUT' });
 
 // JIRA
 export const getJiraInstances = () => request('/jira/instances');

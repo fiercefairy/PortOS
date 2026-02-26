@@ -403,17 +403,45 @@ export const importAnalysisResultSchema = z.object({
 // --- Taste Questionnaire Schemas ---
 
 export const tasteSectionEnum = z.enum([
-  'movies', 'music', 'visual_art', 'architecture', 'food'
+  'movies', 'music', 'visual_art', 'architecture', 'food', 'fashion', 'digital'
 ]);
 
 export const tasteAnswerInputSchema = z.object({
   section: tasteSectionEnum,
   questionId: z.string().min(1),
-  answer: z.string().min(1).max(10000)
+  answer: z.string().min(1).max(10000),
+  source: z.enum(['core', 'follow_up', 'personalized']).optional(),
+  generatedQuestion: z.string().max(2000).optional(),
+  identityContextUsed: z.array(z.string().max(1000)).max(50).optional()
+});
+
+export const tastePersonalizedQuestionInputSchema = z.object({
+  providerId: z.string().min(1).optional(),
+  model: z.string().min(1).optional()
 });
 
 export const tasteSummaryInputSchema = z.object({
   section: tasteSectionEnum.optional(),
   providerId: z.string().min(1),
   model: z.string().min(1)
+});
+
+// --- Behavioral Feedback Loop Schemas (M34 P3) ---
+
+export const feedbackContentTypeEnum = z.enum([
+  'test_response', 'taste_summary', 'enrichment', 'export'
+]);
+
+export const feedbackValidationEnum = z.enum([
+  'sounds_like_me', 'not_quite', 'doesnt_sound_like_me'
+]);
+
+export const feedbackInputSchema = z.object({
+  contentType: feedbackContentTypeEnum,
+  validation: feedbackValidationEnum,
+  contentSnippet: z.string().min(1).max(2000),
+  context: z.string().max(500).optional(),
+  providerId: z.string().min(1).optional(),
+  model: z.string().min(1).optional(),
+  documentsUsed: z.array(z.string()).optional()
 });

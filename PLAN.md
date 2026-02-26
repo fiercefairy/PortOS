@@ -74,8 +74,9 @@ pm2 logs
 
 ### Planned
 
-- [ ] **M34 P3,P5-P7**: Digital Twin - Behavioral feedback loop, multi-modal capture, advanced testing, personas
-- [ ] **M42**: Unified Digital Twin Identity System - See [Identity System](./docs/features/identity-system.md)
+- [ ] **M34 P5-P7**: Digital Twin - Multi-modal capture, advanced testing, personas
+- [x] **M42 P4**: Unified Digital Twin Identity System - Identity Tab UI dashboard with completeness header, 5 summary cards, derive actions
+- [ ] **M42 P5**: Unified Digital Twin Identity System - Cross-Insights Engine. See [Identity System](./docs/features/identity-system.md)
 
 ---
 
@@ -158,8 +159,8 @@ All 10 audit items (S1–S10) from the 2025-02-19 security audit have been resol
 
 ## Next Actions
 
-1. **M42 P1: Identity Orchestrator & Chronotype** - Create identity.json, chronotype.json, identity service, derive chronotype from 5 genome sleep markers. See [Identity System](./docs/features/identity-system.md)
-2. **M42 P2.5: Personalized Taste Prompting** - Enhance TasteTab with twin-aware follow-up questions using identity context from existing documents
+1. ~~**M42 P1: Identity Orchestrator & Chronotype**~~ ✅ - Identity service, chronotype derivation from genome sleep/caffeine markers, 4 API endpoints, 36 tests
+2. ~~**M42 P2.5: Personalized Taste Prompting**~~ ✅ - LLM-personalized follow-ups using identity context, 2 new taste sections (Fashion & Digital), "Go Deeper" flow
 3. **M7: App Templates** - Implement template management UI and app scaffolding from templates
-4. **M34 P3: Behavioral Feedback Loop** - Add "sounds like me" response validation and adaptive weighting
-5. **M42 P3: Mortality-Aware Goal Tracking** - Birth date + genome longevity markers for urgency-scored goals
+4. ~~**M34 P3: Behavioral Feedback Loop**~~ ✅ - "Sounds like me" validation on test responses and taste summaries, feedback stats dashboard, document weight recalculation
+5. ~~**M42 P3: Mortality-Aware Goal Tracking**~~ ✅ - Longevity/cardiovascular marker extraction, life expectancy estimation, goal CRUD with urgency scoring, Goals tab UI, 38 new tests

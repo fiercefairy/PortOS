@@ -256,6 +256,119 @@ export const TASTE_SECTIONS = {
         followUps: []
       }
     ]
+  },
+  fashion: {
+    label: 'Fashion & Texture',
+    description: 'Material preferences, tactile comfort, color wardrobe, style identity',
+    icon: 'Shirt',
+    color: 'pink',
+    questions: [
+      {
+        id: 'fashion-core-1',
+        text: 'What materials or fabrics do you gravitate toward? Think about what feels right against your skin, what you reach for instinctively — cotton, linen, wool, synthetics, leather?',
+        type: 'text',
+        followUps: [
+          {
+            id: 'fashion-fu-texture',
+            trigger: 'texture|soft|rough|smooth|feel|tactile|touch|sensory',
+            text: 'Tactile experience matters to you. Do you choose clothing primarily by how it feels, or is visual appearance more important? Are there textures you absolutely cannot tolerate?'
+          },
+          {
+            id: 'fashion-fu-natural',
+            trigger: 'natural|organic|linen|cotton|wool|silk|sustainable|eco',
+            text: 'You lean toward natural materials. Is this about comfort, ethics, aesthetics, or all three? Do you actively avoid synthetics?'
+          }
+        ]
+      },
+      {
+        id: 'fashion-core-2',
+        text: 'Describe your color wardrobe — what colors dominate your closet? Where do you fall on the formality spectrum, from athleisure to tailored?',
+        type: 'text',
+        followUps: [
+          {
+            id: 'fashion-fu-minimal',
+            trigger: 'minimalist|capsule|neutral|black|simple|uniform|same',
+            text: 'You favor a minimalist wardrobe approach. Is this about decision fatigue, aesthetic conviction, or practicality? Do you have a signature look or uniform?'
+          },
+          {
+            id: 'fashion-fu-color',
+            trigger: 'color|bright|pattern|print|bold|statement|express',
+            text: 'You use color expressively. Do you dress for mood, season, or self-expression? Are there colors you associate with specific feelings or identities?'
+          }
+        ]
+      },
+      {
+        id: 'fashion-core-3',
+        text: 'How would you describe your style identity? What fashion movements, eras, or anti-fashion positions resonate with you? What do you refuse to wear?',
+        type: 'text',
+        followUps: [
+          {
+            id: 'fashion-fu-vintage',
+            trigger: 'vintage|retro|thrift|secondhand|era|classic|timeless',
+            text: 'You connect with vintage or classic style. Is there a specific era that defines your aesthetic? Do you actively seek out vintage pieces, or is it more about the timeless quality?'
+          }
+        ]
+      }
+    ]
+  },
+  digital: {
+    label: 'Digital & Interface',
+    description: 'Dark/light mode, information density, tool aesthetics, digital environment preferences',
+    icon: 'Monitor',
+    color: 'cyan',
+    questions: [
+      {
+        id: 'digital-core-1',
+        text: 'Dark mode or light mode — and why? How do you feel about information density on screen? Do you prefer spacious layouts or packed dashboards? What about animations and transitions?',
+        type: 'text',
+        followUps: [
+          {
+            id: 'digital-fu-darkmode',
+            trigger: 'dark mode|dark theme|dark|night|black background|oled',
+            text: 'You prefer dark interfaces. Is it about eye comfort, aesthetics, or focus? Do you prefer true black (#000) or dark gray? How do you feel about pure white text on dark backgrounds vs softer contrast?'
+          },
+          {
+            id: 'digital-fu-minimal',
+            trigger: 'minimal|clean|simple|spacious|breathing room|whitespace',
+            text: 'You value visual breathing room. Does this extend to your desktop, file organization, and browser tabs? Or is the preference purely about UI design?'
+          },
+          {
+            id: 'digital-fu-dense',
+            trigger: 'dense|packed|data|dashboard|information|everything visible|power user',
+            text: 'You like information-dense interfaces. Is this about efficiency, control, or the satisfaction of seeing everything at once? Name a tool that gets information density right for you.'
+          }
+        ]
+      },
+      {
+        id: 'digital-core-2',
+        text: 'What software tools feel genuinely good to use — not just functional, but aesthetically satisfying? What makes them feel that way?',
+        type: 'text',
+        followUps: [
+          {
+            id: 'digital-fu-craft',
+            trigger: 'craft|polish|attention to detail|animation|smooth|responsive|fast',
+            text: 'You appreciate software craftsmanship. How much does performance (speed, responsiveness) factor into your aesthetic experience of software vs visual design alone?'
+          },
+          {
+            id: 'digital-fu-cluttered',
+            trigger: 'cluttered|bloated|heavy|slow|electron|ugly|hate',
+            text: 'You have strong negative reactions to certain software aesthetics. Is it the visual clutter, the performance overhead, or the feeling of disrespect for your attention?'
+          }
+        ]
+      },
+      {
+        id: 'digital-core-3',
+        text: 'Describe your ideal notification and attention style. How do you manage digital interruptions? What does your ideal digital environment look like in terms of focus and distraction?',
+        type: 'text',
+        followUps: [
+          {
+            id: 'digital-fu-focus',
+            trigger: 'focus|distraction|notification|dnd|do not disturb|quiet|silence|zen',
+            text: 'You actively manage digital attention. Do you use specific tools or systems for this? Is your approach about discipline, environment design, or both?'
+          }
+        ]
+      }
+    ]
   }
 };
 
@@ -416,7 +529,7 @@ export async function getNextQuestion(sectionId) {
 /**
  * Submit an answer for a taste question.
  */
-export async function submitAnswer(sectionId, questionId, answer) {
+export async function submitAnswer(sectionId, questionId, answer, { source, generatedQuestion, identityContextUsed } = {}) {
   const config = TASTE_SECTIONS[sectionId];
   if (!config) throw new Error(`Unknown taste section: ${sectionId}`);
 
@@ -430,12 +543,17 @@ export async function submitAnswer(sectionId, questionId, answer) {
   if (existing) {
     existing.answer = answer;
     existing.updatedAt = now();
+    if (source) existing.source = source;
   } else {
-    profile.sections[sectionId].responses.push({
+    const responseEntry = {
       questionId,
       answer,
       answeredAt: now()
-    });
+    };
+    if (source) responseEntry.source = source;
+    if (generatedQuestion) responseEntry.generatedQuestion = generatedQuestion;
+    if (identityContextUsed) responseEntry.identityContextUsed = identityContextUsed;
+    profile.sections[sectionId].responses.push(responseEntry);
   }
 
   if (!profile.createdAt) profile.createdAt = now();
@@ -657,11 +775,13 @@ export async function getSectionResponses(sectionId) {
 
   return sectionData.responses.map(r => {
     const qDef = findQuestionDef(sectionId, r.questionId);
+    const isPersonalized = r.questionId.includes('-p25-') || r.source === 'personalized';
     return {
       questionId: r.questionId,
-      questionText: qDef?.text || r.questionId,
+      questionText: isPersonalized ? (r.generatedQuestion || r.questionId) : (qDef?.text || r.questionId),
       answer: r.answer,
       isFollowUp: r.questionId.includes('-fu-'),
+      isPersonalized,
       answeredAt: r.answeredAt
     };
   });
@@ -678,6 +798,137 @@ export async function resetSection(sectionId) {
     console.log(`🎨 Taste section reset: ${sectionId}`);
   }
   return { section: sectionId, status: 'reset' };
+}
+
+// =============================================================================
+// PERSONALIZED QUESTION GENERATION
+// =============================================================================
+
+const IDENTITY_DOCS = ['BOOKS.md', 'AUDIO.md', 'CREATIVE.md', 'PREFERENCES.md', 'PERSONALITY.md'];
+const MAX_CONTEXT_CHARS = 4000;
+
+/**
+ * Aggregate identity context from digital twin documents for personalized prompting.
+ */
+async function aggregateIdentityContext(sectionId) {
+  const contextParts = [];
+  const sourcesUsed = [];
+
+  // Read identity documents (first ~2000 chars each)
+  for (const docName of IDENTITY_DOCS) {
+    const docPath = join(DIGITAL_TWIN_DIR, docName);
+    if (!existsSync(docPath)) continue;
+    const content = await readFile(docPath, 'utf-8');
+    if (content.trim().length > 0) {
+      contextParts.push(`## ${docName}\n${content.slice(0, 2000)}`);
+      sourcesUsed.push(docName);
+    }
+  }
+
+  // Read enrichment answers from meta.json
+  const metaPath = join(DIGITAL_TWIN_DIR, 'meta.json');
+  if (existsSync(metaPath)) {
+    const metaRaw = await readFile(metaPath, 'utf-8');
+    const meta = safeJSONParse(metaRaw, {});
+    if (meta.enrichment?.questionsAnswered) {
+      const enrichmentSummary = Object.entries(meta.enrichment.questionsAnswered)
+        .filter(([, count]) => count > 0)
+        .map(([cat, count]) => `${cat}: ${count} answers`)
+        .join(', ');
+      if (enrichmentSummary) {
+        contextParts.push(`## Enrichment Progress\n${enrichmentSummary}`);
+        sourcesUsed.push('enrichment');
+      }
+    }
+  }
+
+  // Read existing taste responses from other completed sections
+  const profile = await loadTasteProfile();
+  for (const [sid, sectionData] of Object.entries(profile.sections)) {
+    if (sid === sectionId || !sectionData.responses?.length) continue;
+    const config = TASTE_SECTIONS[sid];
+    if (!config) continue;
+    const excerpt = sectionData.responses.slice(0, 3).map(r => {
+      const qDef = findQuestionDef(sid, r.questionId);
+      return `Q: ${qDef?.text || r.questionId}\nA: ${r.answer.slice(0, 300)}`;
+    }).join('\n\n');
+    if (excerpt) {
+      contextParts.push(`## Taste: ${config.label}\n${excerpt}`);
+      sourcesUsed.push(`taste:${sid}`);
+    }
+  }
+
+  if (contextParts.length === 0) return { context: '', sourcesUsed: [] };
+
+  // Truncate combined context to max length
+  let combined = contextParts.join('\n\n---\n\n');
+  if (combined.length > MAX_CONTEXT_CHARS) {
+    combined = combined.slice(0, MAX_CONTEXT_CHARS) + '\n\n[...truncated]';
+  }
+
+  return { context: combined, sourcesUsed };
+}
+
+/**
+ * Generate a personalized follow-up question for a taste section using LLM.
+ */
+export async function generatePersonalizedTasteQuestion(sectionId, providerId, model) {
+  const config = TASTE_SECTIONS[sectionId];
+  if (!config) return null;
+
+  const { context, sourcesUsed } = await aggregateIdentityContext(sectionId);
+  if (!context) return null;
+
+  const provider = providerId
+    ? await getProviderById(providerId)
+    : await getActiveProvider();
+
+  if (!provider) return null;
+
+  const modelId = model || provider.defaultModel;
+
+  // Build existing responses transcript
+  const profile = await loadTasteProfile();
+  const sectionData = profile.sections[sectionId] || { responses: [] };
+  const transcript = sectionData.responses.map(r => {
+    const qDef = findQuestionDef(sectionId, r.questionId);
+    return `Q: ${qDef?.text || r.questionId}\nA: ${r.answer}`;
+  }).join('\n\n');
+
+  const prompt = `You are a thoughtful interviewer building an aesthetic taste profile for someone. You already know a lot about this person from their identity documents and previous responses. Your job is to ask ONE follow-up question about "${config.label}" that:
+
+1. References something specific from their identity context (a book they read, music they like, a personality trait, a preference)
+2. Connects it to the ${config.label} domain in a surprising or insightful way
+3. Feels conversational and curious, not clinical or formulaic
+4. Goes deeper than generic taste questions — probe the "why" behind their preferences
+
+## Identity Context
+${context}
+
+## Previous ${config.label} Responses
+${transcript || '(No responses yet for this section)'}
+
+## Instructions
+Generate exactly ONE question. Do not include any preamble, numbering, or explanation. Just the question text itself. Keep it under 150 words. Make it feel like a question from someone who genuinely knows and is curious about this person.`;
+
+  const result = await callProviderAISimple(provider, modelId, prompt, { temperature: 0.8, max_tokens: 200 });
+
+  if (result.error || !result.text?.trim()) {
+    console.log(`🎨 Personalized question generation failed for ${sectionId}: ${result.error || 'empty response'}`);
+    return null;
+  }
+
+  const questionId = `${sectionId}-p25-${uuidv4()}`;
+  console.log(`🎨 Personalized question generated for ${sectionId} (${sourcesUsed.length} sources)`);
+
+  return {
+    questionId,
+    text: result.text.trim(),
+    isPersonalized: true,
+    identityContextUsed: sourcesUsed,
+    section: sectionId,
+    sectionLabel: config.label
+  };
 }
 
 // =============================================================================

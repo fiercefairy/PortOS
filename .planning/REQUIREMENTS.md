@@ -9,9 +9,9 @@ Requirements for this milestone batch. Each maps to roadmap phases.
 
 ### Genome Cleanup
 
-- [ ] **GEN-01**: Route comments updated from `/api/digital-twin/genome/` to `/api/meatspace/genome/`
-- [ ] **GEN-02**: IdentityTab Genome card removed or redirected to `/meatspace/genome`
-- [ ] **GEN-03**: genome.js data paths verified to read from correct directory
+- [x] **GEN-01**: Route comments updated from `/api/digital-twin/genome/` to `/api/meatspace/genome/`
+- [x] **GEN-02**: IdentityTab Genome card removed or redirected to `/meatspace/genome`
+- [x] **GEN-03**: genome.js data paths verified to read from correct directory
 
 ### Backup
 
@@ -89,9 +89,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| GEN-01 | Phase 1 | Pending |
-| GEN-02 | Phase 1 | Pending |
-| GEN-03 | Phase 1 | Pending |
+| GEN-01 | Phase 1 | Complete |
+| GEN-02 | Phase 1 | Complete |
+| GEN-03 | Phase 1 | Complete |
 | BAK-01 | Phase 2 | Pending |
 | BAK-02 | Phase 2 | Pending |
 | BAK-03 | Phase 2 | Pending |

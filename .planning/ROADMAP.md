@@ -12,7 +12,7 @@ This batch transforms PortOS from a collection of powerful but siloed features i
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Genome Migration Cleanup** - Fix stale digital-twin genome references so data reads from the correct meatspace location
+- [x] **Phase 1: Genome Migration Cleanup** - Fix stale digital-twin genome references so data reads from the correct meatspace location
 - [ ] **Phase 2: Data Backup & Recovery** - Incremental rsync backup to external drive with scheduling, dashboard widget, and restore capability
 - [ ] **Phase 3: Apple Health Integration** - Ingest Health Auto Export JSON and bulk XML into day-partitioned storage with dashboard cards
 - [ ] **Phase 4: Cross-Domain Insights Engine** - Genome-to-health correlations and taste-to-identity themes with confidence levels and source attribution
@@ -31,7 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 1 plan
 
 Plans:
-- [ ] 01-01-PLAN.md -- Complete genome migration: update service paths, route comments, client navigation, docs, and move data files
+- [x] 01-01-PLAN.md -- Complete genome migration: update service paths, route comments, client navigation, docs, and move data files
 
 ### Phase 2: Data Backup & Recovery
 **Goal**: All PortOS data is automatically backed up to an external drive with integrity verification and restore capability
@@ -101,7 +101,7 @@ Note: Phases 1 and 2 have no dependency on each other and can execute in paralle
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Genome Migration Cleanup | 0/1 | Not started | - |
+| 1. Genome Migration Cleanup | 1/1 | Complete | 2026-02-26 |
 | 2. Data Backup & Recovery | 0/2 | Not started | - |
 | 3. Apple Health Integration | 0/2 | Not started | - |
 | 4. Cross-Domain Insights Engine | 0/2 | Not started | - |

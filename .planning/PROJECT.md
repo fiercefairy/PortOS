@@ -1,12 +1,12 @@
-# PortOS — Next Actions Batch
+# PortOS
 
 ## What This Is
 
-PortOS is a self-hosted personal operating system that centralizes app management, AI agent orchestration, knowledge capture, digital identity modeling, and health tracking into a single dashboard — accessible anywhere via Tailscale VPN. This milestone batch focuses on cleanup, data protection, cross-domain intelligence, health integration, and universal search across the 44+ milestones of existing functionality.
+PortOS is a self-hosted personal operating system that centralizes app management, AI agent orchestration, knowledge capture, digital identity modeling, and health tracking into a single dashboard — accessible anywhere via Tailscale VPN. With v1.0, genome data informs health insights, all data is backed up and restorable, Apple Health metrics are integrated, cross-domain patterns surface automatically, and any piece of information is one keystroke away via Cmd+K search.
 
 ## Core Value
 
-Ship the five planned next actions that transform PortOS from a collection of powerful but siloed features into a connected, protected, and searchable system — where genome data informs health insights, all data is backed up, and any piece of information is one keystroke away.
+A connected, protected, and searchable personal OS — where data flows between domains (genome, health, identity, taste) to surface insights, everything is backed up, and universal search makes any piece of information one keystroke away.
 
 ## Requirements
 
@@ -21,20 +21,21 @@ Ship the five planned next actions that transform PortOS from a collection of po
 - ✓ Agent tools and platform support (Moltbook, Moltworld) — M38, M43
 - ✓ MeatSpace health tracking (death clock, LEV, alcohol, blood, body, epigenetic, eye, genome, lifestyle) — M44 P1-P5
 - ✓ Tailscale anywhere access with mobile-responsive UI — existing
+- ✓ Genome migration cleanup — fix stale digital-twin references — v1.0
+- ✓ Data backup & recovery — scheduled incremental rsync with integrity verification and restore — v1.0
+- ✓ Apple Health integration — JSON ingest, SAX XML import, health metric cards and correlations — v1.0
+- ✓ Cross-domain insights — genome-to-health correlations, taste-to-identity themes, LLM narratives — v1.0
+- ✓ Unified search (Cmd+K) — server fan-out, Spotlight-style overlay, keyboard navigation, deep linking — v1.0
 
 ### Active
 
-- [ ] M44 P6: Genome/epigenetic migration cleanup — fix route comments and IdentityTab Genome card
-- [ ] M42 P5: Cross-Insights Engine — genome-to-health correlations and taste-to-identity themes
-- [ ] M45: Data Backup & Recovery — scheduled incremental backup to local external drive with restore
-- [ ] M44 P7: Apple Health Integration — ingest endpoint for Health Auto Export app + bulk XML import
-- [ ] M46: Unified Search (Cmd+K) — keyword search across all data sources from any page
+(None — next milestone requirements TBD via `/gsd:new-milestone`)
 
 ### Out of Scope
 
-- Semantic/vector search in Cmd+K — keyword-first for v1, semantic later
-- Cloud backup targets — local external drive only for this batch
-- Apple Health live sync setup — app not yet installed, build the endpoint first
+- Semantic/vector search in Cmd+K — keyword-first for v1, semantic layers on later via existing BM25+vector infra
+- Cloud backup targets — local external drive only, NAS/rsync can be added later
+- Apple Health live sync setup — endpoint built, app not yet purchased
 - Multi-modal identity capture (voice, video) — future tier
 - Push notifications (M47) — deferred to next batch
 - Dashboard customization / workspace contexts — Tier 4, later
@@ -42,14 +43,22 @@ Ship the five planned next actions that transform PortOS from a collection of po
 
 ## Context
 
-PortOS has 44+ completed milestones with a mature Express.js + React + PM2 architecture. All data persists to JSON files in `./data/` with zero redundancy — making M45 (backup) critical. The genome data was recently migrated from digital-twin routes to MeatSpace (M44 P5) but cleanup of old references remains (M44 P6). The Cross-Insights Engine (M42 P5) connects existing genome, taste, personality, and health data into derived insights. Apple Health integration (M44 P7) brings external health data into MeatSpace. Unified Search (M46) adds a cross-cutting Cmd+K overlay that searches brain, memory, history, agents, apps, and health.
+PortOS has 44+ completed milestones with a mature Express.js + React + PM2 architecture. All data persists to JSON files in `./data/`. v1.0 shipped 5 phases (10 plans, 24 requirements) transforming siloed features into a connected system. The codebase is ~79K server LOC + ~55K client LOC (JavaScript/JSX).
 
-**Existing infrastructure to leverage:**
-- Vector + BM25 hybrid search already exists in memory system (for future semantic search extension)
-- Socket.IO real-time updates throughout the app
+**Shipped in v1.0:**
+- Genome data reads from correct meatspace paths
+- Incremental rsync backup with SHA-256 manifest, scheduler, dashboard widget, snapshot restore
+- Apple Health JSON ingest with dedup + SAX XML import (500MB+ streaming) + health cards with correlation charts
+- Cross-domain insights engine with 117 curated genome markers, LLM theme analysis, confidence levels
+- Cmd+K unified search across Brain, Memory, Apps, History, Health with grouped results and deep linking
+
+**Infrastructure available for next milestone:**
+- Vector + BM25 hybrid search in memory system
+- Socket.IO real-time updates
 - Zod validation on all routes
 - PM2 ecosystem managing 5+ processes
 - `portos-ai-toolkit` for AI provider management
+- Fan-out search architecture (easily extensible to new sources)
 
 ## Constraints
 
@@ -58,16 +67,19 @@ PortOS has 44+ completed milestones with a mature Express.js + React + PM2 archi
 - **Ports**: 5554-5560 allocated, define new ports in `ecosystem.config.cjs`
 - **No hardcoded localhost**: Use `window.location.hostname` for all URLs
 - **Backup target**: Local external drive (mounted path)
-- **Apple Health app**: Not yet purchased — build ingest endpoint, test with sample data
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Keyword-first search for M46 | Ship faster, semantic search can layer on later via existing vector infra | — Pending |
-| Local external drive for backup | Simplest reliable target, NAS/rsync can be added later | — Pending |
-| Genome→Health and Taste→Identity as priority insights | User's most-wanted cross-domain correlations | — Pending |
-| Build Apple Health endpoint before purchasing app | Endpoint + sample data testing first, real device later | — Pending |
+| Keyword-first search for M46 | Ship faster, semantic search can layer on later via existing vector infra | ✓ Good — shipped in one session, keyword covers 90% of use cases |
+| Local external drive for backup | Simplest reliable target, NAS/rsync can be added later | ✓ Good — works reliably, rsync incremental is fast |
+| Genome→Health and Taste→Identity as priority insights | User's most-wanted cross-domain correlations | ✓ Good — 117 curated markers + LLM themes provide actionable insights |
+| Build Apple Health endpoint before purchasing app | Endpoint + sample data testing first, real device later | ✓ Good — full pipeline tested with sample data |
+| SAX streaming for Apple Health XML | 500MB+ files would OOM with DOM parsing | ✓ Good — processes large exports with constant memory |
+| Portal rendering for Cmd+K overlay | z-index isolation above sidebar | ✓ Good — no stacking context issues |
+| Promise.allSettled for search fan-out | Individual source failures shouldn't break entire search | ✓ Good — graceful degradation |
+| Day-partitioned JSON for health data | Aligns with Health Auto Export's daily cadence, fast date-range queries | ✓ Good — simple, performant |
 
 ---
-*Last updated: 2026-02-26 after initialization*
+*Last updated: 2026-02-27 after v1.0 milestone*

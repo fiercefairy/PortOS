@@ -4,6 +4,7 @@ import { existsSync } from 'fs';
 import * as appsService from '../services/apps.js';
 import { notifyAppsChanged, PORTOS_APP_ID } from '../services/apps.js';
 import * as pm2Service from '../services/pm2.js';
+import * as appUpdater from '../services/appUpdater.js';
 import { logAction } from '../services/history.js';
 import { validateRequest, appSchema, appUpdateSchema } from '../lib/validation.js';
 import { asyncHandler, ServerError } from '../lib/errorHandler.js';
@@ -294,6 +295,29 @@ router.post('/:id/restart', loadApp, asyncHandler(async (req, res) => {
   notifyAppsChanged('restart');
 
   res.json({ success: true, results });
+}));
+
+// POST /api/apps/:id/update - Pull, install deps, setup, restart
+router.post('/:id/update', loadApp, asyncHandler(async (req, res) => {
+  const app = req.loadedApp;
+
+  if (!app.repoPath || !existsSync(app.repoPath)) {
+    throw new ServerError('App repo path does not exist', { status: 400, code: 'PATH_NOT_FOUND' });
+  }
+
+  console.log(`⬇️ Starting update for ${app.name}`);
+  const progressSteps = [];
+  const emit = (step, status, message) => {
+    progressSteps.push({ step, status, message, timestamp: Date.now() });
+  };
+
+  const result = await appUpdater.updateApp(app, emit);
+  const success = result.success;
+  await logAction('update', app.id, app.name, { steps: result.steps }, success);
+  notifyAppsChanged('update');
+  console.log(`${success ? '✅' : '❌'} Update ${success ? 'complete' : 'failed'} for ${app.name}`);
+
+  res.json({ success, steps: result.steps, progress: progressSteps });
 }));
 
 // GET /api/apps/:id/status - Get PM2 status

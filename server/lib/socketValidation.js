@@ -45,6 +45,11 @@ export const shellStopSchema = z.object({
   sessionId: z.string().min(1, 'sessionId is required')
 });
 
+// app:update — app ID for pull/install/restart cycle
+export const appUpdateSchema = z.object({
+  appId: z.string().min(1, 'appId is required')
+});
+
 // =============================================================================
 // VALIDATION HELPER
 // =============================================================================

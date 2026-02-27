@@ -187,7 +187,7 @@ export default function IdentityTab({ onRefresh }) {
           )}
 
           <button
-            onClick={() => navigate('/digital-twin/genome')}
+            onClick={() => navigate('/meatspace/genome')}
             className="flex items-center gap-1 mt-3 text-sm text-port-accent hover:text-white transition-colors"
           >
             View Full Genome

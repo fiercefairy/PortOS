@@ -5,7 +5,8 @@ import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
-import healthRoutes from './routes/health.js';
+import appleHealthRoutes from './routes/appleHealth.js';
+import systemHealthRoutes from './routes/systemHealth.js';
 import appsRoutes from './routes/apps.js';
 import portsRoutes from './routes/ports.js';
 import logsRoutes from './routes/logs.js';
@@ -38,8 +39,11 @@ import lmstudioRoutes from './routes/lmstudio.js';
 import browserRoutes from './routes/browser.js';
 import moltworldToolsRoutes from './routes/moltworldTools.js';
 import moltworldWsRoutes from './routes/moltworldWs.js';
+import insightsRoutes from './routes/insights.js';
 import jiraRoutes from './routes/jira.js';
 import autobiographyRoutes from './routes/autobiography.js';
+import backupRoutes from './routes/backup.js';
+import searchRoutes from './routes/search.js';
 import identityRoutes from './routes/identity.js';
 import instancesRoutes from './routes/instances.js';
 import meatspaceRoutes from './routes/meatspace.js';
@@ -55,6 +59,7 @@ import { errorEvents } from './lib/errorHandler.js';
 import './services/subAgentSpawner.js'; // Initialize CoS agent spawner
 import * as automationScheduler from './services/automationScheduler.js';
 import * as agentActionExecutor from './services/agentActionExecutor.js';
+import { startBackupScheduler } from './services/backupScheduler.js';
 import { startBrainScheduler } from './services/brainScheduler.js';
 import { createAIToolkit } from 'portos-ai-toolkit/server';
 import { createPortOSProviderRoutes } from './routes/providers.js';
@@ -169,7 +174,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.set('io', io);
 
 // API Routes
-app.use('/api', healthRoutes);
+app.use('/api/system', systemHealthRoutes);
 app.use('/api/apps', appsRoutes);
 app.use('/api/ports', portsRoutes);
 app.use('/api/logs', logsRoutes);
@@ -186,7 +191,9 @@ app.use('/api/commands', commandsRoutes);
 app.use('/api/git', gitRoutes);
 app.use('/api/usage', usageRoutes);
 app.use('/api/screenshots', screenshotsRoutes);
+app.use('/api/search', searchRoutes);
 app.use('/api/attachments', attachmentsRoutes);
+app.use('/api/backup', backupRoutes);
 app.use('/api/uploads', uploadsRoutes);
 // Agent Personalities feature routes (must be before /api/agents to avoid route conflicts)
 app.use('/api/agents/personalities', agentPersonalitiesRoutes);
@@ -213,6 +220,8 @@ app.use('/api/digital-twin', digitalTwinRoutes);
 app.use('/api/lmstudio', lmstudioRoutes);
 app.use('/api/browser', browserRoutes);
 app.use('/api/jira', jiraRoutes);
+app.use('/api/health', appleHealthRoutes);
+app.use('/api/insights', insightsRoutes);
 app.use('/api/instances', instancesRoutes);
 app.use('/api/meatspace', meatspaceRoutes);
 app.use('/api/settings', settingsRoutes);
@@ -226,6 +235,8 @@ agentActionExecutor.init();
 
 // Initialize brain scheduler for daily digests and weekly reviews
 startBrainScheduler();
+// Initialize backup scheduler for daily data backups
+startBackupScheduler().catch(err => console.error(`❌ Backup scheduler init failed: ${err.message}`));
 
 // 404 handler
 app.use((req, res) => {

@@ -1883,10 +1883,7 @@ async function spawnDirectly(agentId, task, prompt, workspacePath, model, provid
     shell: false,
     stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
-    env: {
-      ...process.env,
-      ...provider.envVars
-    }
+    env: (() => { const e = { ...process.env, ...provider.envVars }; delete e.CLAUDECODE; return e; })()
   });
 
   registerSpawnedAgent(claudeProcess.pid, {

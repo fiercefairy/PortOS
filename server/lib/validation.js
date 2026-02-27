@@ -398,6 +398,39 @@ export const moltworldQueueAddSchema = z.object({
   scheduledFor: z.string().datetime().optional().nullable()
 });
 
+// =============================================================================
+// INSIGHTS SCHEMAS
+// =============================================================================
+
+export const insightRefreshSchema = z.object({
+  providerId: z.string().optional(),
+  model: z.string().optional()
+});
+
+// =============================================================================
+// SEARCH SCHEMAS
+// =============================================================================
+
+export const searchQuerySchema = z.object({
+  q: z.string().min(2).max(200).trim()
+});
+
+// =============================================================================
+// BACKUP SCHEMAS
+// =============================================================================
+
+export const backupConfigSchema = z.object({
+  destPath: z.string().min(1),
+  cronExpression: z.string().optional(),
+  enabled: z.boolean().optional().default(true)
+});
+
+export const restoreRequestSchema = z.object({
+  snapshotId: z.string().min(1),
+  subdirFilter: z.string().optional().nullable(),
+  dryRun: z.boolean().optional().default(true)
+});
+
 /**
  * Validate data against a schema
  * Returns { success: true, data } or { success: false, errors }

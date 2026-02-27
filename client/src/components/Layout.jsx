@@ -47,7 +47,8 @@ import {
   Flame,
   Skull,
   HeartPulse,
-  ClipboardList
+  ClipboardList,
+  Lightbulb
 } from 'lucide-react';
 import packageJson from '../../package.json';
 import Logo from './Logo';
@@ -56,6 +57,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import { useAgentFeedbackToast } from '../hooks/useAgentFeedbackToast';
 import NotificationDropdown from './NotificationDropdown';
 import ThemeSwitcher from './ThemeSwitcher';
+import CmdKSearch from './CmdKSearch';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: Home, single: true },
@@ -124,6 +126,7 @@ const navItems = [
       { to: '/digital-twin/test', label: 'Test', icon: CheckCircle }
     ]
   },
+  { to: '/insights/overview', label: 'Insights', icon: Lightbulb, single: true },
   { to: '/instances', label: 'Instances', icon: Network, single: true },
   {
     label: 'MeatSpace',
@@ -132,6 +135,8 @@ const navItems = [
       { to: '/meatspace/alcohol', label: 'Alcohol', icon: Activity },
       { to: '/meatspace/blood', label: 'Blood & Body', icon: HeartPulse },
       { to: '/meatspace/genome', label: 'Genome', icon: Dna },
+      { to: '/meatspace/health', label: 'Health', icon: Heart },
+      { to: '/meatspace/import', label: 'Import', icon: Upload },
       { to: '/meatspace/lifestyle', label: 'Lifestyle', icon: ClipboardList },
       { to: '/meatspace/overview', label: 'Overview', icon: Activity }
     ]
@@ -525,6 +530,7 @@ export default function Layout() {
           const isFullWidth = location.pathname.startsWith('/cos') ||
             location.pathname.startsWith('/brain') ||
             location.pathname.startsWith('/digital-twin') ||
+            location.pathname.startsWith('/insights') ||
             location.pathname.startsWith('/meatspace') ||
             location.pathname.startsWith('/agents') ||
             location.pathname === '/shell' ||
@@ -536,6 +542,8 @@ export default function Layout() {
           );
         })()}
       </div>
+      {/* Cmd+K search overlay — mounted in layout so it's available on every page */}
+      <CmdKSearch />
     </div>
   );
 }

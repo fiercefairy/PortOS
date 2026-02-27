@@ -8,7 +8,7 @@ Four separate workstreams converge on the same vision: a personal digital twin t
 
 | Subsystem | Current State | Location |
 |-----------|--------------|----------|
-| **Genome** | Fully implemented: 23andMe upload, 117 curated SNP markers across 32 categories, ClinVar integration, epigenetic tracking | `server/services/genome.js`, `GenomeTab.jsx`, `data/digital-twin/genome.json` |
+| **Genome** | Fully implemented: 23andMe upload, 117 curated SNP markers across 32 categories, ClinVar integration, epigenetic tracking | `server/services/genome.js`, `GenomeTab.jsx`, `data/meatspace/genome.json` |
 | **Chronotype** | Genetic data ready: 5 sleep/circadian markers (CLOCK rs1801260, DEC2 rs57875989, PER2 rs35333999, CRY1 rs2287161, MTNR1B rs10830963) + `daily_routines` enrichment category. Derivation service not yet built | `curatedGenomeMarkers.js` sleep category, `ENRICHMENT_CATEGORIES.daily_routines` |
 | **Aesthetic Taste** | P2 complete: Taste questionnaire with 5 sections (movies, music, visual_art, architecture, food), conversational Q&A, AI summary generation. Enrichment categories also feed taste data from book/movie/music lists | `TasteTab.jsx`, `taste-questionnaire.js`, `data/digital-twin/taste-profile.json` |
 | **Goal Tracking** | Partially exists: `COS-GOALS.md` for CoS missions, `TASKS.md` for user tasks, `EXISTENTIAL.md` soul doc | `data/COS-GOALS.md`, `data/TASKS.md`, `data/digital-twin/EXISTENTIAL.md` |
@@ -252,7 +252,7 @@ The existing Digital Twin page at `/digital-twin/:tab` gets a new **Identity** t
 - `/digital-twin/identity/chronotype` -- Full chronotype editor with schedule builder
 - `/digital-twin/identity/taste` -- Aesthetic questionnaire flow (section-by-section)
 - `/digital-twin/identity/goals` -- Goal CRUD with urgency visualization
-- `/digital-twin/genome` -- Existing genome tab (unchanged)
+- `/meatspace/genome` -- Existing genome tab (unchanged)
 
 ## Implementation Phases
 

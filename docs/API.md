@@ -393,26 +393,26 @@ PortOS is designed for personal/developer use on trusted networks. It implements
 | GET | `/browser/version` | Get browser version info |
 | GET | `/browser/logs` | Get browser logs |
 
-### Digital Twin Genome
+### Meatspace Genome
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/digital-twin/genome` | Get genome summary |
-| POST | `/digital-twin/genome/upload` | Upload 23andMe genome file |
-| POST | `/digital-twin/genome/scan` | Scan curated SNP markers |
-| POST | `/digital-twin/genome/search` | Search SNP by rsid |
-| GET | `/digital-twin/genome/markers` | Get scanned markers |
-| GET | `/digital-twin/genome/markers/:rsid` | Get single marker details |
-| PUT | `/digital-twin/genome/markers/:rsid/notes` | Update marker notes |
-| POST | `/digital-twin/genome/markers/:rsid/save` | Save marker to genome.json |
-| DELETE | `/digital-twin/genome/markers/:rsid` | Remove saved marker |
-| GET | `/digital-twin/genome/categories` | Get marker categories |
-| GET | `/digital-twin/genome/clinvar/:rsid` | Lookup ClinVar data for rsid |
-| GET | `/digital-twin/genome/epigenetic` | Get epigenetic interventions |
-| POST | `/digital-twin/genome/epigenetic` | Add epigenetic intervention |
-| PUT | `/digital-twin/genome/epigenetic/:id` | Update intervention |
-| DELETE | `/digital-twin/genome/epigenetic/:id` | Delete intervention |
-| POST | `/digital-twin/genome/epigenetic/:id/log` | Log intervention entry |
+| GET | `/meatspace/genome` | Get genome summary |
+| POST | `/meatspace/genome/upload` | Upload 23andMe genome file |
+| POST | `/meatspace/genome/scan` | Scan curated SNP markers |
+| POST | `/meatspace/genome/search` | Search SNP by rsid |
+| GET | `/meatspace/genome/markers` | Get scanned markers |
+| GET | `/meatspace/genome/markers/:rsid` | Get single marker details |
+| PUT | `/meatspace/genome/markers/:rsid/notes` | Update marker notes |
+| POST | `/meatspace/genome/markers/:rsid/save` | Save marker to genome.json |
+| DELETE | `/meatspace/genome/markers/:rsid` | Remove saved marker |
+| GET | `/meatspace/genome/categories` | Get marker categories |
+| GET | `/meatspace/genome/clinvar/:rsid` | Lookup ClinVar data for rsid |
+| GET | `/meatspace/genome/epigenetic` | Get epigenetic interventions |
+| POST | `/meatspace/genome/epigenetic` | Add epigenetic intervention |
+| PUT | `/meatspace/genome/epigenetic/:id` | Update intervention |
+| DELETE | `/meatspace/genome/epigenetic/:id` | Delete intervention |
+| POST | `/meatspace/genome/epigenetic/:id/log` | Log intervention entry |
 
 ### Moltworld Agent Tools
 

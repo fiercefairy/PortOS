@@ -40,9 +40,53 @@ async function request(endpoint, options = {}) {
   return response.json();
 }
 
+// Search
+export const search = (q) => request(`/search?q=${encodeURIComponent(q)}`);
+
+// Apple Health
+export const ingestAppleHealth = (data) => request('/health/ingest', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const getAppleHealthMetrics = (metricName, from, to) => {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  return request(`/health/metrics/${metricName}/daily?${params}`);
+};
+export const getAppleHealthSummary = (metricName, from, to) => {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  return request(`/health/metrics/${metricName}?${params}`);
+};
+export const getAppleHealthRange = () => request('/health/range');
+export const getAppleHealthCorrelation = (from, to) => {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  return request(`/health/correlation?${params}`);
+};
+export const uploadAppleHealthXml = (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  // Use fetch directly — the request helper sets Content-Type: application/json
+  // which conflicts with multipart/form-data. Browser sets correct boundary automatically.
+  return fetch(`${API_BASE}/health/import/xml`, {
+    method: 'POST',
+    body: formData,
+  }).then(async res => {
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || res.statusText);
+    }
+    return res.json();
+  });
+};
+
 // Health
-export const checkHealth = () => request('/health');
-export const getSystemHealth = (options) => request('/health/system', options);
+export const checkHealth = () => request('/system/health');
+export const getSystemHealth = (options) => request('/system/health/details', options);
 
 // Apps
 export const getApps = () => request('/apps');
@@ -66,6 +110,7 @@ export const unarchiveApp = (id) => request(`/apps/${id}/unarchive`, { method: '
 export const openAppInEditor = (id) => request(`/apps/${id}/open-editor`, { method: 'POST' });
 export const openAppFolder = (id) => request(`/apps/${id}/open-folder`, { method: 'POST' });
 export const refreshAppConfig = (id) => request(`/apps/${id}/refresh-config`, { method: 'POST' });
+export const pullAndUpdateApp = (id) => request(`/apps/${id}/update`, { method: 'POST' });
 export const getAppStatus = (id) => request(`/apps/${id}/status`);
 export const getAppTaskTypes = (id) => request(`/apps/${id}/task-types`);
 export const updateAppTaskTypeOverride = (id, taskType, { enabled, interval } = {}) => request(`/apps/${id}/task-types/${taskType}`, {
@@ -1344,6 +1389,25 @@ export const getBrowserLogs = (lines = 50) => request(`/browser/logs?lines=${lin
 export const navigateBrowser = (url) => request('/browser/navigate', {
   method: 'POST',
   body: JSON.stringify({ url })
+});
+
+// Backup
+export const getBackupStatus = (options) => request('/backup/status', options);
+export const triggerBackup = () => request('/backup/run', { method: 'POST' });
+export const getBackupSnapshots = (options) => request('/backup/snapshots', options);
+export const restoreBackup = (data) => request('/backup/restore', { method: 'POST', body: JSON.stringify(data) });
+
+// Insights
+export const getGenomeHealthCorrelations = () => request('/insights/genome-health');
+export const getInsightThemes = () => request('/insights/themes');
+export const refreshInsightThemes = (providerId, model) => request('/insights/themes/refresh', {
+  method: 'POST',
+  body: JSON.stringify({ providerId, model })
+});
+export const getInsightNarrative = () => request('/insights/narrative');
+export const refreshInsightNarrative = (providerId, model) => request('/insights/narrative/refresh', {
+  method: 'POST',
+  body: JSON.stringify({ providerId, model })
 });
 
 // Instances (Federation)

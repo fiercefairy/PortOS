@@ -2,7 +2,7 @@
 
 *A living document updated after each milestone. Lessons feed forward into future planning.*
 
-## Milestone: v1.0 — Next Actions Batch
+## Milestone: v1.14 — Next Actions Batch
 
 **Shipped:** 2026-02-27
 **Phases:** 5 | **Plans:** 10 | **Sessions:** ~5
@@ -26,6 +26,7 @@
 - Some ROADMAP.md plan checkboxes fell out of sync during multi-phase execution (manual fix needed)
 - Verification checkpoint for Phase 5 partially duplicated the Phase 5 verifier output
 - Research agent sometimes explored files already well-documented in CLAUDE.md
+- GSD milestone versioning defaulted to "v1.0" instead of reading package.json version — required manual fix
 
 ### Patterns Established
 - Portal rendering for overlays (z-index isolation above sidebar) — CmdKSearch sets the pattern
@@ -40,6 +41,7 @@
 2. Promise.allSettled is the right default for fan-out queries where partial results are acceptable
 3. SAX streaming should be the default for any user-uploaded XML/JSON over 10MB
 4. CONTEXT.md (from discuss-phase) is the highest-leverage step — it prevents 80% of mid-execution pivots
+5. GSD milestone labels should match the project's actual semver (from package.json), not arbitrary "v1.0" labels
 
 ### Cost Observations
 - Model mix: ~30% opus (orchestration, user interaction), ~70% sonnet (research, execution, verification)
@@ -54,13 +56,13 @@
 
 | Milestone | Sessions | Phases | Key Change |
 |-----------|----------|--------|------------|
-| v1.0 | ~5 | 5 | First GSD milestone — established wave execution, discuss-phase context, fan-out patterns |
+| v1.14 | ~5 | 5 | First GSD milestone — established wave execution, discuss-phase context, fan-out patterns |
 
 ### Cumulative Quality
 
 | Milestone | Tests | Coverage | Zero-Dep Additions |
 |-----------|-------|----------|-------------------|
-| v1.0 | existing | — | 5/5 phases (zero new npm dependencies) |
+| v1.14 | existing | — | 5/5 phases (zero new npm dependencies) |
 
 ### Top Lessons (Verified Across Milestones)
 

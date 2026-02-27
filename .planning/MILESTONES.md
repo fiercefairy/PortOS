@@ -1,6 +1,6 @@
 # Milestones
 
-## v1.0 Next Actions Batch (Shipped: 2026-02-27)
+## v1.14 Next Actions Batch (Shipped: 2026-02-27)
 
 **Phases:** 5 | **Plans:** 10 | **Commits:** 52
 **Files changed:** 92 | **Insertions:** +13,388
@@ -15,6 +15,6 @@
 
 **Requirements:** 24/24 v1 requirements shipped (GEN-01-03, BAK-01-07, HLT-01-06, INS-01-04, SRC-01-04)
 
-**Archive:** `.planning/milestones/v1.0-ROADMAP.md`, `.planning/milestones/v1.0-REQUIREMENTS.md`
+**Archive:** `.planning/milestones/v1.14-ROADMAP.md`, `.planning/milestones/v1.14-REQUIREMENTS.md`
 
 ---

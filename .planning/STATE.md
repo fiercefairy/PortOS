@@ -22,14 +22,14 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 
 ## Current Position
 
-Milestone v1.0 Next Actions Batch — SHIPPED 2026-02-27
+Milestone v1.14 Next Actions Batch — SHIPPED 2026-02-27
 All 5 phases, 10 plans, 24 requirements complete.
 
 Next step: `/gsd:new-milestone` to define next milestone scope
 
 ## Performance Metrics
 
-**v1.0 Velocity:**
+**v1.14 Velocity:**
 - Total plans: 10
 - Average duration: ~7 min/plan
 - Total execution time: ~1.5 hours
@@ -62,5 +62,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Milestone v1.0 archived
+Stopped at: Milestone v1.14 archived
 Resume file: None

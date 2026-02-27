@@ -2,7 +2,7 @@
 
 ## What This Is
 
-PortOS is a self-hosted personal operating system that centralizes app management, AI agent orchestration, knowledge capture, digital identity modeling, and health tracking into a single dashboard — accessible anywhere via Tailscale VPN. With v1.0, genome data informs health insights, all data is backed up and restorable, Apple Health metrics are integrated, cross-domain patterns surface automatically, and any piece of information is one keystroke away via Cmd+K search.
+PortOS is a self-hosted personal operating system that centralizes app management, AI agent orchestration, knowledge capture, digital identity modeling, and health tracking into a single dashboard — accessible anywhere via Tailscale VPN. With v1.14, genome data informs health insights, all data is backed up and restorable, Apple Health metrics are integrated, cross-domain patterns surface automatically, and any piece of information is one keystroke away via Cmd+K search.
 
 ## Core Value
 
@@ -21,11 +21,11 @@ A connected, protected, and searchable personal OS — where data flows between 
 - ✓ Agent tools and platform support (Moltbook, Moltworld) — M38, M43
 - ✓ MeatSpace health tracking (death clock, LEV, alcohol, blood, body, epigenetic, eye, genome, lifestyle) — M44 P1-P5
 - ✓ Tailscale anywhere access with mobile-responsive UI — existing
-- ✓ Genome migration cleanup — fix stale digital-twin references — v1.0
-- ✓ Data backup & recovery — scheduled incremental rsync with integrity verification and restore — v1.0
-- ✓ Apple Health integration — JSON ingest, SAX XML import, health metric cards and correlations — v1.0
-- ✓ Cross-domain insights — genome-to-health correlations, taste-to-identity themes, LLM narratives — v1.0
-- ✓ Unified search (Cmd+K) — server fan-out, Spotlight-style overlay, keyboard navigation, deep linking — v1.0
+- ✓ Genome migration cleanup — fix stale digital-twin references — v1.14
+- ✓ Data backup & recovery — scheduled incremental rsync with integrity verification and restore — v1.14
+- ✓ Apple Health integration — JSON ingest, SAX XML import, health metric cards and correlations — v1.14
+- ✓ Cross-domain insights — genome-to-health correlations, taste-to-identity themes, LLM narratives — v1.14
+- ✓ Unified search (Cmd+K) — server fan-out, Spotlight-style overlay, keyboard navigation, deep linking — v1.14
 
 ### Active
 
@@ -43,9 +43,9 @@ A connected, protected, and searchable personal OS — where data flows between 
 
 ## Context
 
-PortOS has 44+ completed milestones with a mature Express.js + React + PM2 architecture. All data persists to JSON files in `./data/`. v1.0 shipped 5 phases (10 plans, 24 requirements) transforming siloed features into a connected system. The codebase is ~79K server LOC + ~55K client LOC (JavaScript/JSX).
+PortOS has 44+ completed milestones with a mature Express.js + React + PM2 architecture. All data persists to JSON files in `./data/`. v1.14 shipped 5 phases (10 plans, 24 requirements) transforming siloed features into a connected system. The codebase is ~79K server LOC + ~55K client LOC (JavaScript/JSX).
 
-**Shipped in v1.0:**
+**Shipped in v1.14:**
 - Genome data reads from correct meatspace paths
 - Incremental rsync backup with SHA-256 manifest, scheduler, dashboard widget, snapshot restore
 - Apple Health JSON ingest with dedup + SAX XML import (500MB+ streaming) + health cards with correlation charts
@@ -82,4 +82,4 @@ PortOS has 44+ completed milestones with a mature Express.js + React + PM2 archi
 | Day-partitioned JSON for health data | Aligns with Health Auto Export's daily cadence, fast date-range queries | ✓ Good — simple, performant |
 
 ---
-*Last updated: 2026-02-27 after v1.0 milestone*
+*Last updated: 2026-02-27 after v1.14 milestone*

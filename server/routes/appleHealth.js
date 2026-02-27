@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import { tmpdir } from 'os';
+import { join } from 'path';
+import { createReadStream, createWriteStream, promises as fs } from 'fs';
 import multer from 'multer';
+import { Parse as unzipParse } from 'unzipper';
 import { asyncHandler, ServerError } from '../lib/errorHandler.js';
 import { validateRequest } from '../lib/validation.js';
 import { healthIngestSchema } from '../lib/appleHealthValidation.js';
@@ -13,17 +16,30 @@ import {
   getCorrelationData
 } from '../services/appleHealthQuery.js';
 
+const isZip = (file) =>
+  file.mimetype === 'application/zip' ||
+  file.mimetype === 'application/x-zip-compressed' ||
+  file.originalname.endsWith('.zip');
+
+const isXml = (file) =>
+  file.mimetype === 'text/xml' ||
+  file.mimetype === 'application/xml' ||
+  file.originalname.endsWith('.xml');
+
 const upload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => cb(null, tmpdir()),
-    filename: (req, file, cb) => cb(null, `apple-health-${Date.now()}.xml`)
+    filename: (req, file, cb) => {
+      const ext = isZip(file) ? '.zip' : '.xml';
+      cb(null, `apple-health-${Date.now()}${ext}`);
+    }
   }),
   limits: { fileSize: 2 * 1024 * 1024 * 1024 }, // 2GB max
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'text/xml' || file.mimetype === 'application/xml' || file.originalname.endsWith('.xml')) {
+    if (isXml(file) || isZip(file)) {
       cb(null, true);
     } else {
-      cb(new ServerError('Only XML files are accepted', { status: 400, code: 'BAD_REQUEST' }));
+      cb(new ServerError('Only XML or ZIP files are accepted', { status: 400, code: 'BAD_REQUEST' }));
     }
   }
 });
@@ -72,11 +88,40 @@ router.get('/correlation', asyncHandler(async (req, res) => {
 }));
 
 // POST /api/health/import/xml
-// Accepts Apple Health export.xml via multipart upload (multer diskStorage — no OOM on 500MB+)
+// Accepts Apple Health export.xml or ZIP via multipart upload (multer diskStorage — no OOM on 500MB+)
 router.post('/import/xml', upload.single('file'), asyncHandler(async (req, res) => {
   const io = req.app.get('io');
-  const filePath = req.file?.path;
+  let filePath = req.file?.path;
   if (!filePath) throw new ServerError('No file uploaded', { status: 400, code: 'BAD_REQUEST' });
+
+  // If ZIP, extract export.xml to a temp file
+  if (req.file.originalname.endsWith('.zip') || isZip(req.file)) {
+    const xmlPath = join(tmpdir(), `apple-health-${Date.now()}.xml`);
+    let found = false;
+
+    await new Promise((resolve, reject) => {
+      let settled = false;
+      const settle = (fn) => (...args) => { if (!settled) { settled = true; fn(...args); } };
+      createReadStream(filePath)
+        .pipe(unzipParse())
+        .on('entry', (entry) => {
+          if (entry.path === 'apple_health_export/export.xml' || entry.path === 'export.xml') {
+            found = true;
+            entry.pipe(createWriteStream(xmlPath))
+              .on('finish', settle(resolve))
+              .on('error', settle(reject));
+          } else {
+            entry.autodrain();
+          }
+        })
+        .on('close', () => { if (!found) settle(reject)(new ServerError('ZIP does not contain export.xml', { status: 400, code: 'BAD_REQUEST' })); })
+        .on('error', settle(reject));
+    });
+
+    await fs.unlink(filePath);
+    filePath = xmlPath;
+  }
+
   const result = await importAppleHealthXml(filePath, io);
   res.json(result);
 }));

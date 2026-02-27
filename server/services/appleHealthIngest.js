@@ -91,6 +91,11 @@ export async function mergeIntoDay(dateStr, metricName, newPoints) {
   return uniquePoints.length;
 }
 
+// Health Auto Export uses short names; normalize to match XML import names
+const METRIC_NAME_ALIASES = {
+  'heart_rate_variability': 'heart_rate_variability_sdnn',
+};
+
 // === Main Ingest Entry Point ===
 
 /**
@@ -108,7 +113,8 @@ export async function ingestHealthData(payload) {
   const affectedDays = new Set();
 
   for (const metric of metrics) {
-    const { name: metricName, data: dataPoints = [] } = metric;
+    const metricName = METRIC_NAME_ALIASES[metric.name] ?? metric.name;
+    const dataPoints = metric.data ?? [];
     metricsProcessed++;
 
     // Group data points by extracted day string

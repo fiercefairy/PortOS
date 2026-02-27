@@ -5,7 +5,8 @@ import {
   HeartPulse,
   ClipboardList,
   Activity,
-  Stethoscope
+  Stethoscope,
+  Upload
 } from 'lucide-react';
 
 export const TABS = [
@@ -14,6 +15,7 @@ export const TABS = [
   { id: 'blood', label: 'Blood & Body', icon: HeartPulse },
   { id: 'genome', label: 'Genome', icon: Dna },
   { id: 'health', label: 'Health', icon: Stethoscope },
+  { id: 'import', label: 'Import', icon: Upload },
   { id: 'lifestyle', label: 'Lifestyle', icon: ClipboardList }
 ];
 

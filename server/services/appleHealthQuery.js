@@ -11,6 +11,11 @@ import { readDayFile } from './appleHealthIngest.js';
 import { getDailyAlcohol } from './meatspaceAlcohol.js';
 import { getBloodTests } from './meatspaceHealth.js';
 
+// Fallback aliases for metrics stored under old names (e.g. JSON ingest before normalization)
+const METRIC_ALIASES = {
+  'heart_rate_variability_sdnn': 'heart_rate_variability',
+};
+
 // === Directory Listing ===
 
 /**
@@ -70,7 +75,7 @@ export async function getMetrics(metricName, from, to) {
 
   for (const dateStr of filtered) {
     const dayData = await readDayFile(dateStr);
-    const points = dayData.metrics?.[metricName] || [];
+    const points = dayData.metrics?.[metricName] || dayData.metrics?.[METRIC_ALIASES[metricName]] || [];
     allPoints.push(...points);
   }
 
@@ -127,7 +132,7 @@ export async function getDailyAggregates(metricName, from, to) {
 
   for (const dateStr of filtered) {
     const dayData = await readDayFile(dateStr);
-    const points = dayData.metrics?.[metricName] || [];
+    const points = dayData.metrics?.[metricName] || dayData.metrics?.[METRIC_ALIASES[metricName]] || [];
     if (points.length === 0) continue;
 
     let value;

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Upload, FileSpreadsheet, HeartPulse, CheckCircle, AlertCircle } from 'lucide-react';
+import { Upload, FileSpreadsheet, FileJson, HeartPulse, CheckCircle, AlertCircle } from 'lucide-react';
 import * as api from '../../../services/api';
 import socket from '../../../services/socket';
 import BrailleSpinner from '../../BrailleSpinner';
@@ -11,6 +11,13 @@ export default function ImportTab({ onRefresh }) {
   const [error, setError] = useState(null);
   const [fileName, setFileName] = useState(null);
   const fileInputRef = useRef(null);
+
+  // JSON import state
+  const [jsonImporting, setJsonImporting] = useState(false);
+  const [jsonResult, setJsonResult] = useState(null);
+  const [jsonError, setJsonError] = useState(null);
+  const [jsonFileName, setJsonFileName] = useState(null);
+  const jsonFileInputRef = useRef(null);
 
   // XML import state
   const [xmlImporting, setXmlImporting] = useState(false);
@@ -61,6 +68,49 @@ export default function ImportTab({ onRefresh }) {
     reader.onerror = () => {
       setError('Failed to read file');
       setImporting(false);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleJsonFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.json')) {
+      setJsonError('Please select a .json file exported from Health Auto Export or similar app.');
+      return;
+    }
+
+    setJsonFileName(file.name);
+    setJsonError(null);
+    setJsonResult(null);
+    setJsonImporting(true);
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      let parsed;
+      try {
+        parsed = JSON.parse(event.target.result);
+      } catch {
+        setJsonError('Invalid JSON file — could not parse contents.');
+        setJsonImporting(false);
+        return;
+      }
+
+      const stats = await api.ingestAppleHealth(parsed).catch(err => {
+        setJsonError(err.message);
+        return null;
+      });
+
+      if (stats) {
+        setJsonResult(stats);
+        onRefresh?.();
+      }
+      setJsonImporting(false);
+    };
+    reader.onerror = () => {
+      setJsonError('Failed to read file');
+      setJsonImporting(false);
     };
     reader.readAsText(file);
   };
@@ -173,6 +223,88 @@ export default function ImportTab({ onRefresh }) {
             <div className="flex items-center gap-2">
               <AlertCircle size={16} className="text-port-error" />
               <span className="text-port-error">{error}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Health Auto Export JSON Import */}
+      <div className="bg-port-card border border-port-border rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <FileJson size={18} className="text-port-accent" />
+          <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">
+            Health Auto Export JSON Import
+          </h3>
+        </div>
+
+        <p className="text-sm text-gray-400 mb-2">
+          Import JSON files from Health Auto Export or similar apps that export Apple Health data as JSON.
+        </p>
+        <p className="text-xs text-gray-500 mb-4">
+          Duplicate records are automatically skipped — safe to re-import the same file.
+        </p>
+
+        <div className="flex items-center gap-4">
+          <input
+            ref={jsonFileInputRef}
+            type="file"
+            accept=".json"
+            onChange={handleJsonFileSelect}
+            className="hidden"
+          />
+          <button
+            onClick={() => jsonFileInputRef.current?.click()}
+            disabled={jsonImporting}
+            className="flex items-center gap-2 px-4 py-2 bg-port-accent text-white rounded-lg hover:bg-port-accent/80 disabled:opacity-50 transition-colors"
+          >
+            {jsonImporting ? (
+              <BrailleSpinner text="Importing" />
+            ) : (
+              <>
+                <Upload size={16} />
+                Choose JSON File
+              </>
+            )}
+          </button>
+          {jsonFileName && !jsonImporting && !jsonResult && (
+            <span className="text-sm text-gray-400">{jsonFileName}</span>
+          )}
+        </div>
+
+        {/* Success */}
+        {jsonResult && (
+          <div className="mt-4 p-4 bg-port-success/10 border border-port-success/30 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle size={16} className="text-port-success" />
+              <span className="text-port-success font-medium">Import successful</span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <div>
+                <span className="text-gray-500">Metrics processed</span>
+                <p className="text-white font-semibold">{jsonResult.metricsProcessed?.toLocaleString()}</p>
+              </div>
+              <div>
+                <span className="text-gray-500">Records ingested</span>
+                <p className="text-white font-semibold">{jsonResult.recordsIngested?.toLocaleString()}</p>
+              </div>
+              <div>
+                <span className="text-gray-500">Records skipped</span>
+                <p className="text-white font-semibold">{jsonResult.recordsSkipped?.toLocaleString()}</p>
+              </div>
+              <div>
+                <span className="text-gray-500">Days affected</span>
+                <p className="text-white font-semibold">{jsonResult.daysAffected?.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Error */}
+        {jsonError && (
+          <div className="mt-4 p-4 bg-port-error/10 border border-port-error/30 rounded-lg">
+            <div className="flex items-center gap-2">
+              <AlertCircle size={16} className="text-port-error" />
+              <span className="text-port-error">{jsonError}</span>
             </div>
           </div>
         )}

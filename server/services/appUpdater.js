@@ -8,13 +8,21 @@ import * as pm2Service from './pm2.js';
 /**
  * Run a command and return stdout/stderr
  */
+const MAX_OUTPUT_BYTES = 64 * 1024; // 64KB tail per stream
+
 function runCommand(cmd, args, cwd) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { cwd, shell: false, windowsHide: true });
     let stdout = '';
     let stderr = '';
-    child.stdout.on('data', d => stdout += d);
-    child.stderr.on('data', d => stderr += d);
+    child.stdout.on('data', d => {
+      stdout += d;
+      if (stdout.length > MAX_OUTPUT_BYTES) stdout = stdout.slice(-MAX_OUTPUT_BYTES);
+    });
+    child.stderr.on('data', d => {
+      stderr += d;
+      if (stderr.length > MAX_OUTPUT_BYTES) stderr = stderr.slice(-MAX_OUTPUT_BYTES);
+    });
     child.on('close', code => {
       if (code !== 0) reject(new Error(stderr.trim() || `${cmd} exited with code ${code}`));
       else resolve({ stdout, stderr });

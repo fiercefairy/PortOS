@@ -17,8 +17,12 @@ router.get('/status', asyncHandler(async (req, res) => {
 // POST /api/backup/run
 router.post('/run', asyncHandler(async (req, res) => {
   const settings = await getSettings();
+  const destPath = settings.backup?.destPath;
+  if (!destPath) {
+    return res.status(400).json({ error: 'BACKUP_NOT_CONFIGURED', message: 'No backup destination configured in settings' });
+  }
   const io = req.app.get('io');
-  const result = await backup.runBackup(settings.backup?.destPath, io);
+  const result = await backup.runBackup(destPath, io);
   res.json(result);
 }));
 

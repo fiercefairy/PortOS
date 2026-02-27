@@ -101,10 +101,10 @@ export default function CmdKSearch() {
   const handleKeyDown = (e) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setFocusedIndex(i => Math.min(i + 1, flatResults.length - 1));
+      if (flatResults.length > 0) setFocusedIndex(i => Math.min(i + 1, flatResults.length - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setFocusedIndex(i => Math.max(i - 1, 0));
+      if (flatResults.length > 0) setFocusedIndex(i => Math.max(i - 1, 0));
     } else if (e.key === 'Enter') {
       const item = flatResults[focusedIndex];
       if (item) handleNavigate(item.url);

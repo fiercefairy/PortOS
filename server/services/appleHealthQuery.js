@@ -210,7 +210,7 @@ export async function getCorrelationData(from, to) {
     .map(date => ({
       date,
       hrv: hrvByDate.get(date) ?? null,
-      alcoholGrams: alcoholByDate.get(date)
+      alcoholGrams: alcoholByDate.get(date) != null
         ? Math.round(alcoholByDate.get(date) * 14 * 100) / 100  // std drinks to grams
         : null,
       steps: stepsByDate.get(date) ?? null

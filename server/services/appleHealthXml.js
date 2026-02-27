@@ -71,9 +71,11 @@ export function normalizeXmlRecord(node) {
 
   // Heart rate: include end timestamp
   if (typeLower === 'hkquantitytypeidentifierheartrate') {
+    const parsed = parseFloat(value);
+    if (!Number.isFinite(parsed)) return null;
     const dataPoint = {
       date: startdate,
-      qty: parseFloat(value),
+      qty: parsed,
       unit: unit ?? null,
       src: sourcename ?? null,
       end: enddate ?? null,
@@ -82,9 +84,11 @@ export function normalizeXmlRecord(node) {
   }
 
   // All other numeric types
+  const parsed = parseFloat(value);
+  if (!Number.isFinite(parsed)) return null;
   const dataPoint = {
     date: startdate,
-    qty: parseFloat(value),
+    qty: parsed,
     unit: unit ?? null,
     src: sourcename ?? null,
   };
@@ -179,13 +183,18 @@ export async function importAppleHealthXml(filePath, io = null) {
     saxStream.on('end', resolve);
     saxStream.on('close', resolve);
 
-    createReadStream(filePath).pipe(saxStream);
+    const readStream = createReadStream(filePath);
+    readStream.on('error', reject);
+    readStream.pipe(saxStream);
   });
 
   console.log(`🍎 XML parsing done: ${processedRecords} raw records across ${Object.keys(dayBuckets).length} days — starting aggregation`);
 
-  // === Post-parse aggregation (outside SAX event loop) ===
-  for (const dateStr of Object.keys(dayBuckets)) {
+  // === Aggregate and write day files, freeing each bucket after write ===
+  const allDates = Object.keys(dayBuckets);
+  let daysCount = allDates.length;
+
+  for (const dateStr of allDates) {
     const metrics = dayBuckets[dateStr];
 
     // Aggregate step_count: sum all qty values into single daily total
@@ -197,13 +206,8 @@ export async function importAppleHealthXml(filePath, io = null) {
     if (metrics.sleep_analysis) {
       metrics.sleep_analysis = aggregateSleepAnalysis(metrics.sleep_analysis);
     }
-  }
 
-  // === Write day files sequentially ===
-  const allDates = Object.keys(dayBuckets);
-  for (const dateStr of allDates) {
     const dayData = await readDayFile(dateStr);
-    const metrics = dayBuckets[dateStr];
 
     for (const [metricName, newPoints] of Object.entries(metrics)) {
       const existing = dayData.metrics[metricName] || [];
@@ -215,9 +219,8 @@ export async function importAppleHealthXml(filePath, io = null) {
     }
 
     await writeDayFile(dateStr, dayData);
+    delete dayBuckets[dateStr];
   }
-
-  const daysCount = allDates.length;
 
   // Clean up temp file
   unlink(filePath, () => {});

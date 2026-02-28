@@ -20,9 +20,11 @@ function buildPortosApp() {
     description: 'Local App OS portal for dev machines',
     repoPath: PATHS.root,
     type: 'express',
-    uiPort: 5555,
+    uiPort: 5554,
+    devUiPort: 5555,
     apiPort: 5554,
-    startCommands: ['npm run dev'],
+    buildCommand: 'npm run build',
+    startCommands: ['npm start'],
     pm2ProcessNames: [
       'portos-server',
       'portos-cos',
@@ -34,7 +36,7 @@ function buildPortosApp() {
     processes: [
       { name: 'portos-server', port: 5554, ports: { api: 5554 } },
       { name: 'portos-cos', port: 5558, ports: { api: 5558 } },
-      { name: 'portos-ui', port: 5555, ports: { ui: 5555 } },
+      { name: 'portos-ui', port: 5555, ports: { devUi: 5555 } },
       { name: 'portos-autofixer', port: 5559, ports: { api: 5559 } },
       { name: 'portos-autofixer-ui', port: 5560, ports: { ui: 5560 } },
       { name: 'portos-browser', port: 5556, ports: { cdp: 5556, health: 5557 } }
@@ -84,11 +86,33 @@ async function loadApps() {
     data.apps = {};
   }
 
-  // Ensure PortOS baseline app is always present
+  // Ensure PortOS baseline app is always present and up-to-date
+  const baseline = buildPortosApp();
   if (!data.apps[PORTOS_APP_ID]) {
-    data.apps[PORTOS_APP_ID] = buildPortosApp();
+    data.apps[PORTOS_APP_ID] = baseline;
     await writeFile(APPS_FILE, JSON.stringify(data, null, 2));
     console.log('📦 Seeded baseline PortOS app into apps registry');
+  } else {
+    // Reconcile: merge new baseline fields into existing entry (preserves user overrides)
+    let dirty = false;
+    for (const [key, value] of Object.entries(baseline)) {
+      if (!(key in data.apps[PORTOS_APP_ID])) {
+        data.apps[PORTOS_APP_ID][key] = value;
+        dirty = true;
+      }
+    }
+    // Force-sync specific fields that should always match the code definition
+    const forceSync = ['uiPort', 'devUiPort', 'apiPort', 'buildCommand', 'startCommands', 'processes', 'pm2ProcessNames'];
+    for (const key of forceSync) {
+      if (JSON.stringify(data.apps[PORTOS_APP_ID][key]) !== JSON.stringify(baseline[key])) {
+        data.apps[PORTOS_APP_ID][key] = baseline[key];
+        dirty = true;
+      }
+    }
+    if (dirty) {
+      await writeFile(APPS_FILE, JSON.stringify(data, null, 2));
+      console.log('📦 Reconciled PortOS baseline app with latest fields');
+    }
   }
 
   appsCache = data;
@@ -170,7 +194,9 @@ export async function createApp(appData) {
     repoPath: appData.repoPath,
     type: appData.type || 'unknown',
     uiPort: appData.uiPort || null,
+    devUiPort: appData.devUiPort || null,
     apiPort: appData.apiPort || null,
+    buildCommand: appData.buildCommand || undefined,
     startCommands: appData.startCommands || ['npm run dev'],
     pm2ProcessNames: appData.pm2ProcessNames || [appData.name.toLowerCase().replace(/\s+/g, '-')],
     envFile: appData.envFile || '.env',

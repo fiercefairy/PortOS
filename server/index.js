@@ -26,6 +26,7 @@ import automationSchedulesRoutes from './routes/automationSchedules.js';
 import agentActivityRoutes from './routes/agentActivity.js';
 import agentToolsRoutes from './routes/agentTools.js';
 import cosRoutes from './routes/cos.js';
+import gsdRoutes from './routes/gsd.js';
 import scriptsRoutes from './routes/scripts.js';
 import memoryRoutes from './routes/memory.js';
 import notificationsRoutes from './routes/notifications.js';
@@ -205,6 +206,7 @@ app.use('/api/agents/tools/moltworld', moltworldToolsRoutes);
 app.use('/api/agents/tools', agentToolsRoutes);
 // Existing running agents routes (process management)
 app.use('/api/agents', agentsRoutes);
+app.use('/api/cos/gsd', gsdRoutes);
 app.use('/api/cos/scripts', scriptsRoutes); // Mount before /api/cos to avoid route conflicts
 app.use('/api/cos', cosRoutes);
 app.use('/api/memory', memoryRoutes);

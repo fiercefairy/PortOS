@@ -2488,6 +2488,25 @@ ${task.metadata.jiraBranch ? 'Commit your changes to this branch. Do NOT switch 
       })
     : null;
 
+  // Build .planning/ context section for GSD-enabled apps
+  let planningContextSection = '';
+  if (task.metadata?.app) {
+    const planningPath = join(workspaceDir, '.planning');
+    const hasPlanningDir = await stat(planningPath).then(s => s.isDirectory()).catch(() => false);
+    if (hasPlanningDir) {
+      const planningParts = [];
+      const stateContent = await readFile(join(planningPath, 'STATE.md'), 'utf-8').catch(() => null);
+      if (stateContent) planningParts.push(`### Current State\n\`\`\`\n${stateContent.slice(0, 1000)}\n\`\`\``);
+      const concernsContent = await readFile(join(planningPath, 'CONCERNS.md'), 'utf-8').catch(() => null);
+      if (concernsContent) planningParts.push(`### Known Concerns\n\`\`\`\n${concernsContent.slice(0, 1500)}\n\`\`\``);
+      const roadmapContent = await readFile(join(planningPath, 'ROADMAP.md'), 'utf-8').catch(() => null);
+      if (roadmapContent) planningParts.push(`### Roadmap\n\`\`\`\n${roadmapContent.slice(0, 1000)}\n\`\`\``);
+      if (planningParts.length > 0) {
+        planningContextSection = `\n## Project Planning Context (.planning/)\nThis project has GSD planning documents. Use this context to understand priorities and known issues.\n\n${planningParts.join('\n\n')}\n`;
+      }
+    }
+  }
+
   // Try to use the prompt template system
   const promptData = await buildPrompt('cos-agent-briefing', {
     task,
@@ -2499,6 +2518,7 @@ ${task.metadata.jiraBranch ? 'Commit your changes to this branch. Do NOT switch 
     jiraSection,
     compactionSection,
     skillSection,
+    planningContextSection,
     soulSection: digitalTwinSection, // Backwards compatibility for prompt templates
     timestamp: new Date().toISOString()
   }).catch(() => null);
@@ -2527,7 +2547,7 @@ ${Array.isArray(task.metadata?.screenshots) && task.metadata.screenshots.length 
 ${worktreeSection}
 ${jiraSection}
 ${compactionSection}
-${skillSection ? `## Task-Type Skill Guidelines\n\n${skillSection}\n` : ''}
+${skillSection ? `## Task-Type Skill Guidelines\n\n${skillSection}\n` : ''}${planningContextSection}
 ## Instructions
 1. Analyze the task requirements carefully
 2. Make necessary changes to complete the task

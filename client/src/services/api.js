@@ -1424,6 +1424,17 @@ export const connectPeer = (id) => request(`/instances/peers/${id}/connect`, { m
 export const probePeer = (id) => request(`/instances/peers/${id}/probe`, { method: 'POST' });
 export const queryPeer = (id, path) => request(`/instances/peers/${id}/query?path=${encodeURIComponent(path)}`);
 
+// GSD (Get Stuff Done) Integration
+export const getGsdProjects = () => request('/cos/gsd/projects');
+export const getGsdProject = (appId) => request(`/cos/gsd/projects/${appId}`);
+export const getGsdConcerns = (appId) => request(`/cos/gsd/projects/${appId}/concerns`);
+export const getGsdPhases = (appId) => request(`/cos/gsd/projects/${appId}/phases`);
+export const getGsdPhase = (appId, phaseId) => request(`/cos/gsd/projects/${appId}/phases/${phaseId}`);
+export const createGsdConcernTasks = (appId, data) => request(`/cos/gsd/projects/${appId}/concerns/tasks`, {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+
 // Default export for simplified imports
 export default {
   get: (endpoint, options) => request(endpoint, { method: 'GET', ...options }),

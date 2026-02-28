@@ -30,6 +30,7 @@ import {
   ScriptsTab,
   ScheduleTab,
   DigestTab,
+  GsdTab,
   ProductivityTab,
   LearningTab,
   MemoryTab,
@@ -815,6 +816,11 @@ export default function ChiefOfStaff() {
         {activeTab === 'digest' && (
           <div role="tabpanel" id="tabpanel-digest" aria-labelledby="tab-digest">
             <DigestTab />
+          </div>
+        )}
+        {activeTab === 'gsd' && (
+          <div role="tabpanel" id="tabpanel-gsd" aria-labelledby="tab-gsd">
+            <GsdTab />
           </div>
         )}
         {activeTab === 'productivity' && (

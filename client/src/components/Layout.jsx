@@ -48,6 +48,7 @@ import {
   Skull,
   HeartPulse,
   ClipboardList,
+  Compass,
   Eye,
   Scale,
   Lightbulb
@@ -84,6 +85,7 @@ const navItems = [
       { to: '/cos/briefing', label: 'Briefing', icon: Newspaper },
       { to: '/cos/config', label: 'Config', icon: Settings },
       { to: '/cos/digest', label: 'Digest', icon: Calendar },
+      { to: '/cos/gsd', label: 'GSD', icon: Compass },
       { to: '/cos/health', label: 'Health', icon: Activity },
       { to: '/cos/jobs', label: 'Jobs', icon: Bot },
       { to: '/cos/learning', label: 'Learning', icon: GraduationCap },

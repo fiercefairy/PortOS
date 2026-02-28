@@ -81,7 +81,7 @@ pm2 logs
 
 ### Planned
 
-- [ ] **GSD Tab: Smart State Detection & Guided Setup** — Extend `GET /api/apps/:id/documents` to return GSD status fields and update GSD tab empty state with stepped setup guide
+- [x] **GSD Tab: Smart State Detection & Guided Setup** — Extend `GET /api/apps/:id/documents` to return GSD status fields and update GSD tab empty state with stepped setup guide
 
 #### GSD Smart State Detection
 

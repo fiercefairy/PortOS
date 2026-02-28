@@ -1,53 +1,160 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, Compass } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { RefreshCw, Compass, CheckCircle, ArrowRight, FolderSearch, FileText, Map } from 'lucide-react';
 import BrailleSpinner from '../../BrailleSpinner';
 import PhaseTimeline from '../../gsd/PhaseTimeline';
 import GsdConcernsPanel from '../../cos/tabs/GsdConcernsPanel';
 import * as api from '../../../services/api';
 
+function GsdSetupGuide({ gsd, onRefresh }) {
+  // Determine the current step based on what exists
+  const steps = [
+    {
+      id: 'map',
+      label: 'Map Codebase',
+      command: '/gsd:map-codebase',
+      description: 'Analyze your codebase structure with parallel mapper agents',
+      done: gsd.hasCodebaseMap,
+      icon: FolderSearch,
+    },
+    {
+      id: 'project',
+      label: 'Create Project',
+      command: '/gsd:new-project',
+      description: 'Initialize project with deep context gathering and PROJECT.md',
+      done: gsd.hasProject,
+      icon: FileText,
+    },
+    {
+      id: 'roadmap',
+      label: 'Plan Phases',
+      command: '/gsd:plan-phase',
+      description: 'Create a roadmap with phase breakdown and execution plans',
+      done: gsd.hasRoadmap,
+      icon: Map,
+    },
+  ];
+
+  const currentStepIdx = steps.findIndex(s => !s.done);
+  const currentStep = currentStepIdx >= 0 ? steps[currentStepIdx] : null;
+
+  return (
+    <div className="max-w-5xl">
+      <div className="bg-port-card border border-port-border rounded-lg p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <Compass size={24} className="text-port-accent" />
+            <div>
+              <h3 className="text-lg font-semibold text-white">GSD Project Setup</h3>
+              <p className="text-sm text-gray-500">Follow the steps below to initialize GSD project tracking</p>
+            </div>
+          </div>
+          <button
+            onClick={onRefresh}
+            className="px-3 py-1.5 bg-port-border hover:bg-port-border/80 text-white rounded-lg text-xs flex items-center gap-1"
+          >
+            <RefreshCw size={14} /> Refresh
+          </button>
+        </div>
+
+        {/* Step indicators */}
+        <div className="space-y-3">
+          {steps.map((step, idx) => {
+            const Icon = step.icon;
+            const isCurrent = idx === currentStepIdx;
+            const isFuture = currentStepIdx >= 0 && idx > currentStepIdx;
+
+            return (
+              <div
+                key={step.id}
+                className={`flex items-center gap-4 p-4 rounded-lg border ${
+                  step.done
+                    ? 'border-port-success/30 bg-port-success/5'
+                    : isCurrent
+                      ? 'border-port-accent/50 bg-port-accent/5'
+                      : 'border-port-border bg-port-bg/50 opacity-50'
+                }`}
+              >
+                <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                  step.done
+                    ? 'bg-port-success/20 text-port-success'
+                    : isCurrent
+                      ? 'bg-port-accent/20 text-port-accent'
+                      : 'bg-port-border text-gray-500'
+                }`}>
+                  {step.done ? <CheckCircle size={18} /> : <Icon size={18} />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-medium ${step.done ? 'text-port-success' : isCurrent ? 'text-white' : 'text-gray-500'}`}>
+                      {step.label}
+                    </span>
+                    {step.done && <span className="text-xs text-port-success">Complete</span>}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5">{step.description}</p>
+                </div>
+                {isCurrent && (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <ArrowRight size={14} className="text-port-accent" />
+                    <code className="text-sm text-cyan-400 bg-port-bg px-2 py-1 rounded">{step.command}</code>
+                  </div>
+                )}
+                {isFuture && !step.done && (
+                  <code className="text-xs text-gray-600 bg-port-bg px-2 py-1 rounded flex-shrink-0">{step.command}</code>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {currentStep && (
+          <p className="text-xs text-gray-500 mt-4">
+            Run <code className="text-cyan-400">{currentStep.command}</code> in Claude Code from the app's repo to continue.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function GsdTab({ appId }) {
   const [project, setProject] = useState(null);
+  const [gsdStatus, setGsdStatus] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
 
-  const fetchProject = async () => {
+  const fetchData = async () => {
     setLoading(true);
-    // Use silent fetch to avoid toast errors on 404
-    const resp = await fetch(`/api/cos/gsd/projects/${appId}`).catch(() => null);
-    if (resp?.ok) {
-      const data = await resp.json().catch(() => null);
-      setProject(data);
-      setNotFound(!data);
+
+    // Fetch GSD status from documents endpoint (silent, no toast)
+    const docsResp = await fetch(`/api/apps/${appId}/documents`).catch(() => null);
+    const docsData = docsResp?.ok ? await docsResp.json().catch(() => null) : null;
+    const gsd = docsData?.gsd || {};
+    setGsdStatus(gsd);
+
+    // Only fetch project data if we have a roadmap + state (full project)
+    if (gsd.hasRoadmap && gsd.hasState) {
+      const resp = await fetch(`/api/cos/gsd/projects/${appId}`).catch(() => null);
+      if (resp?.ok) {
+        const data = await resp.json().catch(() => null);
+        setProject(data);
+      }
     } else {
-      setNotFound(true);
+      setProject(null);
     }
+
     setLoading(false);
   };
 
   useEffect(() => {
-    fetchProject();
+    fetchData();
   }, [appId]);
 
   if (loading) {
     return <BrailleSpinner text="Loading GSD project" />;
   }
 
-  if (notFound) {
-    return (
-      <div className="max-w-5xl">
-        <div className="bg-port-card border border-port-border rounded-lg p-8 text-center">
-          <Compass size={32} className="text-gray-600 mx-auto mb-3" />
-          <p className="text-gray-400 mb-2">No GSD project initialized</p>
-          <p className="text-sm text-gray-500 mb-4">
-            This app does not have a <code className="text-cyan-400">.planning/</code> directory yet.
-          </p>
-          <p className="text-xs text-gray-500">
-            Run <code className="text-cyan-400">/gsd:new-project</code> in Claude Code from the app's repo to initialize GSD project tracking.
-          </p>
-        </div>
-      </div>
-    );
+  // Show setup guide if project isn't fully initialized
+  if (!project) {
+    return <GsdSetupGuide gsd={gsdStatus || {}} onRefresh={fetchData} />;
   }
 
   const phaseCount = project?.phases?.length || 0;
@@ -61,7 +168,7 @@ export default function GsdTab({ appId }) {
           <p className="text-sm text-gray-500">{completedPhases}/{phaseCount} phases completed</p>
         </div>
         <button
-          onClick={fetchProject}
+          onClick={fetchData}
           className="px-3 py-1.5 bg-port-border hover:bg-port-border/80 text-white rounded-lg text-xs flex items-center gap-1"
         >
           <RefreshCw size={14} /> Refresh
@@ -82,7 +189,7 @@ export default function GsdTab({ appId }) {
           <GsdConcernsPanel
             appId={appId}
             concerns={project.concerns}
-            onTaskCreated={fetchProject}
+            onTaskCreated={fetchData}
           />
         </div>
       )}

@@ -528,7 +528,17 @@ router.get('/:id/documents', loadApp, asyncHandler(async (req, res) => {
 
   const hasPlanning = existsSync(join(app.repoPath, '.planning'));
 
-  res.json({ documents, hasPlanning });
+  // GSD status: detect which GSD artifacts exist
+  const planningDir = join(app.repoPath, '.planning');
+  const gsd = {
+    hasCodebaseMap: existsSync(join(planningDir, 'codebase')),
+    hasProject: existsSync(join(planningDir, 'PROJECT.md')),
+    hasRoadmap: existsSync(join(planningDir, 'ROADMAP.md')),
+    hasState: existsSync(join(planningDir, 'STATE.md')),
+    hasConcerns: existsSync(join(planningDir, 'CONCERNS.md')),
+  };
+
+  res.json({ documents, hasPlanning, gsd });
 }));
 
 // GET /api/apps/:id/documents/:filename - Read a single document

@@ -1,11 +1,20 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, Compass, CheckCircle, ArrowRight, FolderSearch, FileText, Map } from 'lucide-react';
+import { RefreshCw, Compass, CheckCircle, ArrowRight, FolderSearch, FileText, Map, Play, Terminal } from 'lucide-react';
+import toast from 'react-hot-toast';
 import BrailleSpinner from '../../BrailleSpinner';
 import PhaseTimeline from '../../gsd/PhaseTimeline';
 import GsdConcernsPanel from '../../cos/tabs/GsdConcernsPanel';
 import * as api from '../../../services/api';
 
-function GsdSetupGuide({ gsd, onRefresh }) {
+const STEP_DESCRIPTIONS = {
+  map: 'Run the /gsd:map-codebase skill to analyze the codebase structure',
+  project: 'Run the /gsd:new-project skill to initialize the project with deep context gathering',
+  roadmap: 'Run the /gsd:plan-phase skill to create a roadmap with phase breakdown and execution plans',
+};
+
+function GsdSetupGuide({ gsd, appId, repoPath, onRefresh }) {
+  const [runningStep, setRunningStep] = useState(null);
+
   // Determine the current step based on what exists
   const steps = [
     {
@@ -37,6 +46,22 @@ function GsdSetupGuide({ gsd, onRefresh }) {
   const currentStepIdx = steps.findIndex(s => !s.done);
   const currentStep = currentStepIdx >= 0 ? steps[currentStepIdx] : null;
 
+  const handleRunStep = async (step) => {
+    setRunningStep(step.id);
+    await api.addCosTask({
+      description: STEP_DESCRIPTIONS[step.id],
+      app: appId,
+      priority: 'MEDIUM',
+    }).catch(() => null);
+    toast.success('Agent task created');
+    setTimeout(() => setRunningStep(null), 2000);
+  };
+
+  const handleOpenClaude = async () => {
+    toast('Opening Claude Code...');
+    await api.openAppInClaude(appId).catch(() => null);
+  };
+
   return (
     <div className="max-w-5xl">
       <div className="bg-port-card border border-port-border rounded-lg p-6">
@@ -48,12 +73,22 @@ function GsdSetupGuide({ gsd, onRefresh }) {
               <p className="text-sm text-gray-500">Follow the steps below to initialize GSD project tracking</p>
             </div>
           </div>
-          <button
-            onClick={onRefresh}
-            className="px-3 py-1.5 bg-port-border hover:bg-port-border/80 text-white rounded-lg text-xs flex items-center gap-1"
-          >
-            <RefreshCw size={14} /> Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            {repoPath && (
+              <button
+                onClick={handleOpenClaude}
+                className="px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 rounded-lg text-xs flex items-center gap-1 border border-purple-600/30"
+              >
+                <Terminal size={14} /> Open Claude Code
+              </button>
+            )}
+            <button
+              onClick={onRefresh}
+              className="px-3 py-1.5 bg-port-border hover:bg-port-border/80 text-white rounded-lg text-xs flex items-center gap-1"
+            >
+              <RefreshCw size={14} /> Refresh
+            </button>
+          </div>
         </div>
 
         {/* Step indicators */}
@@ -94,8 +129,14 @@ function GsdSetupGuide({ gsd, onRefresh }) {
                 </div>
                 {isCurrent && (
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <ArrowRight size={14} className="text-port-accent" />
                     <code className="text-sm text-cyan-400 bg-port-bg px-2 py-1 rounded">{step.command}</code>
+                    <button
+                      onClick={() => handleRunStep(step)}
+                      disabled={runningStep === step.id}
+                      className="px-3 py-1.5 bg-port-accent/20 hover:bg-port-accent/30 text-port-accent rounded-lg text-xs flex items-center gap-1 border border-port-accent/30 disabled:opacity-50"
+                    >
+                      <Play size={14} /> {runningStep === step.id ? 'Created' : 'Run'}
+                    </button>
                   </div>
                 )}
                 {isFuture && !step.done && (
@@ -108,7 +149,7 @@ function GsdSetupGuide({ gsd, onRefresh }) {
 
         {currentStep && (
           <p className="text-xs text-gray-500 mt-4">
-            Run <code className="text-cyan-400">{currentStep.command}</code> in Claude Code from the app's repo to continue.
+            Click <strong className="text-gray-400">Run</strong> to create a CoS agent task, or run <code className="text-cyan-400">{currentStep.command}</code> in Claude Code manually.
           </p>
         )}
       </div>
@@ -116,7 +157,7 @@ function GsdSetupGuide({ gsd, onRefresh }) {
   );
 }
 
-export default function GsdTab({ appId }) {
+export default function GsdTab({ appId, repoPath }) {
   const [project, setProject] = useState(null);
   const [gsdStatus, setGsdStatus] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -154,7 +195,7 @@ export default function GsdTab({ appId }) {
 
   // Show setup guide if project isn't fully initialized
   if (!project) {
-    return <GsdSetupGuide gsd={gsdStatus || {}} onRefresh={fetchData} />;
+    return <GsdSetupGuide gsd={gsdStatus || {}} appId={appId} repoPath={repoPath} onRefresh={fetchData} />;
   }
 
   const phaseCount = project?.phases?.length || 0;

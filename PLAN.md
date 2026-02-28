@@ -82,6 +82,7 @@ pm2 logs
 ### Planned
 
 - [x] **GSD Tab: Smart State Detection & Guided Setup** — Extend `GET /api/apps/:id/documents` to return GSD status fields and update GSD tab empty state with stepped setup guide
+- [x] **GSD Tab: One-Click Agent Spawn & Open Claude Code** — Run buttons on setup steps create CoS tasks, Open Claude Code button launches CLI in app directory
 
 #### GSD Smart State Detection
 

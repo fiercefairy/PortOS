@@ -93,7 +93,7 @@ export default function AppDetailView() {
       case 'documents':
         return <DocumentsTab appId={appId} repoPath={app.repoPath} />;
       case 'gsd':
-        return <GsdTab appId={appId} />;
+        return <GsdTab appId={appId} repoPath={app.repoPath} />;
       default:
         return <OverviewTab app={app} onRefresh={fetchApp} />;
     }

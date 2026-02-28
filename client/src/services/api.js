@@ -111,6 +111,7 @@ export const restartApp = (id) => request(`/apps/${id}/restart`, { method: 'POST
 export const archiveApp = (id) => request(`/apps/${id}/archive`, { method: 'POST' });
 export const unarchiveApp = (id) => request(`/apps/${id}/unarchive`, { method: 'POST' });
 export const openAppInEditor = (id) => request(`/apps/${id}/open-editor`, { method: 'POST' });
+export const openAppInClaude = (id) => request(`/apps/${id}/open-claude`, { method: 'POST' });
 export const openAppFolder = (id) => request(`/apps/${id}/open-folder`, { method: 'POST' });
 export const refreshAppConfig = (id) => request(`/apps/${id}/refresh-config`, { method: 'POST' });
 export const pullAndUpdateApp = (id) => request(`/apps/${id}/update`, { method: 'POST' });

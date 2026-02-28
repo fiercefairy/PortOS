@@ -113,6 +113,17 @@ router.get('/:id', loadApp, asyncHandler(async (req, res) => {
     statuses[processName] = status;
   }
 
+  // Compute overall status (same logic as list endpoint)
+  const statusValues = Object.values(statuses);
+  let overallStatus = 'unknown';
+  if (statusValues.some(s => s.status === 'online')) {
+    overallStatus = 'online';
+  } else if (statusValues.some(s => s.status === 'stopped')) {
+    overallStatus = 'stopped';
+  } else if (statusValues.every(s => s.status === 'not_found')) {
+    overallStatus = 'not_started';
+  }
+
   // Auto-derive uiPort/apiPort from processes when not explicitly set
   let { uiPort, apiPort } = app;
   const processes = app.processes || [];
@@ -125,7 +136,7 @@ router.get('/:id', loadApp, asyncHandler(async (req, res) => {
     if (apiProc) apiPort = apiProc.ports.api;
   }
 
-  res.json({ ...app, uiPort, apiPort, pm2Status: statuses });
+  res.json({ ...app, uiPort, apiPort, overallStatus, pm2Status: statuses });
 }));
 
 // POST /api/apps - Create new app
@@ -431,6 +442,27 @@ router.post('/:id/open-editor', loadApp, asyncHandler(async (req, res) => {
   child.unref();
 
   res.json({ success: true, command: editorCommand, path: app.repoPath });
+}));
+
+// POST /api/apps/:id/open-claude - Open Claude Code in app directory
+router.post('/:id/open-claude', loadApp, asyncHandler(async (req, res) => {
+  const app = req.loadedApp;
+
+  if (!existsSync(app.repoPath)) {
+    throw new ServerError('App path does not exist', { status: 400, code: 'PATH_NOT_FOUND' });
+  }
+
+  const child = spawn('claude', [], {
+    cwd: app.repoPath,
+    detached: true,
+    stdio: 'ignore',
+    shell: false,
+    windowsHide: true
+  });
+  child.unref();
+
+  console.log(`🤖 Opened Claude Code in ${app.name}`);
+  res.json({ success: true, path: app.repoPath });
 }));
 
 // POST /api/apps/:id/open-folder - Open app folder in file manager

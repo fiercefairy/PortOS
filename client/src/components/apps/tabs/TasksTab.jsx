@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { RefreshCw, Clock, CheckCircle, XCircle, Activity } from 'lucide-react';
+import { RefreshCw, Clock, Activity } from 'lucide-react';
 import BrailleSpinner from '../../BrailleSpinner';
+import TaskAddForm from '../../cos/TaskAddForm';
 import * as api from '../../../services/api';
 
 const STATUS_CONFIG = {
@@ -36,6 +37,8 @@ function formatTime(dateStr) {
 export default function TasksTab({ appId }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [providers, setProviders] = useState([]);
+  const [apps, setApps] = useState([]);
 
   const fetchAgents = async () => {
     setLoading(true);
@@ -46,6 +49,11 @@ export default function TasksTab({ appId }) {
 
   useEffect(() => {
     fetchAgents();
+    // Fetch providers and apps for the task add form
+    api.getProviders().catch(() => ({ providers: [] }))
+      .then(d => setProviders(d.providers || []));
+    api.getApps().catch(() => [])
+      .then(a => setApps((a || []).filter(app => app.id !== 'portos-autofixer')));
   }, [appId]);
 
   if (loading) {
@@ -59,6 +67,15 @@ export default function TasksTab({ appId }) {
 
   return (
     <div className="max-w-5xl space-y-4">
+      {/* Add Task Form */}
+      <TaskAddForm
+        providers={providers}
+        apps={apps}
+        onTaskAdded={fetchAgents}
+        compact
+        defaultApp={appId}
+      />
+
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-white">Recent Agent Tasks</h3>
         <button

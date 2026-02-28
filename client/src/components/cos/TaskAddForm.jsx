@@ -4,8 +4,8 @@ import toast from 'react-hot-toast';
 import * as api from '../../services/api';
 import { processScreenshotUploads, processAttachmentUploads, formatFileSize } from '../../utils/fileUpload';
 
-export default function TaskAddForm({ providers, apps, onTaskAdded, compact = false }) {
-  const [newTask, setNewTask] = useState({ description: '', context: '', model: '', provider: '', app: '' });
+export default function TaskAddForm({ providers, apps, onTaskAdded, compact = false, defaultApp = '' }) {
+  const [newTask, setNewTask] = useState({ description: '', context: '', model: '', provider: '', app: defaultApp });
   const [addToTop, setAddToTop] = useState(false);
   const [enhancePrompt, setEnhancePrompt] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
@@ -196,7 +196,7 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
     });
 
     toast.success('Task added');
-    setNewTask({ description: '', context: '', model: '', provider: '', app: '' });
+    setNewTask({ description: '', context: '', model: '', provider: '', app: defaultApp });
     setScreenshots([]);
     setAttachments([]);
     setAddToTop(false);

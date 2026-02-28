@@ -8,14 +8,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Install all dependencies
 npm run install:all
 
-# Development (both server and client)
+# Start (builds client, serves production UI + API on port 5554)
+npm start
+
+# Development (Vite hot-reload on 5555, API on 5554)
 npm run dev
 
 # Run tests
 cd server && npm test
 cd server && npm run test:watch  # Watch mode
 
-# Production (npm scripts or pm2 directly)
+# PM2 management
 pm2 start ecosystem.config.cjs
 pm2 stop ecosystem.config.cjs
 pm2 logs

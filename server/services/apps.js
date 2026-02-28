@@ -3,6 +3,7 @@ import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import EventEmitter from 'events';
 import { ensureDir, readJSONFile, PATHS } from '../lib/fileUtils.js';
+import { SELF_IMPROVEMENT_TASK_TYPES } from './taskSchedule.js';
 
 const DATA_DIR = PATHS.data;
 const APPS_FILE = join(DATA_DIR, 'apps.json');
@@ -177,6 +178,9 @@ export async function createApp(appData) {
     editorCommand: appData.editorCommand || 'code .',
     archived: false,
     jira: appData.jira || null,
+    taskTypeOverrides: Object.fromEntries(
+      SELF_IMPROVEMENT_TASK_TYPES.map(t => [t, { enabled: false }])
+    ),
     createdAt: now,
     updatedAt: now
   };
@@ -324,6 +328,37 @@ export async function updateAppTaskTypeOverride(id, taskType, { enabled, interva
   appsEvents.emit('changed', { action: 'update-task-types', timestamp: Date.now() });
 
   return { id, ...data.apps[id] };
+}
+
+/**
+ * Bulk update a task type override for all active (non-archived) apps
+ */
+export async function bulkUpdateAppTaskTypeOverride(taskType, { enabled } = {}) {
+  const data = await loadApps();
+  const activeIds = Object.entries(data.apps)
+    .filter(([, app]) => !app.archived)
+    .map(([id]) => id);
+
+  for (const id of activeIds) {
+    const overrides = data.apps[id].taskTypeOverrides || {};
+    const existing = overrides[taskType] || {};
+    const updated = { ...existing, enabled };
+
+    if (updated.enabled !== false && !updated.interval) {
+      delete overrides[taskType];
+    } else {
+      overrides[taskType] = updated;
+    }
+
+    data.apps[id].taskTypeOverrides = overrides;
+    delete data.apps[id].disabledTaskTypes;
+    data.apps[id].updatedAt = new Date().toISOString();
+  }
+
+  await saveApps(data);
+  appsEvents.emit('changed', { action: 'update-task-types', timestamp: Date.now() });
+
+  return { count: activeIds.length };
 }
 
 /**

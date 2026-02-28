@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import { spawn } from 'child_process';
 import { existsSync } from 'fs';
+import { readFile } from 'fs/promises';
+import { join, resolve } from 'path';
 import * as appsService from '../services/apps.js';
 import { notifyAppsChanged, PORTOS_APP_ID } from '../services/apps.js';
 import * as pm2Service from '../services/pm2.js';
 import * as appUpdater from '../services/appUpdater.js';
+import * as cos from '../services/cos.js';
 import { logAction } from '../services/history.js';
 import { validateRequest, appSchema, appUpdateSchema } from '../lib/validation.js';
 import { asyncHandler, ServerError } from '../lib/errorHandler.js';
@@ -110,6 +113,17 @@ router.get('/:id', loadApp, asyncHandler(async (req, res) => {
     statuses[processName] = status;
   }
 
+  // Compute overall status (same logic as list endpoint)
+  const statusValues = Object.values(statuses);
+  let overallStatus = 'unknown';
+  if (statusValues.some(s => s.status === 'online')) {
+    overallStatus = 'online';
+  } else if (statusValues.some(s => s.status === 'stopped')) {
+    overallStatus = 'stopped';
+  } else if (statusValues.every(s => s.status === 'not_found')) {
+    overallStatus = 'not_started';
+  }
+
   // Auto-derive uiPort/apiPort from processes when not explicitly set
   let { uiPort, apiPort } = app;
   const processes = app.processes || [];
@@ -122,7 +136,7 @@ router.get('/:id', loadApp, asyncHandler(async (req, res) => {
     if (apiProc) apiPort = apiProc.ports.api;
   }
 
-  res.json({ ...app, uiPort, apiPort, pm2Status: statuses });
+  res.json({ ...app, uiPort, apiPort, overallStatus, pm2Status: statuses });
 }));
 
 // POST /api/apps - Create new app
@@ -187,6 +201,18 @@ router.post('/:id/unarchive', asyncHandler(async (req, res) => {
   console.log(`📤 Unarchived app: ${app.name}`);
   notifyAppsChanged('unarchive');
   res.json(app);
+}));
+
+// PUT /api/apps/bulk-task-type/:taskType - Enable/disable a task type for all active apps
+router.put('/bulk-task-type/:taskType', asyncHandler(async (req, res) => {
+  const { enabled } = req.body;
+  if (typeof enabled !== 'boolean') {
+    throw new ServerError('enabled (boolean) is required', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+
+  const result = await appsService.bulkUpdateAppTaskTypeOverride(req.params.taskType, { enabled });
+  console.log(`📋 Bulk ${enabled ? 'enabled' : 'disabled'} task type ${req.params.taskType} for ${result.count} apps`);
+  res.json({ success: true, taskType: req.params.taskType, enabled, appsUpdated: result.count });
 }));
 
 // GET /api/apps/:id/task-types - Get per-app task type overrides
@@ -282,6 +308,22 @@ router.post('/:id/stop', loadApp, asyncHandler(async (req, res) => {
 // POST /api/apps/:id/restart - Restart app
 router.post('/:id/restart', loadApp, asyncHandler(async (req, res) => {
   const app = req.loadedApp;
+
+  // Self-restart: respond first, then restart after a delay so the response reaches the client
+  if (app.id === PORTOS_APP_ID) {
+    await logAction('restart', app.id, app.name, { processNames: app.pm2ProcessNames }, true);
+    notifyAppsChanged('restart');
+    res.json({ success: true, selfRestart: true });
+    setTimeout(async () => {
+      console.log('🔄 Self-restart: restarting PortOS processes');
+      for (const name of app.pm2ProcessNames || []) {
+        await pm2Service.restartApp(name, app.pm2Home)
+          .catch(err => console.error(`❌ Self-restart failed for ${name}: ${err.message}`));
+      }
+    }, 500);
+    return;
+  }
+
   const results = {};
 
   for (const name of app.pm2ProcessNames || []) {
@@ -418,6 +460,27 @@ router.post('/:id/open-editor', loadApp, asyncHandler(async (req, res) => {
   res.json({ success: true, command: editorCommand, path: app.repoPath });
 }));
 
+// POST /api/apps/:id/open-claude - Open Claude Code in app directory
+router.post('/:id/open-claude', loadApp, asyncHandler(async (req, res) => {
+  const app = req.loadedApp;
+
+  if (!existsSync(app.repoPath)) {
+    throw new ServerError('App path does not exist', { status: 400, code: 'PATH_NOT_FOUND' });
+  }
+
+  const child = spawn('claude', [], {
+    cwd: app.repoPath,
+    detached: true,
+    stdio: 'ignore',
+    shell: false,
+    windowsHide: true
+  });
+  child.unref();
+
+  console.log(`🤖 Opened Claude Code in ${app.name}`);
+  res.json({ success: true, path: app.repoPath });
+}));
+
 // POST /api/apps/:id/open-folder - Open app folder in file manager
 router.post('/:id/open-folder', loadApp, asyncHandler(async (req, res) => {
   const app = req.loadedApp;
@@ -490,6 +553,118 @@ router.post('/:id/refresh-config', loadApp, asyncHandler(async (req, res) => {
     console.log(`🔄 No config changes for ${app.name}`);
     res.json({ success: true, updated: false, app, processes: app.processes || [] });
   }
+}));
+
+// ============================================================
+// Document Endpoints
+// ============================================================
+
+const ALLOWED_DOCUMENTS = ['PLAN.md', 'CLAUDE.md', 'GOALS.md'];
+
+// GET /api/apps/:id/documents - List which documents exist
+router.get('/:id/documents', loadApp, asyncHandler(async (req, res) => {
+  const app = req.loadedApp;
+
+  if (!app.repoPath || !existsSync(app.repoPath)) {
+    return res.json({ documents: [], hasPlanning: false });
+  }
+
+  const documents = ALLOWED_DOCUMENTS.map(filename => ({
+    filename,
+    exists: existsSync(join(app.repoPath, filename))
+  }));
+
+  const hasPlanning = existsSync(join(app.repoPath, '.planning'));
+
+  // GSD status: detect which GSD artifacts exist
+  const planningDir = join(app.repoPath, '.planning');
+  const gsd = {
+    hasCodebaseMap: existsSync(join(planningDir, 'codebase')),
+    hasProject: existsSync(join(planningDir, 'PROJECT.md')),
+    hasRoadmap: existsSync(join(planningDir, 'ROADMAP.md')),
+    hasState: existsSync(join(planningDir, 'STATE.md')),
+    hasConcerns: existsSync(join(planningDir, 'CONCERNS.md')),
+  };
+
+  res.json({ documents, hasPlanning, gsd });
+}));
+
+// GET /api/apps/:id/documents/:filename - Read a single document
+router.get('/:id/documents/:filename', loadApp, asyncHandler(async (req, res) => {
+  const app = req.loadedApp;
+  const { filename } = req.params;
+
+  if (!ALLOWED_DOCUMENTS.includes(filename)) {
+    throw new ServerError('Document not in allowlist', { status: 400, code: 'INVALID_DOCUMENT' });
+  }
+
+  if (!app.repoPath || !existsSync(app.repoPath)) {
+    throw new ServerError('App repo path does not exist', { status: 400, code: 'PATH_NOT_FOUND' });
+  }
+
+  const filePath = join(app.repoPath, filename);
+  const resolved = resolve(filePath);
+
+  // Path traversal guard
+  if (!resolved.startsWith(resolve(app.repoPath))) {
+    throw new ServerError('Invalid document path', { status: 400, code: 'PATH_TRAVERSAL' });
+  }
+
+  if (!existsSync(resolved)) {
+    throw new ServerError('Document not found', { status: 404, code: 'NOT_FOUND' });
+  }
+
+  const content = await readFile(resolved, 'utf-8');
+  res.json({ filename, content });
+}));
+
+// ============================================================
+// Agent History Endpoints
+// ============================================================
+
+// GET /api/apps/:id/agents - Recent CoS agents for this app
+router.get('/:id/agents', loadApp, asyncHandler(async (req, res) => {
+  const app = req.loadedApp;
+  const limit = parseInt(req.query.limit, 10) || 50;
+
+  // Get running agents filtered by this app
+  const runningAgents = await cos.getAgents().catch(() => []);
+  const appRunning = runningAgents.filter(a =>
+    a.metadata?.app === app.id || a.metadata?.taskApp === app.id
+  );
+
+  // Scan last 14 days of agent history for this app
+  const dates = await cos.getAgentDates().catch(() => []);
+  const recentDates = dates.slice(0, 14);
+  const historyAgents = [];
+
+  for (const { date } of recentDates) {
+    if (historyAgents.length >= limit) break;
+    const dayAgents = await cos.getAgentsByDate(date).catch(() => []);
+    const appAgents = dayAgents.filter(a =>
+      a.metadata?.app === app.id || a.metadata?.taskApp === app.id
+    );
+    historyAgents.push(...appAgents);
+  }
+
+  // Combine running + history, deduplicate by id, limit
+  const seenIds = new Set();
+  const combined = [];
+  for (const agent of [...appRunning, ...historyAgents]) {
+    if (seenIds.has(agent.id)) continue;
+    seenIds.add(agent.id);
+    combined.push(agent);
+    if (combined.length >= limit) break;
+  }
+
+  const running = combined.filter(a => a.status === 'running' || a.status === 'spawning').length;
+  const succeeded = combined.filter(a => a.status === 'completed').length;
+  const failed = combined.filter(a => a.status === 'failed' || a.status === 'error').length;
+
+  res.json({
+    agents: combined,
+    summary: { total: combined.length, running, succeeded, failed }
+  });
 }));
 
 export default router;

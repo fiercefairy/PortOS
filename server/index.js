@@ -4,6 +4,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { existsSync } from 'fs';
 
 import appleHealthRoutes from './routes/appleHealth.js';
 import systemHealthRoutes from './routes/systemHealth.js';
@@ -26,6 +27,7 @@ import automationSchedulesRoutes from './routes/automationSchedules.js';
 import agentActivityRoutes from './routes/agentActivity.js';
 import agentToolsRoutes from './routes/agentTools.js';
 import cosRoutes from './routes/cos.js';
+import gsdRoutes from './routes/gsd.js';
 import scriptsRoutes from './routes/scripts.js';
 import memoryRoutes from './routes/memory.js';
 import notificationsRoutes from './routes/notifications.js';
@@ -205,6 +207,7 @@ app.use('/api/agents/tools/moltworld', moltworldToolsRoutes);
 app.use('/api/agents/tools', agentToolsRoutes);
 // Existing running agents routes (process management)
 app.use('/api/agents', agentsRoutes);
+app.use('/api/cos/gsd', gsdRoutes);
 app.use('/api/cos/scripts', scriptsRoutes); // Mount before /api/cos to avoid route conflicts
 app.use('/api/cos', cosRoutes);
 app.use('/api/memory', memoryRoutes);
@@ -238,7 +241,18 @@ startBrainScheduler();
 // Initialize backup scheduler for daily data backups
 startBackupScheduler().catch(err => console.error(`❌ Backup scheduler init failed: ${err.message}`));
 
-// 404 handler
+// Serve built client UI (production mode — no Vite dev server needed)
+const CLIENT_DIST = join(__dirname, '..', 'client', 'dist');
+if (existsSync(CLIENT_DIST)) {
+  app.use(express.static(CLIENT_DIST));
+  // SPA fallback: serve index.html for non-API routes
+  app.get('*', (req, res) => {
+    res.sendFile(join(CLIENT_DIST, 'index.html'));
+  });
+  console.log(`📦 Serving built UI from client/dist`);
+}
+
+// 404 handler (API routes that didn't match)
 app.use((req, res) => {
   res.status(404).json({
     error: 'Not found',

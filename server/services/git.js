@@ -455,6 +455,104 @@ export function hasChangelogDir(dir) {
 }
 
 /**
+ * Ensure workspace has the latest code from origin before agent work begins.
+ * Scripted pull: fetch + fast-forward merge on the dev/default branch.
+ * If the working tree is dirty, stashes changes first and restores after.
+ * Returns conflict info if the pull can't be completed cleanly.
+ *
+ * @param {string} dir - Git repository directory
+ * @returns {{ success: boolean, branch: string, stashed: boolean, conflict: boolean, error: string|null }}
+ */
+export async function ensureLatest(dir) {
+  const gitCheck = await isRepo(dir).catch(() => false);
+  if (!gitCheck) return { success: true, branch: null, stashed: false, conflict: false, error: null, skipped: 'not-a-repo' };
+
+  const currentBranch = await getBranch(dir).catch(() => null);
+  if (!currentBranch) return { success: true, branch: null, stashed: false, conflict: false, error: null, skipped: 'no-branch' };
+
+  // Check for remote — no remote means nothing to pull
+  const remote = await getRemote(dir).catch(() => null);
+  if (!remote?.origin) return { success: true, branch: currentBranch, stashed: false, conflict: false, error: null, skipped: 'no-remote' };
+
+  // Fetch latest refs from origin
+  const fetchResult = await execGit(['fetch', 'origin'], dir, { ignoreExitCode: true });
+  if (fetchResult.stderr?.includes('fatal')) {
+    return { success: false, branch: currentBranch, stashed: false, conflict: false, error: `fetch failed: ${fetchResult.stderr}` };
+  }
+
+  // Check if remote tracking branch exists
+  const remoteRef = await execGit(['rev-parse', `origin/${currentBranch}`], dir, { ignoreExitCode: true });
+  if (remoteRef.stderr?.includes('unknown revision')) {
+    return { success: true, branch: currentBranch, stashed: false, conflict: false, error: null, skipped: 'no-remote-tracking' };
+  }
+
+  // Check if already up to date
+  const localHead = (await execGit(['rev-parse', 'HEAD'], dir)).stdout.trim();
+  const remoteHead = remoteRef.stdout.trim();
+  if (localHead === remoteHead) {
+    return { success: true, branch: currentBranch, stashed: false, conflict: false, error: null, upToDate: true };
+  }
+
+  // Stash dirty working tree if needed
+  const status = await getStatus(dir).catch(() => ({ clean: true }));
+  let stashed = false;
+  if (!status.clean) {
+    await execGit(['stash', 'push', '-m', 'cos-pre-task-autostash'], dir);
+    stashed = true;
+  }
+
+  // Try fast-forward merge first (safest — no rewrite)
+  const mergeResult = await execGit(['merge', '--ff-only', `origin/${currentBranch}`], dir, { ignoreExitCode: true });
+  const mergeOk = !mergeResult.stderr?.includes('fatal') && !mergeResult.stderr?.includes('Not possible to fast-forward');
+
+  if (mergeOk) {
+    // Fast-forward succeeded
+    if (stashed) {
+      const popResult = await execGit(['stash', 'pop'], dir, { ignoreExitCode: true });
+      const popOk = !popResult.stderr?.includes('CONFLICT');
+      if (!popOk) {
+        // Stash pop conflict — abort and report
+        await execGit(['checkout', '--', '.'], dir, { ignoreExitCode: true });
+        await execGit(['stash', 'drop'], dir, { ignoreExitCode: true });
+        return { success: false, branch: currentBranch, stashed: true, conflict: true, error: `stash pop conflict after fast-forward: ${popResult.stderr}` };
+      }
+    }
+    return { success: true, branch: currentBranch, stashed, conflict: false, error: null };
+  }
+
+  // Fast-forward failed — local branch has diverged. Try rebase.
+  const rebaseResult = await execGit(['rebase', `origin/${currentBranch}`], dir, { ignoreExitCode: true });
+  const rebaseOk = !rebaseResult.stderr?.includes('CONFLICT') && !rebaseResult.stderr?.includes('error:');
+
+  if (!rebaseOk) {
+    // Rebase failed — abort and report conflict
+    await execGit(['rebase', '--abort'], dir, { ignoreExitCode: true });
+    if (stashed) {
+      await execGit(['stash', 'pop'], dir, { ignoreExitCode: true });
+    }
+    return {
+      success: false,
+      branch: currentBranch,
+      stashed,
+      conflict: true,
+      error: `branch ${currentBranch} has diverged from origin and rebase has conflicts: ${rebaseResult.stderr}`
+    };
+  }
+
+  // Rebase succeeded
+  if (stashed) {
+    const popResult = await execGit(['stash', 'pop'], dir, { ignoreExitCode: true });
+    if (popResult.stderr?.includes('CONFLICT')) {
+      await execGit(['checkout', '--', '.'], dir, { ignoreExitCode: true });
+      await execGit(['stash', 'drop'], dir, { ignoreExitCode: true });
+      return { success: false, branch: currentBranch, stashed: true, conflict: true, error: `stash pop conflict after rebase: ${popResult.stderr}` };
+    }
+  }
+
+  return { success: true, branch: currentBranch, stashed, conflict: false, error: null };
+}
+
+/**
  * Get comprehensive git info
  */
 export async function getGitInfo(dir) {

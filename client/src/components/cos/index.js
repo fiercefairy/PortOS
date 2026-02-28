@@ -33,5 +33,6 @@ export { default as MemoryTab } from './tabs/MemoryTab';
 export { default as HealthTab } from './tabs/HealthTab';
 export { default as ConfigTab } from './tabs/ConfigTab';
 export { default as DigestTab } from './tabs/DigestTab';
+export { default as GsdTab } from './tabs/GsdTab';
 export { default as ProductivityTab } from './tabs/ProductivityTab';
 export { default as BriefingTab } from './tabs/BriefingTab';

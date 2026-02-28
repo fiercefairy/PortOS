@@ -1365,6 +1365,51 @@ export async function spawnAgentForTask(task) {
     ? (await getAppById(task.metadata.app).catch(() => null))?.name || null
     : null;
 
+  // Pull latest from git before starting work (scripted — no LLM needed)
+  const pullResult = await git.ensureLatest(workspacePath).catch(err => {
+    emitLog('warning', `⚠️ Pre-task git pull failed for ${workspacePath}: ${err.message}`, { taskId: task.id, workspace: workspacePath });
+    return { success: false, error: err.message };
+  });
+
+  if (pullResult.skipped) {
+    emitLog('debug', `Pre-task git pull skipped: ${pullResult.skipped}`, { taskId: task.id, workspace: workspacePath });
+  } else if (pullResult.conflict) {
+    // Git conflict detected — create a high-priority task for an agent to resolve it,
+    // then defer the original task so it retries after the conflict is fixed.
+    emitLog('warning', `🔀 Git conflict in ${workspacePath} (branch: ${pullResult.branch}): ${pullResult.error}`, {
+      taskId: task.id, workspace: workspacePath, branch: pullResult.branch
+    });
+
+    const appId = task.metadata?.app || null;
+    const conflictDesc = `Resolve git conflict in ${resolvedAppName || workspacePath} on branch ${pullResult.branch}. `
+      + `The branch has diverged from origin and automatic rebase failed. `
+      + `Error: ${pullResult.error}`;
+
+    await addTask({
+      description: conflictDesc,
+      priority: 'HIGH',
+      app: appId,
+      context: `This conflict is blocking task ${task.id}: "${task.description}". `
+        + `Resolve the conflict, commit, and push so the blocked task can proceed.`,
+      position: 'top'
+    }, 'internal').catch(err => {
+      emitLog('warning', `Failed to create conflict resolution task: ${err.message}`, { taskId: task.id });
+    });
+
+    // Return the original task to pending so it retries after the conflict is resolved
+    await updateTask(task.id, { status: 'pending' }, task.taskType || 'user').catch(() => {});
+    cleanupOnError(`Git conflict blocks task — conflict resolution task created`);
+    cosEvents.emit('agent:deferred', { taskId: task.id, reason: 'git-conflict', branch: pullResult.branch });
+    return null;
+  } else if (pullResult.success && !pullResult.upToDate && !pullResult.skipped) {
+    emitLog('info', `📥 Pulled latest for ${resolvedAppName || 'workspace'} (branch: ${pullResult.branch})`, {
+      taskId: task.id, workspace: workspacePath, branch: pullResult.branch, stashed: pullResult.stashed
+    });
+  } else if (!pullResult.success) {
+    // Non-conflict failure (network error, etc.) — log warning but proceed
+    emitLog('warning', `⚠️ Pre-task git pull error: ${pullResult.error}`, { taskId: task.id, workspace: workspacePath });
+  }
+
   // JIRA integration: create ticket + feature branch if app has JIRA enabled and task opted in
   let jiraTicket = null;
   let jiraBranchName = null;
@@ -2488,6 +2533,25 @@ ${task.metadata.jiraBranch ? 'Commit your changes to this branch. Do NOT switch 
       })
     : null;
 
+  // Build .planning/ context section for GSD-enabled apps
+  let planningContextSection = '';
+  if (task.metadata?.app) {
+    const planningPath = join(workspaceDir, '.planning');
+    const hasPlanningDir = await stat(planningPath).then(s => s.isDirectory()).catch(() => false);
+    if (hasPlanningDir) {
+      const planningParts = [];
+      const stateContent = await readFile(join(planningPath, 'STATE.md'), 'utf-8').catch(() => null);
+      if (stateContent) planningParts.push(`### Current State\n\`\`\`\n${stateContent.slice(0, 1000)}\n\`\`\``);
+      const concernsContent = await readFile(join(planningPath, 'CONCERNS.md'), 'utf-8').catch(() => null);
+      if (concernsContent) planningParts.push(`### Known Concerns\n\`\`\`\n${concernsContent.slice(0, 1500)}\n\`\`\``);
+      const roadmapContent = await readFile(join(planningPath, 'ROADMAP.md'), 'utf-8').catch(() => null);
+      if (roadmapContent) planningParts.push(`### Roadmap\n\`\`\`\n${roadmapContent.slice(0, 1000)}\n\`\`\``);
+      if (planningParts.length > 0) {
+        planningContextSection = `\n## Project Planning Context (.planning/)\nThis project has GSD planning documents. Use this context to understand priorities and known issues.\n\n${planningParts.join('\n\n')}\n`;
+      }
+    }
+  }
+
   // Try to use the prompt template system
   const promptData = await buildPrompt('cos-agent-briefing', {
     task,
@@ -2499,6 +2563,7 @@ ${task.metadata.jiraBranch ? 'Commit your changes to this branch. Do NOT switch 
     jiraSection,
     compactionSection,
     skillSection,
+    planningContextSection,
     soulSection: digitalTwinSection, // Backwards compatibility for prompt templates
     timestamp: new Date().toISOString()
   }).catch(() => null);
@@ -2527,7 +2592,7 @@ ${Array.isArray(task.metadata?.screenshots) && task.metadata.screenshots.length 
 ${worktreeSection}
 ${jiraSection}
 ${compactionSection}
-${skillSection ? `## Task-Type Skill Guidelines\n\n${skillSection}\n` : ''}
+${skillSection ? `## Task-Type Skill Guidelines\n\n${skillSection}\n` : ''}${planningContextSection}
 ## Instructions
 1. Analyze the task requirements carefully
 2. Make necessary changes to complete the task

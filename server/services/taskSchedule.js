@@ -507,6 +507,13 @@ IMPORTANT: Always use \`git pull --rebase --autostash\` before pushing (dev bran
 };
 
 // Unified default interval settings for all 14 task types
+export const SELF_IMPROVEMENT_TASK_TYPES = [
+  'security', 'code-quality', 'test-coverage', 'performance',
+  'accessibility', 'console-errors', 'dependency-updates', 'documentation',
+  'ui-bugs', 'mobile-responsive', 'feature-ideas', 'error-handling',
+  'typing', 'release-check'
+];
+
 const DEFAULT_TASK_INTERVALS = {
   'security':            { type: INTERVAL_TYPES.WEEKLY, enabled: false, providerId: null, model: null, prompt: null },
   'code-quality':        { type: INTERVAL_TYPES.ROTATION, enabled: false, providerId: null, model: null, prompt: null },

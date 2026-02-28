@@ -187,7 +187,7 @@ export default function AppDetailView() {
                 <span className="text-xs">Launch Dev</span>
               </button>
             )}
-            {app.buildCommand && app.overallStatus === 'online' && (
+            {app.buildCommand && (
               <button
                 onClick={handleBuild}
                 disabled={buildLoading}

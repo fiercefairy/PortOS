@@ -36,7 +36,7 @@ function buildPortosApp() {
     processes: [
       { name: 'portos-server', port: 5554, ports: { api: 5554 } },
       { name: 'portos-cos', port: 5558, ports: { api: 5558 } },
-      { name: 'portos-ui', port: 5555, ports: { ui: 5555 } },
+      { name: 'portos-ui', port: 5555, ports: { devUi: 5555 } },
       { name: 'portos-autofixer', port: 5559, ports: { api: 5559 } },
       { name: 'portos-autofixer-ui', port: 5560, ports: { ui: 5560 } },
       { name: 'portos-browser', port: 5556, ports: { cdp: 5556, health: 5557 } }
@@ -196,7 +196,7 @@ export async function createApp(appData) {
     uiPort: appData.uiPort || null,
     devUiPort: appData.devUiPort || null,
     apiPort: appData.apiPort || null,
-    buildCommand: appData.buildCommand || null,
+    buildCommand: appData.buildCommand || undefined,
     startCommands: appData.startCommands || ['npm run dev'],
     pm2ProcessNames: appData.pm2ProcessNames || [appData.name.toLowerCase().replace(/\s+/g, '-')],
     envFile: appData.envFile || '.env',

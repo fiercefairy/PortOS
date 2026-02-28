@@ -629,7 +629,7 @@ export default function Apps() {
                         <RefreshCw size={14} aria-hidden="true" className={refreshingConfig[app.id] ? 'animate-spin' : ''} />
                         Refresh Config
                       </button>
-                      {app.id !== api.PORTOS_APP_ID && (
+                      {(!app.processes?.length || app.processes.some(p => !p.ports || Object.keys(p.ports).length === 0)) && (
                         <button
                           onClick={() => handleStandardize(app)}
                           disabled={standardizing[app.id]}

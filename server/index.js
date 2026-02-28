@@ -4,6 +4,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { existsSync } from 'fs';
 
 import appleHealthRoutes from './routes/appleHealth.js';
 import systemHealthRoutes from './routes/systemHealth.js';
@@ -240,7 +241,18 @@ startBrainScheduler();
 // Initialize backup scheduler for daily data backups
 startBackupScheduler().catch(err => console.error(`❌ Backup scheduler init failed: ${err.message}`));
 
-// 404 handler
+// Serve built client UI (production mode — no Vite dev server needed)
+const CLIENT_DIST = join(__dirname, '..', 'client', 'dist');
+if (existsSync(CLIENT_DIST)) {
+  app.use(express.static(CLIENT_DIST));
+  // SPA fallback: serve index.html for non-API routes
+  app.get('*', (req, res) => {
+    res.sendFile(join(CLIENT_DIST, 'index.html'));
+  });
+  console.log(`📦 Serving built UI from client/dist`);
+}
+
+// 404 handler (API routes that didn't match)
 app.use((req, res) => {
   res.status(404).json({
     error: 'Not found',

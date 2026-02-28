@@ -11,6 +11,7 @@ import OverviewTab from './tabs/OverviewTab';
 import TasksTab from './tabs/TasksTab';
 import AutomationTab from './tabs/AutomationTab';
 import DocumentsTab from './tabs/DocumentsTab';
+import GitTab from './tabs/GitTab';
 import GsdTab from './tabs/GsdTab';
 
 export default function AppDetailView() {
@@ -96,6 +97,8 @@ export default function AppDetailView() {
         return <AutomationTab appId={appId} appName={app.name} />;
       case 'documents':
         return <DocumentsTab appId={appId} repoPath={app.repoPath} />;
+      case 'git':
+        return <GitTab appId={appId} appName={app.name} repoPath={app.repoPath} />;
       case 'gsd':
         return <GsdTab appId={appId} repoPath={app.repoPath} />;
       default:

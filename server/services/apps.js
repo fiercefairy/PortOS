@@ -3,6 +3,7 @@ import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import EventEmitter from 'events';
 import { ensureDir, readJSONFile, PATHS } from '../lib/fileUtils.js';
+import { SELF_IMPROVEMENT_TASK_TYPES } from './taskSchedule.js';
 
 const DATA_DIR = PATHS.data;
 const APPS_FILE = join(DATA_DIR, 'apps.json');
@@ -177,6 +178,9 @@ export async function createApp(appData) {
     editorCommand: appData.editorCommand || 'code .',
     archived: false,
     jira: appData.jira || null,
+    taskTypeOverrides: Object.fromEntries(
+      SELF_IMPROVEMENT_TASK_TYPES.map(t => [t, { enabled: false }])
+    ),
     createdAt: now,
     updatedAt: now
   };

@@ -120,6 +120,10 @@ export const updateAppTaskTypeOverride = (id, taskType, { enabled, interval } = 
   method: 'PUT',
   body: JSON.stringify({ enabled, interval })
 });
+export const bulkUpdateAppTaskTypeOverride = (taskType, { enabled }) => request(`/apps/bulk-task-type/${taskType}`, {
+  method: 'PUT',
+  body: JSON.stringify({ enabled })
+});
 export const getAppLogs = (id, lines = 100, processName) => {
   const params = new URLSearchParams({ lines: String(lines) });
   if (processName) params.set('process', processName);

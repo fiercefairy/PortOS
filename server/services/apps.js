@@ -327,6 +327,37 @@ export async function updateAppTaskTypeOverride(id, taskType, { enabled, interva
 }
 
 /**
+ * Bulk update a task type override for all active (non-archived) apps
+ */
+export async function bulkUpdateAppTaskTypeOverride(taskType, { enabled } = {}) {
+  const data = await loadApps();
+  const activeIds = Object.entries(data.apps)
+    .filter(([, app]) => !app.archived)
+    .map(([id]) => id);
+
+  for (const id of activeIds) {
+    const overrides = data.apps[id].taskTypeOverrides || {};
+    const existing = overrides[taskType] || {};
+    const updated = { ...existing, enabled };
+
+    if (updated.enabled !== false && !updated.interval) {
+      delete overrides[taskType];
+    } else {
+      overrides[taskType] = updated;
+    }
+
+    data.apps[id].taskTypeOverrides = overrides;
+    delete data.apps[id].disabledTaskTypes;
+    data.apps[id].updatedAt = new Date().toISOString();
+  }
+
+  await saveApps(data);
+  appsEvents.emit('changed', { action: 'update-task-types', timestamp: Date.now() });
+
+  return { count: activeIds.length };
+}
+
+/**
  * Get reserved ports from all registered apps
  */
 export async function getReservedPorts() {

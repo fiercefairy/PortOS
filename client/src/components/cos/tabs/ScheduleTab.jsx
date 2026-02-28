@@ -480,15 +480,43 @@ function AppOverrideRow({ app, taskType, globalIntervalType, override, onUpdate 
   );
 }
 
-function PerAppOverrideList({ taskType, config, apps, onUpdateOverride }) {
+function PerAppOverrideList({ taskType, config, apps, onUpdateOverride, onBulkToggleOverride }) {
+  const [bulkUpdating, setBulkUpdating] = useState(false);
   const activeApps = apps?.filter(app => !app.archived) || [];
   const appOverrides = config.appOverrides || {};
 
   if (activeApps.length === 0) return null;
 
+  const allEnabled = activeApps.every(app => appOverrides[app.id]?.enabled !== false);
+  const allDisabled = activeApps.every(app => appOverrides[app.id]?.enabled === false);
+
+  const handleBulkToggle = async () => {
+    setBulkUpdating(true);
+    const newEnabled = !allEnabled;
+    await onBulkToggleOverride(taskType, newEnabled);
+    setBulkUpdating(false);
+  };
+
   return (
     <div>
-      <h4 className="text-sm font-medium text-gray-400 mb-2">Per-App Overrides</h4>
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="text-sm font-medium text-gray-400">Per-App Overrides</h4>
+        <button
+          onClick={handleBulkToggle}
+          disabled={bulkUpdating}
+          className={`text-xs px-2 py-1 rounded transition-colors ${
+            bulkUpdating ? 'opacity-50 cursor-not-allowed' : ''
+          } ${
+            allEnabled
+              ? 'text-port-error hover:bg-port-error/10'
+              : allDisabled
+                ? 'text-port-success hover:bg-port-success/10'
+                : 'text-port-accent hover:bg-port-accent/10'
+          }`}
+        >
+          {allEnabled ? 'Disable All' : 'Enable All'}
+        </button>
+      </div>
       <div className="border border-port-border rounded-lg divide-y divide-port-border/50">
         {activeApps.map(app => (
           <AppOverrideRow
@@ -505,7 +533,7 @@ function PerAppOverrideList({ taskType, config, apps, onUpdateOverride }) {
   );
 }
 
-function AppTaskTypeRow({ taskType, config, onUpdate, onTrigger, onReset, providers, apps, onUpdateOverride }) {
+function AppTaskTypeRow({ taskType, config, onUpdate, onTrigger, onReset, providers, apps, onUpdateOverride, onBulkToggleOverride }) {
   const [expanded, setExpanded] = useState(false);
   const [updating, setUpdating] = useState(false);
 
@@ -577,6 +605,7 @@ function AppTaskTypeRow({ taskType, config, onUpdate, onTrigger, onReset, provid
             config={config}
             apps={apps}
             onUpdateOverride={onUpdateOverride}
+            onBulkToggleOverride={onBulkToggleOverride}
           />
         </div>
       )}
@@ -619,7 +648,7 @@ function TaskTypeSection({ title, description, tasks, onUpdate, onTrigger, onRes
   );
 }
 
-function AppTaskTypeSection({ tasks, onUpdate, onTrigger, onReset, providers, apps, onUpdateOverride }) {
+function AppTaskTypeSection({ tasks, onUpdate, onTrigger, onReset, providers, apps, onUpdateOverride, onBulkToggleOverride }) {
   const taskEntries = Object.entries(tasks || {});
   if (taskEntries.length === 0) return null;
 
@@ -648,6 +677,7 @@ function AppTaskTypeSection({ tasks, onUpdate, onTrigger, onReset, providers, ap
             providers={providers}
             apps={apps}
             onUpdateOverride={onUpdateOverride}
+            onBulkToggleOverride={onBulkToggleOverride}
           />
         ))}
       </div>
@@ -732,6 +762,17 @@ export default function ScheduleTab({ apps }) {
     }
   };
 
+  const handleBulkToggleOverride = async (taskType, enabled) => {
+    const result = await api.bulkUpdateAppTaskTypeOverride(taskType, { enabled }).catch(err => {
+      toast.error(err.message);
+      return null;
+    });
+    if (result?.success) {
+      toast.success(`${enabled ? 'Enabled' : 'Disabled'} ${taskType} for all apps`);
+      fetchSchedule();
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -789,6 +830,7 @@ export default function ScheduleTab({ apps }) {
         providers={providers}
         apps={apps}
         onUpdateOverride={handleUpdateAppOverride}
+        onBulkToggleOverride={handleBulkToggleOverride}
       />
 
       {schedule.lastUpdated && (

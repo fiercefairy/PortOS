@@ -189,6 +189,18 @@ router.post('/:id/unarchive', asyncHandler(async (req, res) => {
   res.json(app);
 }));
 
+// PUT /api/apps/bulk-task-type/:taskType - Enable/disable a task type for all active apps
+router.put('/bulk-task-type/:taskType', asyncHandler(async (req, res) => {
+  const { enabled } = req.body;
+  if (typeof enabled !== 'boolean') {
+    throw new ServerError('enabled (boolean) is required', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+
+  const result = await appsService.bulkUpdateAppTaskTypeOverride(req.params.taskType, { enabled });
+  console.log(`📋 Bulk ${enabled ? 'enabled' : 'disabled'} task type ${req.params.taskType} for ${result.count} apps`);
+  res.json({ success: true, taskType: req.params.taskType, enabled, appsUpdated: result.count });
+}));
+
 // GET /api/apps/:id/task-types - Get per-app task type overrides
 router.get('/:id/task-types', loadApp, asyncHandler(async (req, res) => {
   const app = req.loadedApp;

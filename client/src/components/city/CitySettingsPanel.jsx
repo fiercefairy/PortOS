@@ -255,6 +255,16 @@ export default function CitySettingsPanel() {
           <div>
             <SectionHeader title="SCENE LIGHTING" subtitle="Brightness and time of day" />
             <SettingSlider
+              label="EXPOSURE"
+              value={settings.sceneExposure ?? 1.0}
+              onChange={(v) => updateSetting('sceneExposure', v)}
+              min={0.5}
+              max={2.5}
+              step={0.1}
+              format={(v) => `${v.toFixed(1)}x`}
+              description="Post-bloom brightness lift — brightens assets without adding bloom"
+            />
+            <SettingSlider
               label="AMBIENT BRIGHTNESS"
               value={settings.ambientBrightness}
               onChange={(v) => updateSetting('ambientBrightness', v)}

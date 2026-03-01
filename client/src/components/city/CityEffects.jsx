@@ -8,6 +8,34 @@ import * as THREE from 'three';
 
 extend({ EffectComposer, RenderPass, UnrealBloomPass, ShaderPass });
 
+// Exposure/brightness lift shader -- applied after bloom so it brightens the scene
+// without feeding extra luminosity into the bloom pass.
+// Uses a reverse power curve: shadows lift dramatically, highlights barely change.
+const ExposureShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    uExposure: { value: 1.0 },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uExposure;
+    varying vec2 vUv;
+    void main() {
+      vec4 color = texture2D(tDiffuse, vUv);
+      // Reverse power curve: lifts shadows/midtones, preserves highlights
+      color.rgb = 1.0 - pow(max(1.0 - color.rgb, 0.0), vec3(1.0 / uExposure));
+      gl_FragColor = color;
+    }
+  `,
+};
+
 // Chromatic Aberration shader -- offset R/B channels at screen edges
 const ChromaticAberrationShader = {
   uniforms: {
@@ -113,6 +141,7 @@ export default function CityEffects({ settings }) {
 
   const bloomEnabled = settings?.bloomEnabled ?? true;
   const bloomStrength = settings?.bloomStrength ?? 0.5;
+  const sceneExposure = settings?.sceneExposure ?? 1.0;
   const chromaticAberration = settings?.chromaticAberration ?? true;
   const filmGrain = settings?.filmGrain ?? true;
   const colorGrading = settings?.colorGrading ?? true;
@@ -133,6 +162,14 @@ export default function CityEffects({ settings }) {
         0.45  // threshold — only genuinely bright/emissive surfaces bloom
       );
       composer.addPass(bloomPass);
+    }
+
+    // Exposure pass — runs after bloom so it lifts shadows/midtones
+    // without feeding extra brightness into the bloom calculation
+    if (sceneExposure !== 1.0) {
+      const exposurePass = new ShaderPass(ExposureShader);
+      exposurePass.uniforms.uExposure.value = sceneExposure;
+      composer.addPass(exposurePass);
     }
 
     if (colorGrading) {
@@ -159,7 +196,7 @@ export default function CityEffects({ settings }) {
     return () => {
       composer.dispose();
     };
-  }, [gl, scene, camera, size.width, size.height, bloomEnabled, bloomStrength, chromaticAberration, filmGrain, colorGrading]);
+  }, [gl, scene, camera, size.width, size.height, bloomEnabled, bloomStrength, sceneExposure, chromaticAberration, filmGrain, colorGrading]);
 
   useFrame(({ clock }) => {
     if (grainPassRef.current) {

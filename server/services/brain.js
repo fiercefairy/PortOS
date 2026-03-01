@@ -51,7 +51,11 @@ async function callAI(promptStageName, variables, providerOverride, modelOverrid
   if (provider.type === 'cli') {
 
     return new Promise((resolve, reject) => {
-      const args = [...(provider.args || []), prompt];
+      const args = [...(provider.args || [])];
+      if (model) {
+        args.push('--model', model);
+      }
+      args.push(prompt);
       let output = '';
 
       const child = spawn(provider.command, args, {
@@ -207,6 +211,7 @@ async function classifyInBackground(entryId, text, meta, providerOverride, model
   let classification = null;
   let aiError = null;
 
+  const startTime = Date.now();
   const aiResponse = await callAI(
     'brain-classifier',
     { capturedText: text, now: new Date().toISOString() },
@@ -217,7 +222,10 @@ async function classifyInBackground(entryId, text, meta, providerOverride, model
     return null;
   });
 
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
   if (aiResponse) {
+    console.log(`🧠 AI responded in ${elapsed}s for ${entryId}`);
     const parsed = safeParseJsonResponse(aiResponse);
     if (parsed) {
       const validationResult = classifierOutputSchema.safeParse(parsed);
@@ -230,6 +238,8 @@ async function classifyInBackground(entryId, text, meta, providerOverride, model
     } else {
       aiError = new Error('Could not parse AI response as JSON');
     }
+  } else {
+    console.log(`🧠 AI failed after ${elapsed}s for ${entryId}`);
   }
 
   // If AI failed, mark as needs_review

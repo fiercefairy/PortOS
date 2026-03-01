@@ -246,7 +246,7 @@ const CLIENT_DIST = join(__dirname, '..', 'client', 'dist');
 if (existsSync(CLIENT_DIST)) {
   app.use(express.static(CLIENT_DIST));
   // SPA fallback: serve index.html for non-API routes
-  app.get('*', (req, res) => {
+  app.get('/{*splat}', (req, res) => {
     res.sendFile(join(CLIENT_DIST, 'index.html'));
   });
   console.log(`📦 Serving built UI from client/dist`);

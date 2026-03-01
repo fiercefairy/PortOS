@@ -47,6 +47,7 @@ const DEFAULT_SETTINGS = {
   sfxEnabled: true,
   sfxVolume: 0.5,
   qualityPreset: 'high',
+  skyTheme: 'cyberpunk',
   timeOfDay: 'sunset',
   ...QUALITY_PRESETS.high,
 };

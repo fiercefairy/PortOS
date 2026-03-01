@@ -1,7 +1,7 @@
 import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { CITY_COLORS } from './cityConstants';
+import { CITY_COLORS, getTimeOfDayPreset } from './cityConstants';
 
 const SUN_RADIUS = 100;
 
@@ -103,12 +103,13 @@ const lerpColor = (target, a, b, t) => {
   target.b = a.b + (b.b - a.b) * t;
 };
 
-// Pre-allocate parsed preset colors
+// Pre-allocate parsed preset colors (keyed by "theme:timeOfDay")
 const presetColors = {};
-const getPresetColors = (name) => {
-  if (!presetColors[name]) {
-    const p = CITY_COLORS.timeOfDay[name];
-    presetColors[name] = {
+const getPresetColors = (name, skyTheme = 'cyberpunk') => {
+  const cacheKey = `${skyTheme}:${name}`;
+  if (!presetColors[cacheKey]) {
+    const p = getTimeOfDayPreset(name, skyTheme);
+    presetColors[cacheKey] = {
       zenith: new THREE.Color(p.zenith),
       midSky: new THREE.Color(p.midSky),
       horizonHigh: new THREE.Color(p.horizonHigh),
@@ -122,7 +123,7 @@ const getPresetColors = (name) => {
       isMoon: p.isMoon,
     };
   }
-  return presetColors[name];
+  return presetColors[cacheKey];
 };
 
 // Sun/Moon mesh
@@ -173,6 +174,9 @@ export default function CitySky({ settings }) {
   const timeOfDayRef = useRef(settings?.timeOfDay ?? 'sunset');
   timeOfDayRef.current = settings?.timeOfDay ?? 'sunset';
 
+  const skyThemeRef = useRef(settings?.skyTheme ?? 'cyberpunk');
+  skyThemeRef.current = settings?.skyTheme ?? 'cyberpunk';
+
   const currentPresetRef = useRef(timeOfDayRef.current);
   const transitionRef = useRef(1.0);
 
@@ -214,7 +218,7 @@ export default function CitySky({ settings }) {
     transitionRef.current = Math.min(1.0, transitionRef.current + delta * 1.5);
     const lerpFactor = transitionRef.current < 1 ? delta * 3 : 1;
 
-    const preset = getPresetColors(target);
+    const preset = getPresetColors(target, skyThemeRef.current);
 
     // Lerp hour along shortest path on the 24h clock
     let hourDiff = preset.hour - currentHourRef.current;

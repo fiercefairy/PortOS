@@ -369,10 +369,15 @@ export function initSocket(io) {
     });
 
     // Shell session handlers
-    socket.on('shell:start', () => {
-      const sessionId = shellService.createShellSession(socket);
+    socket.on('shell:start', (options) => {
+      const cwd = options?.cwd || undefined;
+      const initialCommand = options?.initialCommand || undefined;
+      const sessionId = shellService.createShellSession(socket, { cwd });
       if (sessionId) {
         socket.emit('shell:started', { sessionId });
+        if (initialCommand) {
+          setTimeout(() => shellService.writeToSession(sessionId, initialCommand + '\n'), 200);
+        }
       } else {
         socket.emit('shell:error', { error: 'Failed to create shell session' });
       }

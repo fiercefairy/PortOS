@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { RefreshCw, Compass, CheckCircle, ArrowRight, FolderSearch, FileText, Map, Play, Terminal } from 'lucide-react';
 import toast from 'react-hot-toast';
 import BrailleSpinner from '../../BrailleSpinner';
@@ -16,6 +16,7 @@ const STEP_DESCRIPTIONS = {
 };
 
 function GsdSetupGuide({ gsd, appId, repoPath, onRefresh }) {
+  const navigate = useNavigate();
   const [runningStep, setRunningStep] = useState(null);
 
   // Determine the current step based on what exists
@@ -60,9 +61,8 @@ function GsdSetupGuide({ gsd, appId, repoPath, onRefresh }) {
     setTimeout(() => setRunningStep(null), 2000);
   };
 
-  const handleOpenClaude = async () => {
-    toast('Opening Claude Code...');
-    await api.openAppInClaude(appId).catch(() => null);
+  const handleOpenClaude = () => {
+    navigate(`/shell?cwd=${encodeURIComponent(repoPath)}&cmd=claude`);
   };
 
   return (
@@ -286,7 +286,6 @@ export default function GsdTab({ appId, repoPath }) {
       {/* Project Header */}
       <GsdProjectHeader
         project={project}
-        pendingActions={pendingActions}
         appId={appId}
         repoPath={repoPath}
         onRefresh={fetchData}

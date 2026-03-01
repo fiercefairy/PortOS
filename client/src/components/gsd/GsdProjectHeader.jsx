@@ -1,5 +1,5 @@
+import { useNavigate } from 'react-router-dom';
 import { RefreshCw, Terminal, Play, Settings } from 'lucide-react';
-import toast from 'react-hot-toast';
 import * as api from '../../services/api';
 
 const STATUS_COLORS = {
@@ -8,7 +8,8 @@ const STATUS_COLORS = {
   paused: 'bg-port-warning text-port-warning',
 };
 
-export default function GsdProjectHeader({ project, pendingActions, appId, repoPath, onRefresh }) {
+export default function GsdProjectHeader({ project, appId, repoPath, onRefresh }) {
+  const navigate = useNavigate();
   const state = project?.state?.frontmatter || {};
   const phases = project?.phases || [];
   const completedPhases = phases.filter(p => p.totalTasks > 0 && p.completedTasks === p.totalTasks && p.verification?.status === 'passed').length;
@@ -19,9 +20,8 @@ export default function GsdProjectHeader({ project, pendingActions, appId, repoP
   const mode = project?.config?.mode || state.mode;
   const depth = project?.config?.depth || state.depth;
 
-  const handleOpenClaude = async () => {
-    toast('Opening Claude Code...');
-    await api.openAppInClaude(appId).catch(() => null);
+  const handleOpenClaude = () => {
+    navigate(`/shell?cwd=${encodeURIComponent(repoPath)}&cmd=claude`);
   };
 
   const handleNewMilestone = async () => {

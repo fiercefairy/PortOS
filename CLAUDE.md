@@ -142,15 +142,16 @@ Final review before merging `dev → main`:
 
 ### On Release (Automated)
 
-When you merge to `main`, the GitHub Actions workflow automatically:
+When you push to `release`, the GitHub Actions workflow automatically:
 1. Reads `.changelog/v0.10.x.md`
 2. Replaces all instances of `0.10.x` with actual version (e.g., `0.10.5`)
 3. Creates the GitHub release with substituted changelog
-4. Archives the changelog on `main`: renames `v0.10.x.md` → `v0.10.5.md` using `git mv`
-5. Checks out dev branch and merges main into dev (shared commit history avoids future conflicts)
+4. Archives the changelog on `main`: checks out `main`, renames `v0.10.x.md` → `v0.10.5.md` using `git mv`, pushes to `main`
+5. Fast-forwards `release` to match `main` so the branches never diverge
 
 **Result:**
-- Both `dev` and `main` have `.changelog/v0.10.5.md` via shared commit ancestry
+- `main` has `.changelog/v0.10.5.md` with the archive commit
+- `release` is fast-forwarded to match `main` (no divergence)
 - Git history shows: `v0.10.x.md` → `v0.10.5.md` (rename)
 - You create a new `.changelog/v{next}.x.md` to start the next development cycle
 

@@ -100,33 +100,30 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Archive changelog and sync main
+      - name: Archive changelog on main
         if: steps.tag-check.outputs.exists == 'false'
         run: |
-          # Get current version (the one we just released)
           CURRENT_VERSION=${{ steps.package-version.outputs.version }}
           MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
           MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
           MAJOR_MINOR="$MAJOR.$MINOR"
 
-          # Archive changelog on release branch first
           PATTERN_FILE=".changelog/v${MAJOR_MINOR}.x.md"
           VERSIONED_FILE=".changelog/v${CURRENT_VERSION}.md"
 
           if [ -f "$PATTERN_FILE" ]; then
-            git mv "$PATTERN_FILE" "$VERSIONED_FILE"
+            # Archive directly on main so release never diverges
+            git fetch origin main
+            git checkout main
 
+            git mv "$PATTERN_FILE" "$VERSIONED_FILE"
             sed -i.bak "s/v${MAJOR_MINOR}\.x/v${CURRENT_VERSION}/g; s/${MAJOR_MINOR}\.x/${CURRENT_VERSION}/g; s/YYYY-MM-DD/$(date +%Y-%m-%d)/g" "$VERSIONED_FILE"
             rm "${VERSIONED_FILE}.bak"
 
             git add "$VERSIONED_FILE"
             git commit -m "docs: archive changelog for v${CURRENT_VERSION} [skip ci]"
-            git push origin release
-          fi
+            git push origin main
 
-          # Checkout main and merge release to share the changelog archive
-          git fetch origin main
-          git checkout main
-          git fetch origin release
-          git merge origin/release -m "merge: incorporate v${CURRENT_VERSION} changelog archive [skip ci]"
-          git push origin main
+            # Fast-forward release to match main
+            git push origin main:release
+          fi

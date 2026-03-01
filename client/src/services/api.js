@@ -250,7 +250,7 @@ export const getRunOutput = (id) => request(`/runs/${id}/output`);
 export const getRunPrompt = (id) => request(`/runs/${id}/prompt`);
 export const stopRun = (id) => request(`/runs/${id}/stop`, { method: 'POST' });
 export const deleteRun = (id) => request(`/runs/${id}`, { method: 'DELETE' });
-export const deleteFailedRuns = () => request('/runs?confirm=true', { method: 'DELETE' });
+export const deleteFailedRuns = () => request('/runs?filter=failed', { method: 'DELETE' });
 
 // History
 export const getHistory = (options = {}) => {

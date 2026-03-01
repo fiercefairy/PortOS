@@ -57,7 +57,7 @@ function KanbanBoard({ tickets }) {
                       <div className="text-xs text-white line-clamp-2">{ticket.summary}</div>
                       <div className="text-xs text-gray-500 mt-1">{ticket.issueType}</div>
                     </div>
-                    <ExternalLink size={12} className="text-gray-500 flex-shrink-0" />
+                    <ExternalLink size={12} className="text-gray-500 shrink-0" />
                   </div>
                 </a>
               ))}
@@ -128,14 +128,14 @@ export default function OverviewTab({ app, onRefresh }) {
         <div>
           <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">Repository Path</div>
           <div className="flex items-start gap-2">
-            <FolderOpen size={16} className="text-yellow-400 flex-shrink-0 mt-0.5" />
+            <FolderOpen size={16} className="text-yellow-400 shrink-0 mt-0.5" />
             <code className="text-sm text-gray-300 font-mono break-all">{app.repoPath}</code>
           </div>
         </div>
         <div>
           <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">Editor Command</div>
           <div className="flex items-center gap-2">
-            <Code size={16} className="text-blue-400 flex-shrink-0" />
+            <Code size={16} className="text-blue-400 shrink-0" />
             <code className="text-sm text-gray-300 font-mono">{app.editorCommand || 'code .'}</code>
           </div>
         </div>
@@ -148,7 +148,7 @@ export default function OverviewTab({ app, onRefresh }) {
           <div className="bg-port-card border border-port-border rounded-lg p-3">
             {app.startCommands.map((cmd, i) => (
               <div key={i} className="flex items-start gap-2 py-1">
-                <Terminal size={14} className="text-green-400 flex-shrink-0 mt-0.5" />
+                <Terminal size={14} className="text-green-400 shrink-0 mt-0.5" />
                 <code className="text-sm text-cyan-300 font-mono break-all">{cmd}</code>
               </div>
             ))}
@@ -168,7 +168,7 @@ export default function OverviewTab({ app, onRefresh }) {
                   key={i}
                   className="flex flex-wrap items-center gap-2 px-3 py-1.5 bg-port-card border border-port-border rounded-lg"
                 >
-                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${
                     proc.status === 'online' ? 'bg-port-success' :
                     proc.status === 'stopped' ? 'bg-gray-500' : 'bg-port-error'
                   }`} />
@@ -199,7 +199,7 @@ export default function OverviewTab({ app, onRefresh }) {
         <div>
           <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">JIRA Integration</div>
           <div className="flex flex-wrap items-center gap-3 px-3 py-2 bg-port-card border border-port-border rounded-lg">
-            <Ticket size={16} className="text-blue-400 flex-shrink-0" />
+            <Ticket size={16} className="text-blue-400 shrink-0" />
             <span className="text-sm text-white font-mono">{app.jira.projectKey || '-'}</span>
             {app.jira.issueType && <span className="text-xs text-gray-400">{app.jira.issueType}</span>}
             {app.jira.createPR !== false && <span className="text-xs text-green-400">+ PR</span>}

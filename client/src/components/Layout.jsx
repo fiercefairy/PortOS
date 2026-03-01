@@ -286,7 +286,7 @@ export default function Layout() {
           title={collapsed ? item.label : undefined}
         >
           <div className="flex items-center gap-3">
-            <Icon size={20} className="flex-shrink-0" />
+            <Icon size={20} className="shrink-0" />
             <span className={`whitespace-nowrap ${collapsed ? 'lg:hidden' : ''}`}>
               {item.label}
             </span>
@@ -314,7 +314,7 @@ export default function Layout() {
         >
           <div className="flex items-center gap-3">
             <div className="relative">
-              <Icon size={20} className="flex-shrink-0" />
+              <Icon size={20} className="shrink-0" />
               {/* Badge for collapsed state */}
               {item.showBadge && unreadCount > 0 && collapsed && (
                 <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] flex items-center justify-center text-[9px] font-bold rounded-full bg-yellow-500 text-black px-0.5">
@@ -361,7 +361,7 @@ export default function Layout() {
         >
           <div className="flex items-center gap-3">
             <div className="relative">
-              <Icon size={20} className="flex-shrink-0" />
+              <Icon size={20} className="shrink-0" />
               {/* Badge for collapsed state on collapsible sections */}
               {item.showBadge && unreadCount > 0 && collapsed && (
                 <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] flex items-center justify-center text-[9px] font-bold rounded-full bg-yellow-500 text-black px-0.5">
@@ -448,7 +448,7 @@ export default function Layout() {
       {/* Skip to main content link for keyboard users */}
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-port-accent focus:text-white focus:rounded-lg focus:outline-none"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-port-accent focus:text-white focus:rounded-lg focus:outline-hidden"
       >
         Skip to main content
       </a>

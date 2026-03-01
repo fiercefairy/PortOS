@@ -19,7 +19,7 @@ export default function ActivityLog({ steps, error, completed }) {
         const Icon = cfg.icon;
         return (
           <div key={s.step} className={`flex items-start gap-2 px-2 py-1 rounded ${cfg.bg}`}>
-            <span className={`flex-shrink-0 mt-0.5 ${cfg.color}`}>
+            <span className={`shrink-0 mt-0.5 ${cfg.color}`}>
               {s.status === 'running' ? <BrailleSpinner text="" className="text-xs" /> : Icon && <Icon size={14} />}
             </span>
             <span className="text-xs text-gray-300">
@@ -31,13 +31,13 @@ export default function ActivityLog({ steps, error, completed }) {
       })}
       {error && (
         <div className="flex items-start gap-2 px-2 py-1 rounded bg-port-error/10">
-          <X size={14} className="text-port-error flex-shrink-0 mt-0.5" />
+          <X size={14} className="text-port-error shrink-0 mt-0.5" />
           <span className="text-xs text-port-error">{error}</span>
         </div>
       )}
       {completed && !error && (
         <div className="flex items-start gap-2 px-2 py-1 rounded bg-port-success/10">
-          <Check size={14} className="text-port-success flex-shrink-0 mt-0.5" />
+          <Check size={14} className="text-port-success shrink-0 mt-0.5" />
           <span className="text-xs text-port-success">Operation complete</span>
         </div>
       )}

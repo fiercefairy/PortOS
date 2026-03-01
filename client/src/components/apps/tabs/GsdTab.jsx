@@ -112,7 +112,7 @@ function GsdSetupGuide({ gsd, appId, repoPath, onRefresh }) {
                       : 'border-port-border bg-port-bg/50 opacity-50'
                 }`}
               >
-                <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
                   step.done
                     ? 'bg-port-success/20 text-port-success'
                     : isCurrent
@@ -131,7 +131,7 @@ function GsdSetupGuide({ gsd, appId, repoPath, onRefresh }) {
                   <p className="text-xs text-gray-500 mt-0.5">{step.description}</p>
                 </div>
                 {isCurrent && (
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     <code className="text-sm text-cyan-400 bg-port-bg px-2 py-1 rounded">{step.command}</code>
                     <button
                       onClick={() => handleRunStep(step)}
@@ -143,7 +143,7 @@ function GsdSetupGuide({ gsd, appId, repoPath, onRefresh }) {
                   </div>
                 )}
                 {isFuture && !step.done && (
-                  <code className="text-xs text-gray-600 bg-port-bg px-2 py-1 rounded flex-shrink-0">{step.command}</code>
+                  <code className="text-xs text-gray-600 bg-port-bg px-2 py-1 rounded shrink-0">{step.command}</code>
                 )}
               </div>
             );

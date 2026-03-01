@@ -219,7 +219,7 @@ export default function InboxTab({ onRefresh, settings }) {
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             placeholder="One thought at a time..."
-            className="flex-1 px-4 py-3 bg-port-card border border-port-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-port-accent"
+            className="flex-1 px-4 py-3 bg-port-card border border-port-border rounded-lg text-white placeholder-gray-500 focus:outline-hidden focus:border-port-accent"
             disabled={sending}
           />
           <button

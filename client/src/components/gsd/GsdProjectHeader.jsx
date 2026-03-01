@@ -96,7 +96,7 @@ export default function GsdProjectHeader({ project, appId, repoPath, onRefresh }
         </div>
 
         {/* Action buttons */}
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {allPhasesComplete && (
             <button
               onClick={handleNewMilestone}

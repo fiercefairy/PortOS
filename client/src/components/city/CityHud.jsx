@@ -280,19 +280,19 @@ export default function CityHud({ cosStatus, cosAgents, agentMap, eventLogs, con
         <div className="pointer-events-none mb-2 bg-black/70 backdrop-blur-sm border border-cyan-500/15 rounded-lg px-2.5 py-2 space-y-1">
           <div className="font-pixel text-[8px] text-cyan-500/50 tracking-wider mb-1">LEGEND</div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-sm bg-cyan-500" />
+            <span className="w-2 h-2 rounded-xs bg-cyan-500" />
             <span className="font-pixel text-[8px] text-gray-400 tracking-wide">ONLINE</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-sm bg-red-500" />
+            <span className="w-2 h-2 rounded-xs bg-red-500" />
             <span className="font-pixel text-[8px] text-gray-400 tracking-wide">STOPPED</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-sm bg-violet-500" />
+            <span className="w-2 h-2 rounded-xs bg-violet-500" />
             <span className="font-pixel text-[8px] text-gray-400 tracking-wide">NOT STARTED</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-sm bg-slate-500" />
+            <span className="w-2 h-2 rounded-xs bg-slate-500" />
             <span className="font-pixel text-[8px] text-gray-400 tracking-wide">ARCHIVED</span>
           </div>
         </div>

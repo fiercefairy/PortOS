@@ -66,7 +66,7 @@ function KanbanBoard({ tickets }) {
                       <div className="text-xs text-white line-clamp-2">{ticket.summary}</div>
                       <div className="text-xs text-gray-500 mt-1">{ticket.issueType}</div>
                     </div>
-                    <ExternalLink size={12} className="text-gray-500 flex-shrink-0" />
+                    <ExternalLink size={12} className="text-gray-500 shrink-0" />
                   </div>
                 </a>
               ))}
@@ -274,7 +274,7 @@ export default function Apps() {
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <button
                       onClick={() => toggleExpand(app.id)}
-                      className="text-gray-400 hover:text-white transition-transform flex-shrink-0"
+                      className="text-gray-400 hover:text-white transition-transform shrink-0"
                       aria-expanded={expandedId === app.id}
                       aria-label={`${expandedId === app.id ? 'Collapse' : 'Expand'} ${app.name} details`}
                     >
@@ -320,7 +320,7 @@ export default function Apps() {
                           <button
                             onClick={() => handleStop(app)}
                             disabled={actionLoading[app.id]}
-                            className="px-3 py-1.5 bg-port-error/20 text-port-error hover:bg-port-error/30 transition-colors disabled:opacity-50 flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-port-error"
+                            className="px-3 py-1.5 bg-port-error/20 text-port-error hover:bg-port-error/30 transition-colors disabled:opacity-50 flex items-center gap-1 focus:outline-hidden focus:ring-2 focus:ring-port-error"
                             aria-label={`Stop ${app.name}`}
                             aria-busy={actionLoading[app.id] === 'stop'}
                           >
@@ -330,7 +330,7 @@ export default function Apps() {
                           <button
                             onClick={() => handleRestart(app)}
                             disabled={actionLoading[app.id]}
-                            className="px-3 py-1.5 bg-port-warning/20 text-port-warning hover:bg-port-warning/30 transition-colors disabled:opacity-50 border-l border-port-border flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-port-warning"
+                            className="px-3 py-1.5 bg-port-warning/20 text-port-warning hover:bg-port-warning/30 transition-colors disabled:opacity-50 border-l border-port-border flex items-center gap-1 focus:outline-hidden focus:ring-2 focus:ring-port-warning"
                             aria-label={`Restart ${app.name}`}
                             aria-busy={actionLoading[app.id] === 'restart'}
                           >
@@ -342,7 +342,7 @@ export default function Apps() {
                         <button
                           onClick={() => handleStart(app)}
                           disabled={actionLoading[app.id]}
-                          className="px-3 py-1.5 bg-port-success/20 text-port-success hover:bg-port-success/30 transition-colors disabled:opacity-50 flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-port-success"
+                          className="px-3 py-1.5 bg-port-success/20 text-port-success hover:bg-port-success/30 transition-colors disabled:opacity-50 flex items-center gap-1 focus:outline-hidden focus:ring-2 focus:ring-port-success"
                           aria-label={`Start ${app.name}`}
                           aria-busy={actionLoading[app.id] === 'start'}
                         >
@@ -381,14 +381,14 @@ export default function Apps() {
                         <div className="inline-flex rounded-lg overflow-hidden border border-port-border">
                           <button
                             onClick={() => handleDelete(app)}
-                            className="px-2 py-1 bg-port-error/20 text-port-error hover:bg-port-error/30 text-xs focus:outline-none focus:ring-2 focus:ring-port-error"
+                            className="px-2 py-1 bg-port-error/20 text-port-error hover:bg-port-error/30 text-xs focus:outline-hidden focus:ring-2 focus:ring-port-error"
                             aria-label={`Confirm delete ${app.name}`}
                           >
                             Yes
                           </button>
                           <button
                             onClick={() => setConfirmingDelete(null)}
-                            className="px-2 py-1 bg-port-border/50 text-gray-400 hover:text-white text-xs border-l border-port-border focus:outline-none focus:ring-2 focus:ring-port-accent"
+                            className="px-2 py-1 bg-port-border/50 text-gray-400 hover:text-white text-xs border-l border-port-border focus:outline-hidden focus:ring-2 focus:ring-port-accent"
                             aria-label="Cancel deletion"
                           >
                             No
@@ -416,7 +416,7 @@ export default function Apps() {
                         <div className="inline-flex rounded-lg overflow-hidden border border-port-border">
                           <Link
                             to={`/apps/${app.id}/overview`}
-                            className="px-3 py-1.5 bg-port-accent/20 text-port-accent hover:bg-port-accent/30 transition-colors text-xs focus:outline-none focus:ring-2 focus:ring-port-accent"
+                            className="px-3 py-1.5 bg-port-accent/20 text-port-accent hover:bg-port-accent/30 transition-colors text-xs focus:outline-hidden focus:ring-2 focus:ring-port-accent"
                             aria-label={`Manage ${app.name}`}
                           >
                             Manage
@@ -424,7 +424,7 @@ export default function Apps() {
                           {app.id !== api.PORTOS_APP_ID && (
                             <button
                               onClick={() => setConfirmingDelete(app.id)}
-                              className="px-3 py-1.5 bg-port-error/10 text-port-error hover:bg-port-error/20 transition-colors text-xs border-l border-port-border focus:outline-none focus:ring-2 focus:ring-port-error"
+                              className="px-3 py-1.5 bg-port-error/10 text-port-error hover:bg-port-error/20 transition-colors text-xs border-l border-port-border focus:outline-hidden focus:ring-2 focus:ring-port-error"
                               aria-label={`Delete ${app.name}`}
                             >
                               Delete
@@ -446,14 +446,14 @@ export default function Apps() {
                       <div>
                         <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">Repository Path</div>
                         <div className="flex items-start gap-2">
-                          <FolderOpen size={16} aria-hidden="true" className="text-yellow-400 flex-shrink-0 mt-0.5" />
+                          <FolderOpen size={16} aria-hidden="true" className="text-yellow-400 shrink-0 mt-0.5" />
                           <code className="text-sm text-gray-300 font-mono break-all">{app.repoPath}</code>
                         </div>
                       </div>
                       <div>
                         <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">Editor Command</div>
                         <div className="flex items-center gap-2">
-                          <Code size={16} aria-hidden="true" className="text-blue-400 flex-shrink-0" />
+                          <Code size={16} aria-hidden="true" className="text-blue-400 shrink-0" />
                           <code className="text-sm text-gray-300 font-mono">{app.editorCommand || 'code .'}</code>
                         </div>
                       </div>
@@ -466,7 +466,7 @@ export default function Apps() {
                         <div className="bg-port-card border border-port-border rounded-lg p-3">
                           {app.startCommands.map((cmd, i) => (
                             <div key={i} className="flex items-start gap-2 py-1">
-                              <Terminal size={14} aria-hidden="true" className="text-green-400 flex-shrink-0 mt-0.5" />
+                              <Terminal size={14} aria-hidden="true" className="text-green-400 shrink-0 mt-0.5" />
                               <code className="text-sm text-cyan-300 font-mono break-all">{cmd}</code>
                             </div>
                           ))}
@@ -486,7 +486,7 @@ export default function Apps() {
                                 key={i}
                                 className="flex flex-wrap items-center gap-2 px-3 py-1.5 bg-port-card border border-port-border rounded-lg"
                               >
-                                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                <span className={`w-2 h-2 rounded-full shrink-0 ${
                                   proc.status === 'online' ? 'bg-port-success' :
                                   proc.status === 'stopped' ? 'bg-gray-500' : 'bg-port-error'
                                 }`} />
@@ -517,7 +517,7 @@ export default function Apps() {
                       <div>
                         <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">JIRA Integration</div>
                         <div className="flex flex-wrap items-center gap-3 px-3 py-2 bg-port-card border border-port-border rounded-lg">
-                          <Ticket size={16} aria-hidden="true" className="text-blue-400 flex-shrink-0" />
+                          <Ticket size={16} aria-hidden="true" className="text-blue-400 shrink-0" />
                           <span className="text-sm text-white font-mono">{app.jira.projectKey || '—'}</span>
                           {app.jira.issueType && (
                             <span className="text-xs text-gray-400">{app.jira.issueType}</span>

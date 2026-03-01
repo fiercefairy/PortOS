@@ -103,7 +103,7 @@ export function HistoryPage() {
           <select
             value={filter.action}
             onChange={(e) => setFilter(prev => ({ ...prev, action: e.target.value }))}
-            className="px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-port-accent"
+            className="px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white focus:outline-hidden focus:ring-2 focus:ring-port-accent"
             aria-label="Filter by action type"
           >
             <option value="">All Actions</option>
@@ -115,7 +115,7 @@ export function HistoryPage() {
           <select
             value={filter.success}
             onChange={(e) => setFilter(prev => ({ ...prev, success: e.target.value }))}
-            className="px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-port-accent"
+            className="px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white focus:outline-hidden focus:ring-2 focus:ring-port-accent"
             aria-label="Filter by result status"
           >
             <option value="">All Results</option>
@@ -167,13 +167,13 @@ export function HistoryPage() {
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <button
-                        className="text-gray-400 hover:text-white flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-port-accent rounded"
+                        className="text-gray-400 hover:text-white shrink-0 focus:outline-hidden focus:ring-2 focus:ring-port-accent rounded"
                         aria-expanded={expandedId === entry.id}
                         aria-label={`${expandedId === entry.id ? 'Collapse' : 'Expand'} ${entry.action} details`}
                       >
                         <span className={`inline-block transition-transform ${expandedId === entry.id ? 'rotate-90' : ''}`} aria-hidden="true">▶</span>
                       </button>
-                      <span className="text-xl flex-shrink-0">{getActionIcon(entry.action)}</span>
+                      <span className="text-xl shrink-0">{getActionIcon(entry.action)}</span>
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                           <span className="font-medium text-white">{entry.action}</span>
@@ -191,14 +191,14 @@ export function HistoryPage() {
                     </div>
                     <div className="flex items-center gap-3 pl-8 sm:pl-0">
                       <span
-                        className={`w-2 h-2 rounded-full flex-shrink-0 ${entry.success ? 'bg-port-success' : 'bg-port-error'}`}
+                        className={`w-2 h-2 rounded-full shrink-0 ${entry.success ? 'bg-port-success' : 'bg-port-error'}`}
                         role="img"
                         aria-label={entry.success ? 'Success' : 'Failed'}
                       />
-                      <span className="text-sm text-gray-500 flex-shrink-0">{formatTime(entry.timestamp)}</span>
+                      <span className="text-sm text-gray-500 shrink-0">{formatTime(entry.timestamp)}</span>
                       <button
                         onClick={(e) => handleDelete(entry.id, e)}
-                        className="p-1 text-gray-500 hover:text-port-error transition-colors sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-port-accent rounded"
+                        className="p-1 text-gray-500 hover:text-port-error transition-colors sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 focus:outline-hidden focus:ring-2 focus:ring-port-accent rounded"
                         title="Delete entry"
                         aria-label={`Delete ${entry.action} entry from ${formatTime(entry.timestamp)}`}
                       >
@@ -517,10 +517,10 @@ export function RunsHistoryPage() {
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <button className="text-gray-400 hover:text-white flex-shrink-0">
+                      <button className="text-gray-400 hover:text-white shrink-0">
                         <span className={`inline-block transition-transform ${expandedId === run.id ? 'rotate-90' : ''}`}>▶</span>
                       </button>
-                      <span className="text-xl flex-shrink-0">🤖</span>
+                      <span className="text-xl shrink-0">🤖</span>
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                           <span className="font-medium text-white">{run.providerName}</span>
@@ -558,8 +558,8 @@ export function RunsHistoryPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3 pl-8 sm:pl-0">
-                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${run.success ? 'bg-port-success' : run.success === false ? 'bg-port-error' : 'bg-port-warning'}`} />
-                      <span className="text-sm text-gray-500 flex-shrink-0">{formatTime(run.startTime)}</span>
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${run.success ? 'bg-port-success' : run.success === false ? 'bg-port-error' : 'bg-port-warning'}`} />
+                      <span className="text-sm text-gray-500 shrink-0">{formatTime(run.startTime)}</span>
                       {run.success !== null && (
                         <button
                           onClick={(e) => handleResume(run, e)}
@@ -1168,7 +1168,7 @@ ${prompt.trim()}`;
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Describe what you want the AI to do..."
             rows={3}
-            className="flex-1 px-3 sm:px-4 py-3 bg-port-bg border border-port-border rounded-lg text-white focus:border-port-accent focus:outline-none resize-none text-sm sm:text-base"
+            className="flex-1 px-3 sm:px-4 py-3 bg-port-bg border border-port-border rounded-lg text-white focus:border-port-accent focus:outline-hidden resize-none text-sm sm:text-base"
           />
           {running ? (
             <button
@@ -1196,7 +1196,7 @@ ${prompt.trim()}`;
               onChange={(e) => setCommand(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !running && handleRunCommand()}
               placeholder="Enter command (e.g., npm run build)"
-              className="flex-1 px-3 sm:px-4 py-3 bg-port-bg border border-port-border rounded-lg text-white font-mono focus:border-port-accent focus:outline-none text-sm sm:text-base"
+              className="flex-1 px-3 sm:px-4 py-3 bg-port-bg border border-port-border rounded-lg text-white font-mono focus:border-port-accent focus:outline-hidden text-sm sm:text-base"
             />
             {running ? (
               <button
@@ -1555,15 +1555,15 @@ export function AgentsPage() {
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <span className="font-mono text-white text-sm truncate">{agent.agentName.toLowerCase()}</span>
                   {agent.source === 'cos' && (
-                    <span className="px-1.5 py-0.5 text-[10px] bg-purple-500/20 text-purple-400 rounded flex-shrink-0">CoS</span>
+                    <span className="px-1.5 py-0.5 text-[10px] bg-purple-500/20 text-purple-400 rounded shrink-0">CoS</span>
                   )}
-                  <span className="text-gray-500 text-xs flex-shrink-0">#{agent.pid}</span>
-                  <span className="font-mono text-cyan-400 text-xs flex-shrink-0 whitespace-nowrap">{agent.runtimeFormatted}</span>
+                  <span className="text-gray-500 text-xs shrink-0">#{agent.pid}</span>
+                  <span className="font-mono text-cyan-400 text-xs shrink-0 whitespace-nowrap">{agent.runtimeFormatted}</span>
                 </div>
                 <button
                   onClick={() => handleKill(agent.pid)}
                   disabled={killing[agent.pid]}
-                  className="flex-shrink-0 px-2 py-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-300 disabled:opacity-50 rounded text-xs font-medium flex items-center gap-1"
+                  className="shrink-0 px-2 py-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-300 disabled:opacity-50 rounded text-xs font-medium flex items-center gap-1"
                 >
                   <XCircle size={14} className={killing[agent.pid] ? 'animate-pulse' : ''} />
                   Kill

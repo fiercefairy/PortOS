@@ -105,7 +105,7 @@ const lerpColor = (target, a, b, t) => {
 
 // Pre-allocate parsed preset colors (keyed by "theme:timeOfDay")
 const presetColors = {};
-const getPresetColors = (name, skyTheme = 'cyberpunk') => {
+const getPresetColors = (name, skyTheme) => {
   const cacheKey = `${skyTheme}:${name}`;
   if (!presetColors[cacheKey]) {
     const p = getTimeOfDayPreset(name, skyTheme);
@@ -175,10 +175,19 @@ export default function CitySky({ settings }) {
   timeOfDayRef.current = settings?.timeOfDay ?? 'sunset';
 
   const skyThemeRef = useRef(settings?.skyTheme ?? 'cyberpunk');
-  skyThemeRef.current = settings?.skyTheme ?? 'cyberpunk';
+  const previousSkyThemeRef = useRef(skyThemeRef.current);
 
   const currentPresetRef = useRef(timeOfDayRef.current);
   const transitionRef = useRef(1.0);
+
+  const nextSkyTheme = settings?.skyTheme ?? 'cyberpunk';
+  if (previousSkyThemeRef.current !== nextSkyTheme) {
+    previousSkyThemeRef.current = nextSkyTheme;
+    skyThemeRef.current = nextSkyTheme;
+    transitionRef.current = 0;
+  } else {
+    skyThemeRef.current = nextSkyTheme;
+  }
 
   const bodyGroupRef = useRef();
   const lightRef = useRef();
@@ -186,8 +195,11 @@ export default function CitySky({ settings }) {
   const currentHourRef = useRef(18); // start at sunset
 
   const skyMaterial = useMemo(() => {
-    const preset = getPresetColors('sunset');
-    const initPos = getArcPosition(18);
+    const initialTheme = settings?.skyTheme ?? 'cyberpunk';
+    const initialTod = settings?.timeOfDay ?? 'sunset';
+    const initialHour = getTimeOfDayPreset(initialTod, initialTheme).hour ?? 18;
+    const preset = getPresetColors(initialTod, initialTheme);
+    const initPos = getArcPosition(initialHour);
     return new THREE.ShaderMaterial({
       vertexShader: SkyDomeShader.vertexShader,
       fragmentShader: SkyDomeShader.fragmentShader,

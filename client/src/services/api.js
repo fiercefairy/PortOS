@@ -1432,6 +1432,13 @@ export const triggerBackup = () => request('/backup/run', { method: 'POST' });
 export const getBackupSnapshots = (options) => request('/backup/snapshots', options);
 export const restoreBackup = (data) => request('/backup/restore', { method: 'POST', body: JSON.stringify(data) });
 
+// Settings
+export const getSettings = () => request('/settings');
+export const updateSettings = (data) => request('/settings', {
+  method: 'PUT',
+  body: JSON.stringify(data)
+});
+
 // Insights
 export const getGenomeHealthCorrelations = () => request('/insights/genome-health');
 export const getInsightThemes = () => request('/insights/themes');

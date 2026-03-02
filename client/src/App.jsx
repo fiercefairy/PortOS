@@ -13,6 +13,7 @@ import Security from './pages/Security';
 import DigitalTwin from './pages/DigitalTwin';
 import Agents from './pages/Agents';
 import Uploads from './pages/Uploads';
+import Settings from './pages/Settings';
 import Shell from './pages/Shell';
 import BrowserPage from './pages/Browser';
 import Jira from './pages/Jira';
@@ -74,6 +75,7 @@ export default function App() {
           <Route path="apps/:appId/:tab" element={<AppDetail />} />
           <Route path="templates" element={<Templates />} />
           <Route path="security" element={<Security />} />
+          <Route path="settings" element={<Settings />} />
           <Route path="uploads" element={<Uploads />} />
           <Route path="shell" element={<Shell />} />
           <Route path="browser" element={<BrowserPage />} />

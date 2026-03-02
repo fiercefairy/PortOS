@@ -152,6 +152,7 @@ const navItems = [
     ]
   },
   { to: '/security', label: 'Security', icon: Camera, single: true },
+  { to: '/settings', label: 'Settings', icon: Settings, single: true },
   { to: '/shell', label: 'Shell', icon: SquareTerminal, single: true },
   { to: '/agents', label: 'Social Agents', icon: Users, single: true },
   { to: '/uploads', label: 'Uploads', icon: Upload, single: true }

@@ -51,7 +51,8 @@ import {
   Eye,
   Scale,
   LayoutDashboard,
-  Lightbulb
+  Lightbulb,
+  Github
 } from 'lucide-react';
 import packageJson from '../../package.json';
 import Logo from './Logo';
@@ -107,6 +108,7 @@ const navItems = [
       { href: '//:5560', label: 'Autofixer', icon: Wrench, external: true, dynamicHost: true },
       { to: '/browser', label: 'Browser', icon: Globe },
       { to: '/devtools/runner', label: 'Code', icon: Code2 },
+      { to: '/devtools/github', label: 'GitHub', icon: Github },
       { to: '/devtools/history', label: 'History', icon: History },
       { to: '/devtools/jira', label: 'JIRA', icon: Ticket },
       { to: '/devtools/processes', label: 'Processes', icon: Activity },

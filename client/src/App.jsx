@@ -29,6 +29,7 @@ const RunnerPage = lazy(() => import('./pages/DevTools').then(m => ({ default: m
 const UsagePage = lazy(() => import('./pages/DevTools').then(m => ({ default: m.UsagePage })));
 const ProcessesPage = lazy(() => import('./pages/DevTools').then(m => ({ default: m.ProcessesPage })));
 const AgentsPage = lazy(() => import('./pages/DevTools').then(m => ({ default: m.AgentsPage })));
+const GitHub = lazy(() => import('./pages/GitHub'));
 const CyberCity = lazy(() => import('./pages/CyberCity'));
 const AppDetail = lazy(() => import('./pages/AppDetail'));
 
@@ -53,6 +54,7 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="apps" element={<Apps />} />
           <Route path="devtools" element={<Navigate to="/devtools/runs" replace />} />
+          <Route path="devtools/github" element={<GitHub />} />
           <Route path="devtools/history" element={<HistoryPage />} />
           <Route path="devtools/runs" element={<RunsHistoryPage />} />
           <Route path="devtools/runner" element={<RunnerPage />} />

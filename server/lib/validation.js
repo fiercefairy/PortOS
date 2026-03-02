@@ -401,6 +401,19 @@ export const moltworldQueueAddSchema = z.object({
 });
 
 // =============================================================================
+// GITHUB REPOS SCHEMAS
+// =============================================================================
+
+export const githubRepoUpdateSchema = z.object({
+  flags: z.record(z.boolean()).optional(),
+  managedSecrets: z.array(z.string().min(1)).optional()
+});
+
+export const githubSecretSchema = z.object({
+  value: z.string().min(1)
+});
+
+// =============================================================================
 // INSIGHTS SCHEMAS
 // =============================================================================
 

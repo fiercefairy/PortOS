@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save } from 'lucide-react';
+import { Save, Plus, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import BrailleSpinner from '../components/BrailleSpinner';
 import { getSettings, updateSettings } from '../services/api';
@@ -10,6 +10,8 @@ export default function Settings() {
   const [destPath, setDestPath] = useState('');
   const [enabled, setEnabled] = useState(false);
   const [cronExpression, setCronExpression] = useState('0 2 * * *');
+  const [excludePaths, setExcludePaths] = useState([]);
+  const [newExclude, setNewExclude] = useState('');
 
   useEffect(() => {
     getSettings().then(settings => {
@@ -17,15 +19,27 @@ export default function Settings() {
       setDestPath(backup.destPath || '');
       setEnabled(backup.enabled ?? false);
       setCronExpression(backup.cronExpression || '0 2 * * *');
+      setExcludePaths(backup.excludePaths || []);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   const handleSave = async () => {
     setSaving(true);
-    await updateSettings({ backup: { destPath, enabled, cronExpression } })
+    await updateSettings({ backup: { destPath, enabled, cronExpression, excludePaths } })
       .then(() => toast.success('Settings saved'))
       .catch(() => {})
       .finally(() => setSaving(false));
+  };
+
+  const addExclude = () => {
+    const trimmed = newExclude.trim();
+    if (!trimmed || excludePaths.includes(trimmed)) return;
+    setExcludePaths([...excludePaths, trimmed]);
+    setNewExclude('');
+  };
+
+  const removeExclude = (index) => {
+    setExcludePaths(excludePaths.filter((_, i) => i !== index));
   };
 
   if (loading) {
@@ -74,6 +88,40 @@ export default function Settings() {
             placeholder="0 2 * * *"
           />
           <p className="text-xs text-gray-500">Default: 2:00 AM daily</p>
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-sm text-gray-400">Exclude Paths</label>
+          <p className="text-xs text-gray-500">Directories/patterns to skip during backup (relative to data/)</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newExclude}
+              onChange={e => setNewExclude(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addExclude()}
+              className="flex-1 bg-port-bg border border-port-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-port-accent"
+              placeholder="repos/"
+            />
+            <button
+              onClick={addExclude}
+              disabled={!newExclude.trim()}
+              className="px-3 py-2 bg-port-border hover:bg-port-border/70 text-white rounded-lg transition-colors disabled:opacity-50"
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+          {excludePaths.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {excludePaths.map((path, i) => (
+                <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-port-bg border border-port-border rounded-lg text-sm text-gray-300">
+                  <code className="text-xs">{path}</code>
+                  <button onClick={() => removeExclude(i)} className="text-gray-500 hover:text-port-error transition-colors">
+                    <X size={14} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <button

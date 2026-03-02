@@ -2,7 +2,7 @@
 
 ## Added
 
-- Settings page (`/settings`) with backup configuration (destination path, enabled toggle, cron schedule)
+- Settings page (`/settings`) with backup configuration (destination path, enabled toggle, cron schedule, exclude paths)
 - GitHub repos management page under Dev Tools > GitHub
   - Sync repos from GitHub via `gh repo list`
   - Toggle repos as NPM projects (auto-manages NPM_TOKEN secret)

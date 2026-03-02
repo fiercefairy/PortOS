@@ -79,7 +79,7 @@ function runRsync(srcDir, destDir, flags = []) {
  * @param {string} destPath - Path to external drive backup root
  * @param {object|null} io - Socket.IO instance for real-time events (optional)
  */
-export async function runBackup(destPath, io = null) {
+export async function runBackup(destPath, io = null, { excludePaths = [] } = {}) {
   if (isRunning) {
     console.log('💾 Backup already running — skipping');
     return { skipped: true };
@@ -98,7 +98,7 @@ export async function runBackup(destPath, io = null) {
   const snapshotDir = join(destPath, 'snapshots', snapshotId);
   const dataDestDir = join(snapshotDir, 'data');
 
-  console.log(`💾 Backup starting: snapshot ${snapshotId}`);
+  console.log(`💾 Backup starting: snapshot ${snapshotId}${excludePaths.length ? ` (excluding ${excludePaths.length} paths)` : ''}`);
   if (io) io.emit('backup:started', { snapshotId });
 
   await ensureDir(dataDestDir);
@@ -117,7 +117,8 @@ export async function runBackup(destPath, io = null) {
     throw err;
   };
 
-  changedFiles = await runRsync(PATHS.data, dataDestDir).catch(fail);
+  const excludeFlags = excludePaths.filter(Boolean).flatMap(p => ['--exclude', p]);
+  changedFiles = await runRsync(PATHS.data, dataDestDir, excludeFlags).catch(fail);
   console.log(`💾 Backup rsync complete: ${changedFiles.length} files changed (exit 0)`);
 
   manifest = await generateManifest(dataDestDir, join(snapshotDir, 'manifest.json')).catch(fail);

@@ -192,7 +192,8 @@ export default function CitySky({ settings }) {
   const bodyGroupRef = useRef();
   const lightRef = useRef();
   const currentScaleRef = useRef(1.0);
-  const currentHourRef = useRef(18); // start at sunset
+  const initialPreset = getTimeOfDayPreset(settings?.timeOfDay ?? 'sunset', settings?.skyTheme ?? 'cyberpunk');
+  const currentHourRef = useRef(initialPreset.hour ?? 18);
 
   const skyMaterial = useMemo(() => {
     const initialTheme = settings?.skyTheme ?? 'cyberpunk';
@@ -210,7 +211,7 @@ export default function CitySky({ settings }) {
         uHorizonLow: { value: preset.horizonLow.clone() },
         uSunDirection: { value: new THREE.Vector3(...initPos).normalize() },
         uSunIntensity: { value: preset.sunIntensity },
-        uIsMoon: { value: 0.0 },
+        uIsMoon: { value: preset.isMoon ? 1.0 : 0.0 },
         uTime: { value: 0 },
       },
       side: THREE.BackSide,

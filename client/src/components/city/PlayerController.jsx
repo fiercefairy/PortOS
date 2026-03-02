@@ -187,11 +187,6 @@ export default function PlayerController({
     const camY = Math.max(0.5, playerPos.current.y + HEAD_HEIGHT + Math.sin(pitchRef.current) * CAMERA_DISTANCE);
     const camZ = playerPos.current.z + Math.cos(yawRef.current) * Math.cos(pitchRef.current) * CAMERA_DISTANCE;
 
-    // Ensure near plane is tight enough for street-level viewing
-    camera.near = 0.1;
-    camera.far = 500;
-    camera.updateProjectionMatrix();
-
     const targetCamPos = new THREE.Vector3(camX, camY, camZ);
     camera.position.lerp(targetCamPos, CAMERA_LERP);
 

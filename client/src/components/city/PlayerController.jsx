@@ -22,10 +22,10 @@ export default function PlayerController({
 }) {
   const { camera, gl } = useThree();
   const playerPos = useRef(new THREE.Vector3(0, 0, 0));
-  const yawRef = useRef(Math.PI); // Facing toward city center
+  const yawRef = useRef(0); // Facing toward city center (-Z direction)
   const pitchRef = useRef(0.3);
   const isMovingRef = useRef(false);
-  const facingAngleRef = useRef(Math.PI);
+  const facingAngleRef = useRef(0);
   const lastSpawnRef = useRef(null);
   const pointerLockedRef = useRef(false);
   const proximityAppRef = useRef(null);
@@ -43,7 +43,7 @@ export default function PlayerController({
         if (pos.z > maxZ) maxZ = pos.z;
       });
       playerPos.current.set(0, 0, maxZ + 8);
-      yawRef.current = Math.PI;
+      yawRef.current = 0; // Forward = (0, 0, -1), facing toward city center
     }
   }, [active, positions]);
 

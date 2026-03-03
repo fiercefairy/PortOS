@@ -531,7 +531,7 @@ export async function searchMemories(queryEmbedding, options = {}) {
  * @returns {Promise<{total: number, memories: Array}>}
  */
 export async function hybridSearchMemories(query, queryEmbedding, options = {}) {
-  const { limit = 20, minRelevance = 0.5, bm25Weight = 0.4, vectorWeight = 0.6 } = options
+  const { limit = 20, minRelevance = 0.5, ftsWeight = options.bm25Weight ?? 0.4, vectorWeight = 0.6 } = options
 
   const index = await loadIndex()
   const embeddings = await loadEmbeddings()
@@ -561,7 +561,7 @@ export async function hybridSearchMemories(query, queryEmbedding, options = {}) 
   bm25Results.forEach((result, rank) => {
     const current = rrfScores.get(result.id) || { bm25Rank: null, vectorRank: null, rrfScore: 0 }
     current.bm25Rank = rank + 1
-    current.rrfScore += bm25Weight / (RRF_K + rank + 1)
+    current.rrfScore += ftsWeight / (RRF_K + rank + 1)
     rrfScores.set(result.id, current)
   })
 

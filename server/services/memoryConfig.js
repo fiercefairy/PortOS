@@ -19,3 +19,32 @@ export const DEFAULT_MEMORY_CONFIG = {
   consolidationIntervalMs: 86400000,
   decayIntervalMs: 86400000
 };
+
+/**
+ * Generate summary from content using simple truncation
+ */
+export function generateSummary(content, maxLength = 150) {
+  if (content.length <= maxLength) return content;
+  return content.substring(0, maxLength - 3) + '...';
+}
+
+/**
+ * Decrement agent's pendingApproval count after approve/reject
+ */
+export async function decrementAgentPendingApproval(sourceAgentId) {
+  if (!sourceAgentId) return;
+
+  const { getAgent, updateAgent } = await import('./cos.js');
+  const agent = await getAgent(sourceAgentId).catch(() => null);
+  if (!agent?.memoryExtraction?.pendingApproval) return;
+
+  const currentPending = agent.memoryExtraction.pendingApproval;
+  if (currentPending > 0) {
+    await updateAgent(sourceAgentId, {
+      memoryExtraction: {
+        ...agent.memoryExtraction,
+        pendingApproval: currentPending - 1
+      }
+    });
+  }
+}

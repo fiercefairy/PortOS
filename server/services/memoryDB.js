@@ -9,17 +9,9 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { query, withTransaction } from '../lib/db.js';
-import { cosEvents, updateAgent } from './cos.js';
+import { cosEvents } from './cos.js';
 import * as notifications from './notifications.js';
-import { DEFAULT_MEMORY_CONFIG } from './memoryConfig.js';
-
-/**
- * Generate summary from content using simple truncation
- */
-function generateSummary(content, maxLength = 150) {
-  if (content.length <= maxLength) return content;
-  return content.substring(0, maxLength - 3) + '...';
-}
+import { DEFAULT_MEMORY_CONFIG, generateSummary, decrementAgentPendingApproval } from './memoryConfig.js';
 
 /**
  * Convert a database row to the memory object format matching the file-based API
@@ -98,41 +90,45 @@ export async function createMemory(data, embedding = null) {
   const summary = data.summary || generateSummary(data.content);
   const now = new Date().toISOString();
 
-  const result = await query(
-    `INSERT INTO memories (
-      id, type, content, summary, category, tags,
-      embedding, embedding_model, confidence, importance,
-      source_task_id, source_agent_id, source_app_id,
-      expires_at, status, created_at, updated_at
-    ) VALUES (
-      $1, $2, $3, $4, $5, $6,
-      $7, $8, $9, $10,
-      $11, $12, $13,
-      $14, $15, $16, $17
-    ) RETURNING *`,
-    [
-      id, data.type, data.content, summary, data.category || 'other', data.tags || [],
-      embedding ? arrayToPgvector(embedding) : null,
-      embedding ? DEFAULT_MEMORY_CONFIG.embeddingModel : null,
-      data.confidence ?? 0.8, data.importance ?? 0.5,
-      data.sourceTaskId || null, data.sourceAgentId || null, data.sourceAppId || null,
-      data.expiresAt || null, data.status || 'active', now, now
-    ]
-  );
+  const memory = await withTransaction(async (client) => {
+    const result = await client.query(
+      `INSERT INTO memories (
+        id, type, content, summary, category, tags,
+        embedding, embedding_model, confidence, importance,
+        source_task_id, source_agent_id, source_app_id,
+        expires_at, status, created_at, updated_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6,
+        $7, $8, $9, $10,
+        $11, $12, $13,
+        $14, $15, $16, $17
+      ) RETURNING *`,
+      [
+        id, data.type, data.content, summary, data.category || 'other', data.tags || [],
+        embedding ? arrayToPgvector(embedding) : null,
+        embedding ? DEFAULT_MEMORY_CONFIG.embeddingModel : null,
+        data.confidence ?? 0.8, data.importance ?? 0.5,
+        data.sourceTaskId || null, data.sourceAgentId || null, data.sourceAppId || null,
+        data.expiresAt || null, data.status || 'active', now, now
+      ]
+    );
 
-  const memory = rowToMemory(result.rows[0]);
-  // Attach the original embedding array (pgvector may return string representation)
-  if (embedding) memory.embedding = embedding;
-  // Store related memories as links
-  if (data.relatedMemories?.length > 0) {
-    for (const relId of data.relatedMemories) {
-      await query(
-        'INSERT INTO memory_links (source_id, target_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-        [id, relId]
-      );
+    const mem = rowToMemory(result.rows[0]);
+    // Attach the original embedding array (pgvector may return string representation)
+    if (embedding) mem.embedding = embedding;
+    // Store related memories as links
+    if (data.relatedMemories?.length > 0) {
+      for (const relId of data.relatedMemories) {
+        await client.query(
+          'INSERT INTO memory_links (source_id, target_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [id, relId]
+        );
+      }
+      mem.relatedMemories = data.relatedMemories;
     }
-    memory.relatedMemories = data.relatedMemories;
-  }
+
+    return mem;
+  });
 
   console.log(`🧠 Memory created: ${memory.type} - ${memory.summary.substring(0, 50)}...`);
   cosEvents.emit('memory:created', { id, type: memory.type, summary: memory.summary });
@@ -270,30 +266,43 @@ export async function updateMemory(id, updates) {
     params.push(generateSummary(updates.content));
   }
 
-  if (fields.length === 0) return rowToMemory(existing.rows[0]);
+  // Allow relatedMemories-only updates to proceed
+  if (fields.length === 0 && !updates.relatedMemories) {
+    const memory = rowToMemory(existing.rows[0]);
+    const links = await query('SELECT target_id FROM memory_links WHERE source_id = $1', [id]);
+    memory.relatedMemories = links.rows.map(r => r.target_id);
+    return memory;
+  }
 
-  params.push(id);
-  const result = await query(
-    `UPDATE memories SET ${fields.join(', ')} WHERE id = $${paramIdx} RETURNING *`,
-    params
-  );
+  let memory;
 
-  const memory = rowToMemory(result.rows[0]);
+  if (fields.length > 0) {
+    params.push(id);
+    const result = await query(
+      `UPDATE memories SET ${fields.join(', ')} WHERE id = $${paramIdx} RETURNING *`,
+      params
+    );
+    memory = rowToMemory(result.rows[0]);
+  } else {
+    memory = rowToMemory(existing.rows[0]);
+  }
 
-  // Load related memories
-  const links = await query('SELECT target_id FROM memory_links WHERE source_id = $1', [id]);
-  memory.relatedMemories = links.rows.map(r => r.target_id);
-
-  // Update related memories if provided
+  // Update related memories if provided (transactional delete+insert)
   if (updates.relatedMemories) {
-    await query('DELETE FROM memory_links WHERE source_id = $1', [id]);
-    for (const relId of updates.relatedMemories) {
-      await query(
-        'INSERT INTO memory_links (source_id, target_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-        [id, relId]
-      );
-    }
+    await withTransaction(async (client) => {
+      await client.query('DELETE FROM memory_links WHERE source_id = $1', [id]);
+      for (const relId of updates.relatedMemories) {
+        await client.query(
+          'INSERT INTO memory_links (source_id, target_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [id, relId]
+        );
+      }
+    });
     memory.relatedMemories = updates.relatedMemories;
+  } else {
+    // Load existing related memories
+    const links = await query('SELECT target_id FROM memory_links WHERE source_id = $1', [id]);
+    memory.relatedMemories = links.rows.map(r => r.target_id);
   }
 
   console.log(`🧠 Memory updated: ${id}`);
@@ -336,27 +345,6 @@ export async function deleteMemory(id, hard = false) {
   cosEvents.emit('memory:deleted', { id, hard });
 
   return { success: true, id };
-}
-
-/**
- * Helper to decrement agent's pendingApproval count
- */
-async function decrementAgentPendingApproval(sourceAgentId) {
-  if (!sourceAgentId) return;
-
-  const { getAgent } = await import('./cos.js');
-  const agent = await getAgent(sourceAgentId).catch(() => null);
-  if (!agent?.memoryExtraction?.pendingApproval) return;
-
-  const currentPending = agent.memoryExtraction.pendingApproval;
-  if (currentPending > 0) {
-    await updateAgent(sourceAgentId, {
-      memoryExtraction: {
-        ...agent.memoryExtraction,
-        pendingApproval: currentPending - 1
-      }
-    });
-  }
 }
 
 /**

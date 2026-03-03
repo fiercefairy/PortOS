@@ -73,7 +73,7 @@ async function searchBrain(query) {
           id: p.id,
           title: p.name,
           snippet: extractSnippet(p.context, query),
-          url: '/brain/memory?type=people',
+          url: `/brain/memory?type=people&id=${p.id}`,
           type: 'person'
         }))
     : [];
@@ -85,7 +85,7 @@ async function searchBrain(query) {
           id: p.id,
           title: p.name,
           snippet: extractSnippet(p.notes, query),
-          url: '/brain/memory?type=projects',
+          url: `/brain/memory?type=projects&id=${p.id}`,
           type: 'project'
         }))
     : [];
@@ -97,7 +97,7 @@ async function searchBrain(query) {
           id: i.id,
           title: i.title,
           snippet: extractSnippet(i.oneLiner || i.notes, query),
-          url: '/brain/memory?type=ideas',
+          url: `/brain/memory?type=ideas&id=${i.id}`,
           type: 'idea'
         }))
     : [];
@@ -109,7 +109,7 @@ async function searchBrain(query) {
           id: a.id,
           title: a.title,
           snippet: extractSnippet(a.notes || a.nextAction, query),
-          url: '/brain/memory?type=admin',
+          url: `/brain/memory?type=admin&id=${a.id}`,
           type: 'admin'
         }))
     : [];
@@ -121,7 +121,7 @@ async function searchBrain(query) {
           id: m.id,
           title: m.title,
           snippet: extractSnippet(m.content, query),
-          url: '/brain/memory?type=memories',
+          url: `/brain/memory?type=memories&id=${m.id}`,
           type: 'memory-entry'
         }))
     : [];

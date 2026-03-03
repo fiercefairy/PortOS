@@ -263,11 +263,21 @@ export async function syncAllBrainData({ dryRun = false } = {}) {
 // Entity stores emit "{type}:changed" with the full store data object { records: { id: {...} } }
 // JSONL stores emit "{type}:added" with a single record
 
-function handleEntityChanged(brainType, storeData) {
+async function handleEntityChanged(brainType, storeData) {
   if (!storeData?.records) return;
-  // Sync all non-archived records in the store
+  const map = await loadBridgeMap();
   for (const [id, record] of Object.entries(storeData.records)) {
-    if (record.archived) continue;
+    if (record.archived) {
+      // Archive the mapped CoS memory if one exists
+      const key = bridgeKey(brainType, id);
+      const memoryId = map[key];
+      if (memoryId) {
+        memory.updateMemory(memoryId, { status: 'archived' }).catch(err => {
+          console.error(`❌ Brain bridge archive failed for ${brainType}/${id}: ${err.message}`);
+        });
+      }
+      continue;
+    }
     syncBrainRecord(brainType, { id, ...record }).catch(err => {
       console.error(`❌ Brain bridge sync failed for ${brainType}/${id}: ${err.message}`);
     });

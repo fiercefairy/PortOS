@@ -121,7 +121,7 @@ export default function MemoryTab({ apps = [] }) {
             {backendStatus.db?.error && (
               <p className="text-sm text-gray-400 mt-1">{backendStatus.db.error}</p>
             )}
-            <p className="text-sm text-gray-500 mt-1">Semantic search and cross-instance sync are disabled.</p>
+            <p className="text-sm text-gray-500 mt-1">Some PostgreSQL-only features like cross-instance sync and DB snapshots are unavailable.</p>
           </div>
           <button
             onClick={fetchData}

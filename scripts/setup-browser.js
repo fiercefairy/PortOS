@@ -7,7 +7,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, '..');
 const profileDir = join(rootDir, 'data', 'browser-profile');
 
-console.log('🌐 Setting up browser directory...');
+console.log('🌐 Ensuring browser profile directory exists...');
 
 // Ensure browser profile directory exists
 if (!existsSync(profileDir)) {

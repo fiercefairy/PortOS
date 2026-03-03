@@ -25,12 +25,15 @@ import {
   projectInputSchema,
   ideaInputSchema,
   adminInputSchema,
+  memoryInputSchema,
   settingsUpdateInputSchema,
   linkInputSchema,
   linkUpdateInputSchema,
   linksQuerySchema
 } from '../lib/brainValidation.js';
 import * as githubCloner from '../services/githubCloner.js';
+import { getBrainGraphData } from '../services/brainGraph.js';
+import { syncAllBrainData } from '../services/brainMemoryBridge.js';
 
 const router = Router();
 
@@ -300,6 +303,46 @@ router.delete('/admin/:id', asyncHandler(async (req, res) => {
   const deleted = await brainService.deleteAdminItem(req.params.id);
   if (!deleted) {
     throw new ServerError('Admin item not found', { status: 404, code: 'NOT_FOUND' });
+  }
+  res.status(204).send();
+}));
+
+// =============================================================================
+// MEMORIES CRUD
+// =============================================================================
+
+router.get('/memories', asyncHandler(async (req, res) => {
+  const memories = await brainService.getMemoryEntries();
+  res.json(memories);
+}));
+
+router.get('/memories/:id', asyncHandler(async (req, res) => {
+  const memory = await brainService.getMemoryEntryById(req.params.id);
+  if (!memory) {
+    throw new ServerError('Memory not found', { status: 404, code: 'NOT_FOUND' });
+  }
+  res.json(memory);
+}));
+
+router.post('/memories', asyncHandler(async (req, res) => {
+  const data = validateRequest(memoryInputSchema, req.body);
+  const memory = await brainService.createMemoryEntry(data);
+  res.status(201).json(memory);
+}));
+
+router.put('/memories/:id', asyncHandler(async (req, res) => {
+  const data = validateRequest(memoryInputSchema.partial(), req.body);
+  const memory = await brainService.updateMemoryEntry(req.params.id, data);
+  if (!memory) {
+    throw new ServerError('Memory not found', { status: 404, code: 'NOT_FOUND' });
+  }
+  res.json(memory);
+}));
+
+router.delete('/memories/:id', asyncHandler(async (req, res) => {
+  const deleted = await brainService.deleteMemoryEntry(req.params.id);
+  if (!deleted) {
+    throw new ServerError('Memory not found', { status: 404, code: 'NOT_FOUND' });
   }
   res.status(204).send();
 }));
@@ -670,6 +713,33 @@ router.post('/links/:id/open-folder', asyncHandler(async (req, res) => {
   console.log(`📂 Opened folder: ${link.localPath}`);
 
   res.json({ message: 'Folder opened', path: link.localPath });
+}));
+
+// =============================================================================
+// GRAPH
+// =============================================================================
+
+/**
+ * GET /api/brain/graph
+ * Get brain entity graph data for visualization
+ */
+router.get('/graph', asyncHandler(async (req, res) => {
+  const data = await getBrainGraphData();
+  res.json(data);
+}));
+
+// =============================================================================
+// SYNC
+// =============================================================================
+
+/**
+ * POST /api/brain/sync
+ * Sync all brain data to CoS memory system (generates embeddings)
+ */
+router.post('/sync', asyncHandler(async (req, res) => {
+  const stats = await syncAllBrainData();
+  console.log(`🧠🔗 Brain sync complete: ${stats.synced} synced, ${stats.skipped} skipped, ${stats.errors} errors`);
+  res.json(stats);
 }));
 
 export default router;

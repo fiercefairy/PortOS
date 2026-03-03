@@ -9,7 +9,9 @@ import {
   Save,
   ChevronDown,
   ChevronRight,
-  CheckCircle2
+  CheckCircle2,
+  Search,
+  AlertTriangle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -23,7 +25,7 @@ import {
 } from '../constants';
 
 export default function MemoryTab({ onRefresh }) {
-  const [activeType, setActiveType] = useState('people');
+  const [activeType, setActiveType] = useState('memories');
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
@@ -31,6 +33,8 @@ export default function MemoryTab({ onRefresh }) {
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState({});
   const [statusFilter, setStatusFilter] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [backendStatus, setBackendStatus] = useState(null);
 
   const fetchRecords = useCallback(async () => {
     setLoading(true);
@@ -51,6 +55,9 @@ export default function MemoryTab({ onRefresh }) {
       case 'admin':
         data = await api.getBrainAdmin(filters).catch(() => []);
         break;
+      case 'memories':
+        data = await api.getBrainMemories().catch(() => []);
+        break;
     }
 
     // Filter out archived records
@@ -62,6 +69,14 @@ export default function MemoryTab({ onRefresh }) {
   useEffect(() => {
     fetchRecords();
   }, [fetchRecords]);
+
+  const fetchBackendStatus = useCallback(() => {
+    api.getMemoryBackendStatus().then(setBackendStatus).catch(() => null);
+  }, []);
+
+  useEffect(() => {
+    fetchBackendStatus();
+  }, [fetchBackendStatus]);
 
   const handleSave = async () => {
     let result;
@@ -90,6 +105,15 @@ export default function MemoryTab({ onRefresh }) {
           return null;
         });
         break;
+      case 'memories': {
+        const { tagInput, ...memData } = editForm;
+        if (tagInput != null) memData.tags = tagInput.split(',').map(s => s.trim()).filter(Boolean);
+        result = await api.updateBrainMemory(editingId, memData).catch(err => {
+          toast.error(err.message);
+          return null;
+        });
+        break;
+      }
     }
 
     if (result) {
@@ -128,6 +152,15 @@ export default function MemoryTab({ onRefresh }) {
           return null;
         });
         break;
+      case 'memories': {
+        const { tagInput, ...memData } = addForm;
+        if (tagInput != null) memData.tags = tagInput.split(',').map(s => s.trim()).filter(Boolean);
+        result = await api.createBrainMemory(memData).catch(err => {
+          toast.error(err.message);
+          return null;
+        });
+        break;
+      }
     }
 
     if (result) {
@@ -162,6 +195,12 @@ export default function MemoryTab({ onRefresh }) {
         break;
       case 'admin':
         await api.deleteBrainAdminItem(id).catch(err => {
+          toast.error(err.message);
+          failed = true;
+        });
+        break;
+      case 'memories':
+        await api.deleteBrainMemory(id).catch(err => {
           toast.error(err.message);
           failed = true;
         });
@@ -207,7 +246,7 @@ export default function MemoryTab({ onRefresh }) {
 
   const startEdit = (record) => {
     setEditingId(record.id);
-    setEditForm({ ...record });
+    setEditForm({ ...record, tagInput: (record.tags || []).join(', ') });
   };
 
   const renderForm = (form, setForm, isEdit = false) => {
@@ -347,6 +386,40 @@ export default function MemoryTab({ onRefresh }) {
             />
           </div>
         );
+
+      case 'memories':
+        return (
+          <div className="space-y-3">
+            <input
+              type="text"
+              placeholder="Title (e.g. 'DnD session tonight')"
+              value={form.title || ''}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              className="w-full px-3 py-2 bg-port-bg border border-port-border rounded text-white"
+            />
+            <textarea
+              placeholder="What happened? Write your thoughts..."
+              value={form.content || ''}
+              onChange={(e) => setForm({ ...form, content: e.target.value })}
+              className="w-full px-3 py-2 bg-port-bg border border-port-border rounded text-white"
+              rows={3}
+            />
+            <input
+              type="text"
+              placeholder="Mood (e.g. happy, reflective, tired)"
+              value={form.mood || ''}
+              onChange={(e) => setForm({ ...form, mood: e.target.value })}
+              className="w-full px-3 py-2 bg-port-bg border border-port-border rounded text-white"
+            />
+            <input
+              type="text"
+              placeholder="Tags (comma separated)"
+              value={form.tagInput ?? (form.tags || []).join(', ')}
+              onChange={(e) => setForm({ ...form, tagInput: e.target.value })}
+              className="w-full px-3 py-2 bg-port-bg border border-port-border rounded text-white"
+            />
+          </div>
+        );
     }
   };
 
@@ -436,6 +509,29 @@ export default function MemoryTab({ onRefresh }) {
               </>
             )}
 
+            {activeType === 'memories' && (
+              <>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-medium text-white">{record.title}</h3>
+                  {record.mood && (
+                    <span className="px-2 py-0.5 text-xs rounded border bg-pink-500/20 text-pink-400 border-pink-500/30">
+                      {record.mood}
+                    </span>
+                  )}
+                </div>
+                {record.content && <p className="text-sm text-gray-400 mt-1 whitespace-pre-wrap">{record.content}</p>}
+                {record.tags?.length > 0 && (
+                  <div className="flex gap-1 mt-2 flex-wrap">
+                    {record.tags.map((tag, i) => (
+                      <span key={i} className="px-2 py-0.5 text-xs rounded bg-port-border/50 text-gray-400">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
             <p className="text-xs text-gray-500 mt-2">
               Updated {formatRelativeTime(record.updatedAt)}
             </p>
@@ -473,6 +569,26 @@ export default function MemoryTab({ onRefresh }) {
 
   return (
     <div className="space-y-4">
+      {/* Backend status banner */}
+      {backendStatus?.backend === 'file' && (
+        <div className="bg-port-warning/10 border border-port-warning/30 rounded-lg p-4 flex items-start gap-3">
+          <AlertTriangle className="text-port-warning shrink-0 mt-0.5" size={20} />
+          <div className="flex-1">
+            <p className="text-port-warning font-medium">PostgreSQL unavailable — using file storage</p>
+            {backendStatus.db?.error && (
+              <p className="text-sm text-gray-400 mt-1">{backendStatus.db.error}</p>
+            )}
+            <p className="text-sm text-gray-500 mt-1">Some PostgreSQL-only features like cross-instance sync and DB snapshots are unavailable.</p>
+          </div>
+          <button
+            onClick={fetchBackendStatus}
+            className="px-3 py-1.5 text-sm bg-port-warning/20 text-port-warning hover:bg-port-warning/30 rounded-lg transition-colors shrink-0"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Type tabs */}
       <div className="flex items-center gap-2 flex-wrap">
         {MEMORY_TABS.map((tab) => {
@@ -482,7 +598,7 @@ export default function MemoryTab({ onRefresh }) {
           return (
             <button
               key={tab.id}
-              onClick={() => { setActiveType(tab.id); setStatusFilter(''); }}
+              onClick={() => { setActiveType(tab.id); setStatusFilter(''); setSearchQuery(''); }}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
                 isActive
                   ? `${destInfo.color}`
@@ -536,6 +652,26 @@ export default function MemoryTab({ onRefresh }) {
         )}
       </div>
 
+      {/* Search filter */}
+      <div className="relative">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+        <input
+          type="text"
+          placeholder={`Search ${DESTINATIONS[activeType]?.label?.toLowerCase() || 'records'}...`}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-9 pr-3 py-2 bg-port-card border border-port-border rounded-lg text-sm text-white placeholder-gray-500"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+          >
+            <X size={14} />
+          </button>
+        )}
+      </div>
+
       {/* Add form */}
       {showAdd && (
         <div className="p-4 bg-port-card border border-port-accent/50 rounded-lg">
@@ -564,15 +700,26 @@ export default function MemoryTab({ onRefresh }) {
         <div className="flex items-center justify-center h-32">
           <RefreshCw className="w-6 h-6 text-port-accent animate-spin" />
         </div>
-      ) : records.length === 0 ? (
-        <p className="text-gray-500 text-center py-8">
-          No {DESTINATIONS[activeType].label.toLowerCase()} yet. Add one or capture thoughts in the Inbox.
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {records.map(record => renderRecord(record))}
-        </div>
-      )}
+      ) : (() => {
+        const q = searchQuery.toLowerCase();
+        const filtered = q
+          ? records.filter(r => {
+              const fields = [r.name, r.title, r.context, r.content, r.notes, r.oneLiner, r.nextAction, r.mood, ...(r.tags || []), ...(r.followUps || [])];
+              return fields.some(f => f?.toLowerCase().includes(q));
+            })
+          : records;
+        return filtered.length === 0 ? (
+          <p className="text-gray-500 text-center py-8">
+            {searchQuery
+              ? `No matches for "${searchQuery}"`
+              : `No ${DESTINATIONS[activeType]?.label?.toLowerCase() || 'records'} yet. Add one or capture thoughts in the Inbox.`}
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {filtered.map(record => renderRecord(record))}
+          </div>
+        );
+      })()}
     </div>
   );
 }

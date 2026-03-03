@@ -9,9 +9,9 @@
  *          Apps, History, Health metrics
  */
 
-import { getInboxLog, getPeople, getProjects, getIdeas, getLinks } from './brainStorage.js';
+import { getInboxLog, getPeople, getProjects, getIdeas, getAdminItems, getMemoryEntries, getLinks } from './brainStorage.js';
 import { searchBM25 } from './memoryBM25.js';
-import { getMemories } from './memory.js';
+import { getMemories, ensureBackend, hybridSearchMemories } from './memoryBackend.js';
 import { getAllApps } from './apps.js';
 import { getHistory } from './history.js';
 
@@ -44,60 +44,85 @@ function extractSnippet(text, query, maxLen = 100) {
 
 async function searchBrain(query) {
   const q = query.toLowerCase();
-  const [inboxResult, peopleResult, projectsResult, ideasResult, linksResult] =
+  const [inboxResult, peopleResult, projectsResult, ideasResult, adminResult, memoriesResult, linksResult] =
     await Promise.allSettled([
       getInboxLog({ limit: 200 }),
       getPeople(),
       getProjects(),
       getIdeas(),
+      getAdminItems(),
+      getMemoryEntries(),
       getLinks()
     ]);
 
-  const inboxMatches = inboxResult.status === 'fulfilled'
-    ? (inboxResult.value.entries ?? [])
-        .filter(e => e.text?.toLowerCase().includes(q))
-        .map(e => ({
-          id: e.id,
-          title: (e.text ?? '').substring(0, 60),
-          snippet: extractSnippet(e.text, query),
-          url: '/brain/inbox',
-          type: 'inbox'
-        }))
-    : [];
+  const inboxEntries = inboxResult.status === 'fulfilled' ? inboxResult.value : [];
+  const inboxMatches = (Array.isArray(inboxEntries) ? inboxEntries : [])
+    .filter(e => e.capturedText?.toLowerCase().includes(q))
+    .map(e => ({
+      id: e.id,
+      title: (e.capturedText ?? '').substring(0, 60),
+      snippet: extractSnippet(e.capturedText, query),
+      url: '/brain/inbox',
+      type: 'inbox'
+    }));
 
   const peopleMatches = peopleResult.status === 'fulfilled'
     ? (peopleResult.value ?? [])
-        .filter(p => p.name?.toLowerCase().includes(q) || p.notes?.toLowerCase().includes(q))
+        .filter(p => p.name?.toLowerCase().includes(q) || p.context?.toLowerCase().includes(q))
         .map(p => ({
           id: p.id,
           title: p.name,
-          snippet: extractSnippet(p.notes, query),
-          url: '/brain/inbox',
+          snippet: extractSnippet(p.context, query),
+          url: `/brain/memory?type=people&id=${p.id}`,
           type: 'person'
         }))
     : [];
 
   const projectMatches = projectsResult.status === 'fulfilled'
     ? (projectsResult.value ?? [])
-        .filter(p => p.name?.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q))
+        .filter(p => p.name?.toLowerCase().includes(q) || p.notes?.toLowerCase().includes(q))
         .map(p => ({
           id: p.id,
           title: p.name,
-          snippet: extractSnippet(p.description, query),
-          url: '/brain/inbox',
+          snippet: extractSnippet(p.notes, query),
+          url: `/brain/memory?type=projects&id=${p.id}`,
           type: 'project'
         }))
     : [];
 
   const ideaMatches = ideasResult.status === 'fulfilled'
     ? (ideasResult.value ?? [])
-        .filter(i => i.title?.toLowerCase().includes(q) || i.description?.toLowerCase().includes(q))
+        .filter(i => i.title?.toLowerCase().includes(q) || i.oneLiner?.toLowerCase().includes(q) || i.notes?.toLowerCase().includes(q))
         .map(i => ({
           id: i.id,
           title: i.title,
-          snippet: extractSnippet(i.description, query),
-          url: '/brain/inbox',
+          snippet: extractSnippet(i.oneLiner || i.notes, query),
+          url: `/brain/memory?type=ideas&id=${i.id}`,
           type: 'idea'
+        }))
+    : [];
+
+  const adminMatches = adminResult.status === 'fulfilled'
+    ? (adminResult.value ?? [])
+        .filter(a => a.title?.toLowerCase().includes(q) || a.notes?.toLowerCase().includes(q) || a.nextAction?.toLowerCase().includes(q))
+        .map(a => ({
+          id: a.id,
+          title: a.title,
+          snippet: extractSnippet(a.notes || a.nextAction, query),
+          url: `/brain/memory?type=admin&id=${a.id}`,
+          type: 'admin'
+        }))
+    : [];
+
+  const memoryMatches = memoriesResult.status === 'fulfilled'
+    ? (memoriesResult.value ?? [])
+        .filter(m => m.title?.toLowerCase().includes(q) || m.content?.toLowerCase().includes(q) || m.mood?.toLowerCase().includes(q))
+        .map(m => ({
+          id: m.id,
+          title: m.title,
+          snippet: extractSnippet(m.content, query),
+          url: `/brain/memory?type=memories&id=${m.id}`,
+          type: 'memory-entry'
         }))
     : [];
 
@@ -112,7 +137,7 @@ async function searchBrain(query) {
           id: l.id,
           title: l.title || l.url,
           snippet: extractSnippet(l.description || l.url, query),
-          url: '/brain/inbox',
+          url: '/brain/links',
           type: 'link'
         }))
     : [];
@@ -122,13 +147,36 @@ async function searchBrain(query) {
     ...peopleMatches,
     ...projectMatches,
     ...ideaMatches,
+    ...adminMatches,
+    ...memoryMatches,
     ...linkMatches
-  ].slice(0, 5);
+  ].slice(0, 8);
 
   return { id: 'brain', label: 'Brain', icon: 'Brain', results };
 }
 
 async function searchMemory(query) {
+  const activeBackend = await ensureBackend();
+
+  // Postgres backend: use hybrid search (tsvector full-text, no embedding needed)
+  if (activeBackend === 'postgres') {
+    const searchResult = await hybridSearchMemories(query, null, { limit: 10 });
+    const results = (searchResult?.memories ?? [])
+      .map(mem => {
+        const summary = mem.summary ?? '';
+        return {
+          id: mem.id,
+          title: summary.substring(0, 60),
+          snippet: summary,
+          url: '/cos/memory',
+          type: 'memory'
+        };
+      })
+      .slice(0, 5);
+    return { id: 'memory', label: 'Memory', icon: 'Cpu', results };
+  }
+
+  // File backend: use BM25 index + getMemories for metadata
   const [bm25Results, memoriesResult] = await Promise.allSettled([
     searchBM25(query, { limit: 10, threshold: 0.1 }),
     getMemories()

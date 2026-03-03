@@ -67,6 +67,7 @@ export const memorySearchSchema = z.object({
   categories: z.array(z.string()).optional(),
   tags: z.array(z.string()).optional(),
   status: memoryStatusEnum.optional().default('active'),
+  appId: z.string().max(100).optional(),
   minRelevance: z.number().min(0).max(1).optional().default(0.7),
   limit: z.number().int().min(1).max(100).optional().default(20),
   offset: z.number().int().min(0).optional().default(0)
@@ -78,6 +79,7 @@ export const memoryListSchema = z.object({
   categories: z.array(z.string()).optional(),
   tags: z.array(z.string()).optional(),
   status: memoryStatusEnum.optional().default('active'),
+  appId: z.string().max(100).optional(),
   limit: z.number().int().min(1).max(100).optional().default(50),
   offset: z.number().int().min(0).optional().default(0),
   sortBy: z.enum(['createdAt', 'updatedAt', 'importance', 'accessCount']).optional().default('createdAt'),
@@ -109,4 +111,31 @@ export const memoryConsolidateSchema = z.object({
 export const memoryLinkSchema = z.object({
   sourceId: z.string().uuid(),
   targetId: z.string().uuid()
+});
+
+// Single sync memory item schema (incoming from remote peer)
+const syncMemoryItemSchema = z.object({
+  id: z.string().uuid(),
+  type: memoryTypeEnum,
+  content: z.string().min(1).max(10240),
+  summary: z.string().max(500).nullable().optional(),
+  category: z.string().max(100).nullable().optional(),
+  tags: z.array(z.string().max(50)).optional().default([]),
+  embedding: z.array(z.number()).length(768).nullable().optional(),
+  embeddingModel: z.string().max(200).nullable().optional(),
+  confidence: z.number().min(0).max(1).nullable().optional(),
+  importance: z.number().min(0).max(1).nullable().optional(),
+  status: memoryStatusEnum.optional().default('active'),
+  sourceTaskId: z.string().nullable().optional(),
+  sourceAgentId: z.string().nullable().optional(),
+  sourceAppId: z.string().nullable().optional(),
+  expiresAt: z.string().datetime().nullable().optional(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  syncSequence: z.string().regex(/^\d+$/).optional()
+});
+
+// Sync request body schema
+export const memorySyncSchema = z.object({
+  memories: z.array(syncMemoryItemSchema).max(1000)
 });

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 // Destination enum
-export const destinationEnum = z.enum(['people', 'projects', 'ideas', 'admin', 'unknown']);
+export const destinationEnum = z.enum(['people', 'projects', 'ideas', 'admin', 'memories', 'unknown']);
 
 // Project status enum
 export const projectStatusEnum = z.enum(['active', 'waiting', 'blocked', 'someday', 'done']);
@@ -117,6 +117,17 @@ export const adminRecordSchema = z.object({
   updatedAt: z.string().datetime()
 });
 
+// Memory Record schema (journal entries, daily notes, personal memories)
+export const memoryRecordSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string().min(1).max(200),
+  content: z.string().max(10000).optional().default(''),
+  mood: z.string().max(50).optional(),
+  tags: z.array(z.string().max(50)).optional().default([]),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+});
+
 // Meta/Settings schema
 export const brainSettingsSchema = z.object({
   version: z.number().int().positive().default(1),
@@ -218,6 +229,14 @@ export const adminInputSchema = z.object({
   notes: z.string().max(5000).optional()
 });
 
+// Create/Update Memory input schema
+export const memoryInputSchema = z.object({
+  title: z.string().min(1).max(200),
+  content: z.string().max(10000).optional(),
+  mood: z.string().max(50).optional(),
+  tags: z.array(z.string().max(50)).optional()
+});
+
 // Settings update input schema
 export const settingsUpdateInputSchema = brainSettingsSchema.partial().omit({ version: true, lastDailyDigest: true, lastWeeklyReview: true });
 
@@ -264,6 +283,14 @@ export const extractedAdminSchema = z.object({
   dueDate: z.string().datetime().nullable().optional(),
   nextAction: z.string().max(500).nullable().optional(),
   notes: z.string().max(5000).optional().default('')
+});
+
+// Extracted Memory fields
+export const extractedMemorySchema = z.object({
+  title: z.string().min(1).max(200),
+  content: z.string().max(10000).optional().default(''),
+  mood: z.string().max(50).nullable().optional(),
+  tags: z.array(z.string().max(50)).optional().default([])
 });
 
 // AI Classifier output schema (what we expect from the AI)

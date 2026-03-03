@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { RefreshCw, Trash2, X, Check, XCircle, Pencil } from 'lucide-react';
+import { RefreshCw, Trash2, X, Check, XCircle, Pencil, AlertTriangle, Brain, Bot } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as api from '../../../services/api';
 import { MEMORY_TYPES, MEMORY_TYPE_COLORS } from '../constants';
@@ -20,6 +20,7 @@ export default function MemoryTab({ apps = [] }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState(null);
   const [filters, setFilters] = useState({ types: [] });
+  const [sourceFilter, setSourceFilter] = useState('all'); // 'all' | 'cos' | 'brain'
 
   const view = searchParams.get('view') || 'list';
   const setView = useCallback((v) => {
@@ -30,6 +31,7 @@ export default function MemoryTab({ apps = [] }) {
     }, { replace: true });
   }, [setSearchParams]);
   const [embeddingStatus, setEmbeddingStatus] = useState(null);
+  const [backendStatus, setBackendStatus] = useState(null);
   const [editingMemory, setEditingMemory] = useState(null);
 
   // Embedding provider/model configuration
@@ -56,18 +58,21 @@ export default function MemoryTab({ apps = [] }) {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [memoriesRes, pendingRes, statsRes, embRes] = await Promise.all([
-      api.getMemories({ limit: 100, ...filters }).catch(() => ({ memories: [] })),
-      api.getMemories({ status: 'pending_approval', limit: 50 }).catch(() => ({ memories: [] })),
+    const appId = sourceFilter === 'brain' ? 'brain' : sourceFilter === 'cos' ? '__not_brain' : undefined;
+    const [memoriesRes, pendingRes, statsRes, embRes, backendRes] = await Promise.all([
+      api.getMemories({ limit: 100, ...filters, appId }).catch(() => ({ memories: [] })),
+      api.getMemories({ status: 'pending_approval', limit: 50, appId }).catch(() => ({ memories: [] })),
       api.getMemoryStats().catch(() => null),
-      api.getEmbeddingStatus().catch(() => null)
+      api.getEmbeddingStatus().catch(() => null),
+      api.getMemoryBackendStatus().catch(() => null)
     ]);
     setMemories(memoriesRes.memories || []);
     setPendingMemories(pendingRes.memories || []);
     setStats(statsRes);
     setEmbeddingStatus(embRes);
+    setBackendStatus(backendRes);
     setLoading(false);
-  }, [filters]);
+  }, [filters, sourceFilter]);
 
   const handleApprove = async (id) => {
     await api.approveMemory(id);
@@ -91,7 +96,8 @@ export default function MemoryTab({ apps = [] }) {
       return;
     }
     setLoading(true);
-    const results = await api.searchMemories(searchQuery, { limit: 20 }).catch(() => ({ memories: [] }));
+    const appId = sourceFilter === 'brain' ? 'brain' : sourceFilter === 'cos' ? '__not_brain' : undefined;
+    const results = await api.searchMemories(searchQuery, { limit: 20, appId }).catch(() => ({ memories: [] }));
     setSearchResults(results.memories || []);
     setLoading(false);
   };
@@ -106,6 +112,26 @@ export default function MemoryTab({ apps = [] }) {
 
   return (
     <div className="space-y-6">
+      {/* Backend status banner */}
+      {backendStatus?.backend === 'file' && (
+        <div className="bg-port-warning/10 border border-port-warning/30 rounded-lg p-4 flex items-start gap-3">
+          <AlertTriangle className="text-port-warning shrink-0 mt-0.5" size={20} />
+          <div className="flex-1">
+            <p className="text-port-warning font-medium">PostgreSQL unavailable — using file storage</p>
+            {backendStatus.db?.error && (
+              <p className="text-sm text-gray-400 mt-1">{backendStatus.db.error}</p>
+            )}
+            <p className="text-sm text-gray-500 mt-1">Some PostgreSQL-only features like cross-instance sync and DB snapshots are unavailable.</p>
+          </div>
+          <button
+            onClick={fetchData}
+            className="px-3 py-1.5 text-sm bg-port-warning/20 text-port-warning hover:bg-port-warning/30 rounded-lg transition-colors shrink-0"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -157,8 +183,25 @@ export default function MemoryTab({ apps = [] }) {
         )}
       </div>
 
-      {/* Type Filters */}
-      <div className="flex flex-wrap gap-2">
+      {/* Source + Type Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Source filter */}
+        {['all', 'cos', 'brain'].map(src => (
+          <button
+            key={src}
+            onClick={() => setSourceFilter(src)}
+            className={`px-3 py-2 min-h-[36px] text-xs rounded-full border transition-colors flex items-center gap-1.5 ${
+              sourceFilter === src
+                ? 'border-port-accent text-port-accent bg-port-accent/10'
+                : 'border-port-border text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            {src === 'brain' && <Brain size={12} />}
+            {src === 'cos' && <Bot size={12} />}
+            {src === 'all' ? 'All Sources' : src === 'cos' ? 'CoS' : 'Brain'}
+          </button>
+        ))}
+        <span className="w-px h-5 bg-port-border" />
         {MEMORY_TYPES.map(type => (
           <button
             key={type}
@@ -329,6 +372,15 @@ export default function MemoryTab({ apps = [] }) {
                         {memory.type}
                       </span>
                       <span className="text-xs text-gray-500">{memory.category}</span>
+                      {memory.sourceAppId === 'brain' ? (
+                        <span className="flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/30">
+                          <Brain size={10} /> Brain
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-port-accent/10 text-port-accent border border-port-accent/30">
+                          <Bot size={10} /> CoS
+                        </span>
+                      )}
                       {memory.similarity && (
                         <span className="text-xs text-port-accent">{(memory.similarity * 100).toFixed(0)}% match</span>
                       )}

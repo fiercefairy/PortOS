@@ -5,12 +5,12 @@
  * Combines semantic search with importance scoring.
  */
 
-import { getMemories, searchMemories, hybridSearchMemories, getMemory } from './memory.js';
+import { getMemories, searchMemories, hybridSearchMemories, getMemory } from './memoryBackend.js';
 import { generateQueryEmbedding, estimateTokens, truncateToTokens } from './memoryEmbeddings.js';
-import { DEFAULT_MEMORY_CONFIG } from './memory.js';
+import { DEFAULT_MEMORY_CONFIG } from './memoryBackend.js';
 
-// Search mode preference
-const SEARCH_MODE = 'hybrid'; // 'hybrid' | 'vector' | 'bm25'
+// Search mode preference: 'hybrid' (FTS + vector) or 'vector' (embedding-only)
+const SEARCH_MODE = 'hybrid';
 
 /**
  * Get relevant memories for a task
@@ -29,11 +29,11 @@ export async function getRelevantMemories(task, options = {}) {
     let searchResults = { memories: [] };
 
     if (SEARCH_MODE === 'hybrid' && queryEmbedding) {
-      // Use hybrid BM25 + vector search with reciprocal rank fusion
+      // Use hybrid FTS + vector search with reciprocal rank fusion
       searchResults = await hybridSearchMemories(task.description, queryEmbedding, {
         limit: 20,
         minRelevance,
-        bm25Weight: 0.4,
+        ftsWeight: 0.4,
         vectorWeight: 0.6
       });
     } else if (queryEmbedding) {

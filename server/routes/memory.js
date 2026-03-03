@@ -3,8 +3,11 @@
  */
 
 import { Router } from 'express';
-import * as memory from '../services/memory.js';
+import * as memory from '../services/memoryBackend.js';
+import { ensureBackend } from '../services/memoryBackend.js';
 import * as embeddings from '../services/memoryEmbeddings.js';
+import * as memorySync from '../services/memorySync.js';
+import { checkHealth } from '../lib/db.js';
 import { asyncHandler, ServerError } from '../lib/errorHandler.js';
 import { validateRequest } from '../lib/validation.js';
 import {
@@ -14,7 +17,8 @@ import {
   memoryListSchema,
   memoryTimelineSchema,
   memoryConsolidateSchema,
-  memoryLinkSchema
+  memoryLinkSchema,
+  memorySyncSchema
 } from '../lib/memoryValidation.js';
 
 const router = Router();
@@ -26,6 +30,7 @@ router.get('/', asyncHandler(async (req, res) => {
     categories: req.query.categories ? req.query.categories.split(',') : undefined,
     tags: req.query.tags ? req.query.tags.split(',') : undefined,
     status: req.query.status || 'active',
+    appId: req.query.appId || undefined,
     limit: parseInt(req.query.limit, 10) || 50,
     offset: parseInt(req.query.offset, 10) || 0,
     sortBy: req.query.sortBy || 'createdAt',
@@ -73,6 +78,36 @@ router.get('/graph', asyncHandler(async (req, res) => {
   res.json(graph);
 }));
 
+// GET /api/memory/backend/status - Check memory backend status
+router.get('/backend/status', asyncHandler(async (req, res) => {
+  const name = await ensureBackend();
+  const dbHealth = await checkHealth();
+  res.json({ backend: name, db: dbHealth });
+}));
+
+// GET /api/memory/sync - Federation sync: get changes since sequence
+router.get('/sync', asyncHandler(async (req, res) => {
+  const name = await ensureBackend();
+  if (name !== 'postgres') {
+    throw new ServerError('Sync requires PostgreSQL backend', { status: 400 });
+  }
+  const since = /^\d+$/.test(req.query.since) ? req.query.since : '0';
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 100, 1), 1000);
+  const result = await memorySync.getChangesSince(since, limit);
+  res.json(result);
+}));
+
+// POST /api/memory/sync - Federation sync: apply remote changes
+router.post('/sync', asyncHandler(async (req, res) => {
+  const name = await ensureBackend();
+  if (name !== 'postgres') {
+    throw new ServerError('Sync requires PostgreSQL backend', { status: 400 });
+  }
+  const { memories } = validateRequest(memorySyncSchema, req.body);
+  const result = await memorySync.applyRemoteChanges(memories);
+  res.json(result);
+}));
+
 // GET /api/memory/embeddings/status - Check embedding service status
 router.get('/embeddings/status', asyncHandler(async (req, res) => {
   const status = await embeddings.checkAvailability();
@@ -81,7 +116,7 @@ router.get('/embeddings/status', asyncHandler(async (req, res) => {
 
 // POST /api/memory/search - Semantic search
 router.post('/search', asyncHandler(async (req, res) => {
-  const { query, types, categories, tags, minRelevance, limit, offset } = validateRequest(memorySearchSchema, req.body);
+  const { query, types, categories, tags, appId, minRelevance, limit, offset } = validateRequest(memorySearchSchema, req.body);
 
   // Generate query embedding
   const queryEmbedding = await embeddings.generateQueryEmbedding(query, { types, categories });
@@ -94,6 +129,7 @@ router.post('/search', asyncHandler(async (req, res) => {
     types,
     categories,
     tags,
+    appId,
     minRelevance,
     limit,
     offset

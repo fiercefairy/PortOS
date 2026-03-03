@@ -145,7 +145,7 @@ function AddPeerForm({ onAdd }) {
     e.preventDefault();
     if (!address.trim()) return;
     setAdding(true);
-    const data = { address: address.trim(), port: parseInt(port, 10) || 5554 };
+    const data = { address: address.trim(), port: parseInt(port, 10) || 5555 };
     if (name.trim()) data.name = name.trim();
     const result = await addPeer(data).catch(() => null);
     setAdding(false);

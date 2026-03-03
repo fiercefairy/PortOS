@@ -10,12 +10,15 @@ import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
-import { cosEvents, updateAgent } from './cos.js';
-import { findTopK, findAboveThreshold, clusterBySimilarity, cosineSimilarity } from '../lib/vectorMath.js';
+import { cosEvents } from './cos.js';
+import { findTopK, findAboveThreshold, clusterBySimilarity } from '../lib/vectorMath.js';
 import * as notifications from './notifications.js';
 import { readJSONFile } from '../lib/fileUtils.js';
 import * as memoryBM25 from './memoryBM25.js';
 import { createMutex } from '../lib/asyncMutex.js';
+import { DEFAULT_MEMORY_CONFIG, generateSummary, decrementAgentPendingApproval } from './memoryConfig.js';
+
+export { DEFAULT_MEMORY_CONFIG };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -24,21 +27,6 @@ const MEMORY_DIR = join(DATA_DIR, 'cos/memory');
 const INDEX_FILE = join(MEMORY_DIR, 'index.json');
 const EMBEDDINGS_FILE = join(MEMORY_DIR, 'embeddings.json');
 const MEMORIES_DIR = join(MEMORY_DIR, 'memories');
-
-// Default memory configuration
-export const DEFAULT_MEMORY_CONFIG = {
-  enabled: true,
-  embeddingProvider: 'lmstudio',
-  embeddingEndpoint: 'http://localhost:1234/v1/embeddings',
-  embeddingModel: 'text-embedding-nomic-embed-text-v2-moe',
-  embeddingDimension: 768,
-  maxMemories: 10000,
-  maxContextTokens: 2000,
-  minRelevanceThreshold: 0.7,
-  autoExtractEnabled: true,
-  consolidationIntervalMs: 86400000,
-  decayIntervalMs: 86400000
-};
 
 // In-memory caches
 let indexCache = null;
@@ -131,15 +119,6 @@ async function deleteMemoryFiles(id) {
   if (existsSync(memoryDir)) {
     await rm(memoryDir, { recursive: true });
   }
-}
-
-/**
- * Generate summary from content using simple truncation
- * Note: LLM-based summaries could improve quality but add latency and cost
- */
-function generateSummary(content, maxLength = 150) {
-  if (content.length <= maxLength) return content;
-  return content.substring(0, maxLength - 3) + '...';
 }
 
 /**
@@ -262,7 +241,9 @@ export async function getMemories(options = {}) {
   }
 
   // Filter by app
-  if (options.appId) {
+  if (options.appId === '__not_brain') {
+    memories = memories.filter(m => m.sourceAppId !== 'brain');
+  } else if (options.appId) {
     memories = memories.filter(m => m.sourceAppId === options.appId);
   }
 
@@ -421,27 +402,6 @@ export async function deleteMemory(id, hard = false) {
 }
 
 /**
- * Helper to decrement agent's pendingApproval count
- */
-async function decrementAgentPendingApproval(sourceAgentId) {
-  if (!sourceAgentId) return;
-
-  const { getAgent } = await import('./cos.js');
-  const agent = await getAgent(sourceAgentId).catch(() => null);
-  if (!agent?.memoryExtraction?.pendingApproval) return;
-
-  const currentPending = agent.memoryExtraction.pendingApproval;
-  if (currentPending > 0) {
-    await updateAgent(sourceAgentId, {
-      memoryExtraction: {
-        ...agent.memoryExtraction,
-        pendingApproval: currentPending - 1
-      }
-    });
-  }
-}
-
-/**
  * Approve a pending memory (changes status from pending_approval to active)
  */
 export async function approveMemory(id) {
@@ -554,7 +514,8 @@ export async function searchMemories(queryEmbedding, options = {}) {
       if (options.types && options.types.length > 0 && !options.types.includes(meta.type)) return null;
       if (options.categories && options.categories.length > 0 && !options.categories.includes(meta.category)) return null;
       if (options.tags && options.tags.length > 0 && !meta.tags.some(t => options.tags.includes(t))) return null;
-      if (options.appId && meta.sourceAppId !== options.appId) return null;
+      if (options.appId === '__not_brain' && meta.sourceAppId === 'brain') return null;
+      if (options.appId && options.appId !== '__not_brain' && meta.sourceAppId !== options.appId) return null;
 
       return { ...meta, similarity: r.similarity };
     })
@@ -573,7 +534,7 @@ export async function searchMemories(queryEmbedding, options = {}) {
  * @returns {Promise<{total: number, memories: Array}>}
  */
 export async function hybridSearchMemories(query, queryEmbedding, options = {}) {
-  const { limit = 20, minRelevance = 0.5, bm25Weight = 0.4, vectorWeight = 0.6 } = options
+  const { limit = 20, minRelevance = 0.5, ftsWeight = options.bm25Weight ?? 0.4, vectorWeight = 0.6 } = options
 
   const index = await loadIndex()
   const embeddings = await loadEmbeddings()
@@ -603,7 +564,7 @@ export async function hybridSearchMemories(query, queryEmbedding, options = {}) 
   bm25Results.forEach((result, rank) => {
     const current = rrfScores.get(result.id) || { bm25Rank: null, vectorRank: null, rrfScore: 0 }
     current.bm25Rank = rank + 1
-    current.rrfScore += bm25Weight / (RRF_K + rank + 1)
+    current.rrfScore += ftsWeight / (RRF_K + rank + 1)
     rrfScores.set(result.id, current)
   })
 
@@ -697,7 +658,9 @@ export async function getTimeline(options = {}) {
   }
 
   // Filter by app
-  if (options.appId) {
+  if (options.appId === '__not_brain') {
+    memories = memories.filter(m => m.sourceAppId !== 'brain');
+  } else if (options.appId) {
     memories = memories.filter(m => m.sourceAppId === options.appId);
   }
 

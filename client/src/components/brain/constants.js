@@ -1,21 +1,23 @@
-import { MessageSquare, Database, Calendar, Shield, Users, FolderKanban, Lightbulb, ClipboardList, Settings, Link2 } from 'lucide-react';
+import { MessageSquare, Database, Calendar, Shield, Users, FolderKanban, Lightbulb, ClipboardList, Settings, Link2, BookOpen, Network } from 'lucide-react';
 
 // Main navigation tabs
 export const TABS = [
   { id: 'inbox', label: 'Inbox', icon: MessageSquare },
   { id: 'links', label: 'Links', icon: Link2 },
   { id: 'memory', label: 'Memory', icon: Database },
+  { id: 'graph', label: 'Graph', icon: Network },
   { id: 'digest', label: 'Digest', icon: Calendar },
   { id: 'trust', label: 'Trust', icon: Shield },
   { id: 'config', label: 'Config', icon: Settings }
 ];
 
-// Memory sub-tabs for entity types
+// Memory sub-tabs for entity types (alphabetical)
 export const MEMORY_TABS = [
-  { id: 'people', label: 'People', icon: Users },
-  { id: 'projects', label: 'Projects', icon: FolderKanban },
+  { id: 'admin', label: 'Admin', icon: ClipboardList },
   { id: 'ideas', label: 'Ideas', icon: Lightbulb },
-  { id: 'admin', label: 'Admin', icon: ClipboardList }
+  { id: 'memories', label: 'Memories', icon: BookOpen },
+  { id: 'people', label: 'People', icon: Users },
+  { id: 'projects', label: 'Projects', icon: FolderKanban }
 ];
 
 // Destination display info
@@ -39,6 +41,11 @@ export const DESTINATIONS = {
     label: 'Admin',
     icon: ClipboardList,
     color: 'bg-green-500/20 text-green-400 border-green-500/30'
+  },
+  memories: {
+    label: 'Memories',
+    icon: BookOpen,
+    color: 'bg-pink-500/20 text-pink-400 border-pink-500/30'
   },
   unknown: {
     label: 'Unknown',
@@ -91,6 +98,15 @@ export function getConfidenceColor(confidence) {
   if (confidence >= 0.6) return CONFIDENCE_COLORS.medium;
   return CONFIDENCE_COLORS.low;
 }
+
+// Brain entity type hex colors for graph visualization
+export const BRAIN_TYPE_HEX = {
+  people: '#a855f7',
+  projects: '#3b82f6',
+  ideas: '#eab308',
+  admin: '#22c55e',
+  memories: '#ec4899'
+};
 
 // Format relative time
 export function formatRelativeTime(dateString) {

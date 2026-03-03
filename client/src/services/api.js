@@ -803,6 +803,7 @@ export const getMemories = (options = {}) => {
   if (options.categories) params.set('categories', options.categories.join(','));
   if (options.tags) params.set('tags', options.tags.join(','));
   if (options.status) params.set('status', options.status);
+  if (options.appId) params.set('appId', options.appId);
   if (options.limit) params.set('limit', options.limit);
   if (options.offset) params.set('offset', options.offset);
   if (options.sortBy) params.set('sortBy', options.sortBy);
@@ -845,6 +846,7 @@ export const consolidateMemories = (options = {}) => request('/memory/consolidat
   body: JSON.stringify(options)
 });
 export const getEmbeddingStatus = () => request('/memory/embeddings/status');
+export const getMemoryBackendStatus = () => request('/memory/backend/status', { silent: true });
 export const approveMemory = (id) => request(`/memory/${id}/approve`, { method: 'POST' });
 export const rejectMemory = (id) => request(`/memory/${id}/reject`, { method: 'POST' });
 
@@ -990,6 +992,19 @@ export const updateBrainAdminItem = (id, data) => request(`/brain/admin/${id}`, 
 });
 export const deleteBrainAdminItem = (id) => request(`/brain/admin/${id}`, { method: 'DELETE' });
 
+// Brain - Memories
+export const getBrainMemories = () => request('/brain/memories');
+export const getBrainMemory = (id) => request(`/brain/memories/${id}`);
+export const createBrainMemory = (data) => request('/brain/memories', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const updateBrainMemory = (id, data) => request(`/brain/memories/${id}`, {
+  method: 'PUT',
+  body: JSON.stringify(data)
+});
+export const deleteBrainMemory = (id) => request(`/brain/memories/${id}`, { method: 'DELETE' });
+
 // Brain - Digests & Reviews
 export const getBrainLatestDigest = () => request('/brain/digest/latest');
 export const getBrainDigests = (limit = 10) => request(`/brain/digests?limit=${limit}`);
@@ -1026,6 +1041,12 @@ export const deleteBrainLink = (id) => request(`/brain/links/${id}`, { method: '
 export const cloneBrainLink = (id) => request(`/brain/links/${id}/clone`, { method: 'POST' });
 export const pullBrainLink = (id) => request(`/brain/links/${id}/pull`, { method: 'POST' });
 export const openBrainLinkFolder = (id) => request(`/brain/links/${id}/open-folder`, { method: 'POST' });
+
+// Brain - Graph
+export const getBrainGraph = () => request('/brain/graph');
+
+// Brain - Sync
+export const syncBrainData = () => request('/brain/sync', { method: 'POST' });
 
 // Media - Server media devices
 export const getMediaDevices = () => request('/media/devices');

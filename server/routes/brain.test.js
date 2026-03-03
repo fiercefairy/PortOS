@@ -37,6 +37,12 @@ vi.mock('../services/brain.js', () => ({
   createAdminItem: vi.fn(),
   updateAdminItem: vi.fn(),
   deleteAdminItem: vi.fn(),
+  // Memories
+  getMemoryEntries: vi.fn(),
+  getMemoryEntryById: vi.fn(),
+  createMemoryEntry: vi.fn(),
+  updateMemoryEntry: vi.fn(),
+  deleteMemoryEntry: vi.fn(),
   // Digest & Review
   getLatestDigest: vi.fn(),
   getDigests: vi.fn(),
@@ -50,8 +56,20 @@ vi.mock('../services/brain.js', () => ({
   getSummary: vi.fn()
 }));
 
-// Import mocked module
+// Mock the brain graph service
+vi.mock('../services/brainGraph.js', () => ({
+  getBrainGraphData: vi.fn()
+}));
+
+// Mock the brain memory bridge
+vi.mock('../services/brainMemoryBridge.js', () => ({
+  syncAllBrainData: vi.fn()
+}));
+
+// Import mocked modules
 import * as brainService from '../services/brain.js';
+import { getBrainGraphData } from '../services/brainGraph.js';
+import { syncAllBrainData } from '../services/brainMemoryBridge.js';
 
 describe('Brain Routes', () => {
   let app;
@@ -490,6 +508,121 @@ describe('Brain Routes', () => {
   });
 
   // ===========================================================================
+  // MEMORIES CRUD
+  // ===========================================================================
+
+  describe('GET /api/brain/memories', () => {
+    it('should return all memories', async () => {
+      brainService.getMemoryEntries.mockResolvedValue([
+        { id: 'mem-001', title: 'Morning jog' },
+        { id: 'mem-002', title: 'Dinner with family' }
+      ]);
+
+      const response = await request(app).get('/api/brain/memories');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveLength(2);
+    });
+  });
+
+  describe('GET /api/brain/memories/:id', () => {
+    it('should return memory by ID', async () => {
+      brainService.getMemoryEntryById.mockResolvedValue({
+        id: 'mem-001',
+        title: 'Morning jog',
+        content: 'Ran 5k in the park',
+        mood: 'energized',
+        tags: ['fitness']
+      });
+
+      const response = await request(app).get('/api/brain/memories/mem-001');
+
+      expect(response.status).toBe(200);
+      expect(response.body.title).toBe('Morning jog');
+    });
+
+    it('should return 404 if not found', async () => {
+      brainService.getMemoryEntryById.mockResolvedValue(null);
+
+      const response = await request(app).get('/api/brain/memories/mem-999');
+
+      expect(response.status).toBe(404);
+    });
+  });
+
+  describe('POST /api/brain/memories', () => {
+    it('should create a memory', async () => {
+      brainService.createMemoryEntry.mockResolvedValue({
+        id: 'mem-001',
+        title: 'Morning jog',
+        content: 'Ran 5k in the park',
+        mood: 'energized',
+        tags: ['fitness']
+      });
+
+      const response = await request(app)
+        .post('/api/brain/memories')
+        .send({ title: 'Morning jog', content: 'Ran 5k in the park', mood: 'energized', tags: ['fitness'] });
+
+      expect(response.status).toBe(201);
+      expect(response.body.id).toBe('mem-001');
+    });
+
+    it('should return 400 if title is missing', async () => {
+      const response = await request(app)
+        .post('/api/brain/memories')
+        .send({ content: 'No title provided' });
+
+      expect(response.status).toBe(400);
+    });
+  });
+
+  describe('PUT /api/brain/memories/:id', () => {
+    it('should update a memory', async () => {
+      brainService.updateMemoryEntry.mockResolvedValue({
+        id: 'mem-001',
+        title: 'Morning jog updated',
+        content: 'Ran 10k today'
+      });
+
+      const response = await request(app)
+        .put('/api/brain/memories/mem-001')
+        .send({ title: 'Morning jog updated' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.title).toBe('Morning jog updated');
+    });
+
+    it('should return 404 if not found', async () => {
+      brainService.updateMemoryEntry.mockResolvedValue(null);
+
+      const response = await request(app)
+        .put('/api/brain/memories/mem-999')
+        .send({ title: 'Test' });
+
+      expect(response.status).toBe(404);
+    });
+  });
+
+  describe('DELETE /api/brain/memories/:id', () => {
+    it('should delete a memory', async () => {
+      brainService.deleteMemoryEntry.mockResolvedValue(true);
+
+      const response = await request(app).delete('/api/brain/memories/mem-001');
+
+      expect(response.status).toBe(204);
+    });
+
+    it('should return 404 if not found', async () => {
+      brainService.deleteMemoryEntry.mockResolvedValue(false);
+
+      const response = await request(app).delete('/api/brain/memories/mem-999');
+
+      expect(response.status).toBe(404);
+    });
+  });
+
+  // ===========================================================================
   // DIGEST & REVIEW
   // ===========================================================================
 
@@ -745,6 +878,53 @@ describe('Brain Routes', () => {
       expect(response.body.inboxLog.status).toBe('corrected');
       expect(response.body.inboxLog.correction.previousDestination).toBe('ideas');
       expect(response.body.inboxLog.correction.newDestination).toBe('projects');
+    });
+  });
+
+  // ===========================================================================
+  // GRAPH
+  // ===========================================================================
+
+  describe('GET /api/brain/graph', () => {
+    it('should return graph data', async () => {
+      const mockGraph = { nodes: [{ id: '1', label: 'Test' }], edges: [], hasEmbeddings: false };
+      getBrainGraphData.mockResolvedValue(mockGraph);
+
+      const response = await request(app).get('/api/brain/graph');
+      expect(response.status).toBe(200);
+      expect(response.body.nodes).toHaveLength(1);
+      expect(response.body.hasEmbeddings).toBe(false);
+    });
+
+    it('should return 500 when service throws', async () => {
+      getBrainGraphData.mockRejectedValue(new Error('Graph build failed'));
+
+      const response = await request(app).get('/api/brain/graph');
+      expect(response.status).toBe(500);
+    });
+  });
+
+  // ===========================================================================
+  // SYNC
+  // ===========================================================================
+
+  describe('POST /api/brain/sync', () => {
+    it('should return sync stats', async () => {
+      const mockStats = { synced: 5, skipped: 2, errors: 0 };
+      syncAllBrainData.mockResolvedValue(mockStats);
+
+      const response = await request(app).post('/api/brain/sync');
+      expect(response.status).toBe(200);
+      expect(response.body.synced).toBe(5);
+      expect(response.body.skipped).toBe(2);
+      expect(response.body.errors).toBe(0);
+    });
+
+    it('should return 500 when sync fails', async () => {
+      syncAllBrainData.mockRejectedValue(new Error('Sync failed'));
+
+      const response = await request(app).post('/api/brain/sync');
+      expect(response.status).toBe(500);
     });
   });
 });

@@ -11,6 +11,9 @@
 - Migration script for existing brain data (`server/scripts/migrateBrainToMemories.js`)
 - Brain Graph tab (`/brain/graph`): 3D force-directed visualization of brain entities with semantic similarity, shared-tag, and linked edges; type filter checkboxes, text search, detail panel
 - Shared graph simulation library (`client/src/lib/graphSimulation.js`) extracted from CoS MemoryGraph
+- `POST /api/brain/sync` endpoint to trigger brain→memory sync from the UI
+- Sync Now button on Brain Graph no-embeddings banner
+- Brain sidebar sub-navigation with routable children for all Brain tabs
 
 ## Changed
 

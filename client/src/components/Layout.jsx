@@ -52,7 +52,10 @@ import {
   Scale,
   LayoutDashboard,
   Lightbulb,
-  Github
+  Github,
+  Link2,
+  Database,
+  Shield
 } from 'lucide-react';
 import packageJson from '../../package.json';
 import Logo from './Logo';
@@ -78,7 +81,19 @@ const navItems = [
     ]
   },
   { label: 'Apps', icon: Package, dynamic: 'apps', children: [] },
-  { to: '/brain', label: 'Brain', icon: Brain, single: true },
+  {
+    label: 'Brain',
+    icon: Brain,
+    children: [
+      { to: '/brain/config', label: 'Config', icon: Settings },
+      { to: '/brain/digest', label: 'Digest', icon: Calendar },
+      { to: '/brain/graph', label: 'Graph', icon: Network },
+      { to: '/brain/inbox', label: 'Inbox', icon: MessageSquare },
+      { to: '/brain/links', label: 'Links', icon: Link2 },
+      { to: '/brain/memory', label: 'Memory', icon: Database },
+      { to: '/brain/trust', label: 'Trust', icon: Shield }
+    ]
+  },
   {
     label: 'Chief of Staff',
     icon: Crown,

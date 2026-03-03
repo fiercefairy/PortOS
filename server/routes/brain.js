@@ -33,6 +33,7 @@ import {
 } from '../lib/brainValidation.js';
 import * as githubCloner from '../services/githubCloner.js';
 import { getBrainGraphData } from '../services/brainGraph.js';
+import { syncAllBrainData } from '../services/brainMemoryBridge.js';
 
 const router = Router();
 
@@ -725,6 +726,20 @@ router.post('/links/:id/open-folder', asyncHandler(async (req, res) => {
 router.get('/graph', asyncHandler(async (req, res) => {
   const data = await getBrainGraphData();
   res.json(data);
+}));
+
+// =============================================================================
+// SYNC
+// =============================================================================
+
+/**
+ * POST /api/brain/sync
+ * Sync all brain data to CoS memory system (generates embeddings)
+ */
+router.post('/sync', asyncHandler(async (req, res) => {
+  const stats = await syncAllBrainData();
+  console.log(`🧠🔗 Brain sync complete: ${stats.synced} synced, ${stats.skipped} skipped, ${stats.errors} errors`);
+  res.json(stats);
 }));
 
 export default router;

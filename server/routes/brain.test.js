@@ -56,8 +56,20 @@ vi.mock('../services/brain.js', () => ({
   getSummary: vi.fn()
 }));
 
-// Import mocked module
+// Mock the brain graph service
+vi.mock('../services/brainGraph.js', () => ({
+  getBrainGraphData: vi.fn()
+}));
+
+// Mock the brain memory bridge
+vi.mock('../services/brainMemoryBridge.js', () => ({
+  syncAllBrainData: vi.fn()
+}));
+
+// Import mocked modules
 import * as brainService from '../services/brain.js';
+import { getBrainGraphData } from '../services/brainGraph.js';
+import { syncAllBrainData } from '../services/brainMemoryBridge.js';
 
 describe('Brain Routes', () => {
   let app;

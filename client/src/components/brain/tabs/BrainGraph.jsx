@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
-import { RefreshCw, Search, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Search, AlertTriangle, Zap } from 'lucide-react';
+import toast from 'react-hot-toast';
 import * as api from '../../../services/api';
 import { BRAIN_TYPE_HEX, DESTINATIONS } from '../constants';
 import { buildGraph } from '../../../lib/graphSimulation';
@@ -123,6 +124,7 @@ export default function BrainGraph() {
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [layoutKey, setLayoutKey] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [syncing, setSyncing] = useState(false);
   const [typeFilters, setTypeFilters] = useState(() =>
     Object.fromEntries(BRAIN_TYPES.map(t => [t, true]))
   );
@@ -206,6 +208,21 @@ export default function BrainGraph() {
     }
   }, []);
 
+  const handleSync = async () => {
+    setSyncing(true);
+    const stats = await api.syncBrainData().catch(err => {
+      toast.error(err.message || 'Sync failed');
+      return null;
+    });
+    setSyncing(false);
+    if (stats) {
+      toast.success(`Synced ${stats.synced} records (${stats.skipped} skipped)`);
+      // Reload graph data to pick up new embeddings
+      const fresh = await api.getBrainGraph().catch(() => null);
+      if (fresh) setGraphData(fresh);
+    }
+  };
+
   const toggleType = (type) => {
     setTypeFilters(prev => ({ ...prev, [type]: !prev[type] }));
     setSelectedNode(null);
@@ -231,9 +248,19 @@ export default function BrainGraph() {
     <div className="space-y-3">
       {/* No-embeddings banner */}
       {graphData && !graphData.hasEmbeddings && (
-        <div className="flex items-center gap-2 bg-port-warning/10 border border-port-warning/30 rounded-lg px-4 py-2 text-sm text-port-warning">
-          <AlertTriangle size={16} />
-          No embeddings found. Run a brain→memory sync to enable semantic similarity edges.
+        <div className="flex items-center justify-between bg-port-warning/10 border border-port-warning/30 rounded-lg px-4 py-2.5">
+          <div className="flex items-center gap-2 text-sm text-port-warning">
+            <AlertTriangle size={16} />
+            No embeddings found. Sync brain data to CoS memory to enable semantic similarity edges.
+          </div>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-port-warning/20 text-port-warning border border-port-warning/30 rounded-lg hover:bg-port-warning/30 transition-colors disabled:opacity-50"
+          >
+            {syncing ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
+            {syncing ? 'Syncing...' : 'Sync Now'}
+          </button>
         </div>
       )}
 

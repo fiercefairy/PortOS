@@ -25,6 +25,7 @@ export function usePostSession() {
   const [savedSession, setSavedSession] = useState(null);
   const questionStartRef = useRef(Date.now());
   const drillStartRef = useRef(Date.now());
+  const finishDrillRef = useRef(null);
 
   const startSession = useCallback(async (drillConfigs) => {
     // drillConfigs: [{ type, config, timeLimitSec }]
@@ -48,46 +49,6 @@ export function usePostSession() {
     drillStartRef.current = Date.now();
     setState(STATES.DRILLING);
   }, []);
-
-  const submitAnswer = useCallback((value) => {
-    if (state !== STATES.DRILLING || !currentDrill) return;
-
-    const q = currentDrill.questions[currentQuestionIndex];
-    const responseMs = Date.now() - questionStartRef.current;
-    const numValue = value === null ? null : Number(value);
-
-    // For estimation drills, check within tolerance
-    let correct;
-    if (currentDrill.type === 'estimation') {
-      const tolerance = (currentDrill.config?.tolerancePct || 10) / 100;
-      correct = numValue !== null && Math.abs(numValue - q.expected) <= Math.abs(q.expected * tolerance);
-    } else {
-      correct = numValue === q.expected;
-    }
-
-    const answer = {
-      prompt: q.prompt,
-      expected: q.expected,
-      answered: numValue,
-      correct,
-      responseMs
-    };
-
-    const newAnswers = [...answers, answer];
-    setAnswers(newAnswers);
-
-    // Check if drill is complete
-    if (currentQuestionIndex + 1 >= currentDrill.questions.length) {
-      finishDrill(newAnswers);
-    } else {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-      questionStartRef.current = Date.now();
-    }
-  }, [state, currentDrill, currentQuestionIndex, answers, finishDrill]);
-
-  const skipQuestion = useCallback(() => {
-    submitAnswer(null);
-  }, [submitAnswer]);
 
   const finishDrill = useCallback((finalAnswers) => {
     const totalMs = Date.now() - drillStartRef.current;
@@ -126,6 +87,49 @@ export function usePostSession() {
     }
   }, [currentDrill, drillResults, currentDrillIndex, drills]);
 
+  // Keep ref current so submitAnswer and timeExpired always call the latest finishDrill
+  finishDrillRef.current = finishDrill;
+
+  const submitAnswer = useCallback((value) => {
+    if (state !== STATES.DRILLING || !currentDrill) return;
+
+    const q = currentDrill.questions[currentQuestionIndex];
+    const responseMs = Date.now() - questionStartRef.current;
+    const numValue = value === null ? null : Number(value);
+
+    // For estimation drills, check within tolerance
+    let correct;
+    if (currentDrill.type === 'estimation') {
+      const tolerance = (currentDrill.config?.tolerancePct || 10) / 100;
+      correct = numValue !== null && Math.abs(numValue - q.expected) <= Math.abs(q.expected * tolerance);
+    } else {
+      correct = numValue === q.expected;
+    }
+
+    const answer = {
+      prompt: q.prompt,
+      expected: q.expected,
+      answered: numValue,
+      correct,
+      responseMs
+    };
+
+    const newAnswers = [...answers, answer];
+    setAnswers(newAnswers);
+
+    // Check if drill is complete
+    if (currentQuestionIndex + 1 >= currentDrill.questions.length) {
+      finishDrillRef.current(newAnswers);
+    } else {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+      questionStartRef.current = Date.now();
+    }
+  }, [state, currentDrill, currentQuestionIndex, answers]);
+
+  const skipQuestion = useCallback(() => {
+    submitAnswer(null);
+  }, [submitAnswer]);
+
   const nextDrill = useCallback(async () => {
     const nextIndex = currentDrillIndex + 1;
     setCurrentDrillIndex(nextIndex);
@@ -160,8 +164,8 @@ export function usePostSession() {
 
     const finalAnswers = [...answers, ...remaining];
     setAnswers(finalAnswers);
-    finishDrill(finalAnswers);
-  }, [state, currentDrill, currentQuestionIndex, answers, finishDrill]);
+    finishDrillRef.current(finalAnswers);
+  }, [state, currentDrill, currentQuestionIndex, answers]);
 
   const saveSession = useCallback(async (tags = {}) => {
     setState(STATES.SAVING);

@@ -35,6 +35,7 @@ function toPgvector(embedding) {
  * @returns {Promise<{memories: Array, maxSequence: number, hasMore: boolean}>}
  */
 export async function getChangesSince(sinceSequence = 0, limit = 100) {
+  // Fetch limit+1 rows to detect whether more records exist beyond this batch
   const result = await query(
     `SELECT id, type, content, summary, category, tags,
             embedding, embedding_model, confidence, importance,
@@ -45,10 +46,13 @@ export async function getChangesSince(sinceSequence = 0, limit = 100) {
      WHERE sync_sequence > $1
      ORDER BY sync_sequence ASC
      LIMIT $2`,
-    [sinceSequence, limit]
+    [sinceSequence, limit + 1]
   );
 
-  const memories = result.rows.map(row => ({
+  const hasMore = result.rows.length > limit;
+  const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
+
+  const memories = rows.map(row => ({
     id: row.id,
     type: row.type,
     content: row.content,
@@ -74,13 +78,6 @@ export async function getChangesSince(sinceSequence = 0, limit = 100) {
   const maxSequence = memories.length > 0
     ? memories[memories.length - 1].syncSequence
     : sinceSequence;
-
-  // Check if there are more records beyond this batch
-  const countResult = await query(
-    'SELECT COUNT(*) AS remaining FROM memories WHERE sync_sequence > $1',
-    [maxSequence]
-  );
-  const hasMore = parseInt(countResult.rows[0].remaining, 10) > 0;
 
   return { memories, maxSequence, hasMore };
 }
@@ -140,12 +137,14 @@ export async function applyRemoteChanges(incomingMemories) {
             `UPDATE memories SET
               type = $2, content = $3, summary = $4, category = $5, tags = $6,
               embedding = $7, embedding_model = $8, confidence = $9, importance = $10,
-              status = $11, expires_at = $12, updated_at = $13
+              status = $11, expires_at = $12, updated_at = $13,
+              source_task_id = $14, source_agent_id = $15, source_app_id = $16
             WHERE id = $1`,
             [
               mem.id, mem.type, mem.content, mem.summary, mem.category, mem.tags || [],
               toPgvector(mem.embedding), mem.embeddingModel, mem.confidence, mem.importance,
-              mem.status, mem.expiresAt, mem.updatedAt
+              mem.status, mem.expiresAt, mem.updatedAt,
+              mem.sourceTaskId, mem.sourceAgentId, mem.sourceAppId
             ]
           );
           applied++;

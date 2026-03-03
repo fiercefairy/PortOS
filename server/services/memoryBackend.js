@@ -10,6 +10,9 @@
  */
 
 import { checkHealth } from '../lib/db.js';
+import { DEFAULT_MEMORY_CONFIG } from './memoryConfig.js';
+
+export { DEFAULT_MEMORY_CONFIG };
 
 let backend = null;
 let backendName = null;
@@ -190,17 +193,3 @@ export async function flushBM25Index() {
   return b.flushBM25Index();
 }
 
-// Default memory configuration (shared across backends)
-export const DEFAULT_MEMORY_CONFIG = {
-  enabled: true,
-  embeddingProvider: 'lmstudio',
-  embeddingEndpoint: 'http://localhost:1234/v1/embeddings',
-  embeddingModel: 'text-embedding-nomic-embed-text-v2-moe',
-  embeddingDimension: 768,
-  maxMemories: 10000,
-  maxContextTokens: 2000,
-  minRelevanceThreshold: 0.7,
-  autoExtractEnabled: true,
-  consolidationIntervalMs: 86400000,
-  decayIntervalMs: 86400000
-};

@@ -17,7 +17,8 @@ import {
   memoryListSchema,
   memoryTimelineSchema,
   memoryConsolidateSchema,
-  memoryLinkSchema
+  memoryLinkSchema,
+  memorySyncSchema
 } from '../lib/memoryValidation.js';
 
 const router = Router();
@@ -101,10 +102,7 @@ router.post('/sync', asyncHandler(async (req, res) => {
   if (name !== 'postgres') {
     throw new ServerError('Sync requires PostgreSQL backend', { status: 400 });
   }
-  const { memories } = req.body;
-  if (!Array.isArray(memories)) {
-    throw new ServerError('Request body must contain a memories array', { status: 400 });
-  }
+  const { memories } = validateRequest(memorySyncSchema, req.body);
   const result = await memorySync.applyRemoteChanges(memories);
   res.json(result);
 }));

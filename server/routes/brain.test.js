@@ -37,6 +37,12 @@ vi.mock('../services/brain.js', () => ({
   createAdminItem: vi.fn(),
   updateAdminItem: vi.fn(),
   deleteAdminItem: vi.fn(),
+  // Memories
+  getMemoryEntries: vi.fn(),
+  getMemoryEntryById: vi.fn(),
+  createMemoryEntry: vi.fn(),
+  updateMemoryEntry: vi.fn(),
+  deleteMemoryEntry: vi.fn(),
   // Digest & Review
   getLatestDigest: vi.fn(),
   getDigests: vi.fn(),
@@ -486,6 +492,121 @@ describe('Brain Routes', () => {
         .send({ status: 'open' });
 
       expect(response.status).toBe(400);
+    });
+  });
+
+  // ===========================================================================
+  // MEMORIES CRUD
+  // ===========================================================================
+
+  describe('GET /api/brain/memories', () => {
+    it('should return all memories', async () => {
+      brainService.getMemoryEntries.mockResolvedValue([
+        { id: 'mem-001', title: 'Morning jog' },
+        { id: 'mem-002', title: 'Dinner with family' }
+      ]);
+
+      const response = await request(app).get('/api/brain/memories');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveLength(2);
+    });
+  });
+
+  describe('GET /api/brain/memories/:id', () => {
+    it('should return memory by ID', async () => {
+      brainService.getMemoryEntryById.mockResolvedValue({
+        id: 'mem-001',
+        title: 'Morning jog',
+        content: 'Ran 5k in the park',
+        mood: 'energized',
+        tags: ['fitness']
+      });
+
+      const response = await request(app).get('/api/brain/memories/mem-001');
+
+      expect(response.status).toBe(200);
+      expect(response.body.title).toBe('Morning jog');
+    });
+
+    it('should return 404 if not found', async () => {
+      brainService.getMemoryEntryById.mockResolvedValue(null);
+
+      const response = await request(app).get('/api/brain/memories/mem-999');
+
+      expect(response.status).toBe(404);
+    });
+  });
+
+  describe('POST /api/brain/memories', () => {
+    it('should create a memory', async () => {
+      brainService.createMemoryEntry.mockResolvedValue({
+        id: 'mem-001',
+        title: 'Morning jog',
+        content: 'Ran 5k in the park',
+        mood: 'energized',
+        tags: ['fitness']
+      });
+
+      const response = await request(app)
+        .post('/api/brain/memories')
+        .send({ title: 'Morning jog', content: 'Ran 5k in the park', mood: 'energized', tags: ['fitness'] });
+
+      expect(response.status).toBe(201);
+      expect(response.body.id).toBe('mem-001');
+    });
+
+    it('should return 400 if title is missing', async () => {
+      const response = await request(app)
+        .post('/api/brain/memories')
+        .send({ content: 'No title provided' });
+
+      expect(response.status).toBe(400);
+    });
+  });
+
+  describe('PUT /api/brain/memories/:id', () => {
+    it('should update a memory', async () => {
+      brainService.updateMemoryEntry.mockResolvedValue({
+        id: 'mem-001',
+        title: 'Morning jog updated',
+        content: 'Ran 10k today'
+      });
+
+      const response = await request(app)
+        .put('/api/brain/memories/mem-001')
+        .send({ title: 'Morning jog updated' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.title).toBe('Morning jog updated');
+    });
+
+    it('should return 404 if not found', async () => {
+      brainService.updateMemoryEntry.mockResolvedValue(null);
+
+      const response = await request(app)
+        .put('/api/brain/memories/mem-999')
+        .send({ title: 'Test' });
+
+      expect(response.status).toBe(404);
+    });
+  });
+
+  describe('DELETE /api/brain/memories/:id', () => {
+    it('should delete a memory', async () => {
+      brainService.deleteMemoryEntry.mockResolvedValue(true);
+
+      const response = await request(app).delete('/api/brain/memories/mem-001');
+
+      expect(response.status).toBe(204);
+    });
+
+    it('should return 404 if not found', async () => {
+      brainService.deleteMemoryEntry.mockResolvedValue(false);
+
+      const response = await request(app).delete('/api/brain/memories/mem-999');
+
+      expect(response.status).toBe(404);
     });
   });
 

@@ -11,21 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { query, withTransaction } from '../lib/db.js';
 import { cosEvents, updateAgent } from './cos.js';
 import * as notifications from './notifications.js';
-
-// Default memory configuration (local copy — canonical export is in memoryBackend.js)
-const DEFAULT_MEMORY_CONFIG = {
-  enabled: true,
-  embeddingProvider: 'lmstudio',
-  embeddingEndpoint: 'http://localhost:1234/v1/embeddings',
-  embeddingModel: 'text-embedding-nomic-embed-text-v2-moe',
-  embeddingDimension: 768,
-  maxMemories: 10000,
-  maxContextTokens: 2000,
-  minRelevanceThreshold: 0.7,
-  autoExtractEnabled: true,
-  consolidationIntervalMs: 86400000,
-  decayIntervalMs: 86400000
-};
+import { DEFAULT_MEMORY_CONFIG } from './memoryConfig.js';
 
 /**
  * Generate summary from content using simple truncation

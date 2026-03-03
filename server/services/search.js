@@ -11,7 +11,7 @@
 
 import { getInboxLog, getPeople, getProjects, getIdeas, getAdminItems, getMemoryEntries, getLinks } from './brainStorage.js';
 import { searchBM25 } from './memoryBM25.js';
-import { getMemories } from './memoryBackend.js';
+import { getMemories, getBackendName, hybridSearchMemories } from './memoryBackend.js';
 import { getAllApps } from './apps.js';
 import { getHistory } from './history.js';
 
@@ -73,7 +73,7 @@ async function searchBrain(query) {
           id: p.id,
           title: p.name,
           snippet: extractSnippet(p.context, query),
-          url: '/brain/memory',
+          url: '/brain/memory?type=people',
           type: 'person'
         }))
     : [];
@@ -85,7 +85,7 @@ async function searchBrain(query) {
           id: p.id,
           title: p.name,
           snippet: extractSnippet(p.notes, query),
-          url: '/brain/memory',
+          url: '/brain/memory?type=projects',
           type: 'project'
         }))
     : [];
@@ -97,7 +97,7 @@ async function searchBrain(query) {
           id: i.id,
           title: i.title,
           snippet: extractSnippet(i.oneLiner || i.notes, query),
-          url: '/brain/memory',
+          url: '/brain/memory?type=ideas',
           type: 'idea'
         }))
     : [];
@@ -109,7 +109,7 @@ async function searchBrain(query) {
           id: a.id,
           title: a.title,
           snippet: extractSnippet(a.notes || a.nextAction, query),
-          url: '/brain/memory',
+          url: '/brain/memory?type=admin',
           type: 'admin'
         }))
     : [];
@@ -121,7 +121,7 @@ async function searchBrain(query) {
           id: m.id,
           title: m.title,
           snippet: extractSnippet(m.content, query),
-          url: '/brain/memory',
+          url: '/brain/memory?type=memories',
           type: 'memory-entry'
         }))
     : [];
@@ -156,6 +156,27 @@ async function searchBrain(query) {
 }
 
 async function searchMemory(query) {
+  const activeBackend = getBackendName();
+
+  // Postgres backend: use hybrid search (tsvector full-text, no embedding needed)
+  if (activeBackend === 'postgres') {
+    const searchResult = await hybridSearchMemories(query, null, { limit: 10 });
+    const results = (searchResult?.memories ?? [])
+      .map(mem => {
+        const summary = mem.summary ?? '';
+        return {
+          id: mem.id,
+          title: summary.substring(0, 60),
+          snippet: summary,
+          url: '/cos/memory',
+          type: 'memory'
+        };
+      })
+      .slice(0, 5);
+    return { id: 'memory', label: 'Memory', icon: 'Cpu', results };
+  }
+
+  // File backend: use BM25 index + getMemories for metadata
   const [bm25Results, memoriesResult] = await Promise.allSettled([
     searchBM25(query, { limit: 10, threshold: 0.1 }),
     getMemories()

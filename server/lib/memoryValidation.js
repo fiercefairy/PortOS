@@ -110,3 +110,32 @@ export const memoryLinkSchema = z.object({
   sourceId: z.string().uuid(),
   targetId: z.string().uuid()
 });
+
+// Single sync memory item schema (incoming from remote peer)
+const syncMemoryItemSchema = z.object({
+  id: z.string().uuid(),
+  type: memoryTypeEnum,
+  content: z.string().min(1).max(10240),
+  summary: z.string().max(500).nullable().optional(),
+  category: z.string().max(100).nullable().optional(),
+  tags: z.array(z.string().max(50)).optional().default([]),
+  embedding: z.union([z.array(z.number()), z.string()]).nullable().optional(),
+  embeddingModel: z.string().max(200).nullable().optional(),
+  confidence: z.number().min(0).max(1).nullable().optional(),
+  importance: z.number().min(0).max(1).nullable().optional(),
+  accessCount: z.number().int().min(0).optional().default(0),
+  lastAccessed: z.string().datetime().nullable().optional(),
+  status: memoryStatusEnum.optional().default('active'),
+  sourceTaskId: z.string().nullable().optional(),
+  sourceAgentId: z.string().nullable().optional(),
+  sourceAppId: z.string().nullable().optional(),
+  expiresAt: z.string().datetime().nullable().optional(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  syncSequence: z.number().int().optional()
+});
+
+// Sync request body schema
+export const memorySyncSchema = z.object({
+  memories: z.array(syncMemoryItemSchema).min(1).max(1000)
+});

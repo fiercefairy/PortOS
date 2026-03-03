@@ -16,6 +16,9 @@ import * as notifications from './notifications.js';
 import { readJSONFile } from '../lib/fileUtils.js';
 import * as memoryBM25 from './memoryBM25.js';
 import { createMutex } from '../lib/asyncMutex.js';
+import { DEFAULT_MEMORY_CONFIG } from './memoryConfig.js';
+
+export { DEFAULT_MEMORY_CONFIG };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -24,21 +27,6 @@ const MEMORY_DIR = join(DATA_DIR, 'cos/memory');
 const INDEX_FILE = join(MEMORY_DIR, 'index.json');
 const EMBEDDINGS_FILE = join(MEMORY_DIR, 'embeddings.json');
 const MEMORIES_DIR = join(MEMORY_DIR, 'memories');
-
-// Default memory configuration
-export const DEFAULT_MEMORY_CONFIG = {
-  enabled: true,
-  embeddingProvider: 'lmstudio',
-  embeddingEndpoint: 'http://localhost:1234/v1/embeddings',
-  embeddingModel: 'text-embedding-nomic-embed-text-v2-moe',
-  embeddingDimension: 768,
-  maxMemories: 10000,
-  maxContextTokens: 2000,
-  minRelevanceThreshold: 0.7,
-  autoExtractEnabled: true,
-  consolidationIntervalMs: 86400000,
-  decayIntervalMs: 86400000
-};
 
 // In-memory caches
 let indexCache = null;

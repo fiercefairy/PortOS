@@ -40,11 +40,15 @@ function tickSim(nodes, edges, alpha) {
   }
 }
 
+const MAX_ITERATIONS = 300;
+
 function settleSimulation(nodes, edges) {
   let alpha = 1;
-  while (alpha > ALPHA_MIN) {
+  let iter = 0;
+  while (alpha > ALPHA_MIN && iter < MAX_ITERATIONS) {
     tickSim(nodes, edges, alpha);
     alpha *= ALPHA_DECAY;
+    iter++;
   }
 }
 

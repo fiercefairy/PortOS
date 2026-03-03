@@ -101,11 +101,8 @@ function getDockerHints(issue) {
 // Prompt user to continue without Docker (TTY only)
 function promptContinue(message, hint) {
   return new Promise((resolve) => {
-    // Non-TTY (CI, piped scripts) — skip silently
+    // Non-TTY (CI, piped scripts) — continue without prompting
     if (!process.stdin.isTTY) {
-      console.log(`⏭️  ${message}`);
-      console.log(`   ${hint}`);
-      console.log('   Memory system will use file-based JSON storage');
       resolve(true);
       return;
     }

@@ -12,8 +12,8 @@ import { query, withTransaction } from '../lib/db.js';
 import { cosEvents, updateAgent } from './cos.js';
 import * as notifications from './notifications.js';
 
-// Default memory configuration (same as file-based version)
-export const DEFAULT_MEMORY_CONFIG = {
+// Default memory configuration (local copy — canonical export is in memoryBackend.js)
+const DEFAULT_MEMORY_CONFIG = {
   enabled: true,
   embeddingProvider: 'lmstudio',
   embeddingEndpoint: 'http://localhost:1234/v1/embeddings',
@@ -718,7 +718,7 @@ export async function getRelatedMemories(id, limit = 10) {
   const embedding = existing.rows[0].embedding;
   if (embedding) {
     const seenIds = new Set([id, ...related.map(r => r.id)]);
-    const remaining = limit - related.length + seenIds.size;
+    const remaining = limit - related.length;
 
     const similar = await query(`
       SELECT id, type, category, tags, summary, importance, created_at, status, source_app_id,

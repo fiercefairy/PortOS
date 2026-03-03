@@ -2,6 +2,7 @@
 -- PostgreSQL + pgvector
 
 CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- Core memories table
 CREATE TABLE IF NOT EXISTS memories (

@@ -8,7 +8,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import { query, withTransaction } from '../lib/db.js';
+import { query, withTransaction, pgvectorToArray, arrayToPgvector } from '../lib/db.js';
 import { cosEvents } from './cos.js';
 import * as notifications from './notifications.js';
 import { DEFAULT_MEMORY_CONFIG, generateSummary, decrementAgentPendingApproval } from './memoryConfig.js';
@@ -56,26 +56,6 @@ function rowToMeta(row) {
     status: row.status,
     sourceAppId: row.source_app_id
   };
-}
-
-/**
- * Convert pgvector string representation to float array.
- * pgvector returns vectors as '[0.1,0.2,...]' strings.
- */
-function pgvectorToArray(vec) {
-  if (Array.isArray(vec)) return vec;
-  if (typeof vec === 'string') {
-    return vec.replace(/^\[|\]$/g, '').split(',').map(Number);
-  }
-  return null;
-}
-
-/**
- * Format a float array as pgvector literal '[0.1,0.2,...]'
- */
-function arrayToPgvector(arr) {
-  if (!arr) return null;
-  return `[${arr.join(',')}]`;
 }
 
 // =============================================================================
@@ -488,18 +468,17 @@ export async function hybridSearchMemories(queryText, queryEmbedding, options = 
   // Get full-text search results (replaces BM25)
   let ftsResults = [];
   if (queryText) {
-    const ftsQuery = queryText.split(/\s+/).filter(Boolean).join(' & ');
     const ftsResult = await query(
       `SELECT id, type, category, tags, summary, importance, created_at, status, source_app_id,
               ts_rank(to_tsvector('english', coalesce(content, '') || ' ' || coalesce(summary, '')),
-                      to_tsquery('english', $${paramIdx})) AS fts_score
+                      websearch_to_tsquery('english', $${paramIdx})) AS fts_score
        FROM memories
        WHERE ${filterWhere}
          AND to_tsvector('english', coalesce(content, '') || ' ' || coalesce(summary, ''))
-             @@ to_tsquery('english', $${paramIdx})
+             @@ websearch_to_tsquery('english', $${paramIdx})
        ORDER BY fts_score DESC
        LIMIT $${paramIdx + 1}`,
-      [...filterParams, ftsQuery, fetchLimit]
+      [...filterParams, queryText, fetchLimit]
     );
     ftsResults = ftsResult.rows;
   }

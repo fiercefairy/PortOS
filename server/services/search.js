@@ -11,7 +11,7 @@
 
 import { getInboxLog, getPeople, getProjects, getIdeas, getAdminItems, getMemoryEntries, getLinks } from './brainStorage.js';
 import { searchBM25 } from './memoryBM25.js';
-import { getMemories, getBackendName, hybridSearchMemories } from './memoryBackend.js';
+import { getMemories, ensureBackend, hybridSearchMemories } from './memoryBackend.js';
 import { getAllApps } from './apps.js';
 import { getHistory } from './history.js';
 
@@ -156,7 +156,7 @@ async function searchBrain(query) {
 }
 
 async function searchMemory(query) {
-  const activeBackend = getBackendName();
+  const activeBackend = await ensureBackend();
 
   // Postgres backend: use hybrid search (tsvector full-text, no embedding needed)
   if (activeBackend === 'postgres') {

@@ -91,7 +91,7 @@ router.get('/sync', asyncHandler(async (req, res) => {
     throw new ServerError('Sync requires PostgreSQL backend', { status: 400 });
   }
   const since = parseInt(req.query.since, 10) || 0;
-  const limit = Math.min(parseInt(req.query.limit, 10) || 100, 1000);
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 100, 1), 1000);
   const result = await memorySync.getChangesSince(since, limit);
   res.json(result);
 }));

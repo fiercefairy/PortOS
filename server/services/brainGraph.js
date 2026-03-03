@@ -73,12 +73,14 @@ export async function getBrainGraphData() {
       const edgeKey = [brainSourceId, brainTargetId].sort().join('-');
       if (seenEdges.has(edgeKey)) continue;
       seenEdges.add(edgeKey);
-      hasEmbeddings = true;
+
+      const mappedType = edge.type === 'linked' ? 'linked' : 'similar';
+      if (mappedType === 'similar') hasEmbeddings = true;
 
       edges.push({
         source: brainSourceId,
         target: brainTargetId,
-        type: edge.type === 'linked' ? 'linked' : 'similar',
+        type: mappedType,
         weight: edge.weight
       });
     }

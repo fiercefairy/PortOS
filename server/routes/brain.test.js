@@ -880,4 +880,51 @@ describe('Brain Routes', () => {
       expect(response.body.inboxLog.correction.newDestination).toBe('projects');
     });
   });
+
+  // ===========================================================================
+  // GRAPH
+  // ===========================================================================
+
+  describe('GET /api/brain/graph', () => {
+    it('should return graph data', async () => {
+      const mockGraph = { nodes: [{ id: '1', label: 'Test' }], edges: [], hasEmbeddings: false };
+      getBrainGraphData.mockResolvedValue(mockGraph);
+
+      const response = await request(app).get('/api/brain/graph');
+      expect(response.status).toBe(200);
+      expect(response.body.nodes).toHaveLength(1);
+      expect(response.body.hasEmbeddings).toBe(false);
+    });
+
+    it('should return 500 when service throws', async () => {
+      getBrainGraphData.mockRejectedValue(new Error('Graph build failed'));
+
+      const response = await request(app).get('/api/brain/graph');
+      expect(response.status).toBe(500);
+    });
+  });
+
+  // ===========================================================================
+  // SYNC
+  // ===========================================================================
+
+  describe('POST /api/brain/sync', () => {
+    it('should return sync stats', async () => {
+      const mockStats = { synced: 5, skipped: 2, errors: 0 };
+      syncAllBrainData.mockResolvedValue(mockStats);
+
+      const response = await request(app).post('/api/brain/sync');
+      expect(response.status).toBe(200);
+      expect(response.body.synced).toBe(5);
+      expect(response.body.skipped).toBe(2);
+      expect(response.body.errors).toBe(0);
+    });
+
+    it('should return 500 when sync fails', async () => {
+      syncAllBrainData.mockRejectedValue(new Error('Sync failed'));
+
+      const response = await request(app).post('/api/brain/sync');
+      expect(response.status).toBe(500);
+    });
+  });
 });

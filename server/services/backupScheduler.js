@@ -29,6 +29,7 @@ export async function startBackupScheduler() {
 
   const cronExpression = settings.backup?.cronExpression || '0 2 * * *';
   const destPath = settings.backup.destPath;
+  const excludePaths = settings.backup?.excludePaths || [];
 
   schedule({
     id: 'backup-daily',
@@ -36,7 +37,7 @@ export async function startBackupScheduler() {
     cron: cronExpression,
     handler: async () => {
       console.log('💾 Backup scheduler: running scheduled backup');
-      await runBackup(destPath);
+      await runBackup(destPath, null, { excludePaths });
     },
     metadata: { source: 'backupScheduler' }
   });

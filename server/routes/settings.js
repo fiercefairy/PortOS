@@ -7,13 +7,15 @@ const router = Router();
 // GET /api/settings
 router.get('/', asyncHandler(async (req, res) => {
   const settings = await getSettings();
-  res.json(settings);
+  const { secrets, ...safe } = settings;
+  res.json(safe);
 }));
 
 // PUT /api/settings
 router.put('/', asyncHandler(async (req, res) => {
   const merged = await updateSettings(req.body);
-  res.json(merged);
+  const { secrets, ...safe } = merged;
+  res.json(safe);
 }));
 
 export default router;

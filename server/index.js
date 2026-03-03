@@ -49,6 +49,7 @@ import searchRoutes from './routes/search.js';
 import identityRoutes from './routes/identity.js';
 import instancesRoutes from './routes/instances.js';
 import meatspaceRoutes from './routes/meatspace.js';
+import githubRoutes from './routes/github.js';
 import settingsRoutes from './routes/settings.js';
 import { ensureSelf, startPolling } from './services/instances.js';
 import { initSocket } from './services/socket.js';
@@ -228,6 +229,7 @@ app.use('/api/health', appleHealthRoutes);
 app.use('/api/insights', insightsRoutes);
 app.use('/api/instances', instancesRoutes);
 app.use('/api/meatspace', meatspaceRoutes);
+app.use('/api/github', githubRoutes);
 app.use('/api/settings', settingsRoutes);
 
 // Initialize script runner

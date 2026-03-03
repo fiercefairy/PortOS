@@ -13,11 +13,12 @@ async function run() {
   // Ensure migrations directory exists
   await mkdir(migrationsDir, { recursive: true });
 
-  // Load applied migrations list
+  // Load applied migrations list (default to [] on corrupt file)
   let applied = [];
   if (existsSync(appliedFile)) {
     const raw = await readFile(appliedFile, 'utf-8');
-    applied = JSON.parse(raw);
+    try { applied = JSON.parse(raw); } catch { applied = []; }
+    if (!Array.isArray(applied)) applied = [];
   }
 
   // Scan for migration files (*.js, sorted by filename)

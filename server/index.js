@@ -64,7 +64,7 @@ import './services/subAgentSpawner.js'; // Initialize CoS agent spawner
 import * as automationScheduler from './services/automationScheduler.js';
 import * as agentActionExecutor from './services/agentActionExecutor.js';
 import { startBackupScheduler } from './services/backupScheduler.js';
-import { startUpdateScheduler } from './services/updateChecker.js';
+import { startUpdateScheduler, recordUpdateResult } from './services/updateChecker.js';
 import { startBrainScheduler } from './services/brainScheduler.js';
 import { recoverStuckClassifications } from './services/brain.js';
 import { initBridge as initBrainMemoryBridge } from './services/brainMemoryBridge.js';
@@ -251,6 +251,16 @@ startBrainScheduler();
 initBrainMemoryBridge();
 // Initialize backup scheduler for daily data backups
 startBackupScheduler().catch(err => console.error(`❌ Backup scheduler init failed: ${err.message}`));
+// Check for update completion marker from a previous update cycle
+import { readFile, unlink } from 'fs/promises';
+const updateMarkerPath = join(__dirname, '..', 'data', 'update-complete.json');
+readFile(updateMarkerPath, 'utf-8').then(raw => {
+  const marker = JSON.parse(raw);
+  console.log(`✅ Update to v${marker.version} completed at ${marker.completedAt}`);
+  return recordUpdateResult({ version: marker.version, success: true, completedAt: marker.completedAt, log: '' })
+    .then(() => unlink(updateMarkerPath));
+}).catch(() => {}); // No marker file = no recent update
+
 // Start periodic update checker (checks GitHub releases every 30 min)
 startUpdateScheduler();
 

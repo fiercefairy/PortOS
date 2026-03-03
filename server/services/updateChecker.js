@@ -14,6 +14,7 @@ export const updateEvents = new EventEmitter();
 const withLock = createMutex();
 
 let schedulerInterval = null;
+let startupTimeout = null;
 
 const defaultState = () => ({
   lastCheck: null,
@@ -85,10 +86,10 @@ export async function checkForUpdate() {
     const state = await loadState();
     const currentVersion = await getCurrentVersion();
 
-    let release;
     const raw = await execGh(['api', 'repos/atomantic/PortOS/releases/latest']);
-    const data = JSON.parse(raw);
-    release = {
+    let data;
+    try { data = JSON.parse(raw); } catch { throw new Error(`Failed to parse GitHub release response: ${raw.slice(0, 200)}`); }
+    const release = {
       version: data.tag_name?.replace(/^v/, '') || '0.0.0',
       tag: data.tag_name || '',
       url: data.html_url || '',
@@ -200,7 +201,8 @@ export async function recordUpdateResult(result) {
  */
 export function startUpdateScheduler() {
   // Initial check after startup delay
-  setTimeout(() => {
+  startupTimeout = setTimeout(() => {
+    startupTimeout = null;
     checkForUpdate().catch(err => {
       console.warn(`⚠️ Update check failed: ${err.message}`);
     });
@@ -220,6 +222,10 @@ export function startUpdateScheduler() {
  * Stop the periodic update checker.
  */
 export function stopUpdateScheduler() {
+  if (startupTimeout) {
+    clearTimeout(startupTimeout);
+    startupTimeout = null;
+  }
   if (schedulerInterval) {
     clearInterval(schedulerInterval);
     schedulerInterval = null;

@@ -54,35 +54,29 @@ export async function executeUpdate(tag, emit) {
       }
     });
 
-    child.on('close', async (code) => {
-      if (code === 0) {
-        await recordUpdateResult({
-          version: tag.replace(/^v/, ''),
-          success: true,
-          completedAt: new Date().toISOString(),
-          log: ''
-        });
+    child.on('close', (code) => {
+      const success = code === 0;
+      recordUpdateResult({
+        version: tag.replace(/^v/, ''),
+        success,
+        completedAt: new Date().toISOString(),
+        log: success ? '' : `Process exited with code ${code}`
+      }).catch(e => console.error(`❌ Failed to record update result: ${e.message}`));
+      if (success) {
         emit('complete', 'done', `Update to ${tag} complete`);
-        resolve({ success: true });
       } else {
-        await recordUpdateResult({
-          version: tag.replace(/^v/, ''),
-          success: false,
-          completedAt: new Date().toISOString(),
-          log: `Process exited with code ${code}`
-        });
         emit(lastStep, 'error', `Update failed at step "${lastStep}" (exit code ${code})`);
-        resolve({ success: false });
       }
+      resolve({ success });
     });
 
-    child.on('error', async (err) => {
-      await recordUpdateResult({
+    child.on('error', (err) => {
+      recordUpdateResult({
         version: tag.replace(/^v/, ''),
         success: false,
         completedAt: new Date().toISOString(),
         log: err.message
-      });
+      }).catch(e => console.error(`❌ Failed to record update result: ${e.message}`));
       emit('starting', 'error', `Failed to start update: ${err.message}`);
       resolve({ success: false });
     });

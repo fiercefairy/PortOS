@@ -105,32 +105,32 @@ describe('Memory Routes', () => {
       ensureBackend.mockResolvedValue('postgres');
       memorySync.getChangesSince.mockResolvedValue({
         memories: [{ id: 'mem-001' }],
-        maxSequence: 42
+        maxSequence: '42'
       });
 
       const response = await request(app).get('/api/memory/sync?since=10&limit=50');
 
       expect(response.status).toBe(200);
-      expect(response.body.maxSequence).toBe(42);
-      expect(memorySync.getChangesSince).toHaveBeenCalledWith(10, 50);
+      expect(response.body.maxSequence).toBe('42');
+      expect(memorySync.getChangesSince).toHaveBeenCalledWith('10', 50);
     });
 
     it('should default since to 0 and limit to 100', async () => {
       ensureBackend.mockResolvedValue('postgres');
-      memorySync.getChangesSince.mockResolvedValue({ memories: [], maxSequence: 0 });
+      memorySync.getChangesSince.mockResolvedValue({ memories: [], maxSequence: '0' });
 
       await request(app).get('/api/memory/sync');
 
-      expect(memorySync.getChangesSince).toHaveBeenCalledWith(0, 100);
+      expect(memorySync.getChangesSince).toHaveBeenCalledWith('0', 100);
     });
 
     it('should cap limit at 1000', async () => {
       ensureBackend.mockResolvedValue('postgres');
-      memorySync.getChangesSince.mockResolvedValue({ memories: [], maxSequence: 0 });
+      memorySync.getChangesSince.mockResolvedValue({ memories: [], maxSequence: '0' });
 
       await request(app).get('/api/memory/sync?limit=5000');
 
-      expect(memorySync.getChangesSince).toHaveBeenCalledWith(0, 1000);
+      expect(memorySync.getChangesSince).toHaveBeenCalledWith('0', 1000);
     });
   });
 

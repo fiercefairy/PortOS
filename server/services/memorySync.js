@@ -22,11 +22,11 @@ import { query, withTransaction, arrayToPgvector, pgvectorToArray } from '../lib
  * Get memories changed since a given sync sequence.
  * Used by peers to pull incremental updates.
  *
- * @param {number} sinceSequence - Return changes after this sequence number (0 = all)
+ * @param {string} sinceSequence - Return changes after this sequence (string to avoid BigInt precision loss)
  * @param {number} limit - Max records to return per batch
- * @returns {Promise<{memories: Array, maxSequence: number, hasMore: boolean}>}
+ * @returns {Promise<{memories: Array, maxSequence: string, hasMore: boolean}>}
  */
-export async function getChangesSince(sinceSequence = 0, limit = 100) {
+export async function getChangesSince(sinceSequence = '0', limit = 100) {
   // Fetch limit+1 rows to detect whether more records exist beyond this batch
   const result = await query(
     `SELECT id, type, content, summary, category, tags,
@@ -63,7 +63,7 @@ export async function getChangesSince(sinceSequence = 0, limit = 100) {
     expiresAt: row.expires_at?.toISOString() ?? null,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
-    syncSequence: parseInt(row.sync_sequence, 10)
+    syncSequence: row.sync_sequence
   }));
 
   const maxSequence = memories.length > 0
@@ -76,17 +76,38 @@ export async function getChangesSince(sinceSequence = 0, limit = 100) {
 /**
  * Apply incoming changes from a remote peer.
  * Uses last-writer-wins conflict resolution based on updated_at.
+ * Batches inserts (100 per query) to reduce round-trips and lock time.
  *
  * @param {Array} incomingMemories - Array of memory objects from remote peer
  * @returns {Promise<{applied: number, skipped: number, conflicts: number}>}
  */
 export async function applyRemoteChanges(incomingMemories) {
-  let applied = 0;
-  let skipped = 0;
-  let conflicts = 0;
+  if (incomingMemories.length === 0) return { applied: 0, skipped: 0, conflicts: 0 };
+
+  const COLS = 17;
+  const BATCH_SIZE = 100;
 
   return withTransaction(async (client) => {
-    for (const mem of incomingMemories) {
+    let applied = 0;
+    let skipped = 0;
+    let conflicts = 0;
+
+    for (let i = 0; i < incomingMemories.length; i += BATCH_SIZE) {
+      const batch = incomingMemories.slice(i, i + BATCH_SIZE);
+      const values = [];
+      const params = [];
+
+      batch.forEach((mem, idx) => {
+        const base = idx * COLS;
+        values.push(`(${Array.from({length: COLS}, (_, j) => `$${base + j + 1}`).join(', ')})`);
+        params.push(
+          mem.id, mem.type, mem.content, mem.summary, mem.category, mem.tags || [],
+          arrayToPgvector(mem.embedding), mem.embeddingModel, mem.confidence, mem.importance,
+          mem.status, mem.sourceTaskId, mem.sourceAgentId, mem.sourceAppId,
+          mem.expiresAt, mem.createdAt, mem.updatedAt
+        );
+      });
+
       // access_count and last_accessed are instance-local, not synced
       const result = await client.query(
         `INSERT INTO memories (
@@ -94,12 +115,7 @@ export async function applyRemoteChanges(incomingMemories) {
             embedding, embedding_model, confidence, importance,
             status, source_task_id, source_agent_id, source_app_id,
             expires_at, created_at, updated_at
-          ) VALUES (
-            $1, $2, $3, $4, $5, $6,
-            $7, $8, $9, $10,
-            $11, $12, $13, $14,
-            $15, $16, $17
-          )
+          ) VALUES ${values.join(', ')}
           ON CONFLICT (id) DO UPDATE SET
             type = EXCLUDED.type, content = EXCLUDED.content,
             summary = EXCLUDED.summary, category = EXCLUDED.category, tags = EXCLUDED.tags,
@@ -111,20 +127,12 @@ export async function applyRemoteChanges(incomingMemories) {
             source_app_id = EXCLUDED.source_app_id
           WHERE EXCLUDED.updated_at > memories.updated_at
           RETURNING (xmax = 0) AS inserted`,
-          [
-            mem.id, mem.type, mem.content, mem.summary, mem.category, mem.tags || [],
-            arrayToPgvector(mem.embedding), mem.embeddingModel, mem.confidence, mem.importance,
-            mem.status, mem.sourceTaskId, mem.sourceAgentId, mem.sourceAppId,
-            mem.expiresAt, mem.createdAt, mem.updatedAt
-          ]
-        );
+        params
+      );
 
-      if (result.rows.length > 0) {
-        applied++;
-        if (!result.rows[0].inserted) conflicts++;
-      } else {
-        skipped++;
-      }
+      applied += result.rows.length;
+      conflicts += result.rows.filter(r => !r.inserted).length;
+      skipped += batch.length - result.rows.length;
     }
 
     return { applied, skipped, conflicts };
@@ -132,12 +140,12 @@ export async function applyRemoteChanges(incomingMemories) {
 }
 
 /**
- * Get the current maximum sync sequence number.
+ * Get the current maximum sync sequence.
  * Used by peers to determine if they're up-to-date.
  *
- * @returns {Promise<number>}
+ * @returns {Promise<string>} Sequence as string to avoid BigInt precision loss
  */
 export async function getMaxSequence() {
-  const result = await query('SELECT COALESCE(MAX(sync_sequence), 0) AS max_seq FROM memories');
-  return parseInt(result.rows[0].max_seq, 10);
+  const result = await query('SELECT COALESCE(MAX(sync_sequence), 0)::text AS max_seq FROM memories');
+  return result.rows[0].max_seq;
 }

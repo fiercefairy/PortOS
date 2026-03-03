@@ -318,7 +318,8 @@ router.post('/post/sessions', asyncHandler(async (req, res) => {
  * Rolling averages and trends
  */
 router.get('/post/stats', asyncHandler(async (req, res) => {
-  const days = req.query.days ? parseInt(req.query.days, 10) : 30;
+  const rawDays = req.query.days != null ? parseInt(req.query.days, 10) : 30;
+  const days = Number.isNaN(rawDays) ? 30 : rawDays > 0 ? Math.min(rawDays, 365) : 0;
   const stats = await postService.getPostStats(days);
   res.json(stats);
 }));

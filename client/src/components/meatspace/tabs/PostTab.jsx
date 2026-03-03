@@ -27,10 +27,10 @@ export default function PostTab() {
     setRecentSessions(sessions);
   }
 
-  function handleStart(drillConfigs, tags) {
+  async function handleStart(drillConfigs, tags) {
     setSessionTags(tags || {});
-    session.startSession(drillConfigs);
-    setView('running');
+    const started = await session.startSession(drillConfigs);
+    if (started) setView('running');
   }
 
   function handleDrillComplete() {

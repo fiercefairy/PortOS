@@ -79,7 +79,7 @@ export default function PostDrillRunner({ session }) {
 
   const question = currentDrill.questions[currentQuestionIndex];
   const timePct = timeLimitMs > 0 ? (timeLeft / timeLimitMs) * 100 : 0;
-  const progressPct = totalQuestions > 0 ? ((currentQuestionIndex) / totalQuestions) * 100 : 0;
+  const progressPct = totalQuestions > 0 ? ((currentQuestionIndex + 1) / totalQuestions) * 100 : 0;
 
   // Timer bar color
   let timerColor = 'bg-port-accent';

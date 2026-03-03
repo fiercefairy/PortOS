@@ -48,6 +48,7 @@ export function usePostSession() {
     questionStartRef.current = Date.now();
     drillStartRef.current = Date.now();
     setState(STATES.DRILLING);
+    return drill;
   }, []);
 
   const finishDrill = useCallback((finalAnswers) => {

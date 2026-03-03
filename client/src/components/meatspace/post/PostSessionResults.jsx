@@ -15,8 +15,8 @@ export default function PostSessionResults({ session, tags = {}, onSaved, onBack
     sessionScore >= 50 ? 'text-port-warning' : 'text-port-error';
 
   async function handleSave() {
-    await saveSession(tags);
-    onSaved();
+    const savedSession = await saveSession(tags);
+    if (savedSession) onSaved();
   }
 
   return (

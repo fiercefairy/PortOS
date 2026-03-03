@@ -64,9 +64,12 @@ export default function PostDrillConfig({ config, onSaved, onBack }) {
   }
 
   function updateField(type, key, value) {
+    const coerced = value === '' || value === null || value === undefined
+      ? undefined
+      : Number(value);
     setDrillTypes(prev => ({
       ...prev,
-      [type]: { ...prev[type], [key]: Number(value) }
+      [type]: { ...prev[type], [key]: coerced }
     }));
   }
 

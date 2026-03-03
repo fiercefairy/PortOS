@@ -34,7 +34,7 @@ export default function PostHistory({ onBack }) {
       : undefined;
     const [s, st] = await Promise.all([
       getPostSessions(from),
-      getPostStats(range || 365)
+      getPostStats(range)
     ]);
     setSessions((s || []).slice().reverse());
     setStats(st);

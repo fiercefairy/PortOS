@@ -29,6 +29,12 @@ CREATE TABLE IF NOT EXISTS memories (
   sync_sequence BIGSERIAL
 );
 
+-- Schema upgrades: add columns that may not exist on older installs
+DO $$ BEGIN
+  ALTER TABLE memories ADD COLUMN IF NOT EXISTS sync_sequence BIGSERIAL;
+EXCEPTION WHEN others THEN NULL;
+END $$;
+
 -- HNSW index for fast vector similarity search (O(log n) instead of O(n))
 CREATE INDEX IF NOT EXISTS idx_memories_embedding
   ON memories USING hnsw (embedding vector_cosine_ops)

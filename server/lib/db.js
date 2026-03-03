@@ -72,10 +72,14 @@ export async function withTransaction(fn) {
  */
 export async function checkHealth() {
   try {
-    const result = await pool.query(
-      "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'memories') AS has_table"
-    );
-    return { connected: true, hasSchema: result.rows[0].has_table };
+    const result = await pool.query(`
+      SELECT
+        EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'memories') AS has_memories,
+        EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'memory_links') AS has_links,
+        EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name = 'memories' AND column_name = 'sync_sequence') AS has_sync
+    `);
+    const { has_memories, has_links, has_sync } = result.rows[0];
+    return { connected: true, hasSchema: has_memories && has_links && has_sync };
   } catch (err) {
     return { connected: false, hasSchema: false, error: err.message };
   }

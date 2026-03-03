@@ -60,12 +60,37 @@ CREATE TABLE IF NOT EXISTS memory_links (
   PRIMARY KEY (source_id, target_id)
 );
 
--- Auto-update updated_at and sync_sequence on modification
--- Respects explicitly provided updated_at (e.g., from sync service)
--- Always bumps sync_sequence so federation peers detect changes
+-- Auto-update updated_at and sync_sequence on content/metadata changes.
+-- Skips bump for access-stat-only updates (access_count, last_accessed)
+-- to avoid sync noise from read operations.
+-- Respects explicitly provided updated_at (e.g., from sync service).
 CREATE OR REPLACE FUNCTION update_memory_timestamp()
 RETURNS TRIGGER AS $$
+DECLARE
+  content_changed BOOLEAN;
 BEGIN
+  content_changed := (
+    NEW.type IS DISTINCT FROM OLD.type OR
+    NEW.content IS DISTINCT FROM OLD.content OR
+    NEW.summary IS DISTINCT FROM OLD.summary OR
+    NEW.category IS DISTINCT FROM OLD.category OR
+    NEW.tags IS DISTINCT FROM OLD.tags OR
+    NEW.embedding IS DISTINCT FROM OLD.embedding OR
+    NEW.embedding_model IS DISTINCT FROM OLD.embedding_model OR
+    NEW.confidence IS DISTINCT FROM OLD.confidence OR
+    NEW.importance IS DISTINCT FROM OLD.importance OR
+    NEW.status IS DISTINCT FROM OLD.status OR
+    NEW.expires_at IS DISTINCT FROM OLD.expires_at OR
+    NEW.source_task_id IS DISTINCT FROM OLD.source_task_id OR
+    NEW.source_agent_id IS DISTINCT FROM OLD.source_agent_id OR
+    NEW.source_app_id IS DISTINCT FROM OLD.source_app_id
+  );
+
+  -- Access-stat-only update: skip sync_sequence and updated_at bump
+  IF NOT content_changed THEN
+    RETURN NEW;
+  END IF;
+
   IF NEW.updated_at IS NULL OR NEW.updated_at = OLD.updated_at THEN
     NEW.updated_at = NOW();
   END IF;

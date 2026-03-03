@@ -1,4 +1,4 @@
-import { MessageSquare, Database, Calendar, Shield, Users, FolderKanban, Lightbulb, ClipboardList, Settings, Link2 } from 'lucide-react';
+import { MessageSquare, Database, Calendar, Shield, Users, FolderKanban, Lightbulb, ClipboardList, Settings, Link2, BookOpen } from 'lucide-react';
 
 // Main navigation tabs
 export const TABS = [
@@ -10,12 +10,13 @@ export const TABS = [
   { id: 'config', label: 'Config', icon: Settings }
 ];
 
-// Memory sub-tabs for entity types
+// Memory sub-tabs for entity types (alphabetical)
 export const MEMORY_TABS = [
-  { id: 'people', label: 'People', icon: Users },
-  { id: 'projects', label: 'Projects', icon: FolderKanban },
+  { id: 'admin', label: 'Admin', icon: ClipboardList },
   { id: 'ideas', label: 'Ideas', icon: Lightbulb },
-  { id: 'admin', label: 'Admin', icon: ClipboardList }
+  { id: 'memories', label: 'Memories', icon: BookOpen },
+  { id: 'people', label: 'People', icon: Users },
+  { id: 'projects', label: 'Projects', icon: FolderKanban }
 ];
 
 // Destination display info
@@ -39,6 +40,11 @@ export const DESTINATIONS = {
     label: 'Admin',
     icon: ClipboardList,
     color: 'bg-green-500/20 text-green-400 border-green-500/30'
+  },
+  memories: {
+    label: 'Memories',
+    icon: BookOpen,
+    color: 'bg-pink-500/20 text-pink-400 border-pink-500/30'
   },
   unknown: {
     label: 'Unknown',

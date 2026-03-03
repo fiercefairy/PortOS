@@ -27,6 +27,7 @@ const FILES = {
   projects: join(DATA_DIR, 'projects.json'),
   ideas: join(DATA_DIR, 'ideas.json'),
   admin: join(DATA_DIR, 'admin.json'),
+  memories: join(DATA_DIR, 'memories.json'),
   links: join(DATA_DIR, 'links.json'),
   digests: join(DATA_DIR, 'digests.jsonl'),
   reviews: join(DATA_DIR, 'reviews.jsonl')
@@ -42,6 +43,7 @@ const caches = {
   projects: { data: null, timestamp: 0 },
   ideas: { data: null, timestamp: 0 },
   admin: { data: null, timestamp: 0 },
+  memories: { data: null, timestamp: 0 },
   links: { data: null, timestamp: 0 },
   inboxLog: { data: null, timestamp: 0 },
   digests: { data: null, timestamp: 0 },
@@ -531,6 +533,13 @@ export const createAdminItem = (data) => create('admin', data);
 export const updateAdminItem = (id, data) => update('admin', id, data);
 export const deleteAdminItem = (id) => remove('admin', id);
 
+// Memories
+export const getMemoryEntries = () => getAll('memories');
+export const getMemoryEntryById = (id) => getById('memories', id);
+export const createMemoryEntry = (data) => create('memories', data);
+export const updateMemoryEntry = (id, data) => update('memories', id, data);
+export const deleteMemoryEntry = (id) => remove('memories', id);
+
 // Links
 export const getLinks = (filters) => filters ? query('links', filters) : getAll('links');
 export const getLinkById = (id) => getById('links', id);
@@ -564,11 +573,12 @@ export function invalidateAllCaches() {
  * Get brain data summary (for dashboard)
  */
 export async function getSummary() {
-  const [people, projects, ideas, adminItems, links, inboxCounts, meta] = await Promise.all([
+  const [people, projects, ideas, adminItems, memoryEntries, links, inboxCounts, meta] = await Promise.all([
     getAll('people'),
     getAll('projects'),
     getAll('ideas'),
     getAll('admin'),
+    getAll('memories'),
     getAll('links'),
     getInboxLogCounts(),
     loadMeta()
@@ -580,6 +590,7 @@ export async function getSummary() {
       projects: projects.length,
       ideas: ideas.length,
       admin: adminItems.length,
+      memories: memoryEntries.length,
       links: links.length,
       inbox: inboxCounts
     },

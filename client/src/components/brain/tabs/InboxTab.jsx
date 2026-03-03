@@ -383,7 +383,7 @@ export default function InboxTab({ onRefresh, settings }) {
                   ) : editingId !== entry.id && (
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs text-gray-500">Route to:</span>
-                      {['people', 'projects', 'ideas', 'admin'].map(dest => {
+                      {['people', 'projects', 'ideas', 'admin', 'memories'].map(dest => {
                         const destInfo = DESTINATIONS[dest];
                         const Icon = destInfo.icon;
                         return (
@@ -651,7 +651,7 @@ export default function InboxTab({ onRefresh, settings }) {
                           title="Select new destination"
                         >
                           <option value="">Select...</option>
-                          {['people', 'projects', 'ideas', 'admin']
+                          {['people', 'projects', 'ideas', 'admin', 'memories']
                             .filter(d => d !== entry.filed?.destination)
                             .map(d => (
                               <option key={d} value={d}>{DESTINATIONS[d].label}</option>

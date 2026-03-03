@@ -990,6 +990,19 @@ export const updateBrainAdminItem = (id, data) => request(`/brain/admin/${id}`, 
 });
 export const deleteBrainAdminItem = (id) => request(`/brain/admin/${id}`, { method: 'DELETE' });
 
+// Brain - Memories
+export const getBrainMemories = () => request('/brain/memories');
+export const getBrainMemory = (id) => request(`/brain/memories/${id}`);
+export const createBrainMemory = (data) => request('/brain/memories', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const updateBrainMemory = (id, data) => request(`/brain/memories/${id}`, {
+  method: 'PUT',
+  body: JSON.stringify(data)
+});
+export const deleteBrainMemory = (id) => request(`/brain/memories/${id}`, { method: 'DELETE' });
+
 // Brain - Digests & Reviews
 export const getBrainLatestDigest = () => request('/brain/digest/latest');
 export const getBrainDigests = (limit = 10) => request(`/brain/digests?limit=${limit}`);

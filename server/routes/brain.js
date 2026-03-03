@@ -25,6 +25,7 @@ import {
   projectInputSchema,
   ideaInputSchema,
   adminInputSchema,
+  memoryInputSchema,
   settingsUpdateInputSchema,
   linkInputSchema,
   linkUpdateInputSchema,
@@ -300,6 +301,46 @@ router.delete('/admin/:id', asyncHandler(async (req, res) => {
   const deleted = await brainService.deleteAdminItem(req.params.id);
   if (!deleted) {
     throw new ServerError('Admin item not found', { status: 404, code: 'NOT_FOUND' });
+  }
+  res.status(204).send();
+}));
+
+// =============================================================================
+// MEMORIES CRUD
+// =============================================================================
+
+router.get('/memories', asyncHandler(async (req, res) => {
+  const memories = await brainService.getMemoryEntries();
+  res.json(memories);
+}));
+
+router.get('/memories/:id', asyncHandler(async (req, res) => {
+  const memory = await brainService.getMemoryEntryById(req.params.id);
+  if (!memory) {
+    throw new ServerError('Memory not found', { status: 404, code: 'NOT_FOUND' });
+  }
+  res.json(memory);
+}));
+
+router.post('/memories', asyncHandler(async (req, res) => {
+  const data = validateRequest(memoryInputSchema, req.body);
+  const memory = await brainService.createMemoryEntry(data);
+  res.status(201).json(memory);
+}));
+
+router.put('/memories/:id', asyncHandler(async (req, res) => {
+  const data = validateRequest(memoryInputSchema.partial(), req.body);
+  const memory = await brainService.updateMemoryEntry(req.params.id, data);
+  if (!memory) {
+    throw new ServerError('Memory not found', { status: 404, code: 'NOT_FOUND' });
+  }
+  res.json(memory);
+}));
+
+router.delete('/memories/:id', asyncHandler(async (req, res) => {
+  const deleted = await brainService.deleteMemoryEntry(req.params.id);
+  if (!deleted) {
+    throw new ServerError('Memory not found', { status: 404, code: 'NOT_FOUND' });
   }
   res.status(204).send();
 }));

@@ -22,7 +22,8 @@ import {
   extractedPeopleSchema,
   extractedProjectSchema,
   extractedIdeaSchema,
-  extractedAdminSchema
+  extractedAdminSchema,
+  extractedMemorySchema
 } from '../lib/brainValidation.js';
 
 // Extracted field validators by destination
@@ -30,7 +31,8 @@ const EXTRACTED_VALIDATORS = {
   people: extractedPeopleSchema,
   projects: extractedProjectSchema,
   ideas: extractedIdeaSchema,
-  admin: extractedAdminSchema
+  admin: extractedAdminSchema,
+  memories: extractedMemorySchema
 };
 
 /**
@@ -349,6 +351,14 @@ async function fileToDestination(destination, extracted, title) {
         notes: data.notes || ''
       });
 
+    case 'memories':
+      return storage.createMemoryEntry({
+        title: data.title || title,
+        content: data.content || '',
+        mood: data.mood || null,
+        tags: data.tags || []
+      });
+
     default:
       throw new Error(`Cannot file to destination: ${destination}`);
   }
@@ -453,7 +463,8 @@ async function archiveRecord(destination, id) {
     people: storage.updatePerson,
     projects: storage.updateProject,
     ideas: storage.updateIdea,
-    admin: storage.updateAdminItem
+    admin: storage.updateAdminItem,
+    memories: storage.updateMemoryEntry
   }[destination];
 
   if (updateFn) {
@@ -702,6 +713,11 @@ export const getDigests = storage.getDigests;
 export const getLatestDigest = storage.getLatestDigest;
 export const getReviews = storage.getReviews;
 export const getLatestReview = storage.getLatestReview;
+export const getMemoryEntries = storage.getMemoryEntries;
+export const getMemoryEntryById = storage.getMemoryEntryById;
+export const createMemoryEntry = storage.createMemoryEntry;
+export const updateMemoryEntry = storage.updateMemoryEntry;
+export const deleteMemoryEntry = storage.deleteMemoryEntry;
 export const getLinks = storage.getLinks;
 export const getLinkById = storage.getLinkById;
 export const getLinkByUrl = storage.getLinkByUrl;

@@ -247,6 +247,7 @@ export async function handleAnnounce({ address, port, instanceId, name }) {
       existing.lastSeen = new Date().toISOString();
       existing.status = 'online';
       existing.instanceId = instanceId;
+      existing.port = port;
       if (name) existing.name = name;
       // Mark that this peer has announced to us (inbound connection)
       existing.directions = existing.directions || [];

@@ -98,7 +98,7 @@ BEGIN
   IF NEW.updated_at IS NULL OR NEW.updated_at = OLD.updated_at THEN
     NEW.updated_at := NOW();
   END IF;
-  NEW.sync_sequence := nextval('memories_sync_sequence_seq');
+  NEW.sync_sequence := nextval(pg_get_serial_sequence('memories', 'sync_sequence'));
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;

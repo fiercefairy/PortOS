@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { DndContext, DragOverlay, useDraggable, useDroppable, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { ExternalLink, GripVertical } from 'lucide-react';
+import { GripVertical } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as api from '../services/api';
 

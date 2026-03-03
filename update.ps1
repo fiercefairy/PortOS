@@ -17,8 +17,10 @@ Write-Host "Updating dependencies..." -ForegroundColor Yellow
 
 Write-Host "  Installing root dependencies..."
 # Clean stale workspace dirs that block npm symlink creation (Windows EISDIR fix)
+# Note: install-links=true is set in .npmrc for exFAT compat; the CLI flag was redundant
+$repoNodeModules = Join-Path -Path $PSScriptRoot -ChildPath "node_modules"
 @("portos-server", "portos-client") | ForEach-Object {
-    $wsPath = "node_modules\$_"
+    $wsPath = Join-Path -Path $repoNodeModules -ChildPath $_
     if ((Test-Path $wsPath) -and -not ((Get-Item $wsPath).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
         Remove-Item $wsPath -Recurse -Force
         Write-Host "    Cleaned stale $wsPath"

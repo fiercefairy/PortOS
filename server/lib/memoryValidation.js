@@ -119,7 +119,7 @@ const syncMemoryItemSchema = z.object({
   summary: z.string().max(500).nullable().optional(),
   category: z.string().max(100).nullable().optional(),
   tags: z.array(z.string().max(50)).optional().default([]),
-  embedding: z.union([z.array(z.number()), z.string()]).nullable().optional(),
+  embedding: z.array(z.number()).nullable().optional(),
   embeddingModel: z.string().max(200).nullable().optional(),
   confidence: z.number().min(0).max(1).nullable().optional(),
   importance: z.number().min(0).max(1).nullable().optional(),

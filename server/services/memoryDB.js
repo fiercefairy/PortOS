@@ -793,15 +793,20 @@ export async function linkMemories(sourceId, targetId) {
  * Consolidate similar memories (merge duplicates)
  */
 export async function consolidateMemories(threshold = 0.9, dryRun = false) {
-  // Find pairs of active memories with similarity above threshold
+  // Use per-row KNN via HNSW index to find near-duplicates (avoids O(n²) self-join)
   const result = await query(`
     SELECT a.id AS id_a, a.summary AS summary_a, a.importance AS importance_a,
            b.id AS id_b, b.summary AS summary_b, b.importance AS importance_b,
            1 - (a.embedding <=> b.embedding) AS similarity
     FROM memories a
-    JOIN memories b ON a.id < b.id
-    WHERE a.embedding IS NOT NULL AND b.embedding IS NOT NULL
-      AND a.status = 'active' AND b.status = 'active'
+    CROSS JOIN LATERAL (
+      SELECT id, summary, importance, embedding
+      FROM memories
+      WHERE id > a.id AND embedding IS NOT NULL AND status = 'active'
+      ORDER BY embedding <=> a.embedding
+      LIMIT 5
+    ) b
+    WHERE a.embedding IS NOT NULL AND a.status = 'active'
       AND 1 - (a.embedding <=> b.embedding) >= $1
     ORDER BY similarity DESC
   `, [threshold]);
@@ -875,34 +880,41 @@ export async function consolidateMemories(threshold = 0.9, dryRun = false) {
  * Apply importance decay to old memories
  */
 export async function applyDecay(decayRate = 0.01) {
-  const result = await query(`
-    SELECT id, importance, created_at, last_accessed
-    FROM memories WHERE status = 'active'
-  `);
+  // Set-based decay: archive old low-importance memories and decay the rest in bulk
+  const archived = await withTransaction(async (client) => {
+    // Archive memories that have decayed below threshold and are older than 30 days
+    const archiveResult = await client.query(`
+      UPDATE memories SET status = 'archived',
+        importance = GREATEST(0.1,
+          importance * (1 - $1 * sqrt(EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400.0))
+          + GREATEST(0, 0.1 - EXTRACT(EPOCH FROM (NOW() - COALESCE(last_accessed, created_at))) / 86400.0 * 0.001)
+        )
+      WHERE status = 'active'
+        AND created_at < NOW() - INTERVAL '30 days'
+        AND GREATEST(0.1,
+          importance * (1 - $1 * sqrt(EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400.0))
+          + GREATEST(0, 0.1 - EXTRACT(EPOCH FROM (NOW() - COALESCE(last_accessed, created_at))) / 86400.0 * 0.001)
+        ) < 0.15
+    `, [decayRate]);
 
-  const now = Date.now();
-  let updated = 0;
+    // Decay importance for remaining active memories where change exceeds threshold
+    const decayResult = await client.query(`
+      UPDATE memories SET importance = GREATEST(0.1,
+        importance * (1 - $1 * sqrt(EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400.0))
+        + GREATEST(0, 0.1 - EXTRACT(EPOCH FROM (NOW() - COALESCE(last_accessed, created_at))) / 86400.0 * 0.001)
+      )
+      WHERE status = 'active'
+        AND abs(importance - GREATEST(0.1,
+          importance * (1 - $1 * sqrt(EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400.0))
+          + GREATEST(0, 0.1 - EXTRACT(EPOCH FROM (NOW() - COALESCE(last_accessed, created_at))) / 86400.0 * 0.001)
+        )) > 0.01
+    `, [decayRate]);
 
-  for (const row of result.rows) {
-    const ageInDays = (now - new Date(row.created_at).getTime()) / (1000 * 60 * 60 * 24);
-    const accessRecency = row.last_accessed
-      ? (now - new Date(row.last_accessed).getTime()) / (1000 * 60 * 60 * 24)
-      : ageInDays;
+    return archiveResult.rowCount + decayResult.rowCount;
+  });
 
-    const accessBoost = Math.max(0, 0.1 - accessRecency * 0.001);
-    const newImportance = Math.max(0.1, row.importance * (1 - decayRate * Math.sqrt(ageInDays)) + accessBoost);
-
-    if (newImportance < 0.15 && ageInDays > 30) {
-      await query("UPDATE memories SET status = 'archived', importance = $1 WHERE id = $2", [newImportance, row.id]);
-      updated++;
-    } else if (Math.abs(newImportance - row.importance) > 0.01) {
-      await query("UPDATE memories SET importance = $1 WHERE id = $2", [newImportance, row.id]);
-      updated++;
-    }
-  }
-
-  console.log(`🧠 Decay applied to ${updated} memories`);
-  return { updated };
+  console.log(`🧠 Decay applied to ${archived} memories`);
+  return { updated: archived };
 }
 
 /**

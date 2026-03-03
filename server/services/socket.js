@@ -9,6 +9,7 @@ import { notificationEvents } from './notifications.js';
 import { providerStatusEvents } from './providerStatus.js';
 import { agentPersonalityEvents } from './agentPersonalities.js';
 import { platformAccountEvents } from './platformAccounts.js';
+import { updateEvents } from './updateChecker.js';
 import { scheduleEvents } from './automationScheduler.js';
 import { activityEvents } from './agentActivity.js';
 import { brainEvents } from './brainStorage.js';
@@ -43,6 +44,8 @@ const notificationSubscribers = new Set();
 const agentSubscribers = new Set();
 // Store instance subscribers
 const instanceSubscribers = new Set();
+// Store update subscribers
+const updateSubscribers = new Set();
 // Store io instance for broadcasting
 let ioInstance = null;
 
@@ -254,6 +257,17 @@ export function initSocket(io) {
       socket.emit('instances:unsubscribed');
     });
 
+    // Update subscriptions
+    socket.on('update:subscribe', () => {
+      updateSubscribers.add(socket);
+      socket.emit('update:subscribed');
+    });
+
+    socket.on('update:unsubscribe', () => {
+      updateSubscribers.delete(socket);
+      socket.emit('update:unsubscribed');
+    });
+
     // Handle error recovery requests (can trigger auto-fix agents)
     socket.on('error:recover', async (rawData) => {
       const data = validateSocketData(errorRecoverSchema, rawData, socket, 'error:recover');
@@ -412,6 +426,7 @@ export function initSocket(io) {
       notificationSubscribers.delete(socket);
       agentSubscribers.delete(socket);
       instanceSubscribers.delete(socket);
+      updateSubscribers.delete(socket);
       // Clean up any shell sessions for this socket
       const shellsClosed = shellService.cleanupSocketSessions(socket);
       if (shellsClosed > 0) {
@@ -455,6 +470,9 @@ export function initSocket(io) {
 
   // Set up peer agent event forwarding
   setupPeerAgentEventForwarding();
+
+  // Set up update event forwarding
+  setupUpdateEventForwarding();
 }
 
 function cleanupStream(socketId) {
@@ -643,4 +661,22 @@ function setupPeerAgentEventForwarding() {
   instanceEvents.on('peer:agent:updated', (data) => broadcastToInstances('instances:peer:agent:updated', data));
   instanceEvents.on('peer:agent:output', (data) => broadcastToInstances('instances:peer:agent:output', data));
   instanceEvents.on('peer:agent:completed', (data) => broadcastToInstances('instances:peer:agent:completed', data));
+}
+
+// Broadcast to update subscribers only
+function broadcastToUpdate(event, data) {
+  for (const socket of updateSubscribers) {
+    socket.emit(event, data);
+  }
+}
+
+// Set up update event forwarding
+function setupUpdateEventForwarding() {
+  updateEvents.on('update:available', (data) => {
+    // Broadcast to all clients so global toast can appear
+    if (ioInstance) {
+      ioInstance.emit('portos:update:available', data);
+    }
+  });
+  updateEvents.on('update:checked', (data) => broadcastToUpdate('portos:update:checked', data));
 }

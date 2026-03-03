@@ -147,7 +147,17 @@ router.get('/:id', loadApp, asyncHandler(async (req, res) => {
     if (devUiProc) devUiPort = devUiProc.ports.devUi;
   }
 
-  res.json({ ...app, uiPort, devUiPort, apiPort, overallStatus, pm2Status: statuses });
+  // Read version from app's package.json if available
+  let appVersion = null;
+  if (app.repoPath) {
+    const pkgPath = join(app.repoPath, 'package.json');
+    if (existsSync(pkgPath)) {
+      const pkg = JSON.parse(await readFile(pkgPath, 'utf-8'));
+      appVersion = pkg.version || null;
+    }
+  }
+
+  res.json({ ...app, uiPort, devUiPort, apiPort, overallStatus, pm2Status: statuses, appVersion });
 }));
 
 // POST /api/apps - Create new app

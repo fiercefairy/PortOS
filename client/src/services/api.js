@@ -91,6 +91,16 @@ export const uploadAppleHealthXml = (file) => {
 export const checkHealth = () => request('/system/health');
 export const getSystemHealth = (options) => request('/system/health/details', options);
 
+// Update
+export const getUpdateStatus = () => request('/update/status');
+export const checkForUpdate = () => request('/update/check', { method: 'POST' });
+export const ignoreUpdateVersion = (version) => request('/update/ignore', {
+  method: 'POST',
+  body: JSON.stringify({ version })
+});
+export const clearIgnoredVersions = () => request('/update/ignore', { method: 'DELETE' });
+export const executePortosUpdate = () => request('/update/execute', { method: 'POST' });
+
 // Apps
 export const getApps = () => request('/apps');
 export const getApp = (id) => request(`/apps/${id}`);

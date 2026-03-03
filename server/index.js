@@ -51,6 +51,7 @@ import instancesRoutes from './routes/instances.js';
 import meatspaceRoutes from './routes/meatspace.js';
 import githubRoutes from './routes/github.js';
 import settingsRoutes from './routes/settings.js';
+import updateRoutes from './routes/update.js';
 import { ensureSelf, startPolling } from './services/instances.js';
 import { initSocket } from './services/socket.js';
 import { initScriptRunner } from './services/scriptRunner.js';
@@ -63,6 +64,7 @@ import './services/subAgentSpawner.js'; // Initialize CoS agent spawner
 import * as automationScheduler from './services/automationScheduler.js';
 import * as agentActionExecutor from './services/agentActionExecutor.js';
 import { startBackupScheduler } from './services/backupScheduler.js';
+import { startUpdateScheduler } from './services/updateChecker.js';
 import { startBrainScheduler } from './services/brainScheduler.js';
 import { recoverStuckClassifications } from './services/brain.js';
 import { initBridge as initBrainMemoryBridge } from './services/brainMemoryBridge.js';
@@ -232,6 +234,7 @@ app.use('/api/instances', instancesRoutes);
 app.use('/api/meatspace', meatspaceRoutes);
 app.use('/api/github', githubRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/update', updateRoutes);
 
 // Initialize script runner
 initScriptRunner().catch(err => console.error(`❌ Script runner init failed: ${err.message}`));
@@ -248,6 +251,8 @@ startBrainScheduler();
 initBrainMemoryBridge();
 // Initialize backup scheduler for daily data backups
 startBackupScheduler().catch(err => console.error(`❌ Backup scheduler init failed: ${err.message}`));
+// Start periodic update checker (checks GitHub releases every 30 min)
+startUpdateScheduler();
 
 // Serve built client UI (production mode — no Vite dev server needed)
 const CLIENT_DIST = join(__dirname, '..', 'client', 'dist');

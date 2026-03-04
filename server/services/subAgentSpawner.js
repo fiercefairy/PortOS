@@ -1685,13 +1685,19 @@ async function spawnViaRunner(agentId, task, prompt, workspacePath, model, provi
     }
   }, 3000);
 
+  // For Claude CLI providers, merge ~/.claude/settings.json env vars so Bedrock config
+  // (CLAUDE_CODE_USE_BEDROCK, AWS_PROFILE, etc.) is present in the runner spawn env
+  const claudeSettingsEnv = provider.type === 'cli' && (provider.id === 'claude-code' || provider.id === 'claude-code-bedrock')
+    ? await getClaudeSettingsEnv()
+    : {};
+
   const result = await spawnAgentViaRunner({
     agentId,
     taskId: task.id,
     prompt,
     workspacePath,
     model,
-    envVars: provider.envVars,
+    envVars: { ...claudeSettingsEnv, ...provider.envVars },
     cliCommand: cliConfig.command,
     cliArgs: cliConfig.args
   });
@@ -1923,12 +1929,18 @@ async function spawnDirectly(agentId, task, prompt, workspacePath, model, provid
   // Ensure workspacePath is valid
   const cwd = workspacePath && typeof workspacePath === 'string' ? workspacePath : ROOT_DIR;
 
+  // For Claude CLI providers, inject ~/.claude/settings.json env vars so Bedrock config
+  // (CLAUDE_CODE_USE_BEDROCK, AWS_PROFILE, etc.) is present even if PM2 lacks them
+  const claudeSettingsEnv = provider.type === 'cli' && (provider.id === 'claude-code' || provider.id === 'claude-code-bedrock')
+    ? await getClaudeSettingsEnv()
+    : {};
+
   const claudeProcess = spawn(cliConfig.command, cliConfig.args, {
     cwd,
     shell: false,
     stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
-    env: (() => { const e = { ...process.env, ...provider.envVars }; delete e.CLAUDECODE; return e; })()
+    env: (() => { const e = { ...process.env, ...claudeSettingsEnv, ...provider.envVars }; delete e.CLAUDECODE; return e; })()
   });
 
   registerSpawnedAgent(claudeProcess.pid, {
@@ -2388,6 +2400,29 @@ function buildSpawnArgs(config, model) {
 }
 
 /**
+ * Read env vars from ~/.claude/settings.json to inject into Claude CLI spawns
+ * Ensures user's Bedrock/provider config (CLAUDE_CODE_USE_BEDROCK, AWS_PROFILE, etc.)
+ * is present in spawned agent environments even if PM2 was started without them
+ */
+let _claudeSettingsEnvCache = null;
+async function getClaudeSettingsEnv() {
+  if (_claudeSettingsEnvCache !== null) return _claudeSettingsEnvCache;
+  try {
+    const settingsPath = join(homedir(), '.claude', 'settings.json');
+    if (existsSync(settingsPath)) {
+      const raw = await readFile(settingsPath, 'utf-8');
+      const settings = JSON.parse(raw);
+      _claudeSettingsEnvCache = settings.env || {};
+    } else {
+      _claudeSettingsEnvCache = {};
+    }
+  } catch (err) {
+    _claudeSettingsEnvCache = {};
+  }
+  return _claudeSettingsEnvCache;
+}
+
+/**
  * Read CLAUDE.md files for agent context
  * Reads both global (~/.claude/CLAUDE.md) and project-specific (./CLAUDE.md)
  */
@@ -2745,7 +2780,7 @@ async function createJiraTicketForTask(task, app) {
     ticketUrl: result.url
   });
 
-  return { ticketId: result.ticketId, ticketUrl: result.url };
+  return { ticketId: result.ticketId, ticketUrl: result.url, summary };
 }
 
 /**

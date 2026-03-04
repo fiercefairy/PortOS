@@ -164,6 +164,7 @@ export async function setUpdateInProgress(inProgress) {
   return withLock(async () => {
     const state = await loadState();
     state.updateInProgress = inProgress;
+    state.updateStartedAt = inProgress ? new Date().toISOString() : null;
     await saveState(state);
   });
 }
@@ -175,8 +176,44 @@ export async function recordUpdateResult(result) {
   return withLock(async () => {
     const state = await loadState();
     state.updateInProgress = false;
+    state.updateStartedAt = null;
     state.lastUpdateResult = result;
     await saveState(state);
+  });
+}
+
+const STALE_UPDATE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
+/**
+ * Clear stale updateInProgress flag on boot.
+ * If the server was killed mid-update (before recordUpdateResult ran),
+ * updateInProgress stays true and blocks future updates indefinitely.
+ * This detects that condition via updateStartedAt age and clears it.
+ */
+export async function clearStaleUpdateInProgress() {
+  return withLock(async () => {
+    const state = await loadState();
+    if (!state.updateInProgress) return false;
+
+    const startedAt = state.updateStartedAt ? new Date(state.updateStartedAt).getTime() : 0;
+    const ageMs = Date.now() - startedAt;
+
+    // If no timestamp or older than timeout, treat as stale
+    if (!state.updateStartedAt || ageMs > STALE_UPDATE_TIMEOUT_MS) {
+      console.log(`🧹 Clearing stale updateInProgress (started ${state.updateStartedAt ?? 'unknown'}, age ${Math.round(ageMs / 60000)}min)`);
+      state.updateInProgress = false;
+      state.updateStartedAt = null;
+      state.lastUpdateResult = {
+        version: state.latestRelease?.version ?? 'unknown',
+        success: false,
+        completedAt: new Date().toISOString(),
+        log: 'Cleared stale update lock on boot — server was likely killed mid-update'
+      };
+      await saveState(state);
+      return true;
+    }
+
+    return false;
   });
 }
 

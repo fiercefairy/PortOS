@@ -295,6 +295,7 @@ export async function addCustomDrink({ name, oz, abv }) {
 }
 
 export async function updateCustomDrink(index, updates) {
+  if (!Number.isInteger(index)) return null;
   const data = await loadCustomDrinks();
   if (index < 0 || index >= data.drinks.length) return null;
   const drink = data.drinks[index];
@@ -307,6 +308,7 @@ export async function updateCustomDrink(index, updates) {
 }
 
 export async function removeCustomDrink(index) {
+  if (!Number.isInteger(index)) return null;
   const data = await loadCustomDrinks();
   if (index < 0 || index >= data.drinks.length) return null;
   const removed = data.drinks.splice(index, 1)[0];
@@ -316,6 +318,7 @@ export async function removeCustomDrink(index) {
 }
 
 export async function reorderCustomDrinks(fromIndex, toIndex) {
+  if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex)) return null;
   const data = await loadCustomDrinks();
   if (fromIndex < 0 || fromIndex >= data.drinks.length) return null;
   if (toIndex < 0 || toIndex >= data.drinks.length) return null;

@@ -65,7 +65,7 @@ import './services/subAgentSpawner.js'; // Initialize CoS agent spawner
 import * as automationScheduler from './services/automationScheduler.js';
 import * as agentActionExecutor from './services/agentActionExecutor.js';
 import { startBackupScheduler } from './services/backupScheduler.js';
-import { startUpdateScheduler, recordUpdateResult } from './services/updateChecker.js';
+import { startUpdateScheduler, recordUpdateResult, clearStaleUpdateInProgress } from './services/updateChecker.js';
 import { startBrainScheduler } from './services/brainScheduler.js';
 import { recoverStuckClassifications } from './services/brain.js';
 import { initBridge as initBrainMemoryBridge } from './services/brainMemoryBridge.js';
@@ -296,6 +296,9 @@ readFile(updateMarkerPath, 'utf-8').then(raw => {
     if (unlinkErr?.code !== 'ENOENT') console.error(`❌ Failed to remove corrupted update marker: ${unlinkErr.message}`);
   });
 });
+
+// Clear stale updateInProgress if the server was killed mid-update
+clearStaleUpdateInProgress().catch(err => console.error(`❌ Stale update recovery failed: ${err.message}`));
 
 // Start periodic update checker (checks GitHub releases every 30 min)
 startUpdateScheduler();

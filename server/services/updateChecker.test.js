@@ -32,6 +32,7 @@ import {
   ignoreVersion,
   clearIgnored,
   checkForUpdate,
+  clearStaleUpdateInProgress,
   updateEvents
 } from './updateChecker.js';
 
@@ -323,5 +324,83 @@ describe('checkForUpdate', () => {
 
     const result = await checkForUpdate();
     expect(result.latestRelease.version).toBe('2.0.0');
+  });
+});
+
+describe('clearStaleUpdateInProgress', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    writeFile.mockResolvedValue(undefined);
+    ensureDir.mockResolvedValue(undefined);
+  });
+
+  it('should return false when updateInProgress is false', async () => {
+    readJSONFile.mockResolvedValue({
+      lastCheck: null,
+      latestRelease: null,
+      ignoredVersions: [],
+      updateInProgress: false,
+      updateStartedAt: null,
+      lastUpdateResult: null
+    });
+
+    const cleared = await clearStaleUpdateInProgress();
+    expect(cleared).toBe(false);
+    expect(writeFile).not.toHaveBeenCalled();
+  });
+
+  it('should clear stale updateInProgress when updateStartedAt is older than 30 minutes', async () => {
+    const staleTime = new Date(Date.now() - 60 * 60 * 1000).toISOString(); // 1 hour ago
+    readJSONFile.mockResolvedValue({
+      lastCheck: null,
+      latestRelease: { version: '1.28.0' },
+      ignoredVersions: [],
+      updateInProgress: true,
+      updateStartedAt: staleTime,
+      lastUpdateResult: null
+    });
+
+    const cleared = await clearStaleUpdateInProgress();
+    expect(cleared).toBe(true);
+    expect(writeFile).toHaveBeenCalled();
+    const saved = JSON.parse(writeFile.mock.calls[0][1]);
+    expect(saved.updateInProgress).toBe(false);
+    expect(saved.updateStartedAt).toBeNull();
+    expect(saved.lastUpdateResult.success).toBe(false);
+    expect(saved.lastUpdateResult.version).toBe('1.28.0');
+  });
+
+  it('should clear updateInProgress when updateStartedAt is missing', async () => {
+    readJSONFile.mockResolvedValue({
+      lastCheck: null,
+      latestRelease: null,
+      ignoredVersions: [],
+      updateInProgress: true,
+      updateStartedAt: null,
+      lastUpdateResult: null
+    });
+
+    const cleared = await clearStaleUpdateInProgress();
+    expect(cleared).toBe(true);
+    expect(writeFile).toHaveBeenCalled();
+    const saved = JSON.parse(writeFile.mock.calls[0][1]);
+    expect(saved.updateInProgress).toBe(false);
+    expect(saved.lastUpdateResult.version).toBe('unknown');
+  });
+
+  it('should not clear updateInProgress when update is recent (< 30 min)', async () => {
+    const recentTime = new Date(Date.now() - 5 * 60 * 1000).toISOString(); // 5 minutes ago
+    readJSONFile.mockResolvedValue({
+      lastCheck: null,
+      latestRelease: { version: '1.28.0' },
+      ignoredVersions: [],
+      updateInProgress: true,
+      updateStartedAt: recentTime,
+      lastUpdateResult: null
+    });
+
+    const cleared = await clearStaleUpdateInProgress();
+    expect(cleared).toBe(false);
+    expect(writeFile).not.toHaveBeenCalled();
   });
 });

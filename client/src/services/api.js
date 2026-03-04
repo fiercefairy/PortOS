@@ -1450,6 +1450,12 @@ export const generatePostDrill = (type, config = {}) => request('/meatspace/post
 export const getJiraInstances = () => request('/jira/instances');
 export const getJiraProjects = (instanceId) => request(`/jira/instances/${instanceId}/projects`);
 export const getMySprintTickets = (instanceId, projectKey) => request(`/jira/instances/${instanceId}/my-sprint-tickets/${projectKey}`);
+export const getJiraTicketTransitions = (instanceId, ticketId, options) => request(`/jira/instances/${instanceId}/tickets/${ticketId}/transitions`, options);
+export const transitionJiraTicket = (instanceId, ticketId, transitionId, options) => request(`/jira/instances/${instanceId}/tickets/${ticketId}/transition`, {
+  method: 'POST',
+  body: JSON.stringify({ transitionId }),
+  ...options
+});
 
 // Browser - CDP browser management
 export const getBrowserStatus = () => request('/browser');

@@ -4,11 +4,12 @@
  * Handles ENOTEMPTY npm bug by retrying with clean node_modules.
  */
 import { existsSync, rmSync } from 'fs';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const NPM = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
 const WORKSPACES = [
   { dir: ROOT, label: 'root' },
@@ -18,13 +19,13 @@ const WORKSPACES = [
 
 function install(dir, label) {
   try {
-    execSync('npm install', { cwd: dir, stdio: 'inherit' });
+    execFileSync(NPM, ['install'], { cwd: dir, stdio: 'inherit', windowsHide: true });
     return true;
   } catch {
     console.log(`⚠️  npm install failed for ${label} — cleaning node_modules and retrying...`);
     rmSync(join(dir, 'node_modules'), { recursive: true, force: true });
     try {
-      execSync('npm install', { cwd: dir, stdio: 'inherit' });
+      execFileSync(NPM, ['install'], { cwd: dir, stdio: 'inherit', windowsHide: true });
       return true;
     } catch {
       console.error(`❌ npm install failed for ${label} after retry`);

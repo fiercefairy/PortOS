@@ -54,7 +54,14 @@ export function compareSemver(a, b) {
 
 async function loadState() {
   await ensureDir(PATHS.data);
-  return readJSONFile(UPDATE_FILE, defaultState());
+  const raw = await readJSONFile(UPDATE_FILE, defaultState());
+  const defaults = defaultState();
+  return {
+    ...defaults,
+    ...raw,
+    ignoredVersions: Array.isArray(raw.ignoredVersions) ? raw.ignoredVersions : defaults.ignoredVersions,
+    updateInProgress: typeof raw.updateInProgress === 'boolean' ? raw.updateInProgress : defaults.updateInProgress,
+  };
 }
 
 async function saveState(state) {
@@ -197,12 +204,14 @@ export async function clearStaleUpdateInProgress() {
     const state = await loadState();
     if (!state.updateInProgress) return false;
 
-    const startedAt = state.updateStartedAt ? new Date(state.updateStartedAt).getTime() : 0;
-    const ageMs = Date.now() - startedAt;
+    const startedAtMs = state.updateStartedAt ? new Date(state.updateStartedAt).getTime() : NaN;
+    const hasValidTimestamp = Number.isFinite(startedAtMs);
+    const ageMs = hasValidTimestamp ? Date.now() - startedAtMs : null;
 
-    // If no timestamp or older than timeout, treat as stale
-    if (!state.updateStartedAt || ageMs > STALE_UPDATE_TIMEOUT_MS) {
-      console.log(`🧹 Clearing stale updateInProgress (started ${state.updateStartedAt ?? 'unknown'}, age ${Math.round(ageMs / 60000)}min)`);
+    // If no valid timestamp or older than timeout, treat as stale
+    if (!hasValidTimestamp || ageMs > STALE_UPDATE_TIMEOUT_MS) {
+      const ageStr = ageMs !== null ? `${Math.round(ageMs / 60000)}min` : 'unknown';
+      console.log(`🧹 Clearing stale updateInProgress (started ${state.updateStartedAt ?? 'unknown'}, age ${ageStr})`);
       state.updateInProgress = false;
       state.updateStartedAt = null;
       state.lastUpdateResult = {

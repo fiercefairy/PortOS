@@ -32,10 +32,10 @@ jobs:
         run: npm ci
 
       - name: Install server dependencies
-        run: npm ci --prefix server
+        run: npm install --prefix server
 
       - name: Install client dependencies
-        run: npm ci --prefix client
+        run: npm install --prefix client
 
       - name: Run server tests
         run: npm test --prefix server
@@ -60,7 +60,7 @@ jobs:
         run: npm ci
 
       - name: Install server dependencies
-        run: npm ci --prefix server
+        run: npm install --prefix server
 
       - name: Check for syntax errors
         run: node --check server/index.js

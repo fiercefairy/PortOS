@@ -227,7 +227,7 @@ export async function fetchOrigin(dir) {
 }
 
 /**
- * Update dev and main branches from origin without switching branches.
+ * Update all local branches that have remote tracking branches.
  * Uses fetch refspecs for non-current branches to avoid checkout (which
  * would swap files on disk and trigger HMR/server restarts).
  */
@@ -236,8 +236,8 @@ export async function updateBranches(dir) {
 
   const status = await getStatus(dir);
   const currentBranch = await getBranch(dir);
-  const { baseBranch, devBranch } = await getRepoBranches(dir);
-  const trackBranches = [devBranch, baseBranch].filter(Boolean);
+  const allBranches = await getBranches(dir);
+  const trackBranches = allBranches.filter(b => b.tracking).map(b => b.name);
   let stashed = false;
   let stashRestored = false;
 

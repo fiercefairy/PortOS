@@ -267,10 +267,8 @@ export async function removeDrink(date, index) {
 async function loadCustomDrinks() {
   const data = await readJSONFile(CUSTOM_DRINKS_FILE, null);
   if (!data) {
-    // Seed with defaults on first access
-    const seeded = { drinks: DEFAULT_DRINK_BUTTONS.map(d => ({ ...d })) };
-    await saveCustomDrinks(seeded);
-    return seeded;
+    // Return defaults in-memory without writing — persist only on explicit mutations
+    return { drinks: DEFAULT_DRINK_BUTTONS.map(d => ({ ...d })) };
   }
   if (!Array.isArray(data.drinks)) data.drinks = [];
   return data;

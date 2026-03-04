@@ -65,7 +65,7 @@ import './services/subAgentSpawner.js'; // Initialize CoS agent spawner
 import * as automationScheduler from './services/automationScheduler.js';
 import * as agentActionExecutor from './services/agentActionExecutor.js';
 import { startBackupScheduler } from './services/backupScheduler.js';
-import { startUpdateScheduler, recordUpdateResult, clearStaleUpdateInProgress } from './services/updateChecker.js';
+import { startUpdateScheduler, recordUpdateResult, clearStaleUpdateInProgress, getCurrentVersion } from './services/updateChecker.js';
 import { startBrainScheduler } from './services/brainScheduler.js';
 import { recoverStuckClassifications } from './services/brain.js';
 import { initBridge as initBrainMemoryBridge } from './services/brainMemoryBridge.js';
@@ -278,6 +278,15 @@ readFile(updateMarkerPath, 'utf-8').then(raw => {
     return unlink(updateMarkerPath).catch(unlinkErr => {
       if (unlinkErr?.code !== 'ENOENT') console.error(`❌ Failed to remove invalid update marker: ${unlinkErr.message}`);
     });
+  }
+  // Verify marker version matches the currently running version to catch partial updates
+  const runningVersion = await getCurrentVersion();
+  if (marker.version !== runningVersion) {
+    console.error(`❌ Update marker version (${marker.version}) doesn't match running version (${runningVersion}) — recording as failed`);
+    return recordUpdateResult({ version: marker.version, success: false, completedAt: marker.completedAt, log: `Version mismatch: expected ${marker.version}, running ${runningVersion}` })
+      .finally(() => unlink(updateMarkerPath).catch(unlinkErr => {
+        if (unlinkErr?.code !== 'ENOENT') console.error(`❌ Failed to remove update marker: ${unlinkErr.message}`);
+      }));
   }
   console.log(`✅ Update to v${marker.version} completed at ${marker.completedAt}`);
   return recordUpdateResult({ version: marker.version, success: true, completedAt: marker.completedAt, log: '' })

@@ -10,7 +10,6 @@ const STEP_LABELS = {
   'git-fetch': 'Fetching tags',
   'git-checkout': 'Checking out release',
   'npm-install': 'Installing dependencies',
-  setup: 'Running setup',
   migrations: 'Running migrations',
   build: 'Building client',
   restart: 'Restarting PortOS',

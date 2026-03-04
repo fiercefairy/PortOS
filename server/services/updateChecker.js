@@ -45,6 +45,30 @@ export function compareSemver(a, b) {
     const [core, pre] = v.split('+')[0].split('-', 2);
     return { nums: core.split('.').map(Number), pre: pre || null };
   };
+  const comparePreRelease = (preA, preB) => {
+    const segsA = preA.split('.');
+    const segsB = preB.split('.');
+    const len = Math.max(segsA.length, segsB.length);
+    for (let i = 0; i < len; i++) {
+      if (i >= segsA.length) return -1; // fewer segments = lower precedence
+      if (i >= segsB.length) return 1;
+      const numA = /^\d+$/.test(segsA[i]) ? Number(segsA[i]) : null;
+      const numB = /^\d+$/.test(segsB[i]) ? Number(segsB[i]) : null;
+      // Numeric identifiers sort before string identifiers
+      if (numA !== null && numB !== null) {
+        if (numA < numB) return -1;
+        if (numA > numB) return 1;
+      } else if (numA !== null) {
+        return -1;
+      } else if (numB !== null) {
+        return 1;
+      } else {
+        if (segsA[i] < segsB[i]) return -1;
+        if (segsA[i] > segsB[i]) return 1;
+      }
+    }
+    return 0;
+  };
   const pa = extractParts(a);
   const pb = extractParts(b);
   for (let i = 0; i < 3; i++) {
@@ -56,7 +80,7 @@ export function compareSemver(a, b) {
   // Equal core versions: no pre-release > pre-release (1.0.0 > 1.0.0-rc.1)
   if (!pa.pre && pb.pre) return 1;
   if (pa.pre && !pb.pre) return -1;
-  if (pa.pre && pb.pre) return pa.pre < pb.pre ? -1 : pa.pre > pb.pre ? 1 : 0;
+  if (pa.pre && pb.pre) return comparePreRelease(pa.pre, pb.pre);
   return 0;
 }
 

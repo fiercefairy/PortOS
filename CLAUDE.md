@@ -81,6 +81,7 @@ When CoS agents or AI tools work on managed apps outside PortOS, all research, p
 - **Command allowlist** - shell execution restricted to approved commands only
 - **No hardcoded localhost** - use `window.location.hostname` for URLs; app accessed via Tailscale remotely
 - **Alphabetical navigation** - sidebar nav items in `Layout.jsx` are alphabetically ordered after the Dashboard+CyberCity top section and separator; children within collapsible sections are also alphabetical
+- **Reactive UI updates** - after mutations (delete, create, update), update local state directly instead of refetching the entire list from the server. Use `setState(prev => prev.filter(...))` or similar patterns for immediate feedback
 - **Single-line logging** - use emoji prefixes and string interpolation, never log full JSON blobs or arrays
   ```js
   console.log(`🚀 Server started on port ${PORT}`);

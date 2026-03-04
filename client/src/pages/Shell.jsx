@@ -5,7 +5,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import { useSocket } from '../hooks/useSocket';
-import { RefreshCw, Power, PowerOff, FolderOpen, ChevronDown, Plus, X, Terminal as TerminalIcon } from 'lucide-react';
+import { RefreshCw, Power, PowerOff, FolderOpen, ChevronDown, Plus, X, Terminal as TerminalIcon, Trash2 } from 'lucide-react';
 
 const QUICK_COMMANDS = [
   { label: 'claude', command: 'claude --dangerously-skip-permissions' },
@@ -237,6 +237,15 @@ export default function Shell() {
   const killOtherSession = useCallback((sessionId) => {
     if (!socket) return;
     socket.emit('shell:stop', { sessionId });
+    // If killing the active session via tab X, clean up local state too
+    if (sessionId === sessionIdRef.current) {
+      sessionIdRef.current = null;
+      setActiveSessionId(null);
+      setConnected(false);
+      if (termInstanceRef.current) {
+        termInstanceRef.current.writeln('\r\n\x1b[33m[Session killed]\x1b[0m');
+      }
+    }
   }, [socket]);
 
   const switchToSession = useCallback((sessionId) => {
@@ -318,6 +327,14 @@ export default function Shell() {
         if (termInstanceRef.current) {
           termInstanceRef.current.writeln(`\r\n\x1b[33m[Shell exited with code ${code}]\x1b[0m`);
         }
+        // Auto-attach to next available session if any remain
+        setSessions(prev => {
+          const remaining = prev.filter(s => s.sessionId !== sid);
+          if (remaining.length > 0) {
+            setTimeout(() => attachToSession(remaining[remaining.length - 1].sessionId), 100);
+          }
+          return prev; // actual list update comes from server broadcast
+        });
       }
     };
 
@@ -364,29 +381,39 @@ export default function Shell() {
             <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-gray-500'}`} />
             {connected ? 'Connected' : 'Disconnected'}
           </div>
+          {sessions.length > 0 && (
+            <span className="text-xs text-gray-500 font-mono">{sessions.length}/5 sessions</span>
+          )}
         </div>
         <div className="flex items-center gap-2">
-          {connected ? (
-            <>
-              <button
-                onClick={stopSession}
-                className="flex items-center gap-2 px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm transition-colors min-h-[40px]"
-                title="Kill current session"
-              >
-                <PowerOff size={16} />
-                Kill
-              </button>
-            </>
-          ) : (
+          {connected && (
             <button
-              onClick={startSession}
-              className="flex items-center gap-2 px-3 py-2 bg-port-accent hover:bg-port-accent/80 text-white rounded-lg text-sm transition-colors min-h-[40px]"
-              title="Start new session"
+              onClick={() => { stopSession(); setTimeout(startSession, 100); }}
+              className="flex items-center gap-2 px-3 py-2 bg-port-card hover:bg-port-border text-gray-300 hover:text-white rounded-lg text-sm transition-colors border border-port-border min-h-[40px]"
+              title="Restart session (kill + new)"
             >
-              <Power size={16} />
-              New Session
+              <RefreshCw size={16} />
+              Restart
             </button>
           )}
+          {connected && (
+            <button
+              onClick={stopSession}
+              className="flex items-center gap-2 px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm transition-colors min-h-[40px]"
+              title="Kill current session"
+            >
+              <PowerOff size={16} />
+              Stop
+            </button>
+          )}
+          <button
+            onClick={startSession}
+            className="flex items-center gap-2 px-3 py-2 bg-port-accent hover:bg-port-accent/80 text-white rounded-lg text-sm transition-colors min-h-[40px]"
+            title="Start new session"
+          >
+            <Power size={16} />
+            New
+          </button>
         </div>
       </div>
 
@@ -399,7 +426,7 @@ export default function Shell() {
             return (
               <div
                 key={s.sessionId}
-                className={`group flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-mono transition-colors cursor-pointer min-h-[36px] ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-mono transition-colors cursor-pointer min-h-[40px] ${
                   isActive
                     ? 'bg-port-accent/20 text-port-accent border border-port-accent/40'
                     : 'bg-port-card hover:bg-port-border text-gray-400 hover:text-white border border-port-border'
@@ -407,24 +434,24 @@ export default function Shell() {
                 onClick={() => !isActive && switchToSession(s.sessionId)}
                 title={`${s.cwd || shortId(s.sessionId)} — ${formatAge(s.createdAt)} old`}
               >
-                <TerminalIcon size={12} />
+                <TerminalIcon size={12} className="shrink-0" />
                 <span className="truncate max-w-[100px]">{label}</span>
-                <span className="text-[10px] opacity-60">{formatAge(s.createdAt)}</span>
-                {!isActive && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); killOtherSession(s.sessionId); }}
-                    className="opacity-0 group-hover:opacity-100 hover:text-red-400 transition-opacity ml-0.5"
-                    title="Kill session"
-                  >
-                    <X size={12} />
-                  </button>
-                )}
+                <span className="text-[10px] opacity-60 shrink-0">{formatAge(s.createdAt)}</span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); killOtherSession(s.sessionId); }}
+                  className={`shrink-0 ml-0.5 p-0.5 rounded transition-colors ${
+                    isActive ? 'text-port-accent/60 hover:text-red-400' : 'text-gray-600 hover:text-red-400'
+                  }`}
+                  title="Kill session"
+                >
+                  <X size={14} />
+                </button>
               </div>
             );
           })}
           <button
             onClick={startSession}
-            className="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-500 hover:text-white hover:bg-port-border rounded transition-colors min-h-[36px]"
+            className="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-500 hover:text-white hover:bg-port-border rounded transition-colors min-h-[40px]"
             title="New session"
           >
             <Plus size={14} />

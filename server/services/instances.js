@@ -189,7 +189,7 @@ export async function probePeer(peer) {
     entry.lastHealth = lastHealth;
     entry.lastApps = remoteApps ?? entry.lastApps ?? null;
     if (remoteInstanceId) entry.instanceId = remoteInstanceId;
-    if (remoteVersion) entry.version = remoteVersion;
+    if (status === 'online') entry.version = remoteVersion;
     // Auto-update name from hostname if current name is just an IP address
     const remoteHostname = validName(lastHealth?.hostname, null);
     if (remoteHostname && /^\d+\.\d+\.\d+\.\d+$/.test(entry.name)) {

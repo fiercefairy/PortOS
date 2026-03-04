@@ -1,7 +1,23 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 import systemHealthRoutes from './systemHealth.js';
+
+vi.mock('../services/pm2.js', () => ({
+  listProcesses: vi.fn().mockResolvedValue([])
+}));
+
+vi.mock('../services/apps.js', () => ({
+  getAllApps: vi.fn().mockResolvedValue([])
+}));
+
+vi.mock('../services/cos.js', () => ({
+  getStatus: vi.fn().mockResolvedValue(null)
+}));
+
+vi.mock('../lib/db.js', () => ({
+  checkHealth: vi.fn().mockResolvedValue({ connected: false, hasSchema: false })
+}));
 
 describe('System Health Routes', () => {
   const app = express();

@@ -12,19 +12,15 @@ git pull --rebase --autostash
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Write-Host ""
 
+# Stop PM2 apps to release file locks before updating
+Write-Host "Stopping PortOS apps..." -ForegroundColor Yellow
+npm run pm2:stop 2>$null
+Write-Host ""
+
 # Update dependencies
 Write-Host "Updating dependencies..." -ForegroundColor Yellow
 
 Write-Host "  Installing root dependencies..."
-# Clean stale workspace copies from prior install-links config (one-time transition)
-$repoNodeModules = Join-Path -Path $PSScriptRoot -ChildPath "node_modules"
-@("portos-server", "portos-client") | ForEach-Object {
-    $wsPath = Join-Path -Path $repoNodeModules -ChildPath $_
-    if ((Test-Path $wsPath) -and -not ((Get-Item $wsPath).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
-        Remove-Item $wsPath -Recurse -Force
-        Write-Host "    Cleaned stale $wsPath"
-    }
-}
 npm install
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

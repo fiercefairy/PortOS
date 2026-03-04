@@ -131,7 +131,10 @@ export function computeRollingAverages(entries, sex = 'male') {
 // === File I/O ===
 
 async function loadDailyLog() {
-  return readJSONFile(DAILY_LOG_FILE, { entries: [], lastEntryDate: null });
+  const raw = await readJSONFile(DAILY_LOG_FILE, { entries: [], lastEntryDate: null }, { allowArray: false });
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { entries: [], lastEntryDate: null };
+  if (!Array.isArray(raw.entries)) raw.entries = [];
+  return raw;
 }
 
 async function saveDailyLog(log) {

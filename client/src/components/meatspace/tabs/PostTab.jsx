@@ -74,7 +74,7 @@ export default function PostTab() {
     if (session.state === 'between-drills') {
       session.nextDrill();
     }
-  }, [session.state]);
+  }, [session.state, session.nextDrill]);
 
   switch (view) {
     case 'running':

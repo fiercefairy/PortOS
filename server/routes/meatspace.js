@@ -327,7 +327,7 @@ router.get('/post/stats', asyncHandler(async (req, res) => {
 /**
  * POST /api/meatspace/post/drill
  * Generate a drill with questions and expected answers for client-side feedback.
- * Server-side scoring recomputes expected from the prompt, so client values are not trusted.
+ * Server-side scoring recomputes expected answers from the prompt when possible.
  */
 router.post('/post/drill', asyncHandler(async (req, res) => {
   const data = validateRequest(postDrillRequestSchema, req.body);

@@ -287,7 +287,8 @@ export function scoreDrill(type, questions, timeLimitMs, config = {}) {
   const correctCount = recomputed.filter(q => q.correct).length;
   const correctRatio = correctCount / recomputed.length;
 
-  const totalResponseMs = answered.reduce((sum, q) => sum + (q.responseMs || 0), 0);
+  // Clamp responseMs to [0, timeLimitMs] to prevent inflated speed bonuses
+  const totalResponseMs = answered.reduce((sum, q) => sum + Math.min(Math.max(q.responseMs || 0, 0), timeLimitMs), 0);
   const avgResponseMs = answered.length > 0 ? totalResponseMs / answered.length : timeLimitMs;
 
   const speedBonus = Math.max(0, 1 - avgResponseMs / timeLimitMs);

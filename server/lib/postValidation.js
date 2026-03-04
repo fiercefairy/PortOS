@@ -17,25 +17,6 @@ const questionResultSchema = z.object({
   responseMs: z.number().min(0)
 });
 
-// Task result within a session
-// score is optional — the server recomputes it via scoreDrill
-const taskResultSchema = z.object({
-  module: z.string(),
-  type: z.string(),
-  config: z.record(z.unknown()).optional().default({}),
-  questions: z.array(questionResultSchema),
-  score: z.number().min(0).max(100).optional(),
-  totalMs: z.number().min(0)
-});
-
-// Full session submission
-export const postSessionSubmitSchema = z.object({
-  cadence: z.enum(['daily', 'weekly', 'monthly']).optional().default('daily'),
-  modules: z.array(z.string()).min(1),
-  tasks: z.array(taskResultSchema).min(1),
-  tags: postTagsSchema.optional().default({})
-});
-
 // Drill type configuration
 const DRILL_TYPES = ['doubling-chain', 'serial-subtraction', 'multiplication', 'powers', 'estimation'];
 
@@ -51,6 +32,25 @@ const drillTypeConfigSchema = z.object({
   bases: z.array(z.number().int().min(2).max(20)).min(1).optional(),
   maxExponent: z.number().int().min(2).max(20).optional(),
   tolerancePct: z.number().min(1).max(50).optional()
+});
+
+// Task result within a session
+// score is optional — the server recomputes it via scoreDrill
+const taskResultSchema = z.object({
+  module: z.string(),
+  type: z.enum(DRILL_TYPES),
+  config: drillTypeConfigSchema.optional().default({}),
+  questions: z.array(questionResultSchema),
+  score: z.number().min(0).max(100).optional(),
+  totalMs: z.number().min(0)
+});
+
+// Full session submission
+export const postSessionSubmitSchema = z.object({
+  cadence: z.enum(['daily', 'weekly', 'monthly']).optional().default('daily'),
+  modules: z.array(z.string()).min(1),
+  tasks: z.array(taskResultSchema).min(1),
+  tags: postTagsSchema.optional().default({})
 });
 
 // Config update (partial)

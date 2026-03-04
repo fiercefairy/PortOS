@@ -29,6 +29,10 @@ export function usePostSession() {
 
   const startSession = useCallback(async (drillConfigs) => {
     // drillConfigs: [{ type, config, timeLimitSec }]
+    if (!drillConfigs?.length) {
+      toast.error('No drills configured');
+      return;
+    }
     setState(STATES.LOADING);
     setDrills(drillConfigs);
     setCurrentDrillIndex(0);
@@ -142,13 +146,14 @@ export function usePostSession() {
       setState(STATES.IDLE);
       return null;
     });
-    if (!drill) return;
+    if (!drill) return false;
     setCurrentDrill({ ...drill, timeLimitSec: next.timeLimitSec });
     setCurrentQuestionIndex(0);
     setAnswers([]);
     questionStartRef.current = Date.now();
     drillStartRef.current = Date.now();
     setState(STATES.DRILLING);
+    return true;
   }, [currentDrillIndex, drills]);
 
   const timeExpired = useCallback(() => {

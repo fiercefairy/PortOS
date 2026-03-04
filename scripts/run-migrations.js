@@ -35,7 +35,11 @@ async function run() {
     if (applied.includes(file)) continue;
 
     console.log(`🔄 Running migration: ${file}`);
-    const migration = await import(pathToFileURL(join(migrationsDir, file)).href);
+    const mod = await import(pathToFileURL(join(migrationsDir, file)).href);
+    const migration = (mod?.default && typeof mod.default.up === 'function') ? mod.default : mod;
+    if (!migration || typeof migration.up !== 'function') {
+      throw new Error(`Migration "${file}" does not export an up() function`);
+    }
     await migration.up({ rootDir, migrationsDir });
     applied.push(file);
     await writeFile(appliedFile, JSON.stringify(applied, null, 2) + '\n');

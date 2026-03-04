@@ -272,6 +272,7 @@ async function loadCustomDrinks() {
     await saveCustomDrinks(seeded);
     return seeded;
   }
+  if (!Array.isArray(data.drinks)) data.drinks = [];
   return data;
 }
 

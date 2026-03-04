@@ -11,13 +11,13 @@ const SCRIPT_PATH = join(PATHS.root, 'scripts', 'portos-update.sh');
  *
  * @param {string} tag - The git tag to update to (e.g. "v1.27.0")
  * @param {function} emit - Callback (step, status, message) for progress
- * @returns {Promise<{success: boolean}>}
+ * @returns {Promise<{success: boolean, failedStep?: string, errorMessage?: string}>}
  */
 export async function executeUpdate(tag, emit) {
   if (process.platform === 'win32') {
     const msg = 'Auto-update execution is not supported on Windows — the update script requires bash';
     emit('starting', 'error', msg);
-    return { success: false, error: msg };
+    return { success: false, failedStep: 'starting', errorMessage: msg };
   }
 
   // The route sets updateInProgress synchronously before calling us,
@@ -76,7 +76,10 @@ export async function executeUpdate(tag, emit) {
       } else {
         emit(lastStep, 'error', `Update failed at step "${lastStep}" (exit code ${code})`);
       }
-      resolve({ success });
+      resolve(success
+        ? { success: true }
+        : { success: false, failedStep: lastStep, errorMessage: `Update failed at step "${lastStep}" (exit code ${code})` }
+      );
     });
 
     child.on('error', (err) => {
@@ -86,8 +89,9 @@ export async function executeUpdate(tag, emit) {
         completedAt: new Date().toISOString(),
         log: err.message
       }).catch(e => console.error(`❌ Failed to record update result: ${e.message}`));
-      emit('starting', 'error', `Failed to start update: ${err.message}`);
-      resolve({ success: false });
+      const errorMessage = `Failed to start update: ${err.message}`;
+      emit('starting', 'error', errorMessage);
+      resolve({ success: false, failedStep: 'starting', errorMessage });
     });
 
     // Unref so the parent process doesn't wait for the detached child

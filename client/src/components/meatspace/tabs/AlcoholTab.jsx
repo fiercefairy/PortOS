@@ -70,7 +70,11 @@ export default function AlcoholTab() {
 
   const fetchDrinkButtons = useCallback(async () => {
     const buttons = await api.getCustomDrinks().catch(() => null);
-    if (buttons?.length) setDrinkButtons(buttons);
+    if (Array.isArray(buttons)) {
+      setDrinkButtons(buttons);
+    } else {
+      setDrinkButtons(DEFAULT_DRINKS);
+    }
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -400,7 +404,7 @@ export default function AlcoholTab() {
                 />
                 <button
                   type="submit"
-                  disabled={!buttonForm.name || !buttonForm.oz}
+                  disabled={!buttonForm.name || !buttonForm.oz || !buttonForm.abv || isNaN(parseFloat(buttonForm.abv))}
                   className="flex items-center gap-1 px-2 py-1.5 text-xs bg-port-accent text-white rounded-lg hover:bg-port-accent/80 disabled:opacity-50"
                 >
                   <Plus size={12} />

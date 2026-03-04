@@ -57,7 +57,7 @@ step "migrations" "done" "Migrations complete"
 
 # Step 6: Build client
 step "build" "running" "Building client..."
-npm run build -w client >> "$LOG_FILE" 2>&1
+npm run build --prefix client >> "$LOG_FILE" 2>&1
 step "build" "done" "Client built"
 
 # Step 7: Restart via PM2

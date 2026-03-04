@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock dependencies before importing the module
 vi.mock('fs/promises', () => ({
-  writeFile: vi.fn().mockResolvedValue(undefined)
+  writeFile: vi.fn().mockResolvedValue(undefined),
+  rename: vi.fn().mockResolvedValue(undefined)
 }));
 
 vi.mock('../lib/fileUtils.js', () => ({

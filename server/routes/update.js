@@ -85,7 +85,7 @@ router.post('/execute', asyncHandler(async (req, res) => {
       if (result.success) {
         io.emit('portos:update:complete', { success: true, newVersion: tag.replace(/^v/, '') });
       } else {
-        io.emit('portos:update:error', { message: 'Update failed', step: 'unknown' });
+        io.emit('portos:update:error', { message: result.errorMessage ?? 'Update failed', step: result.failedStep ?? 'unknown' });
       }
     }
   }).catch(err => {

@@ -1,4 +1,4 @@
-import { writeFile } from 'fs/promises';
+import { writeFile, rename } from 'fs/promises';
 import { join } from 'path';
 import { EventEmitter } from 'events';
 import { readJSONFile, PATHS, ensureDir } from '../lib/fileUtils.js';
@@ -59,7 +59,9 @@ async function loadState() {
 
 async function saveState(state) {
   await ensureDir(PATHS.data);
-  await writeFile(UPDATE_FILE, JSON.stringify(state, null, 2) + '\n');
+  const tmpFile = `${UPDATE_FILE}.tmp`;
+  await writeFile(tmpFile, JSON.stringify(state, null, 2) + '\n');
+  await rename(tmpFile, UPDATE_FILE);
 }
 
 /**

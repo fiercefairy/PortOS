@@ -164,11 +164,11 @@ export async function syncAllPeers() {
   await Promise.allSettled(online.map(p => syncWithPeer(p)));
 
   // Compact sync log below the minimum peer cursor to bound log growth
-  // Only consider cursors for peers that still exist to avoid stale entries blocking compaction
+  // Include all enabled peers (not just online) so offline peers don't lose unsynced entries
   const cursors = await loadCursors();
-  const peerIds = new Set(online.map(p => p.instanceId));
+  const allEnabledIds = new Set(peers.filter(p => p.enabled && p.instanceId).map(p => p.instanceId));
   const seqs = Object.entries(cursors)
-    .filter(([id]) => peerIds.has(id))
+    .filter(([id]) => allEnabledIds.has(id))
     .map(([, c]) => c.brainSeq ?? 0);
   if (seqs.length > 0) {
     const minSeq = Math.min(...seqs);

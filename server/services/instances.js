@@ -17,6 +17,7 @@ import { DEFAULT_PEER_PORT } from '../lib/ports.js';
 const INSTANCES_FILE = dataPath('instances.json');
 const PROBE_TIMEOUT_MS = 5000;
 const POLL_INTERVAL_MS = 30000;
+const INITIAL_PROBE_DELAY_MS = 2000;
 
 const withLock = createMutex();
 let pollTimer = null;
@@ -187,7 +188,8 @@ export async function probePeer(peer) {
     if (syncRes?.ok) {
       remoteSyncSeqs = await syncRes.json().catch(() => null);
     }
-  } catch {
+  } catch (err) {
+    console.log(`⚠️ Probe failed for ${peer.address}:${peer.port}: ${err.message}`);
     status = 'offline';
     lastHealth = peer.lastHealth; // preserve last known
     lastSeen = peer.lastSeen;
@@ -313,7 +315,9 @@ export async function handleAnnounce({ address, port, instanceId, name }) {
 
   // Immediately probe newly announced peers to populate health data
   if (result.created) {
-    probePeer(result.peer).catch(() => {});
+    probePeer(result.peer).catch(err => {
+      console.log(`⚠️ Initial probe failed for announced peer ${result.peer.name}: ${err.message}`);
+    });
   }
 
   return result;
@@ -381,7 +385,7 @@ export function startPolling() {
   console.log(`🌐 Instance polling started (${POLL_INTERVAL_MS / 1000}s interval)`);
 
   // Initial probe after a short delay
-  setTimeout(() => probeAllPeers(), 2000);
+  setTimeout(() => probeAllPeers(), INITIAL_PROBE_DELAY_MS);
 
   pollTimer = setInterval(() => probeAllPeers(), POLL_INTERVAL_MS);
 }

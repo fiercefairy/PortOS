@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef } from 'react';
-import { generatePostDrill, submitPostSession } from '../services/api';
+import { generatePostDrill, submitPostSession, scorePostLlmDrill } from '../services/api';
 import toast from 'react-hot-toast';
+
+const LLM_DRILL_TYPES = ['word-association', 'story-recall', 'verbal-fluency', 'wit-comeback', 'pun-wordplay'];
 
 // States: idle → loading → drilling → between-drills → complete → saving → saved
 const STATES = {
@@ -40,7 +42,7 @@ export function usePostSession() {
     setSavedSession(null);
 
     const first = drillConfigs[0];
-    const drill = await generatePostDrill(first.type, first.config).catch(err => {
+    const drill = await generatePostDrill(first.type, first.config, first.providerId, first.model).catch(err => {
       toast.error(`Failed to generate drill: ${err.message}`);
       setState(STATES.IDLE);
       return null;
@@ -141,7 +143,7 @@ export function usePostSession() {
     setState(STATES.LOADING);
 
     const next = drills[nextIndex];
-    const drill = await generatePostDrill(next.type, next.config).catch(err => {
+    const drill = await generatePostDrill(next.type, next.config, next.providerId, next.model).catch(err => {
       toast.error(`Failed to generate drill: ${err.message}`);
       setState(STATES.IDLE);
       return null;
@@ -173,11 +175,52 @@ export function usePostSession() {
     finishDrillRef.current(finalAnswers);
   }, [state, currentDrill, currentQuestionIndex, answers]);
 
+  const completeLlmDrill = useCallback(async (drillResult) => {
+    const isLlm = LLM_DRILL_TYPES.includes(drillResult.type);
+    let scoredResult = drillResult;
+
+    if (isLlm && drillResult.responses?.length > 0) {
+      setState(STATES.LOADING);
+      const drillConfig = drills[currentDrillIndex];
+      const timeLimitMs = (drillConfig?.timeLimitSec || 120) * 1000;
+      const scoreResult = await scorePostLlmDrill(
+        drillResult.type, drillResult.drillData, drillResult.responses,
+        timeLimitMs, drillConfig?.providerId, drillConfig?.model
+      ).catch(err => {
+        toast.error(`LLM scoring failed: ${err.message}`);
+        return null;
+      });
+
+      if (scoreResult) {
+        scoredResult = {
+          ...drillResult,
+          score: scoreResult.score,
+          responses: scoreResult.questions || drillResult.responses,
+          evaluation: scoreResult.evaluation
+        };
+      } else {
+        scoredResult = { ...drillResult, score: 0 };
+      }
+    }
+
+    const newResults = [...drillResults, scoredResult];
+    setDrillResults(newResults);
+
+    if (currentDrillIndex + 1 < drills.length) {
+      setState(STATES.BETWEEN_DRILLS);
+    } else {
+      const avgScore = Math.round(newResults.reduce((s, r) => s + (r.score || 0), 0) / newResults.length);
+      setSessionScore(avgScore);
+      setState(STATES.COMPLETE);
+    }
+  }, [drillResults, currentDrillIndex, drills]);
+
   const saveSession = useCallback(async (tags = {}) => {
     setState(STATES.SAVING);
+    const modules = [...new Set(drillResults.map(r => r.module))];
     const session = await submitPostSession({
       cadence: 'daily',
-      modules: ['mental-math'],
+      modules,
       tasks: drillResults,
       tags
     }).catch(err => {
@@ -219,6 +262,7 @@ export function usePostSession() {
     skipQuestion,
     nextDrill,
     timeExpired,
+    completeLlmDrill,
     saveSession,
     reset
   };

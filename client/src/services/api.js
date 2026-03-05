@@ -1487,10 +1487,15 @@ export const submitPostSession = (data) => request('/meatspace/post/sessions', {
   body: JSON.stringify(data)
 });
 export const getPostStats = (days) => request(`/meatspace/post/stats${days != null ? `?days=${days}` : ''}`);
-export const generatePostDrill = (type, config = {}) => request('/meatspace/post/drill', {
+export const generatePostDrill = (type, config = {}, providerId, model) => request('/meatspace/post/drill', {
   method: 'POST',
-  body: JSON.stringify({ type, config })
+  body: JSON.stringify({ type, config, ...(providerId && { providerId }), ...(model && { model }) })
 });
+export const scorePostLlmDrill = (type, drillData, responses, timeLimitMs, providerId, model) =>
+  request('/meatspace/post/score-llm', {
+    method: 'POST',
+    body: JSON.stringify({ type, drillData, responses, timeLimitMs, ...(providerId && { providerId }), ...(model && { model }) })
+  });
 
 // JIRA
 export const getJiraInstances = () => request('/jira/instances');

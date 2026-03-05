@@ -18,11 +18,14 @@ import {
   postSessionSubmitSchema,
   postConfigUpdateSchema,
   postDrillRequestSchema,
+  postLlmScoreRequestSchema,
+  LLM_DRILL_TYPES,
 } from '../lib/postValidation.js';
 import * as meatspaceService from '../services/meatspace.js';
 import * as alcoholService from '../services/meatspaceAlcohol.js';
 import * as healthService from '../services/meatspaceHealth.js';
 import * as postService from '../services/meatspacePost.js';
+import { generateLlmDrill, scoreLlmDrill } from '../services/meatspacePostLlm.js';
 
 const router = Router();
 
@@ -384,16 +387,38 @@ router.get('/post/stats', asyncHandler(async (req, res) => {
 
 /**
  * POST /api/meatspace/post/drill
- * Generate a drill with questions and expected answers for client-side feedback.
- * Server-side scoring recomputes expected answers from the prompt when possible.
+ * Generate a drill with questions and expected answers.
+ * Supports both math drills (sync) and LLM drills (async, requires AI provider).
  */
 router.post('/post/drill', asyncHandler(async (req, res) => {
   const data = validateRequest(postDrillRequestSchema, req.body);
+
+  if (LLM_DRILL_TYPES.includes(data.type)) {
+    const drill = await generateLlmDrill(data.type, data.config, data.providerId, data.model);
+    if (!drill) {
+      throw new ServerError('Failed to generate LLM drill', { status: 500, code: 'LLM_DRILL_FAILED' });
+    }
+    return res.json(drill);
+  }
+
   const drill = postService.generateDrill(data.type, data.config);
   if (!drill) {
     throw new ServerError('Unknown drill type', { status: 400, code: 'INVALID_DRILL_TYPE' });
   }
   res.json(drill);
+}));
+
+/**
+ * POST /api/meatspace/post/score-llm
+ * Score an LLM drill's responses using AI evaluation.
+ */
+router.post('/post/score-llm', asyncHandler(async (req, res) => {
+  const data = validateRequest(postLlmScoreRequestSchema, req.body);
+  const result = await scoreLlmDrill(
+    data.type, data.drillData, data.responses,
+    data.timeLimitMs, data.providerId, data.model
+  );
+  res.json(result);
 }));
 
 export default router;

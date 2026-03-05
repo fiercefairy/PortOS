@@ -1,6 +1,9 @@
 # Unreleased Changes
 
 ## Added
+- POST: LLM-powered Wit & Memory drills — 5 new AI drill types (word association, story recall, verbal fluency, wit/comeback, pun/wordplay) with configurable provider/model per drill
+- POST: server-side LLM scoring with per-response feedback and evaluation summaries
+- POST: provider/model selector in drill config UI for LLM drills
 
 ## Changed
 - Update tab: render release notes as markdown instead of plain text, remove max-width constraint for more screen space

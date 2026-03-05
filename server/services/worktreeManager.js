@@ -175,12 +175,16 @@ export async function createPersistentWorktree(featureAgentId, sourceWorkspace, 
     .then(() => `origin/${baseBranch}`)
     .catch(() => baseBranch);
 
-  // Check if branch already exists
-  const branchExists = (await execGit(['branch', '--list', branchName], sourceWorkspace)).trim();
+  // Check if branch already exists (local or remote)
+  const localBranchExists = (await execGit(['branch', '--list', branchName], sourceWorkspace)).trim();
+  const remoteBranchExists = (await execGit(['branch', '-r', '--list', `origin/${branchName}`], sourceWorkspace)).trim();
 
-  if (branchExists) {
-    // Branch exists - create worktree from existing branch
+  if (localBranchExists) {
+    // Local branch exists - create worktree from existing branch
     await execGit(['worktree', 'add', FA_WORKTREES, branchName], sourceWorkspace);
+  } else if (remoteBranchExists) {
+    // Remote branch exists but no local - track it
+    await execGit(['worktree', 'add', '--track', '-b', branchName, FA_WORKTREES, `origin/${branchName}`], sourceWorkspace);
   } else {
     // New branch - create from base
     await execGit(['worktree', 'add', '-b', branchName, FA_WORKTREES, baseRef], sourceWorkspace);

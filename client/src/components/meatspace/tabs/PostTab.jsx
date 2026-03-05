@@ -7,8 +7,7 @@ import PostLlmDrillRunner from '../post/PostLlmDrillRunner';
 import PostSessionResults from '../post/PostSessionResults';
 import PostHistory from '../post/PostHistory';
 import PostDrillConfig from '../post/PostDrillConfig';
-
-const LLM_DRILL_TYPES = ['word-association', 'story-recall', 'verbal-fluency', 'wit-comeback', 'pun-wordplay'];
+import { LLM_DRILL_TYPES } from '../post/constants';
 
 export default function PostTab() {
   const [view, setView] = useState('launcher');

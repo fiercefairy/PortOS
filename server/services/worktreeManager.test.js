@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { join } from 'path';
 
 /**
  * Tests for the worktree manager service.
@@ -112,7 +113,7 @@ detached
 
 describe('Persistent Worktree Path Construction', () => {
   function buildPersistentWorktreePath(worktreesDir, featureAgentId) {
-    return `${worktreesDir}/../feature-agents/${featureAgentId}/worktree`;
+    return join(worktreesDir, '..', 'feature-agents', featureAgentId, 'worktree');
   }
 
   it('should place worktree under feature-agents directory', () => {

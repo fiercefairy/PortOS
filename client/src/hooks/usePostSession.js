@@ -1,8 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { generatePostDrill, submitPostSession, scorePostLlmDrill } from '../services/api';
 import toast from 'react-hot-toast';
-
-const LLM_DRILL_TYPES = ['word-association', 'story-recall', 'verbal-fluency', 'wit-comeback', 'pun-wordplay'];
+import { LLM_DRILL_TYPES } from '../components/meatspace/post/constants';
 
 // States: idle → loading → drilling → between-drills → complete → saving → saved
 const STATES = {

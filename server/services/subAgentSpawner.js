@@ -1469,7 +1469,7 @@ export async function spawnAgentForTask(task) {
 
   // Feature agent tasks: use persistent worktree instead of creating a new one
   if (task.metadata?.featureAgentRun && task.metadata?.featureAgentId) {
-    const { getFeatureAgent, buildFeatureAgentPrompt } = await import('./featureAgents.js');
+    const { getFeatureAgent } = await import('./featureAgents.js');
     const fa = await getFeatureAgent(task.metadata.featureAgentId).catch(() => null);
     if (fa) {
       const faWorktreePath = join(PATHS.cos, 'feature-agents', fa.id, 'worktree');

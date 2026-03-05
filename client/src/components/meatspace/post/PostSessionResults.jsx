@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CheckCircle, Save, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
+import { LLM_DRILL_TYPES } from './constants';
 
 const DRILL_LABELS = {
   'doubling-chain': 'Doubling Chain',
@@ -13,8 +14,6 @@ const DRILL_LABELS = {
   'wit-comeback': 'Wit & Comeback',
   'pun-wordplay': 'Pun & Wordplay'
 };
-
-const LLM_DRILL_TYPES = ['word-association', 'story-recall', 'verbal-fluency', 'wit-comeback', 'pun-wordplay'];
 
 export default function PostSessionResults({ session, tags = {}, onSaved, onBack }) {
   const { drillResults, sessionScore, state, saveSession } = session;

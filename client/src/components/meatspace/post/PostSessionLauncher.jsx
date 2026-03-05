@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Zap, History, Settings, Play, Brain } from 'lucide-react';
 import { getProviders } from '../../../services/api';
+import { LLM_DRILL_TYPES } from './constants';
 
 const DRILL_LABELS = {
   'doubling-chain': 'Doubling Chain',
@@ -14,8 +15,6 @@ const DRILL_LABELS = {
   'wit-comeback': 'Wit & Comeback',
   'pun-wordplay': 'Pun & Wordplay'
 };
-
-const LLM_DRILL_TYPES = ['word-association', 'story-recall', 'verbal-fluency', 'wit-comeback', 'pun-wordplay'];
 
 export default function PostSessionLauncher({ config, recentSessions, onStart, onViewHistory, onViewConfig }) {
   const [tags, setTags] = useState({ sleep: '', caffeine: '', stress: '' });

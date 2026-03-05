@@ -473,7 +473,24 @@ export const featureAgentSchema = z.object({
   priority: featureAgentPrioritySchema.default('MEDIUM')
 });
 
-export const featureAgentUpdateSchema = featureAgentSchema.deepPartial();
+// Update schema: all fields optional, no defaults (prevents overwriting existing values)
+export const featureAgentUpdateSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  description: z.string().min(1).max(2000).optional(),
+  persona: z.string().max(5000).optional(),
+  appId: z.string().min(1).optional(),
+  schedule: z.object({
+    mode: featureAgentScheduleModeSchema.optional(),
+    intervalMs: z.number().int().min(30000).optional(),
+    pauseBetweenRunsMs: z.number().int().min(0).optional()
+  }).optional(),
+  goals: z.array(z.string()).optional(),
+  constraints: z.array(z.string()).optional(),
+  providerId: z.string().optional().nullable(),
+  model: z.string().optional().nullable(),
+  autonomyLevel: featureAgentAutonomySchema.optional(),
+  priority: featureAgentPrioritySchema.optional()
+});
 
 /**
  * Validate data against a schema

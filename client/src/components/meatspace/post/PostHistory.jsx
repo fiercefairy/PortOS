@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, ChevronDown, ChevronRight } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { getPostSessions, getPostStats } from '../../../services/api';
+import { LLM_DRILL_TYPES } from './constants';
 
 const DRILL_LABELS = {
   'doubling-chain': 'Doubling Chain',
@@ -15,8 +16,6 @@ const DRILL_LABELS = {
   'wit-comeback': 'Wit & Comeback',
   'pun-wordplay': 'Pun & Wordplay'
 };
-
-const LLM_DRILL_TYPES = ['word-association', 'story-recall', 'verbal-fluency', 'wit-comeback', 'pun-wordplay'];
 
 const RANGES = [
   { label: '7d', days: 7 },

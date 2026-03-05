@@ -74,8 +74,8 @@ export async function createFeatureAgent(input) {
     const id = `fa-${uuidv4().slice(0, 8)}`;
     const now = new Date().toISOString();
 
-    const slug = input.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || id;
-    const branchName = `feature-agent/${slug}`;
+    const slug = input.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'agent';
+    const branchName = `feature-agent/${slug}-${id.replace('fa-', '')}`;
     const agent = {
       id,
       ...input,

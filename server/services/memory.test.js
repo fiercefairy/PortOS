@@ -70,7 +70,7 @@ vi.mock('./memoryConfig.js', () => ({
   decrementAgentPendingApproval: vi.fn().mockResolvedValue(undefined)
 }));
 
-import { writeFile, rm } from 'fs/promises';
+import { writeFile, mkdir, rm } from 'fs/promises';
 import { existsSync } from 'fs';
 import { readJSONFile } from '../lib/fileUtils.js';
 import * as memoryBM25 from './memoryBM25.js';
@@ -138,6 +138,14 @@ describe('memory service', () => {
       expect(result.embeddingModel).toBeNull();
       expect(result.createdAt).toBeDefined();
       expect(result.updatedAt).toBeDefined();
+    });
+
+    it('should create directories when they do not exist', async () => {
+      existsSync.mockReturnValue(false);
+      const data = { type: 'fact', content: 'new dir test' };
+      await createMemory(data);
+
+      expect(mkdir).toHaveBeenCalledWith(expect.any(String), { recursive: true });
     });
 
     it('should use provided fields when given', async () => {

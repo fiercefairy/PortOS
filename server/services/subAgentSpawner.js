@@ -1687,7 +1687,7 @@ async function spawnViaRunner(agentId, task, prompt, workspacePath, model, provi
 
   // For Claude CLI providers, merge ~/.claude/settings.json env vars so Bedrock config
   // (CLAUDE_CODE_USE_BEDROCK, AWS_PROFILE, etc.) is present in the runner spawn env
-  const claudeSettingsEnv = provider.type === 'cli' && (provider.id === 'claude-code' || provider.id === 'claude-code-bedrock')
+  const claudeSettingsEnv = isClaudeCliProvider(provider)
     ? await getClaudeSettingsEnv()
     : {};
 
@@ -1931,7 +1931,7 @@ async function spawnDirectly(agentId, task, prompt, workspacePath, model, provid
 
   // For Claude CLI providers, inject ~/.claude/settings.json env vars so Bedrock config
   // (CLAUDE_CODE_USE_BEDROCK, AWS_PROFILE, etc.) is present even if PM2 lacks them
-  const claudeSettingsEnv = provider.type === 'cli' && (provider.id === 'claude-code' || provider.id === 'claude-code-bedrock')
+  const claudeSettingsEnv = isClaudeCliProvider(provider)
     ? await getClaudeSettingsEnv()
     : {};
 
@@ -2404,6 +2404,12 @@ function buildSpawnArgs(config, model) {
  * Ensures user's Bedrock/provider config (CLAUDE_CODE_USE_BEDROCK, AWS_PROFILE, etc.)
  * is present in spawned agent environments even if PM2 was started without them
  */
+/**
+ * Check if a provider is a Claude CLI provider that needs settings.json env injection
+ */
+const isClaudeCliProvider = (provider) =>
+  provider?.type === 'cli' && (provider.id === 'claude-code' || provider.id === 'claude-code-bedrock');
+
 let _claudeSettingsEnvCache = null;
 let _claudeSettingsEnvCacheTime = 0;
 const SETTINGS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes

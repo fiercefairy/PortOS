@@ -22,11 +22,16 @@ import Instances from './pages/Instances';
 import MeatSpace from './pages/MeatSpace';
 
 // Auto-reload on stale chunk errors (e.g., after a rebuild changes chunk hashes)
+// Uses sessionStorage to prevent infinite reload loops (max 1 reload per session)
 const lazyWithReload = (importFn) => lazy(() =>
   importFn().catch(err => {
     if (err.message?.includes('MIME type') || err.message?.includes('Failed to fetch dynamically imported module')) {
-      window.location.reload();
-      return new Promise(() => {}); // hang until reload completes
+      const key = 'lazyReloadAttempted';
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, '1');
+        window.location.reload();
+        return new Promise(() => {}); // hang until reload completes
+      }
     }
     throw err;
   })

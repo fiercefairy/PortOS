@@ -195,7 +195,7 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
       })) : undefined,
       position: addToTop ? 'top' : 'bottom'
     }).catch(err => {
-      toast.error(err.message);
+      console.warn('Failed to add COS task:', err);
       setIsSubmitting(false);
       return null;
     });

@@ -48,7 +48,7 @@ const THINKING_LEVELS = {
     model: 'opus',
     maxTokens: 16384,
     localPreferred: false,
-    description: 'Maximum reasoning with Opus'
+    description: 'Maximum reasoning with provider\'s heaviest model'
   }
 }
 

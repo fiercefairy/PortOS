@@ -406,6 +406,93 @@ All 10 audit items (S1–S10) from the 2025-02-19 security audit have been resol
 
 ---
 
+## Better Audit - 2026-03-05
+
+Summary: 35 findings across 28 files. 0 shared utilities to extract (ensureDataDir removal is deletion, not extraction).
+
+### File Ownership Map
+
+| File | Primary Category | Reason |
+|------|-----------------|--------|
+| `server/lib/db.js` | Security | Hardcoded DB password |
+| `server/routes/cos.js` | Security | Mass assignment (HIGH) + string concat bug |
+| `server/services/backup.js` | Security | Hardcoded DB password in backup |
+| `server/lib/ports.js` | Code Quality | Hardcoded localhost |
+| `server/services/browserService.js` | Code Quality | Hardcoded 127.0.0.1 |
+| `server/services/instances.js` | Code Quality | Magic number + bare catch |
+| `server/services/worktreeManager.js` | Code Quality | Silent .catch blocks |
+| `client/src/pages/PromptManager.jsx` | Bugs & Perf | window.alert/confirm |
+| `server/lib/errorHandler.js` | Bugs & Perf | process.exit in library |
+| `server/services/socket.js` | Bugs & Perf | Socket cleanup for dropped clients |
+| `client/src/hooks/useCityData.js` | Stack-Specific | Incorrect socket.off() |
+| `client/src/pages/ChiefOfStaff.jsx` | Stack-Specific | Incorrect socket.off() |
+| `client/src/pages/Instances.jsx` | Stack-Specific | Incorrect socket.off() |
+| `client/src/pages/AIProviders.jsx` | Stack-Specific | Stale closure in useEffect |
+| `client/src/services/api.js` | Stack-Specific | Missing response.ok check |
+| `client/src/utils/fileUpload.js` | DRY | Duplicate formatFileSize |
+| `client/src/components/cos/TaskAddForm.jsx` | DRY | Import update for formatFileSize |
+| `server/services/cosEvolution.js` | DRY | ensureDataDir wrapper removal |
+| `server/services/apps.js` | DRY | ensureDataDir wrapper removal |
+| `server/services/missions.js` | DRY | ensureDataDir wrapper removal |
+| `server/services/appActivity.js` | DRY | ensureDataDir wrapper removal |
+| `server/services/productivity.js` | DRY | ensureDataDir wrapper removal |
+| `server/services/autonomousJobs.js` | DRY | ensureDataDir wrapper removal |
+| `server/services/history.js` | DRY | ensureDataDir wrapper removal |
+| `server/services/memoryBM25.js` | DRY | ensureDataDir wrapper removal |
+| `server/services/autobiography.js` | DRY | ensureDataDir wrapper removal |
+
+### Security & Secrets
+- [ ] **[HIGH]** `server/lib/db.js:18` - Hardcoded default DB password 'portos' as fallback. Fix: Log warning and throw if PGPASSWORD not set. (Complexity: Simple)
+- [ ] **[HIGH]** `server/routes/cos.js:77` - Mass assignment: `req.body` spread directly into config without Zod validation. Fix: Add Zod schema with explicit allowed fields. (Complexity: Simple)
+- [ ] **[HIGH]** `server/routes/cos.js:991` - String concatenation with potentially undefined value produces literal "undefined". Fix: Use nullish coalescing default. (Complexity: Simple)
+- [ ] **[MEDIUM]** `server/services/backup.js:173` - Same hardcoded 'portos' password fallback in backup spawn env. Fix: Same as db.js. (Complexity: Simple)
+- [ ] **[HIGH]** npm audit: multer DoS vulnerability (GHSA-5528-5vmv-3xc2). Fix: `npm audit fix` in server/. (Complexity: Simple)
+- [ ] **[LOW]** npm audit: pm2 ReDoS (GHSA-x5gf-qvw8-r2rm). No upstream fix available. (Tracked only)
+
+### Code Quality & Style
+- [ ] **[HIGH]** `server/lib/ports.js:4` - Hardcoded `localhost` violates CLAUDE.md "no hardcoded localhost". Fix: Use configurable host. (Complexity: Simple)
+- [ ] **[HIGH]** `server/services/browserService.js:26,66` - Hardcoded `127.0.0.1` for CDP. Fix: Use `process.env.CDP_HOST || '127.0.0.1'`. (Complexity: Simple)
+- [ ] **[HIGH]** `server/services/instances.js:384` - Magic number `2000` without named constant. Fix: Extract to `INITIAL_PROBE_DELAY_MS`. (Complexity: Simple)
+- [ ] **[MEDIUM]** `server/services/instances.js:190,316` - Bare catch blocks without logging. Fix: Add warning-level log messages. (Complexity: Simple)
+- [ ] **[MEDIUM]** `server/services/worktreeManager.js:144,147,152,154,205,207,210,223,228` - Multiple `.catch(() => {})` swallowing git/rm errors. Fix: Add warn-level logging. (Complexity: Simple)
+
+### DRY & YAGNI
+- [ ] **[MEDIUM]** `client/src/utils/fileUpload.js:247` - Duplicate `formatFileSize` when `formatBytes` in `formatters.js` is more complete. Fix: Remove formatFileSize, update import in TaskAddForm.jsx. (Complexity: Simple)
+- [ ] **[HIGH]** 9 files with redundant `ensureDataDir()` wrappers around imported `ensureDir()`. Fix: Remove wrappers, call `ensureDir(DATA_DIR)` directly. Files: cosEvolution.js, apps.js, missions.js, appActivity.js, productivity.js, autonomousJobs.js, history.js, memoryBM25.js, autobiography.js. (Complexity: Simple)
+
+### Architecture & SOLID (tracked, not auto-remediated)
+- [ ] **[CRITICAL]** `server/services/cos.js` (3827 lines) - God file with 40+ exports, mixed concerns. Needs decomposition into cosOrchestrator, cosStateManager, taskGenerator, agentRegistry. (Complexity: Very Complex)
+- [ ] **[CRITICAL]** `server/services/subAgentSpawner.js` (3284 lines) - Mega service spanning model selection, spawning, worktrees, JIRA, git, memory. (Complexity: Very Complex)
+- [ ] **[HIGH]** `server/services/digital-twin.js:280-375` - Mixed API/CLI provider abstraction in single function. (Complexity: Medium)
+- [ ] **[MEDIUM]** `client/src/pages/ChiefOfStaff.jsx:43-150` - 14+ useState hooks, should extract custom hooks. (Complexity: Medium)
+- [ ] **[MEDIUM]** Inconsistent pagination patterns across routes. (Complexity: Medium)
+- [ ] **[MEDIUM]** Error response envelope not fully consistent. (Complexity: Simple)
+
+### Bugs, Performance & Error Handling
+- [ ] **[HIGH]** `client/src/pages/PromptManager.jsx:156,195,207,216` - Uses `alert()` and `confirm()`, violates CLAUDE.md. Fix: Replace with toast notifications and inline confirmation. (Complexity: Medium)
+- [ ] **[MEDIUM]** `server/lib/errorHandler.js:224` - `process.exit(1)` in library code. Fix: Remove process.exit, let caller decide. (Complexity: Simple)
+- [ ] **[MEDIUM]** `server/services/socket.js` - Socket event handlers not cleaned up for dropped clients. Fix: Filter disconnected sockets before broadcast. (Complexity: Simple)
+
+### Stack-Specific (Node/React)
+- [ ] **[HIGH]** `client/src/hooks/useCityData.js:100-104` - Incorrect `socket.off()` without handler function removes ALL listeners. Fix: Pass handler refs. (Complexity: Simple)
+- [ ] **[HIGH]** `client/src/pages/ChiefOfStaff.jsx:264-272` - Same incorrect `socket.off()` pattern. Fix: Pass handler refs. (Complexity: Simple)
+- [ ] **[HIGH]** `client/src/pages/Instances.jsx:480` - Same incorrect `socket.off()` pattern. Fix: Pass handler ref. (Complexity: Simple)
+- [ ] **[HIGH]** `client/src/pages/AIProviders.jsx:30-49` - Stale closure: `loadRuns` missing from useEffect dependency array. Fix: Add to deps or useCallback. (Complexity: Simple)
+- [ ] **[MEDIUM]** `client/src/services/api.js:743-746` - `getCosDigestText` doesn't check `response.ok`. Fix: Add status check before `.text()`. (Complexity: Simple)
+
+### Test Coverage (tracked, not auto-remediated)
+- [ ] **[CRITICAL]** `server/services/cos.js` - No service tests for core 3827-line business logic
+- [ ] **[CRITICAL]** `server/services/subAgentSpawner.js` - Partial tests (657 lines), most spawn logic untested
+- [ ] **[HIGH]** `server/services/instances.js` - No tests for federation logic
+- [ ] **[HIGH]** `server/services/digital-twin.js` - No tests for 2823-line service
+- [ ] **[HIGH]** `server/services/memory.js` - No tests for CRUD and search
+- [ ] **[HIGH]** `server/services/brain.js` - No service tests (route tests only)
+- [ ] **[HIGH]** `server/services/pm2.js` - No tests for process management
+- [ ] **[HIGH]** `server/services/shell.js` - No tests for PTY sessions
+- [ ] Overall: 29.4% service coverage (35/119), 12.0% route coverage (6/50)
+
+---
+
 ## Next Actions
 
 1. **M44 P6**: Finish genome/epigenetic migration cleanup — update route comments, remove Genome card from IdentityTab or redirect to `/meatspace/genome`

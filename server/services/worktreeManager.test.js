@@ -126,7 +126,8 @@ describe('Persistent Worktree Path Construction', () => {
   it('should be separate from regular worktrees directory', () => {
     const regularPath = '/data/cos/worktrees/agent-12345678';
     const persistentPath = buildPersistentWorktreePath('/data/cos/worktrees', 'fa-abc12345');
-    expect(persistentPath).not.toContain('/worktrees/fa-');
+    const normalized = persistentPath.replace(/\\/g, '/');
+    expect(normalized).not.toContain('/worktrees/fa-');
     expect(regularPath).not.toContain('feature-agents');
   });
 

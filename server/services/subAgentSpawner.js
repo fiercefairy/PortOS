@@ -1478,7 +1478,8 @@ export async function spawnAgentForTask(task) {
         worktreeInfo = {
           worktreePath: faWorktreePath,
           branchName: fa.git.branchName,
-          baseBranch: fa.git.baseBranch || 'main'
+          baseBranch: fa.git.baseBranch || 'main',
+          isPersistentWorktree: true
         };
         // Merge base branch into feature worktree before starting
         const { mergeBaseIntoFeatureWorktree } = await import('./worktreeManager.js');
@@ -1590,6 +1591,7 @@ export async function spawnAgentForTask(task) {
     sourceWorkspace: worktreeInfo ? (task.metadata?.app ? await getAppWorkspace(task.metadata.app) : ROOT_DIR) : null,
     worktreeBranch: worktreeInfo?.branchName || null,
     isWorktree: !!worktreeInfo,
+    isPersistentWorktree: !!worktreeInfo?.isPersistentWorktree,
     taskDescription: task.description,
     taskType: task.taskType,
     priority: task.priority,
@@ -1934,6 +1936,8 @@ async function cleanupAgentWorktree(agentId, success) {
   const { getAgent: getAgentState } = await import('./cos.js');
   const agentState = await getAgentState(agentId).catch(() => null);
   if (!agentState?.metadata?.isWorktree) return;
+  // Skip cleanup for persistent feature agent worktrees (they survive across runs)
+  if (agentState?.metadata?.isPersistentWorktree) return;
 
   const { sourceWorkspace, worktreeBranch } = agentState.metadata;
   if (!sourceWorkspace || !worktreeBranch) return;

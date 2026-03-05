@@ -308,6 +308,7 @@ export async function getDueFeatureAgents() {
 
   for (const agent of data.agents) {
     if (agent.status !== 'active') continue;
+    if (agent.autonomyLevel === 'standby') continue; // Standby agents only run when manually triggered
     if (agent.currentAgentId) continue; // Already running
 
     // Check backoff

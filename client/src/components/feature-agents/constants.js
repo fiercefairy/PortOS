@@ -44,7 +44,6 @@ export const PRIORITY_COLORS = {
 
 export const SCHEDULE_LABELS = {
   continuous: 'Continuous',
-  cron: 'Cron',
   interval: 'Interval'
 };
 

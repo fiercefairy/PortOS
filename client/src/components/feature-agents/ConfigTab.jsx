@@ -204,19 +204,12 @@ export default function ConfigTab({ agent, isCreate, apps, onSave }) {
             <select value={form.schedule.mode} onChange={e => set('schedule', { ...form.schedule, mode: e.target.value })} className={selectCls}>
               <option value="continuous">Continuous</option>
               <option value="interval">Interval</option>
-              <option value="cron">Cron</option>
             </select>
           </div>
           {form.schedule.mode === 'interval' && (
             <div>
               <label className="block text-sm text-gray-400 mb-1">Interval (minutes)</label>
               <input type="number" value={Math.round((form.schedule.intervalMs || 3600000) / 60000)} onChange={e => set('schedule', { ...form.schedule, intervalMs: parseInt(e.target.value) * 60000 })} className={inputCls} min={1} />
-            </div>
-          )}
-          {form.schedule.mode === 'cron' && (
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Cron Expression</label>
-              <input value={form.schedule.cronExpression} onChange={e => set('schedule', { ...form.schedule, cronExpression: e.target.value })} className={inputCls} placeholder="0 */4 * * *" />
             </div>
           )}
           {form.schedule.mode === 'continuous' && (

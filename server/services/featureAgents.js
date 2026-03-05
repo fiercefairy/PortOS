@@ -266,12 +266,23 @@ export async function triggerFeatureAgent(id) {
   const agent = await getFeatureAgent(id);
   if (!agent) return null;
 
-  // Activate if in draft/paused, then return the updated agent
+  // Activate if in draft/paused
   if (agent.status === 'draft' || agent.status === 'paused') {
     return await activateFeatureAgent(id);
   }
 
-  return agent;
+  // For active agents, reset backoff and lastRunAt so getDueFeatureAgents picks it up immediately
+  return withLock(async () => {
+    const data = await readData();
+    const idx = data.agents.findIndex(a => a.id === id);
+    if (idx === -1) return null;
+    data.agents[idx].backoff = null;
+    data.agents[idx].lastRunAt = null;
+    data.agents[idx].updatedAt = new Date().toISOString();
+    await writeData(data);
+    console.log(`🤖 Feature agent force-triggered: ${data.agents[idx].name} (${id})`);
+    return data.agents[idx];
+  });
 }
 
 /**
@@ -301,13 +312,6 @@ export async function getDueFeatureAgents() {
         due.push(agent);
       }
     } else if (mode === 'interval') {
-      const interval = agent.schedule?.intervalMs || 3600000;
-      if (now - lastRun >= interval) {
-        due.push(agent);
-      }
-    } else if (mode === 'cron') {
-      // Simple cron check - for now just use interval as fallback
-      // Full cron parsing can be added later
       const interval = agent.schedule?.intervalMs || 3600000;
       if (now - lastRun >= interval) {
         due.push(agent);

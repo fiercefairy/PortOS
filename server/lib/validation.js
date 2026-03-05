@@ -451,7 +451,7 @@ export const restoreRequestSchema = z.object({
 // =============================================================================
 
 export const featureAgentStatusSchema = z.enum(['draft', 'active', 'paused', 'completed', 'error']);
-export const featureAgentScheduleModeSchema = z.enum(['continuous', 'cron', 'interval']);
+export const featureAgentScheduleModeSchema = z.enum(['continuous', 'interval']);
 export const featureAgentAutonomySchema = z.enum(['standby', 'assistant', 'manager', 'yolo']);
 export const featureAgentPrioritySchema = z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
 

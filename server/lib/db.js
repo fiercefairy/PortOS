@@ -10,7 +10,7 @@ import pg from 'pg';
 const { Pool } = pg;
 
 if (!process.env.PGPASSWORD) {
-  console.warn('⚠️ PGPASSWORD not set, using default database password');
+  console.warn('⚠️ PGPASSWORD not set — database queries will fail until it is configured');
 }
 
 // Connection config from environment or defaults
@@ -19,7 +19,7 @@ const pool = new Pool({
   port: parseInt(process.env.PGPORT || '5561', 10),
   database: process.env.PGDATABASE || 'portos',
   user: process.env.PGUSER || 'portos',
-  password: process.env.PGPASSWORD || 'portos',
+  password: process.env.PGPASSWORD,
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000

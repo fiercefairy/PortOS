@@ -160,7 +160,8 @@ export async function dumpPostgres(outputPath) {
   const pgUser = process.env.PGUSER || 'portos';
 
   if (!process.env.PGPASSWORD) {
-    console.warn('⚠️ PGPASSWORD not set for pg_dump, using default password');
+    console.error('❌ PGPASSWORD not set — skipping pg_dump');
+    return { success: false, error: 'PGPASSWORD environment variable must be set' };
   }
 
   return new Promise((resolve) => {
@@ -174,7 +175,7 @@ export async function dumpPostgres(outputPath) {
       '-f', outputPath
     ], {
       shell: false,
-      env: { ...process.env, PGPASSWORD: process.env.PGPASSWORD || 'portos' }
+      env: { ...process.env, PGPASSWORD: process.env.PGPASSWORD }
     });
 
     let stderr = '';

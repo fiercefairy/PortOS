@@ -21,6 +21,7 @@ const FETCH_TIMEOUT_MS = 15000;
 const withLock = createMutex();
 let syncTimer = null;
 let peerOnlineHandler = null;
+const syncingPeers = new Set();
 
 // --- Cursor persistence ---
 
@@ -114,29 +115,37 @@ export async function syncWithPeer(peer) {
 
   const peerId = peer.instanceId;
 
+  // Prevent concurrent syncs for the same peer
+  if (syncingPeers.has(peerId)) return { brain: { totalApplied: 0 }, memory: { totalApplied: 0 } };
+  syncingPeers.add(peerId);
+
   // Read cursor snapshot outside lock so network I/O doesn't block other peers
   const cursor = await withCursors(async (cursors) => {
     if (!cursors[peerId]) cursors[peerId] = {};
     return { ...cursors[peerId] };
   });
 
-  const brainResult = await syncBrainFromPeer(peer, cursor);
-  const memoryResult = await syncMemoryFromPeer(peer, cursor);
+  try {
+    const brainResult = await syncBrainFromPeer(peer, cursor);
+    const memoryResult = await syncMemoryFromPeer(peer, cursor);
 
-  // Persist both cursors in a single lock acquisition
-  await withCursors(async (cursors) => {
-    if (!cursors[peerId]) cursors[peerId] = {};
-    cursors[peerId].brainSeq = brainResult.brainSeq;
-    cursors[peerId].memorySeq = memoryResult.memorySeq;
-    cursors[peerId].lastSyncAt = new Date().toISOString();
-  });
+    // Persist both cursors in a single lock acquisition
+    await withCursors(async (cursors) => {
+      if (!cursors[peerId]) cursors[peerId] = {};
+      cursors[peerId].brainSeq = brainResult.brainSeq;
+      cursors[peerId].memorySeq = memoryResult.memorySeq;
+      cursors[peerId].lastSyncAt = new Date().toISOString();
+    });
 
-  const total = brainResult.totalApplied + memoryResult.totalApplied;
-  if (total > 0) {
-    console.log(`🔄 Synced with ${peer.name}: ${brainResult.totalApplied} brain, ${memoryResult.totalApplied} memory changes`);
+    const total = brainResult.totalApplied + memoryResult.totalApplied;
+    if (total > 0) {
+      console.log(`🔄 Synced with ${peer.name}: ${brainResult.totalApplied} brain, ${memoryResult.totalApplied} memory changes`);
+    }
+
+    return { brain: brainResult, memory: memoryResult };
+  } finally {
+    syncingPeers.delete(peerId);
   }
-
-  return { brain: brainResult, memory: memoryResult };
 }
 
 /**
@@ -149,8 +158,12 @@ export async function syncAllPeers() {
   await Promise.allSettled(online.map(p => syncWithPeer(p)));
 
   // Compact sync log below the minimum peer cursor to bound log growth
+  // Only consider cursors for peers that still exist to avoid stale entries blocking compaction
   const cursors = await loadCursors();
-  const seqs = Object.values(cursors).map(c => c.brainSeq ?? 0);
+  const peerIds = new Set(online.map(p => p.instanceId));
+  const seqs = Object.entries(cursors)
+    .filter(([id]) => peerIds.has(id))
+    .map(([, c]) => c.brainSeq ?? 0);
   if (seqs.length > 0) {
     const minSeq = Math.min(...seqs);
     await brainSyncLog.compactLog(minSeq);

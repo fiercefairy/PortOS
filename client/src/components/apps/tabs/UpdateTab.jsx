@@ -156,13 +156,15 @@ export default function UpdateTab() {
   };
 
   const handleIgnore = async (version) => {
-    await api.ignoreUpdateVersion(version);
+    const result = await api.ignoreUpdateVersion(version).catch(() => null);
+    if (!result) return;
     fetchStatus();
     toast.success(`v${version} ignored`);
   };
 
   const handleClearIgnored = async () => {
-    await api.clearIgnoredVersions();
+    const result = await api.clearIgnoredVersions().catch(() => null);
+    if (!result) return;
     fetchStatus();
     toast.success('Ignored versions cleared');
   };

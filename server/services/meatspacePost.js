@@ -102,7 +102,7 @@ export async function submitPostSession(sessionData) {
     // LLM drills: score was computed server-side via /post/score-llm and
     // passed back by the client. Re-scoring here would add latency + cost.
     // This is a single-user internal tool so client score trust is acceptable.
-    // The llmEvaluation field (if present) contains the full server-generated scoring breakdown.
+    // The evaluation field and per-response llmScore/llmFeedback contain the server-generated breakdown.
     if (LLM_DRILL_TYPES.includes(rest.type)) {
       return { ...rest, score: t.score || 0 };
     }

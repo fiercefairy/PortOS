@@ -25,7 +25,7 @@ import { getMemorySection } from './memoryRetriever.js';
 import { extractAndStoreMemories } from './memoryExtractor.js';
 import { getDigitalTwinForPrompt } from './digital-twin.js';
 import { suggestModelTier } from './taskLearning.js';
-import { readJSONFile } from '../lib/fileUtils.js';
+import { readJSONFile, PATHS } from '../lib/fileUtils.js';
 import { getAppById } from './apps.js';
 import { createToolExecution, startExecution, updateExecution, completeExecution, errorExecution, getExecution, getStats as getToolStats } from './toolStateMachine.js';
 import { resolveThinkingLevel, getModelForLevel, isLocalPreferred } from './thinkingLevels.js';
@@ -1466,6 +1466,33 @@ export async function spawnAgentForTask(task) {
   let worktreeInfo = null;
   const isManagedApp = !!task.metadata?.app;
   const explicitWorktree = task.metadata?.useWorktree === 'true' || task.metadata?.useWorktree === true;
+
+  // Feature agent tasks: use persistent worktree instead of creating a new one
+  if (task.metadata?.featureAgentRun && task.metadata?.featureAgentId) {
+    const { getFeatureAgent, buildFeatureAgentPrompt } = await import('./featureAgents.js');
+    const fa = await getFeatureAgent(task.metadata.featureAgentId).catch(() => null);
+    if (fa) {
+      const faWorktreePath = join(PATHS.cos, 'feature-agents', fa.id, 'worktree');
+      if (existsSync(faWorktreePath)) {
+        workspacePath = faWorktreePath;
+        worktreeInfo = {
+          worktreePath: faWorktreePath,
+          branchName: fa.git.branchName,
+          baseBranch: fa.git.baseBranch || 'main'
+        };
+        // Merge base branch into feature worktree before starting
+        const { mergeBaseIntoFeatureWorktree } = await import('./worktreeManager.js');
+        if (fa.git.autoMergeBase) {
+          await mergeBaseIntoFeatureWorktree(fa.id, await getAppWorkspace(fa.appId), fa.git.baseBranch).catch(err => {
+            emitLog('warn', `🌳 Feature agent base merge failed: ${err.message}`, { featureAgentId: fa.id });
+          });
+        }
+        emitLog('info', `🌳 Feature agent ${fa.name} using persistent worktree: ${fa.git.branchName}`, {
+          featureAgentId: fa.id, worktreePath: faWorktreePath
+        });
+      }
+    }
+  }
 
   if (explicitWorktree && !jiraBranchName) {
     // User explicitly requested worktree via task creation UI

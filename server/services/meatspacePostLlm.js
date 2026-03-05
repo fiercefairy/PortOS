@@ -104,8 +104,16 @@ async function callAI(prompt, providerId, model) {
 function parseJsonFromAI(content) {
   if (!content || typeof content !== 'string') throw new Error('Empty AI response');
   let jsonStr = content.trim();
+  // Strip fenced code blocks
   const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (jsonMatch) jsonStr = jsonMatch[1].trim();
+  // Extract first JSON object/array from surrounding text
+  const objectMatch = jsonStr.match(/(\{[\s\S]*\})/);
+  if (objectMatch) jsonStr = objectMatch[1];
+  else {
+    const arrayMatch = jsonStr.match(/(\[[\s\S]*\])/);
+    if (arrayMatch) jsonStr = arrayMatch[1];
+  }
   return JSON.parse(jsonStr);
 }
 

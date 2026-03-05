@@ -85,8 +85,8 @@ export const postConfigUpdateSchema = z.object({
   }).optional(),
   llmDrills: z.object({
     enabled: z.boolean().optional(),
-    providerId: z.string().optional(),
-    model: z.string().optional(),
+    providerId: z.string().nullable().optional(),
+    model: z.string().nullable().optional(),
     drillTypes: z.record(z.enum(LLM_DRILL_TYPES), llmDrillTypeConfigSchema).optional()
   }).optional(),
   sessionModules: z.array(z.string()).optional(),

@@ -166,13 +166,13 @@ export default function ConfigTab({ agent, isCreate, apps, onSave }) {
           {form.schedule.mode === 'interval' && (
             <div>
               <label className="block text-sm text-gray-400 mb-1">Interval (minutes)</label>
-              <input type="number" value={Math.round((form.schedule.intervalMs || 3600000) / 60000)} onChange={e => set('schedule', { ...form.schedule, intervalMs: parseInt(e.target.value) * 60000 })} className={inputCls} min={1} />
+              <input type="number" value={Math.round((form.schedule.intervalMs || 3600000) / 60000)} onChange={e => { const v = parseInt(e.target.value); if (!Number.isNaN(v) && v > 0) set('schedule', { ...form.schedule, intervalMs: v * 60000 }); }} className={inputCls} min={1} />
             </div>
           )}
           {form.schedule.mode === 'continuous' && (
             <div>
               <label className="block text-sm text-gray-400 mb-1">Pause Between Runs (seconds)</label>
-              <input type="number" value={Math.round((form.schedule.pauseBetweenRunsMs || 60000) / 1000)} onChange={e => set('schedule', { ...form.schedule, pauseBetweenRunsMs: parseInt(e.target.value) * 1000 })} className={inputCls} min={0} />
+              <input type="number" value={Math.round((form.schedule.pauseBetweenRunsMs || 60000) / 1000)} onChange={e => { const v = parseInt(e.target.value); if (!Number.isNaN(v) && v >= 0) set('schedule', { ...form.schedule, pauseBetweenRunsMs: v * 1000 }); }} className={inputCls} min={0} />
             </div>
           )}
         </div>

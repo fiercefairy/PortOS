@@ -141,16 +141,20 @@ export async function removeWorktree(agentId, sourceWorkspace, branchName, optio
 
   // Remove the worktree
   await execGit(['worktree', 'remove', worktreePath, '--force'], sourceWorkspace)
-    .catch(async () => {
-      // Fallback: manually remove the directory and prune
-      await rm(worktreePath, { recursive: true, force: true });
-      await execGit(['worktree', 'prune'], sourceWorkspace).catch(() => {});
+    .catch(async (err) => {
+      console.log(`⚠️ Worktree remove failed for ${agentId}, falling back to manual cleanup: ${err.message}`);
+      await rm(worktreePath, { recursive: true, force: true }).catch(rmErr => {
+        console.log(`⚠️ Manual rm failed for worktree ${agentId}: ${rmErr.message}`);
+      });
+      await execGit(['worktree', 'prune'], sourceWorkspace).catch(pruneErr => {
+        console.log(`⚠️ Worktree prune failed for ${agentId}: ${pruneErr.message}`);
+      });
     });
 
   // Delete the branch if we merged or if it was never used
   await execGit(['branch', '-D', branchName], sourceWorkspace)
-    .catch(() => {
-      // Branch may already be deleted or never created
+    .catch(err => {
+      console.log(`⚠️ Branch delete failed for ${branchName}: ${err.message}`);
     });
 
   console.log(`🌳 Removed worktree for ${agentId}${merged ? ' (merged)' : ''}`);
@@ -202,12 +206,19 @@ export async function removePersistentWorktree(featureAgentId, sourceWorkspace, 
 
   if (!existsSync(worktreePath)) return { removed: false };
 
-  await execGit(['worktree', 'remove', worktreePath, '--force'], sourceWorkspace).catch(async () => {
-    await rm(worktreePath, { recursive: true, force: true });
-    await execGit(['worktree', 'prune'], sourceWorkspace).catch(() => {});
+  await execGit(['worktree', 'remove', worktreePath, '--force'], sourceWorkspace).catch(async (err) => {
+    console.log(`⚠️ Persistent worktree remove failed for ${featureAgentId}, falling back: ${err.message}`);
+    await rm(worktreePath, { recursive: true, force: true }).catch(rmErr => {
+      console.log(`⚠️ Manual rm failed for persistent worktree ${featureAgentId}: ${rmErr.message}`);
+    });
+    await execGit(['worktree', 'prune'], sourceWorkspace).catch(pruneErr => {
+      console.log(`⚠️ Worktree prune failed for ${featureAgentId}: ${pruneErr.message}`);
+    });
   });
 
-  await execGit(['branch', '-D', branchName], sourceWorkspace).catch(() => {});
+  await execGit(['branch', '-D', branchName], sourceWorkspace).catch(err => {
+    console.log(`⚠️ Branch delete failed for ${branchName}: ${err.message}`);
+  });
 
   console.log(`🌳 Removed persistent worktree for feature agent ${featureAgentId}`);
   return { removed: true };
@@ -220,12 +231,16 @@ export async function mergeBaseIntoFeatureWorktree(featureAgentId, baseBranch = 
   const worktreePath = join(WORKTREES_DIR, '..', 'feature-agents', featureAgentId, 'worktree');
   if (!existsSync(worktreePath)) return { merged: false, reason: 'worktree-missing' };
 
-  await execGit(['fetch', 'origin'], worktreePath).catch(() => {});
+  await execGit(['fetch', 'origin'], worktreePath).catch(err => {
+    console.log(`⚠️ Fetch failed for feature agent ${featureAgentId}: ${err.message}`);
+  });
   const result = await execGit(['merge', `origin/${baseBranch}`, '--no-edit'], worktreePath)
     .then(() => ({ merged: true }))
     .catch(async (err) => {
       // Abort failed merge
-      await execGit(['merge', '--abort'], worktreePath).catch(() => {});
+      await execGit(['merge', '--abort'], worktreePath).catch(abortErr => {
+        console.log(`⚠️ Merge abort failed for ${featureAgentId}: ${abortErr.message}`);
+      });
       return { merged: false, reason: err.message };
     });
 

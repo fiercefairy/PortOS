@@ -5,7 +5,7 @@
  * Maintains per-peer cursors and triggers sync on peer connect + interval.
  */
 
-import { writeFile } from 'fs/promises';
+import { writeFile, rename } from 'fs/promises';
 import { readJSONFile, ensureDir, PATHS, dataPath } from '../lib/fileUtils.js';
 import { createMutex } from '../lib/asyncMutex.js';
 import { instanceEvents } from './instanceEvents.js';
@@ -32,7 +32,6 @@ async function saveCursors(cursors) {
   await ensureDir(PATHS.data);
   const tmp = `${CURSORS_FILE}.tmp`;
   await writeFile(tmp, JSON.stringify(cursors, null, 2));
-  const { rename } = await import('fs/promises');
   await rename(tmp, CURSORS_FILE);
 }
 
@@ -111,7 +110,7 @@ async function syncMemoryFromPeer(peer, cursor) {
  * Sync all data from a single peer
  */
 export async function syncWithPeer(peer) {
-  if (!peer.instanceId) return;
+  if (!peer.instanceId) return { brain: { totalApplied: 0 }, memory: { totalApplied: 0 } };
 
   const peerId = peer.instanceId;
 

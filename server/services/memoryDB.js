@@ -14,6 +14,15 @@ import * as notifications from './notifications.js';
 import { DEFAULT_MEMORY_CONFIG, generateSummary, decrementAgentPendingApproval } from './memoryConfig.js';
 import { getSelf } from './instances.js';
 
+let cachedInstanceId = null;
+
+async function getInstanceId() {
+  if (!cachedInstanceId) {
+    cachedInstanceId = (await getSelf())?.instanceId ?? 'unknown';
+  }
+  return cachedInstanceId;
+}
+
 /**
  * Convert a database row to the memory object format matching the file-based API
  */
@@ -71,7 +80,7 @@ export async function createMemory(data, embedding = null) {
   const summary = data.summary || generateSummary(data.content);
   const now = new Date().toISOString();
 
-  const originInstanceId = (await getSelf())?.instanceId ?? 'unknown';
+  const originInstanceId = await getInstanceId();
 
   const memory = await withTransaction(async (client) => {
     const result = await client.query(

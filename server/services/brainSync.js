@@ -51,7 +51,7 @@ export async function applyRemoteChanges(changes) {
       if (!record) { skipped++; continue; }
       const result = await brainStorage.applyRemoteRecord(type, id, record, op);
       if (result.applied) {
-        if (op === 'create' && result.reason !== 'local_newer') inserted++;
+        if (op === 'create') inserted++;
         else updated++;
       } else {
         skipped++;

@@ -14,8 +14,19 @@ import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import EventEmitter from 'events';
 import { readJSONFile, safeJSONParse } from '../lib/fileUtils.js';
+import { createMutex } from '../lib/asyncMutex.js';
 import { getSelf } from './instances.js';
 import * as brainSyncLog from './brainSyncLog.js';
+
+const withRemoteLock = createMutex();
+let cachedInstanceId = null;
+
+async function getInstanceId() {
+  if (!cachedInstanceId) {
+    cachedInstanceId = (await getSelf())?.instanceId ?? 'unknown';
+  }
+  return cachedInstanceId;
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -189,7 +200,7 @@ export async function create(type, recordData) {
   const data = await loadJsonStore(type);
   const id = generateId();
   const timestamp = now();
-  const originInstanceId = (await getSelf())?.instanceId ?? 'unknown';
+  const originInstanceId = await getInstanceId();
 
   const record = {
     ...recordData,
@@ -219,6 +230,7 @@ export async function update(type, id, updates) {
   const record = {
     ...data.records[id],
     ...updates,
+    // Preserve immutable fields — originInstanceId tracks the creating instance
     originInstanceId: data.records[id].originInstanceId,
     createdAt: data.records[id].createdAt,
     updatedAt: now()
@@ -572,25 +584,27 @@ export async function getLinkByUrl(url) {
  * Apply a remote record to a JSON store (last-writer-wins by updatedAt)
  */
 export async function applyRemoteRecord(type, id, record, op) {
-  const data = await loadJsonStore(type);
+  return withRemoteLock(async () => {
+    const data = await loadJsonStore(type);
 
-  if (op === 'delete') {
-    if (!data.records[id]) return { applied: false, reason: 'not_found' };
-    delete data.records[id];
-  } else {
-    const existing = data.records[id];
-    if (existing && existing.updatedAt >= record.updatedAt) {
-      return { applied: false, reason: 'local_newer' };
+    if (op === 'delete') {
+      if (!data.records[id]) return { applied: false, reason: 'not_found' };
+      delete data.records[id];
+    } else {
+      const existing = data.records[id];
+      if (existing && existing.updatedAt >= record.updatedAt) {
+        return { applied: false, reason: 'local_newer' };
+      }
+      data.records[id] = { ...record };
     }
-    data.records[id] = { ...record };
-  }
 
-  await ensureBrainDir();
-  await writeFile(FILES[type], JSON.stringify(data, null, 2));
-  caches[type].data = data;
-  caches[type].timestamp = Date.now();
+    await ensureBrainDir();
+    await writeFile(FILES[type], JSON.stringify(data, null, 2));
+    caches[type].data = data;
+    caches[type].timestamp = Date.now();
 
-  return { applied: true };
+    return { applied: true };
+  });
 }
 
 /**
@@ -615,8 +629,7 @@ export async function applyRemoteJsonl(type, record) {
  * Backfill originInstanceId on records missing it (run once at startup)
  */
 export async function backfillOriginInstanceId() {
-  const self = await getSelf();
-  const instanceId = self?.instanceId ?? 'unknown';
+  const instanceId = await getInstanceId();
   const entityTypes = ['people', 'projects', 'ideas', 'admin', 'memories', 'links'];
   let totalBackfilled = 0;
 

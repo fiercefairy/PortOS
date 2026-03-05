@@ -81,6 +81,8 @@ export async function appendChange(op, type, id, record, originInstanceId) {
 /**
  * Get changes since a given sequence number
  */
+// Note: reads entire file into memory. Bounded by periodic compactLog() in syncOrchestrator
+// which drops entries below the minimum peer cursor after each sync cycle.
 export async function getChangesSince(sinceSeq, limit = 100) {
   await ensureDir();
   if (!existsSync(SYNC_LOG_FILE)) {

@@ -205,6 +205,16 @@ describe('Thinking Levels Service', () => {
       expect(getModelForLevel('xhigh', provider)).toBe('heavy-model');
     });
 
+    it('should fall back to defaultModel for xhigh when heavyModel is absent', () => {
+      const provider = { defaultModel: 'default-model' };
+      expect(getModelForLevel('xhigh', provider)).toBe('default-model');
+    });
+
+    it('should return null for xhigh when neither heavyModel nor defaultModel is configured', () => {
+      const provider = {};
+      expect(getModelForLevel('xhigh', provider)).toBeNull();
+    });
+
     it('should return null for invalid level', () => {
       expect(getModelForLevel('invalid')).toBeNull();
     });

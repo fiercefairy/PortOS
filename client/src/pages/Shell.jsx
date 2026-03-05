@@ -5,7 +5,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import { useSocket } from '../hooks/useSocket';
-import { RefreshCw, Power, PowerOff, FolderOpen, ChevronDown, Plus, X, Terminal as TerminalIcon, Trash2 } from 'lucide-react';
+import { RefreshCw, Power, PowerOff, FolderOpen, ChevronDown, Plus, X, Terminal as TerminalIcon } from 'lucide-react';
 
 const QUICK_COMMANDS = [
   { label: 'claude', command: 'claude --dangerously-skip-permissions' },

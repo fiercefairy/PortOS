@@ -3086,7 +3086,7 @@ export async function addTask(taskData, taskType = 'user') {
   );
   if (duplicate) {
     console.log(`⚠️ Duplicate task rejected: "${taskData.description.substring(0, 60)}" matches ${duplicate.id}`);
-    return { duplicate: true, existingTask: duplicate };
+    return { ...duplicate, duplicate: true };
   }
 
   // Generate a unique ID if not provided

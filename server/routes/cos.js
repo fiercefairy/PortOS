@@ -141,7 +141,7 @@ router.post('/tasks', asyncHandler(async (req, res) => {
   const result = await cos.addTask(taskData, type);
 
   if (result?.duplicate) {
-    throw new ServerError(`A task with this description is already ${result.existingTask.status}`, { status: 409, code: 'DUPLICATE_TASK' });
+    throw new ServerError(`A task with this description is already ${result.status}`, { status: 409, code: 'DUPLICATE_TASK' });
   }
 
   res.json(result);

@@ -48,7 +48,7 @@ const THINKING_LEVELS = {
     model: 'opus',
     maxTokens: 16384,
     localPreferred: false,
-    description: 'Maximum reasoning with Opus'
+    description: 'Maximum reasoning with provider\'s heaviest model'
   }
 }
 
@@ -233,7 +233,7 @@ function getModelForLevel(level, provider = {}) {
     case 'provider-heavy':
       return provider.heavyModel || null
     case 'opus':
-      return 'claude-opus-4-20250514'
+      return provider.heavyModel || provider.defaultModel || null
     default:
       return modelKey
   }

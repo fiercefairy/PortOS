@@ -18,6 +18,7 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
   const [expanded, setExpanded] = useState(false);
   const [templateNameInput, setTemplateNameInput] = useState('');
   const [showTemplateSave, setShowTemplateSave] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef(null);
   const attachmentInputRef = useRef(null);
 
@@ -145,10 +146,13 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
   };
 
   const handleAddTask = async () => {
+    if (isSubmitting) return;
     if (!newTask.description.trim()) {
       toast.error('Description is required');
       return;
     }
+
+    setIsSubmitting(true);
 
     let finalDescription = newTask.description;
 
@@ -173,7 +177,7 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
       setIsEnhancing(false);
     }
 
-    await api.addCosTask({
+    const result = await api.addCosTask({
       description: finalDescription,
       context: newTask.context,
       model: newTask.model || undefined,
@@ -191,9 +195,12 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
       })) : undefined,
       position: addToTop ? 'top' : 'bottom'
     }).catch(err => {
-      toast.error(err.message);
-      return;
+      console.warn('Failed to add COS task:', err);
+      setIsSubmitting(false);
+      return null;
     });
+
+    if (!result) return;
 
     toast.success('Task added');
     setNewTask({ description: '', context: '', model: '', provider: '', app: defaultApp });
@@ -204,6 +211,7 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
     setCreateJiraTicket(false);
     setUseWorktree(false);
     setExpanded(false);
+    setIsSubmitting(false);
     onTaskAdded?.();
   };
 
@@ -219,7 +227,7 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
             placeholder="Task description *"
             value={newTask.description}
             onChange={e => setNewTask(t => ({ ...t, description: e.target.value }))}
-            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleAddTask()}
+            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && !isSubmitting && handleAddTask()}
             className="flex-1 px-3 py-2 bg-port-bg border border-port-border rounded-lg text-white text-sm min-h-[44px]"
             aria-required="true"
           />
@@ -238,11 +246,11 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
             </select>
             <button
               onClick={handleAddTask}
-              disabled={isEnhancing}
+              disabled={isSubmitting || isEnhancing}
               className="flex items-center gap-1 px-3 py-2 bg-port-accent/20 hover:bg-port-accent/30 text-port-accent rounded-lg text-sm transition-colors disabled:opacity-50 min-h-[44px]"
             >
-              {isEnhancing ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-              Add
+              {(isSubmitting || isEnhancing) ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+              {isSubmitting ? 'Adding...' : 'Add'}
             </button>
           </div>
         </div>
@@ -299,7 +307,7 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
                   {!template.isBuiltin && (
                     <button
                       onClick={(e) => deleteTemplate(template.id, e)}
-                      className="hidden group-hover:flex absolute -top-1 -right-1 w-4 h-4 bg-port-error rounded-full items-center justify-center"
+                      className="flex md:hidden md:group-hover:flex absolute -top-1 -right-1 w-4 h-4 bg-port-error rounded-full items-center justify-center"
                       title="Delete template"
                     >
                       <X size={10} />
@@ -506,7 +514,7 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
                 <button
                   type="button"
                   onClick={() => removeScreenshot(s.id)}
-                  className="absolute -top-2 -right-2 w-5 h-5 bg-port-error rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute -top-2 -right-2 w-5 h-5 bg-port-error rounded-full flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                   aria-label={`Remove screenshot ${s.filename}`}
                 >
                   <X size={12} aria-hidden="true" />
@@ -586,13 +594,13 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
             </button>
             <button
               onClick={handleAddTask}
-              disabled={isEnhancing}
+              disabled={isSubmitting || isEnhancing}
               className="flex items-center gap-1 px-3 py-1.5 bg-port-accent/20 hover:bg-port-accent/30 text-port-accent rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[40px]"
             >
-              {isEnhancing ? (
+              {(isSubmitting || isEnhancing) ? (
                 <>
                   <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-                  Enhancing...
+                  {isSubmitting ? 'Adding...' : 'Enhancing...'}
                 </>
               ) : (
                 <>

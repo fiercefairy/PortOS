@@ -137,8 +137,9 @@ async function findUnixProcesses(pattern) {
       const etime = parts[4];
       const command = parts.slice(5).join(' ');
 
-      // Skip if it's a grep or our own process
+      // Skip grep, our own process, and macOS app bundles (e.g. Cursor.app)
       if (command.includes('grep') || command.includes('ps -eo')) continue;
+      if (command.includes('.app/Contents/')) continue;
 
       // Parse elapsed time to get start time
       const runtime = parseElapsedTime(etime);

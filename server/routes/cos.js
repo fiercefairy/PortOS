@@ -139,6 +139,11 @@ router.post('/tasks', asyncHandler(async (req, res) => {
 
   const taskData = { description, priority, context, model, provider, app, approvalRequired, screenshots, attachments, position, createJiraTicket, jiraTicketId, jiraTicketUrl, useWorktree };
   const result = await cos.addTask(taskData, type);
+
+  if (result?.duplicate) {
+    throw new ServerError(`A task with this description is already ${result.status}`, { status: 409, code: 'DUPLICATE_TASK' });
+  }
+
   res.json(result);
 }));
 

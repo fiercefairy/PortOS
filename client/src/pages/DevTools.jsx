@@ -48,7 +48,8 @@ export function HistoryPage() {
   const handleDelete = async (id, e) => {
     e.stopPropagation();
     await api.deleteHistoryEntry(id);
-    loadData();
+    setHistory(prev => prev.filter(entry => entry.id !== id));
+    if (expandedId === id) setExpandedId(null);
   };
 
   const getActionIcon = (action) => {
@@ -342,7 +343,8 @@ export function RunsHistoryPage() {
   const handleDelete = async (id, e) => {
     e.stopPropagation();
     await api.deleteRun(id);
-    loadRuns();
+    setRuns(prev => prev.filter(run => run.id !== id));
+    if (expandedId === id) setExpandedId(null);
   };
 
   const toggleExpand = async (id) => {
@@ -438,7 +440,7 @@ export function RunsHistoryPage() {
   const handleClearFailed = async () => {
     const result = await api.deleteFailedRuns().catch(() => null);
     if (result) {
-      loadRuns();
+      setRuns(prev => prev.filter(r => r.success !== false));
     }
   };
 

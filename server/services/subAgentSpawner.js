@@ -1685,13 +1685,19 @@ async function spawnViaRunner(agentId, task, prompt, workspacePath, model, provi
     }
   }, 3000);
 
+  // For Claude CLI providers, merge ~/.claude/settings.json env vars so Bedrock config
+  // (CLAUDE_CODE_USE_BEDROCK, AWS_PROFILE, etc.) is present in the runner spawn env
+  const claudeSettingsEnv = isClaudeCliProvider(provider)
+    ? await getClaudeSettingsEnv()
+    : {};
+
   const result = await spawnAgentViaRunner({
     agentId,
     taskId: task.id,
     prompt,
     workspacePath,
     model,
-    envVars: provider.envVars,
+    envVars: { ...claudeSettingsEnv, ...provider.envVars },
     cliCommand: cliConfig.command,
     cliArgs: cliConfig.args
   });
@@ -1923,12 +1929,18 @@ async function spawnDirectly(agentId, task, prompt, workspacePath, model, provid
   // Ensure workspacePath is valid
   const cwd = workspacePath && typeof workspacePath === 'string' ? workspacePath : ROOT_DIR;
 
+  // For Claude CLI providers, inject ~/.claude/settings.json env vars so Bedrock config
+  // (CLAUDE_CODE_USE_BEDROCK, AWS_PROFILE, etc.) is present even if PM2 lacks them
+  const claudeSettingsEnv = isClaudeCliProvider(provider)
+    ? await getClaudeSettingsEnv()
+    : {};
+
   const claudeProcess = spawn(cliConfig.command, cliConfig.args, {
     cwd,
     shell: false,
     stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
-    env: (() => { const e = { ...process.env, ...provider.envVars }; delete e.CLAUDECODE; return e; })()
+    env: (() => { const e = { ...process.env, ...claudeSettingsEnv, ...provider.envVars }; delete e.CLAUDECODE; return e; })()
   });
 
   registerSpawnedAgent(claudeProcess.pid, {
@@ -2342,19 +2354,21 @@ function buildCliSpawnConfig(provider, model) {
   }
 
   // Default: Claude Code CLI
+  // Use provider's configured command (respects user's Claude setup, e.g. Bedrock)
   const args = [
     '--dangerously-skip-permissions', // Unrestricted mode
     '--print',                          // Print output and exit
     '--output-format', 'stream-json',   // Stream JSON events for live output
     '--verbose',                        // Required for stream-json
     '--include-partial-messages',       // Include incremental text deltas
+    ...(provider?.args || []),          // User-configured provider args
   ];
   if (model) {
     args.push('--model', model);
   }
 
   return {
-    command: process.env.CLAUDE_PATH || 'claude',
+    command: provider?.command || process.env.CLAUDE_PATH || 'claude',
     args,
     stdinMode: 'prompt',
     streamFormat: 'stream-json'
@@ -2383,6 +2397,38 @@ function buildSpawnArgs(config, model) {
   }
 
   return args;
+}
+
+/**
+ * Check if a provider is a Claude CLI provider that needs settings.json env injection
+ */
+const isClaudeCliProvider = (provider) =>
+  provider?.type === 'cli' && (provider.id === 'claude-code' || provider.id === 'claude-code-bedrock');
+
+/**
+ * Read env vars from ~/.claude/settings.json to inject into Claude CLI spawns
+ * Ensures user's Bedrock/provider config (CLAUDE_CODE_USE_BEDROCK, AWS_PROFILE, etc.)
+ * is present in spawned agent environments even if PM2 was started without them
+ */
+let _claudeSettingsEnvCache = null;
+let _claudeSettingsEnvCacheTime = 0;
+const SETTINGS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+async function getClaudeSettingsEnv() {
+  if (_claudeSettingsEnvCache !== null && (Date.now() - _claudeSettingsEnvCacheTime) < SETTINGS_CACHE_TTL_MS) return _claudeSettingsEnvCache;
+  try {
+    const settingsPath = join(homedir(), '.claude', 'settings.json');
+    if (existsSync(settingsPath)) {
+      const raw = await readFile(settingsPath, 'utf-8');
+      const settings = JSON.parse(raw);
+      _claudeSettingsEnvCache = settings.env || {};
+    } else {
+      _claudeSettingsEnvCache = {};
+    }
+  } catch (err) {
+    _claudeSettingsEnvCache = {};
+  }
+  _claudeSettingsEnvCacheTime = Date.now();
+  return _claudeSettingsEnvCache;
 }
 
 /**
@@ -2703,7 +2749,7 @@ async function generateJiraTitle(description) {
 /**
  * Create a JIRA ticket for a task if the app has JIRA integration enabled.
  * Non-blocking — returns null on failure.
- * @returns {Promise<{ticketId: string, ticketUrl: string}|null>}
+ * @returns {Promise<{ticketId: string, ticketUrl: string, summary: string}|null>}
  */
 async function createJiraTicketForTask(task, app) {
   const jira = app?.jira;
@@ -2743,7 +2789,7 @@ async function createJiraTicketForTask(task, app) {
     ticketUrl: result.url
   });
 
-  return { ticketId: result.ticketId, ticketUrl: result.url };
+  return { ticketId: result.ticketId, ticketUrl: result.url, summary };
 }
 
 /**

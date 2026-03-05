@@ -531,6 +531,7 @@ export async function start() {
       if (cleaned > 0) {
         emitLog('info', `🧹 Periodic cleanup: ${cleaned} orphaned agent(s)`);
       }
+      await resetOrphanedTasks();
       const { archived } = await archiveStaleAgents().catch(() => ({ archived: 0 }));
       if (archived > 0) {
         emitLog('info', `📦 Auto-archived ${archived} stale agent(s) from state`);
@@ -787,15 +788,7 @@ export async function getTaskById(taskId) {
  */
 async function resetOrphanedTasks() {
   const state = await loadState();
-  const { user: userTaskData } = await getAllTasks();
-
-  if (!userTaskData.exists) {
-    emitLog('debug', 'No user tasks file found');
-    return;
-  }
-
-  const inProgressTasks = userTaskData.grouped.in_progress || [];
-  emitLog('debug', `Checking for orphaned tasks: ${inProgressTasks.length} in_progress`);
+  const { user: userTaskData, cos: cosTaskData } = await getAllTasks();
 
   const runningAgentTaskIds = Object.values(state.agents)
     .filter(a => a.status === 'running')
@@ -803,10 +796,25 @@ async function resetOrphanedTasks() {
 
   emitLog('debug', `Running agents: ${runningAgentTaskIds.length}`, { taskIds: runningAgentTaskIds });
 
-  for (const task of inProgressTasks) {
-    if (!runningAgentTaskIds.includes(task.id)) {
-      emitLog('info', `Resetting orphaned task ${task.id} to pending`, { taskId: task.id });
-      await updateTask(task.id, { status: 'pending' }, 'user');
+  // Reset orphaned user tasks
+  if (userTaskData.exists) {
+    const inProgressUserTasks = userTaskData.grouped.in_progress || [];
+    for (const task of inProgressUserTasks) {
+      if (!runningAgentTaskIds.includes(task.id)) {
+        emitLog('info', `Resetting orphaned user task ${task.id} to pending`, { taskId: task.id });
+        await updateTask(task.id, { status: 'pending' }, 'user');
+      }
+    }
+  }
+
+  // Reset orphaned CoS internal tasks
+  if (cosTaskData.exists) {
+    const inProgressCosTasks = cosTaskData.grouped.in_progress || [];
+    for (const task of inProgressCosTasks) {
+      if (!runningAgentTaskIds.includes(task.id)) {
+        emitLog('info', `Resetting orphaned system task ${task.id} to pending`, { taskId: task.id });
+        await updateTask(task.id, { status: 'pending' }, 'internal');
+      }
     }
   }
 }
@@ -3068,6 +3076,17 @@ export async function addTask(taskData, taskType = 'user') {
   if (existsSync(filePath)) {
     const content = await readFile(filePath, 'utf-8');
     tasks = parseTasksMarkdown(content);
+  }
+
+  // Reject duplicate: same description already pending or in_progress
+  const normalizedDesc = taskData.description.trim().toLowerCase();
+  const duplicate = tasks.find(t =>
+    (t.status === 'pending' || t.status === 'in_progress') &&
+    t.description?.trim().toLowerCase() === normalizedDesc
+  );
+  if (duplicate) {
+    console.log(`⚠️ Duplicate task rejected: "${taskData.description.substring(0, 60)}" matches ${duplicate.id}`);
+    return { ...duplicate, duplicate: true };
   }
 
   // Generate a unique ID if not provided

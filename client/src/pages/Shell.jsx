@@ -7,6 +7,9 @@ import '@xterm/xterm/css/xterm.css';
 import { useSocket } from '../hooks/useSocket';
 import { RefreshCw, Power, PowerOff, FolderOpen, ChevronDown, Plus, X, Terminal as TerminalIcon } from 'lucide-react';
 
+// Must match MAX_TOTAL_SESSIONS in server/services/shell.js
+const MAX_SESSIONS = 5;
+
 const QUICK_COMMANDS = [
   { label: 'claude', command: 'claude --dangerously-skip-permissions' },
   { label: 'git status', command: 'git status' },
@@ -390,7 +393,7 @@ export default function Shell() {
           {connected ? 'Connected' : 'Disconnected'}
         </div>
         {sessions.length > 0 && (
-          <span className="text-xs text-gray-500 font-mono">{sessions.length}/5</span>
+          <span className="text-xs text-gray-500 font-mono">{sessions.length}/{MAX_SESSIONS}</span>
         )}
         <div className="flex items-center gap-2 ml-auto">
           {connected && (

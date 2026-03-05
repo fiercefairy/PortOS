@@ -2405,8 +2405,10 @@ function buildSpawnArgs(config, model) {
  * is present in spawned agent environments even if PM2 was started without them
  */
 let _claudeSettingsEnvCache = null;
+let _claudeSettingsEnvCacheTime = 0;
+const SETTINGS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 async function getClaudeSettingsEnv() {
-  if (_claudeSettingsEnvCache !== null) return _claudeSettingsEnvCache;
+  if (_claudeSettingsEnvCache !== null && (Date.now() - _claudeSettingsEnvCacheTime) < SETTINGS_CACHE_TTL_MS) return _claudeSettingsEnvCache;
   try {
     const settingsPath = join(homedir(), '.claude', 'settings.json');
     if (existsSync(settingsPath)) {
@@ -2419,6 +2421,7 @@ async function getClaudeSettingsEnv() {
   } catch (err) {
     _claudeSettingsEnvCache = {};
   }
+  _claudeSettingsEnvCacheTime = Date.now();
   return _claudeSettingsEnvCache;
 }
 
@@ -2740,7 +2743,7 @@ async function generateJiraTitle(description) {
 /**
  * Create a JIRA ticket for a task if the app has JIRA integration enabled.
  * Non-blocking — returns null on failure.
- * @returns {Promise<{ticketId: string, ticketUrl: string}|null>}
+ * @returns {Promise<{ticketId: string, ticketUrl: string, summary: string}|null>}
  */
 async function createJiraTicketForTask(task, app) {
   const jira = app?.jira;

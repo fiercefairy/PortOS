@@ -5,7 +5,7 @@
  * Used for peer-to-peer brain sync protocol.
  */
 
-import { readFile, writeFile, appendFile, mkdir } from 'fs/promises';
+import { readFile, writeFile, appendFile, mkdir, rename } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -81,30 +81,32 @@ export async function appendChange(op, type, id, record, originInstanceId) {
 /**
  * Get changes since a given sequence number
  */
-// Note: reads entire file into memory. Bounded by periodic compactLog() in syncOrchestrator
-// which drops entries below the minimum peer cursor after each sync cycle.
+// Mutex-guarded to prevent reading a partially-written file during compaction.
+// Bounded by periodic compactLog() in syncOrchestrator.
 export async function getChangesSince(sinceSeq, limit = 100) {
-  await ensureDir();
-  if (!existsSync(SYNC_LOG_FILE)) {
-    return { changes: [], maxSeq: currentSeq, hasMore: false };
-  }
+  return withLock(async () => {
+    await ensureDir();
+    if (!existsSync(SYNC_LOG_FILE)) {
+      return { changes: [], maxSeq: currentSeq, hasMore: false };
+    }
 
-  const content = await readFile(SYNC_LOG_FILE, 'utf-8');
-  const lines = content.trim().split('\n').filter(l => l.trim());
-  const changes = [];
+    const content = await readFile(SYNC_LOG_FILE, 'utf-8');
+    const lines = content.trim().split('\n').filter(l => l.trim());
+    const changes = [];
 
-  for (const line of lines) {
-    const entry = safeJSONParse(line, null);
-    if (!entry || entry.seq <= sinceSeq) continue;
-    changes.push(entry);
-    if (changes.length >= limit) break;
-  }
+    for (const line of lines) {
+      const entry = safeJSONParse(line, null);
+      if (!entry || entry.seq <= sinceSeq) continue;
+      changes.push(entry);
+      if (changes.length >= limit) break;
+    }
 
-  const maxSeq = changes.length > 0 ? changes[changes.length - 1].seq : sinceSeq;
-  const lastLineEntry = lines.length > 0 ? safeJSONParse(lines[lines.length - 1], null) : null;
-  const hasMore = lastLineEntry ? maxSeq < lastLineEntry.seq : false;
+    const maxSeq = changes.length > 0 ? changes[changes.length - 1].seq : sinceSeq;
+    const lastLineEntry = lines.length > 0 ? safeJSONParse(lines[lines.length - 1], null) : null;
+    const hasMore = lastLineEntry ? maxSeq < lastLineEntry.seq : false;
 
-  return { changes, maxSeq, hasMore };
+    return { changes, maxSeq, hasMore };
+  });
 }
 
 /**
@@ -130,7 +132,9 @@ export async function compactLog(minSeq) {
     }
 
     const newContent = kept.length > 0 ? kept.join('\n') + '\n' : '';
-    await writeFile(SYNC_LOG_FILE, newContent);
+    const tmp = `${SYNC_LOG_FILE}.tmp`;
+    await writeFile(tmp, newContent);
+    await rename(tmp, SYNC_LOG_FILE);
     console.log(`🔄 Compacted sync log: dropped ${dropped}, kept ${kept.length}`);
     return dropped;
   });

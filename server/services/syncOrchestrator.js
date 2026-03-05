@@ -114,20 +114,31 @@ export async function syncWithPeer(peer) {
 
   const peerId = peer.instanceId;
 
-  const brainResult = await withCursors(async (cursors) => {
+  // Read cursor snapshot outside lock so network I/O doesn't block other peers
+  const brainCursor = await withCursors(async (cursors) => {
     if (!cursors[peerId]) cursors[peerId] = {};
-    const result = await syncBrainFromPeer(peer, cursors[peerId]);
-    cursors[peerId].brainSeq = result.brainSeq;
-    cursors[peerId].lastSyncAt = new Date().toISOString();
-    return result;
+    return { ...cursors[peerId] };
   });
 
-  const memoryResult = await withCursors(async (cursors) => {
+  const brainResult = await syncBrainFromPeer(peer, brainCursor);
+
+  await withCursors(async (cursors) => {
     if (!cursors[peerId]) cursors[peerId] = {};
-    const result = await syncMemoryFromPeer(peer, cursors[peerId]);
-    cursors[peerId].memorySeq = result.memorySeq;
+    cursors[peerId].brainSeq = brainResult.brainSeq;
     cursors[peerId].lastSyncAt = new Date().toISOString();
-    return result;
+  });
+
+  const memoryCursor = await withCursors(async (cursors) => {
+    if (!cursors[peerId]) cursors[peerId] = {};
+    return { ...cursors[peerId] };
+  });
+
+  const memoryResult = await syncMemoryFromPeer(peer, memoryCursor);
+
+  await withCursors(async (cursors) => {
+    if (!cursors[peerId]) cursors[peerId] = {};
+    cursors[peerId].memorySeq = memoryResult.memorySeq;
+    cursors[peerId].lastSyncAt = new Date().toISOString();
   });
 
   const total = brainResult.totalApplied + memoryResult.totalApplied;

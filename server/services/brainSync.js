@@ -12,9 +12,6 @@ import * as brainStorage from './brainStorage.js';
 // Entity types stored as JSON (have records with IDs)
 const ENTITY_TYPES = ['people', 'projects', 'ideas', 'admin', 'memories', 'links'];
 
-// JSONL types (append-only logs)
-const JSONL_TYPES = ['digests', 'reviews'];
-
 /**
  * Apply remote changes from a peer instance.
  * @param {Array} changes - Array of change objects from brainSyncLog
@@ -25,18 +22,6 @@ export async function applyRemoteChanges(changes) {
 
   for (const change of changes) {
     const { op, type, id, record } = change;
-
-    if (JSONL_TYPES.includes(type)) {
-      // JSONL types: append if ID doesn't exist
-      if (op === 'create' && record) {
-        const result = await brainStorage.applyRemoteJsonl(type, { ...record, id });
-        if (result.applied) inserted++;
-        else skipped++;
-      } else {
-        skipped++;
-      }
-      continue;
-    }
 
     if (!ENTITY_TYPES.includes(type)) {
       skipped++;

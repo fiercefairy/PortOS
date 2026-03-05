@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('./brainStorage.js', () => ({
-  applyRemoteRecord: vi.fn(),
-  applyRemoteJsonl: vi.fn()
+  applyRemoteRecord: vi.fn()
 }));
 
-import { applyRemoteRecord, applyRemoteJsonl } from './brainStorage.js';
+import { applyRemoteRecord } from './brainStorage.js';
 import { applyRemoteChanges } from './brainSync.js';
 
 describe('brainSync', () => {
@@ -45,24 +44,14 @@ describe('brainSync', () => {
     expect(result.deleted).toBe(1);
   });
 
-  it('routes JSONL types through applyRemoteJsonl', async () => {
-    applyRemoteJsonl.mockResolvedValue({ applied: true });
-
+  it('skips unsupported types like digests and reviews', async () => {
     const result = await applyRemoteChanges([
-      { op: 'create', type: 'digests', id: 'd1', record: { digestText: 'Today...' } }
-    ]);
-
-    expect(applyRemoteJsonl).toHaveBeenCalledWith('digests', { digestText: 'Today...', id: 'd1' });
-    expect(result.inserted).toBe(1);
-  });
-
-  it('skips JSONL non-create ops', async () => {
-    const result = await applyRemoteChanges([
+      { op: 'create', type: 'digests', id: 'd1', record: { digestText: 'Today...' } },
       { op: 'update', type: 'reviews', id: 'r1', record: {} }
     ]);
 
-    expect(applyRemoteJsonl).not.toHaveBeenCalled();
-    expect(result.skipped).toBe(1);
+    expect(applyRemoteRecord).not.toHaveBeenCalled();
+    expect(result.skipped).toBe(2);
   });
 
   it('skips unknown entity types', async () => {
@@ -99,7 +88,6 @@ describe('brainSync', () => {
       .mockResolvedValueOnce({ applied: true }) // create people
       .mockResolvedValueOnce({ applied: true }) // delete projects
       .mockResolvedValueOnce({ applied: false, reason: 'local_newer' }); // update ideas
-    applyRemoteJsonl.mockResolvedValue({ applied: true }); // create digest
 
     const result = await applyRemoteChanges([
       { op: 'create', type: 'people', id: 'p1', record: { name: 'A' } },
@@ -109,19 +97,8 @@ describe('brainSync', () => {
       { op: 'create', type: 'bogus', id: 'x1', record: { foo: 1 } }
     ]);
 
-    expect(result.inserted).toBe(2); // people + digest
+    expect(result.inserted).toBe(1); // people
     expect(result.deleted).toBe(1);
-    expect(result.skipped).toBe(2); // local_newer + unknown type
-  });
-
-  it('counts duplicate JSONL as skipped', async () => {
-    applyRemoteJsonl.mockResolvedValue({ applied: false, reason: 'duplicate' });
-
-    const result = await applyRemoteChanges([
-      { op: 'create', type: 'reviews', id: 'r1', record: { reviewText: 'X' } }
-    ]);
-
-    expect(result.skipped).toBe(1);
-    expect(result.inserted).toBe(0);
+    expect(result.skipped).toBe(3); // local_newer + digests + unknown type
   });
 });

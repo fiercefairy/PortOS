@@ -23,7 +23,9 @@ let cachedInstanceId = null;
 
 async function getInstanceId() {
   if (!cachedInstanceId) {
-    cachedInstanceId = (await getSelf())?.instanceId ?? 'unknown';
+    const id = (await getSelf())?.instanceId;
+    if (id) cachedInstanceId = id;
+    return id ?? 'unknown';
   }
   return cachedInstanceId;
 }
@@ -611,8 +613,6 @@ export async function applyRemoteRecord(type, id, record, op) {
     return { applied: true };
   });
 }
-
-
 
 /**
  * Backfill originInstanceId on records missing it (run once at startup)

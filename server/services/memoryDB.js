@@ -18,7 +18,9 @@ let cachedInstanceId = null;
 
 async function getInstanceId() {
   if (!cachedInstanceId) {
-    cachedInstanceId = (await getSelf())?.instanceId ?? 'unknown';
+    const id = (await getSelf())?.instanceId;
+    if (id) cachedInstanceId = id;
+    return id ?? 'unknown';
   }
   return cachedInstanceId;
 }

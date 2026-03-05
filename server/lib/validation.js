@@ -495,7 +495,7 @@ export const featureAgentSchema = z.object({
   priority: featureAgentPrioritySchema.default('MEDIUM')
 });
 
-export const featureAgentUpdateSchema = featureAgentSchema.partial();
+export const featureAgentUpdateSchema = featureAgentSchema.deepPartial();
 
 /**
  * Validate data against a schema

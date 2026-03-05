@@ -1,4 +1,4 @@
-import { GitBranch, ExternalLink } from 'lucide-react';
+import { GitBranch } from 'lucide-react';
 
 export default function GitTab({ agent }) {
   const git = agent.git || {};

@@ -203,6 +203,8 @@ export async function removePersistentWorktree(featureAgentId, sourceWorkspace, 
     await execGit(['worktree', 'prune'], sourceWorkspace).catch(() => {});
   });
 
+  await execGit(['branch', '-D', branchName], sourceWorkspace).catch(() => {});
+
   console.log(`🌳 Removed persistent worktree for feature agent ${featureAgentId}`);
   return { removed: true };
 }

@@ -1087,8 +1087,8 @@ export async function evaluateTasks() {
     }
   }
 
-  // Priority 3.6: Feature Agents (after autonomous jobs)
-  if (tasksToSpawn.length < availableSlots) {
+  // Priority 3.6: Feature Agents (after autonomous jobs, yield to user tasks)
+  if (tasksToSpawn.length < availableSlots && !hasPendingUserTasks) {
     const { getDueFeatureAgents, generateTaskFromFeatureAgent } = await import('./featureAgents.js');
     const dueAgents = await getDueFeatureAgents().catch(err => {
       emitLog('debug', `Feature agents check failed: ${err.message}`);

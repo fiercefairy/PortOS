@@ -1,17 +1,10 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Play, Pause, Square, Zap, Trash2 } from 'lucide-react';
-import { STATUS_COLORS, STATUS_BG, PRIORITY_COLORS, SCHEDULE_LABELS } from './constants';
-
-function timeAgo(dateStr) {
-  if (!dateStr) return 'never';
-  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-  if (seconds < 60) return 'just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
-}
+import { STATUS_COLORS, STATUS_BG, PRIORITY_COLORS, SCHEDULE_LABELS, timeAgo } from './constants';
 
 export default function FeatureAgentCard({ agent, onStart, onPause, onResume, onStop, onTrigger, onDelete }) {
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const statusColor = STATUS_COLORS[agent.status] || 'text-gray-400';
   const statusBg = STATUS_BG[agent.status] || 'bg-gray-400/10';
   const priorityColor = PRIORITY_COLORS[agent.priority] || 'text-gray-400';
@@ -82,9 +75,29 @@ export default function FeatureAgentCard({ agent, onStart, onPause, onResume, on
           </button>
         )}
         <div className="flex-1" />
-        <button onClick={() => onDelete(agent.id)} className="flex items-center gap-1 px-2 py-1 text-xs text-port-error hover:bg-port-error/10 rounded transition-colors">
-          <Trash2 size={12} />
-        </button>
+        {confirmingDelete ? (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">Delete?</span>
+            <div className="inline-flex rounded-lg overflow-hidden border border-port-border">
+              <button
+                onClick={() => { onDelete(agent.id); setConfirmingDelete(false); }}
+                className="px-2 py-1 bg-port-error/20 text-port-error hover:bg-port-error/30 text-xs"
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => setConfirmingDelete(false)}
+                className="px-2 py-1 bg-port-card text-gray-400 hover:bg-port-border/50 text-xs border-l border-port-border"
+              >
+                No
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => setConfirmingDelete(true)} className="flex items-center gap-1 px-2 py-1 text-xs text-port-error hover:bg-port-error/10 rounded transition-colors">
+            <Trash2 size={12} />
+          </button>
+        )}
       </div>
     </div>
   );

@@ -6,7 +6,7 @@
  * git worktree/branch and runs on a schedule.
  */
 
-import { writeFile, readFile, rename, mkdir, readdir } from 'fs/promises';
+import { writeFile, readFile, rename, mkdir, readdir, rm } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
@@ -136,8 +136,9 @@ export async function deleteFeatureAgent(id) {
     data.agents.splice(idx, 1);
     await writeData(data);
 
-    // Clean up worktree directory if it exists
-    const worktreeDir = join(FA_DIR, id, 'worktree');
+    // Clean up worktree and data directory
+    const agentDir = join(FA_DIR, id);
+    const worktreeDir = join(agentDir, 'worktree');
     if (existsSync(worktreeDir)) {
       const app = await getAppById(agent.appId).catch(() => null);
       if (app?.repoPath) {
@@ -146,6 +147,12 @@ export async function deleteFeatureAgent(id) {
           console.log(`⚠️ Feature agent worktree cleanup failed: ${err.message}`);
         });
       }
+    }
+    // Remove the entire data directory (runs, etc.)
+    if (existsSync(agentDir)) {
+      await rm(agentDir, { recursive: true, force: true }).catch(err => {
+        console.log(`⚠️ Feature agent data cleanup failed: ${err.message}`);
+      });
     }
 
     console.log(`🤖 Feature agent deleted: ${agent.name} (${id})`);
@@ -259,9 +266,9 @@ export async function triggerFeatureAgent(id) {
   const agent = await getFeatureAgent(id);
   if (!agent) return null;
 
-  // Temporarily mark as active if in draft/paused for this run
+  // Activate if in draft/paused, then return the updated agent
   if (agent.status === 'draft' || agent.status === 'paused') {
-    await activateFeatureAgent(id);
+    return await activateFeatureAgent(id);
   }
 
   return agent;

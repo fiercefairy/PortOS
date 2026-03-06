@@ -441,7 +441,7 @@ describe('Messages Routes', () => {
     });
 
     it('should return 404 if draft not found', async () => {
-      messageSender.sendDraft.mockResolvedValue({ success: false, error: 'Draft not found' });
+      messageSender.sendDraft.mockResolvedValue({ success: false, status: 404, code: 'DRAFT_NOT_FOUND', error: 'Draft not found' });
 
       const response = await request(app).post(`/api/messages/drafts/${DRAFT_UUID_2}/send`);
 
@@ -449,7 +449,7 @@ describe('Messages Routes', () => {
     });
 
     it('should return 400 for non-not-found errors', async () => {
-      messageSender.sendDraft.mockResolvedValue({ success: false, error: 'Draft not approved' });
+      messageSender.sendDraft.mockResolvedValue({ success: false, status: 400, code: 'INVALID_STATUS', error: 'Draft not approved' });
 
       const response = await request(app).post(`/api/messages/drafts/${DRAFT_UUID}/send`);
 

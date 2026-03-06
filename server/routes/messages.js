@@ -153,9 +153,11 @@ router.post('/drafts', asyncHandler(async (req, res) => {
   const data = validateRequest(createDraftSchema, req.body);
   const account = await messageAccounts.getAccount(data.accountId);
   if (!account) return res.status(404).json({ error: 'Account not found' });
-  if (!data.sendVia) {
-    data.sendVia = account.provider || (account.type === 'gmail' ? 'mcp' : 'playwright');
+  const derivedSendVia = account.type === 'gmail' ? 'mcp' : 'playwright';
+  if (data.sendVia && data.sendVia !== derivedSendVia) {
+    return res.status(400).json({ error: `sendVia "${data.sendVia}" conflicts with account type "${account.type}" (expected "${derivedSendVia}")` });
   }
+  data.sendVia = derivedSendVia;
   const draft = await messageDrafts.createDraft(data);
   req.app.get('io')?.emit('messages:draft:created', { draftId: draft.id });
   res.status(201).json(draft);
@@ -206,8 +208,7 @@ router.post('/drafts/:id/send', asyncHandler(async (req, res) => {
   const io = req.app.get('io');
   const result = await messageSender.sendDraft(req.params.id, io);
   if (!result.success) {
-    const status = result.error?.includes('not found') ? 404 : 400;
-    return res.status(status).json({ error: result.error });
+    return res.status(result.status).json({ code: result.code, error: result.error });
   }
   res.json(result);
 }));

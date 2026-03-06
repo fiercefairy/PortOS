@@ -110,7 +110,7 @@ export async function updateSelectors(provider, selectors) {
  */
 export async function launchProvider(accountType) {
   const url = accountType === 'teams' ? TEAMS_URL : OUTLOOK_URL;
-  const page = await findOrOpenPage(url);
+  const page = await findOrOpenPage(url).catch(() => null);
   if (!page) return { success: false, error: 'Failed to open browser tab — is portos-browser running?' };
   console.log(`📧 Launched ${accountType} in CDP browser: ${page.url}`);
   return { success: true, url: page.url, pageId: page.id, title: page.title };

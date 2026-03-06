@@ -84,6 +84,7 @@ export async function syncAccount(accountId, io) {
 
   const account = await getAccount(accountId);
   if (!account) return { error: 'Account not found' };
+  if (!account.enabled) return { error: 'Account is disabled', status: 400 };
 
   syncLocks.set(accountId, true);
   io?.emit('messages:sync:started', { accountId });
@@ -98,6 +99,8 @@ export async function syncAccount(accountId, io) {
     } else if (account.type === 'outlook' || account.type === 'teams') {
       const { syncPlaywright } = await import('./messagePlaywrightSync.js');
       providerResult = await syncPlaywright(account, cache, io);
+    } else {
+      throw new Error(`Unsupported account type: ${account.type}`);
     }
 
     // Support structured result { messages, status } or plain array

@@ -170,6 +170,34 @@ export async function syncPlaywright(account, cache, io, options = {}) {
   const messages = [];
   let detailsFetched = 0;
 
+  // Helper: build a message object from extracted data
+  const buildMessage = (msg, extId, overrides = {}) => ({
+    id: uuidv4(),
+    externalId: extId,
+    threadId: null,
+    from: { name: msg.from || '', email: msg.fromEmail || '' },
+    to: [], cc: [],
+    subject: msg.subject || '',
+    bodyText: msg.preview || '',
+    bodyFull: false,
+    date: msg.date || new Date().toISOString(),
+    isRead: !(msg.isUnread ?? false),
+    isUnread: msg.isUnread ?? false,
+    isPinned: msg.isPinned ?? false,
+    isFlagged: msg.isFlagged ?? false,
+    isReplied: msg.isReplied ?? false,
+    hasMeetingInvite: msg.hasMeetingInvite ?? false,
+    labels: [], source: account.type,
+    syncedAt: new Date().toISOString(),
+    ...overrides
+  });
+
+  // Helper: emit a batch of messages to the client in real-time
+  const emitMessages = (msgs) => {
+    if (!io || msgs.length === 0) return;
+    io.emit('messages:sync:message', { accountId: account.id, messages: msgs });
+  };
+
   for (let i = 0; i < extracted.length; i++) {
     const msg = extracted[i];
     const extId = makeExternalId(msg.date || '', msg.from || '', msg.subject || '');
@@ -177,25 +205,9 @@ export async function syncPlaywright(account, cache, io, options = {}) {
 
     // Skip detail fetch if we already have full body cached
     if (existingMap.has(extId)) {
-      messages.push({
-        id: uuidv4(),
-        externalId: extId,
-        threadId: msg.threadKey || null,
-        from: { name: msg.from || '', email: msg.fromEmail || '' },
-        to: [], cc: [],
-        subject: msg.subject || '',
-        bodyText: msg.preview || '',
-        bodyFull: false, // will keep existing cached full body
-        date: msg.date || new Date().toISOString(),
-        isRead: !(msg.isUnread ?? false),
-        isUnread: msg.isUnread ?? false,
-        isPinned: msg.isPinned ?? false,
-        isFlagged: msg.isFlagged ?? false,
-        isReplied: msg.isReplied ?? false,
-        hasMeetingInvite: msg.hasMeetingInvite ?? false,
-        labels: [], source: account.type,
-        syncedAt: new Date().toISOString()
-      });
+      const m = buildMessage(msg, extId, { threadId: msg.threadKey || null });
+      messages.push(m);
+      emitMessages([m]);
       continue;
     }
 
@@ -204,73 +216,27 @@ export async function syncPlaywright(account, cache, io, options = {}) {
       const detail = await fetchOutlookConversationDetail(page, msg.subject, msg.from);
       if (detail && detail.length > 0) {
         detailsFetched++;
-        // Thread key groups all messages in this conversation
         const threadKey = `thread-${extId}`;
-        for (const threadMsg of detail) {
-          messages.push({
-            id: uuidv4(),
-            externalId: makeExternalId(threadMsg.date || msg.date || '', threadMsg.from || msg.from || '', msg.subject || ''),
-            threadId: threadKey,
-            from: { name: threadMsg.from || msg.from || '', email: threadMsg.fromEmail || msg.fromEmail || '' },
-            to: threadMsg.to || [],
-            cc: threadMsg.cc || [],
-            subject: msg.subject || '',
-            bodyText: threadMsg.body || msg.preview || '',
-            bodyFull: true,
-            date: threadMsg.date || msg.date || new Date().toISOString(),
-            isRead: !(msg.isUnread ?? false),
-            isUnread: msg.isUnread ?? false,
-            isPinned: msg.isPinned ?? false,
-            isFlagged: msg.isFlagged ?? false,
-            isReplied: msg.isReplied ?? false,
-            hasMeetingInvite: msg.hasMeetingInvite ?? false,
-            labels: [], source: account.type,
-            syncedAt: new Date().toISOString()
-          });
-        }
+        const batch = detail.map(threadMsg => buildMessage(msg, makeExternalId(threadMsg.date || msg.date || '', threadMsg.from || msg.from || '', msg.subject || ''), {
+          threadId: threadKey,
+          from: { name: threadMsg.from || msg.from || '', email: threadMsg.fromEmail || msg.fromEmail || '' },
+          to: threadMsg.to || [],
+          cc: threadMsg.cc || [],
+          bodyText: threadMsg.body || msg.preview || '',
+          bodyFull: true,
+          date: threadMsg.date || msg.date || new Date().toISOString()
+        }));
+        messages.push(...batch);
+        emitMessages(batch);
       } else {
-        // Fallback: use list preview if detail extraction failed
-        messages.push({
-          id: uuidv4(),
-          externalId: extId,
-          threadId: null,
-          from: { name: msg.from || '', email: msg.fromEmail || '' },
-          to: [], cc: [],
-          subject: msg.subject || '',
-          bodyText: msg.preview || '',
-          bodyFull: false,
-          date: msg.date || new Date().toISOString(),
-          isRead: !(msg.isUnread ?? false),
-          isUnread: msg.isUnread ?? false,
-          isPinned: msg.isPinned ?? false,
-          isFlagged: msg.isFlagged ?? false,
-          isReplied: msg.isReplied ?? false,
-          hasMeetingInvite: msg.hasMeetingInvite ?? false,
-          labels: [], source: account.type,
-          syncedAt: new Date().toISOString()
-        });
+        const m = buildMessage(msg, extId);
+        messages.push(m);
+        emitMessages([m]);
       }
     } else {
-      // Non-outlook: use list preview as before
-      messages.push({
-        id: uuidv4(),
-        externalId: extId,
-        threadId: null,
-        from: { name: msg.from || '', email: msg.fromEmail || '' },
-        to: [], cc: [],
-        subject: msg.subject || '',
-        bodyText: msg.preview || '',
-        bodyFull: false,
-        date: msg.date || new Date().toISOString(),
-        isRead: !(msg.isUnread ?? false),
-        isUnread: msg.isUnread ?? false,
-        isPinned: msg.isPinned ?? false,
-        isFlagged: msg.isFlagged ?? false,
-        isReplied: msg.isReplied ?? false,
-        hasMeetingInvite: msg.hasMeetingInvite ?? false,
-        labels: [], source: account.type,
-        syncedAt: new Date().toISOString()
-      });
+      const m = buildMessage(msg, extId);
+      messages.push(m);
+      emitMessages([m]);
     }
   }
 

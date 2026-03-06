@@ -3,6 +3,7 @@ import { Mail, Search, RefreshCw, ChevronRight, Sparkles, Archive, Trash2, Reply
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import * as api from '../../services/api';
+import socket from '../../services/socket';
 import MessageDetail from './MessageDetail';
 
 const ACTION_CONFIG = {
@@ -52,6 +53,34 @@ export default function InboxTab({ accounts }) {
   useEffect(() => {
     fetchMessages();
   }, [fetchMessages]);
+
+  // Stream messages into the list as they arrive during sync
+  useEffect(() => {
+    const onSyncMessage = ({ messages: incoming }) => {
+      if (!incoming?.length) return;
+      setMessages(prev => {
+        const byExtId = new Map(prev.map(m => [m.externalId, m]));
+        let changed = false;
+        for (const msg of incoming) {
+          if (msg.externalId && byExtId.has(msg.externalId)) {
+            const existing = byExtId.get(msg.externalId);
+            byExtId.set(msg.externalId, { ...existing, ...msg, id: existing.id });
+            changed = true;
+          } else {
+            byExtId.set(msg.externalId || msg.id, msg);
+            changed = true;
+          }
+        }
+        if (!changed) return prev;
+        return Array.from(byExtId.values()).sort((a, b) =>
+          new Date(b.date || 0) - new Date(a.date || 0)
+        );
+      });
+      setTotal(prev => prev + incoming.length);
+    };
+    socket.on('messages:sync:message', onSyncMessage);
+    return () => socket.off('messages:sync:message', onSyncMessage);
+  }, []);
 
   const handleSync = async (mode) => {
     const targets = selectedAccount

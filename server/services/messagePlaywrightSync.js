@@ -314,14 +314,21 @@ async function fetchOutlookConversationDetail(page, subject, sender) {
     return null;
   }
 
-  // Extract all messages from the reading pane using Outlook's semantic structure
+  // Extract all messages from the reading pane or full-page conversation view.
+  // Outlook has two layouts:
+  //   Split view:    main[aria-label="Reading Pane"] > [aria-label="Email message"]
+  //   Full-page:     [data-app-section="ConversationContainer"] > [aria-label="Email message"]
+  // In both layouts, the email containers use the same [aria-label="Email message"] structure,
+  // but header elements differ: h3 in split view, div/span in full-page view.
+  // We use tag-agnostic [aria-label^="From:"] selectors to handle both.
   const threadMessages = await evaluateOnPage(page, `
     (function() {
       const readingPane = document.querySelector('main[aria-label="Reading Pane"]');
-      if (!readingPane) return [];
+      const convContainer = document.querySelector('[data-app-section="ConversationContainer"]');
+      const root = readingPane || convContainer;
+      if (!root) return [];
 
-      // Each email in the conversation is an [aria-label="Email message"] container
-      const emailContainers = readingPane.querySelectorAll('[aria-label="Email message"]');
+      const emailContainers = root.querySelectorAll('[aria-label="Email message"]');
       const results = [];
 
       for (const container of emailContainers) {
@@ -330,50 +337,53 @@ async function fetchOutlookConversationDetail(page, subject, sender) {
         const body = bodyDoc?.innerText?.trim() || '';
         if (!body) continue;
 
-        // Sender: h3 with aria-label starting with "From:"
+        // Sender: [aria-label^="From:"] (h3 in split view, span in full-page)
         let from = '', fromEmail = '';
-        const fromH3 = container.querySelector('h3[aria-label^="From:"]');
-        if (fromH3) {
-          const fromBtn = fromH3.querySelector('button');
-          const fromText = fromBtn?.textContent?.trim() || fromH3.textContent?.replace(/^From:\\s*/, '').trim() || '';
-          // Extract email from the text (format: "Name<email>" or just "Name")
+        const fromEl = container.querySelector('[aria-label^="From:"]');
+        if (fromEl) {
+          const fromBtn = fromEl.querySelector('button');
+          const fromText = fromBtn?.textContent?.trim() || fromEl.textContent?.replace(/^From:\\s*/, '').trim() || '';
           const emailMatch = fromText.match(/[\\w.+-]+@[\\w.-]+/);
           fromEmail = emailMatch?.[0] || '';
           from = fromText.replace(/<[^>]+>/, '').replace(emailMatch?.[0] || '', '').trim() || fromText;
         }
 
-        // Date: h3 elements — look for one with a date pattern
+        // Date: look for h3/span/div with a date pattern
         let date = '';
-        const h3s = container.querySelectorAll('h3');
-        for (const h3 of h3s) {
-          const text = h3.textContent?.trim() || '';
-          // Match date patterns like "Wed 3/4/2026 10:46 AM" or "3/4/2026"
+        const candidates = container.querySelectorAll('h3, span, div');
+        for (const el of candidates) {
+          if (el.querySelector('*:not(br)') && el.children.length > 0) continue;
+          const text = el.textContent?.trim() || '';
           if (/\\d{1,2}\\/\\d{1,2}\\/\\d{2,4}/.test(text) && !text.startsWith('From') && !text.startsWith('To') && !text.startsWith('Cc')) {
             date = text;
             break;
           }
         }
 
-        // To: h3 with aria-label starting with "To:"
+        // To: [aria-label^="To:"] (h3 in split view, div in full-page)
         const to = [];
-        const toH3 = container.querySelector('h3[aria-label^="To:"]');
-        if (toH3) {
-          const btns = toH3.querySelectorAll('button');
-          btns.forEach(btn => {
-            const t = btn.textContent?.trim();
-            if (t) to.push(t);
-          });
+        const toEl = container.querySelector('[aria-label^="To:"]');
+        if (toEl) {
+          const btns = toEl.querySelectorAll('button');
+          if (btns.length > 0) {
+            btns.forEach(btn => { const t = btn.textContent?.trim(); if (t) to.push(t); });
+          } else {
+            const spans = toEl.querySelectorAll('span[aria-label]');
+            spans.forEach(s => { const t = s.textContent?.trim(); if (t) to.push(t); });
+          }
         }
 
-        // Cc: h3 with aria-label starting with "Cc:"
+        // Cc: [aria-label^="Cc:"] (h3 in split view, div in full-page)
         const cc = [];
-        const ccH3 = container.querySelector('h3[aria-label^="Cc:"]');
-        if (ccH3) {
-          const btns = ccH3.querySelectorAll('button');
-          btns.forEach(btn => {
-            const t = btn.textContent?.trim();
-            if (t) cc.push(t);
-          });
+        const ccEl = container.querySelector('[aria-label^="Cc:"]');
+        if (ccEl) {
+          const btns = ccEl.querySelectorAll('button');
+          if (btns.length > 0) {
+            btns.forEach(btn => { const t = btn.textContent?.trim(); if (t) cc.push(t); });
+          } else {
+            const spans = ccEl.querySelectorAll('span[aria-label]');
+            spans.forEach(s => { const t = s.textContent?.trim(); if (t) cc.push(t); });
+          }
         }
 
         results.push({ from, fromEmail, to, cc, date, body });
@@ -381,7 +391,7 @@ async function fetchOutlookConversationDetail(page, subject, sender) {
 
       // Fallback: no Email message containers found — try grabbing role="document" directly
       if (results.length === 0) {
-        const docs = readingPane.querySelectorAll('[role="document"]');
+        const docs = root.querySelectorAll('[role="document"]');
         for (const doc of docs) {
           const body = doc.innerText?.trim() || '';
           if (body) results.push({ from: '', fromEmail: '', to: [], cc: [], date: '', body });

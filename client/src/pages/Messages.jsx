@@ -10,9 +10,9 @@ import SyncTab from '../components/messages/SyncTab';
 
 const TABS = [
   { id: 'inbox', label: 'Inbox', icon: Mail },
-  { id: 'config', label: 'Config', icon: Settings },
   { id: 'drafts', label: 'Drafts', icon: Mail },
-  { id: 'sync', label: 'Sync', icon: RefreshCw }
+  { id: 'sync', label: 'Sync', icon: RefreshCw },
+  { id: 'config', label: 'Config', icon: Settings }
 ];
 
 export default function Messages() {

@@ -64,6 +64,12 @@ Write-Host ""
 node scripts/setup-ghostty.js
 Write-Host ""
 
+# Build UI assets for production serving
+Write-Host "Building UI assets..." -ForegroundColor Yellow
+npm run build
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+Write-Host ""
+
 # Restart PM2 apps
 Write-Host "Restarting PortOS..." -ForegroundColor Yellow
 npm run pm2:restart

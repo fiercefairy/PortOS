@@ -61,6 +61,11 @@ echo ""
 node scripts/setup-ghostty.js
 echo ""
 
+# Build UI assets for production serving
+echo "Building UI assets..."
+npm run build
+echo ""
+
 # Restart PM2 apps
 echo "Restarting PortOS..."
 npm run pm2:restart

@@ -27,6 +27,7 @@ export default function InboxTab({ accounts }) {
   const [selectedAccount, setSelectedAccount] = useState('');
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [evaluating, setEvaluating] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const debounceRef = useRef(null);
   const navigate = useNavigate();
 
@@ -50,6 +51,26 @@ export default function InboxTab({ accounts }) {
   useEffect(() => {
     fetchMessages();
   }, [fetchMessages]);
+
+  const handleSync = async (mode) => {
+    const targets = selectedAccount
+      ? accounts.filter(a => a.id === selectedAccount && a.enabled)
+      : accounts.filter(a => a.enabled);
+    if (targets.length === 0) return toast.error('No enabled accounts to sync');
+    setSyncing(true);
+    let totalNew = 0;
+    for (const acct of targets) {
+      toast(`Syncing ${acct.name} (${mode})...`, { icon: '📧' });
+      const result = await api.syncMessageAccount(acct.id, mode).catch(err => {
+        toast.error(`${acct.name}: ${err?.message || 'Sync failed'}`);
+        return null;
+      });
+      if (result?.newMessages) totalNew += result.newMessages;
+    }
+    setSyncing(false);
+    toast.success(`Sync complete — ${totalNew} new messages`);
+    fetchMessages();
+  };
 
   const handleEvaluate = async () => {
     setEvaluating(true);
@@ -122,7 +143,7 @@ export default function InboxTab({ accounts }) {
         </select>
         <button
           onClick={handleEvaluate}
-          disabled={evaluating}
+          disabled={evaluating || syncing}
           className="flex items-center gap-1 px-3 py-2 bg-purple-500/10 text-purple-400 rounded-lg text-sm hover:bg-purple-500/20 transition-colors disabled:opacity-50"
           title="AI triage — evaluate messages for recommended actions"
         >
@@ -130,11 +151,21 @@ export default function InboxTab({ accounts }) {
           {evaluating ? 'Evaluating...' : 'Triage'}
         </button>
         <button
-          onClick={fetchMessages}
-          className="p-2 text-gray-400 hover:text-white transition-colors"
-          title="Refresh"
+          onClick={() => handleSync('unread')}
+          disabled={syncing}
+          className="flex items-center gap-1 px-3 py-2 bg-port-accent/10 text-port-accent rounded-lg text-sm hover:bg-port-accent/20 transition-colors disabled:opacity-50"
+          title="Sync unread messages from all enabled accounts"
         >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+          {syncing ? 'Syncing...' : 'Sync Unread'}
+        </button>
+        <button
+          onClick={() => handleSync('full')}
+          disabled={syncing}
+          className="flex items-center gap-1 px-3 py-2 bg-port-border text-gray-300 rounded-lg text-sm hover:bg-port-border/80 transition-colors disabled:opacity-50"
+          title="Full sync — fetch all messages (slower)"
+        >
+          Full Sync
         </button>
       </div>
 

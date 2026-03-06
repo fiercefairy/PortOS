@@ -653,7 +653,15 @@ export async function deriveLongevity(birthDate) {
 // === Goal Service Functions ===
 
 export async function getGoals() {
-  return loadJSON(GOALS_FILE, DEFAULT_GOALS);
+  const data = await loadJSON(GOALS_FILE, DEFAULT_GOALS);
+  // Lazy migration: backfill parentId and tags on goals missing them
+  let needsSave = false;
+  for (const goal of data.goals) {
+    if (goal.parentId === undefined) { goal.parentId = null; needsSave = true; }
+    if (!Array.isArray(goal.tags)) { goal.tags = []; needsSave = true; }
+  }
+  if (needsSave) await saveJSON(GOALS_FILE, data);
+  return data;
 }
 
 export async function setBirthDate(birthDate) {
@@ -680,9 +688,14 @@ export async function setBirthDate(birthDate) {
   return goals;
 }
 
-export async function createGoal({ title, description, horizon, category }) {
-  const goals = await loadJSON(GOALS_FILE, DEFAULT_GOALS);
+export async function createGoal({ title, description, horizon, category, parentId, tags }) {
+  const goals = await getGoals();
   const longevity = await loadJSON(LONGEVITY_FILE, DEFAULT_LONGEVITY);
+
+  // Validate parentId references an existing goal
+  if (parentId && !goals.goals.find(g => g.id === parentId)) {
+    throw new Error('Parent goal not found');
+  }
 
   const id = `goal-${uuidv4()}`;
   const goal = {
@@ -691,6 +704,8 @@ export async function createGoal({ title, description, horizon, category }) {
     description: description || '',
     horizon: horizon || '5-year',
     category: category || 'mastery',
+    parentId: parentId || null,
+    tags: tags || [],
     urgency: null,
     status: 'active',
     milestones: [],
@@ -711,13 +726,37 @@ export async function createGoal({ title, description, horizon, category }) {
   return goal;
 }
 
+function hasAncestorCycle(goals, goalId, newParentId) {
+  let current = newParentId;
+  const visited = new Set();
+  while (current) {
+    if (current === goalId) return true;
+    if (visited.has(current)) return true;
+    visited.add(current);
+    const parent = goals.find(g => g.id === current);
+    current = parent?.parentId || null;
+  }
+  return false;
+}
+
 export async function updateGoal(goalId, updates) {
-  const goals = await loadJSON(GOALS_FILE, DEFAULT_GOALS);
+  const goals = await getGoals();
   const idx = goals.goals.findIndex(g => g.id === goalId);
   if (idx === -1) return null;
 
   const goal = goals.goals[idx];
-  const allowed = ['title', 'description', 'horizon', 'category', 'status'];
+
+  // Validate parentId doesn't create a cycle
+  if (updates.parentId !== undefined && updates.parentId !== null) {
+    if (!goals.goals.find(g => g.id === updates.parentId)) {
+      throw new Error('Parent goal not found');
+    }
+    if (hasAncestorCycle(goals.goals, goalId, updates.parentId)) {
+      throw new Error('Cannot set parent: would create a cycle');
+    }
+  }
+
+  const allowed = ['title', 'description', 'horizon', 'category', 'status', 'parentId', 'tags'];
   for (const key of allowed) {
     if (updates[key] !== undefined) goal[key] = updates[key];
   }
@@ -735,14 +774,63 @@ export async function updateGoal(goalId, updates) {
 }
 
 export async function deleteGoal(goalId) {
-  const goals = await loadJSON(GOALS_FILE, DEFAULT_GOALS);
+  const goals = await getGoals();
   const idx = goals.goals.findIndex(g => g.id === goalId);
   if (idx === -1) return false;
+
+  const deletedGoal = goals.goals[idx];
+  // Orphan children: reparent to deleted goal's parent (or root)
+  for (const goal of goals.goals) {
+    if (goal.parentId === goalId) {
+      goal.parentId = deletedGoal.parentId || null;
+    }
+  }
 
   goals.goals.splice(idx, 1);
   goals.updatedAt = new Date().toISOString();
   await saveJSON(GOALS_FILE, goals);
   return true;
+}
+
+export async function getGoalsTree() {
+  const goals = await getGoals();
+  const longevity = await loadJSON(LONGEVITY_FILE, DEFAULT_LONGEVITY);
+
+  // Enrich goals with urgency
+  for (const goal of goals.goals) {
+    if (goal.status === 'active' && longevity.timeHorizons) {
+      goal.urgency = computeGoalUrgency(goal, longevity.timeHorizons);
+    }
+  }
+
+  // Build hierarchical tree
+  const goalMap = new Map(goals.goals.map(g => [g.id, { ...g, children: [] }]));
+  const roots = [];
+  for (const node of goalMap.values()) {
+    if (node.parentId && goalMap.has(node.parentId)) {
+      goalMap.get(node.parentId).children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
+  // Build tag index
+  const tagIndex = {};
+  for (const goal of goals.goals) {
+    for (const tag of (goal.tags || [])) {
+      if (!tagIndex[tag]) tagIndex[tag] = [];
+      tagIndex[tag].push(goal.id);
+    }
+  }
+
+  return {
+    roots,
+    flat: goals.goals,
+    tagIndex,
+    birthDate: goals.birthDate,
+    lifeExpectancy: longevity.lifeExpectancy || goals.lifeExpectancy,
+    timeHorizons: longevity.timeHorizons || goals.timeHorizons
+  };
 }
 
 export async function addMilestone(goalId, { title, targetDate }) {

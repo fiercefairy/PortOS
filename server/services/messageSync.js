@@ -5,6 +5,7 @@ import { getAccount, updateSyncStatus } from './messageAccounts.js';
 
 const CACHE_DIR = join(PATHS.messages, 'cache');
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const syncLocks = new Map();
 
 function filterBySearch(messages, search) {
   if (!search) return messages;
@@ -79,23 +80,29 @@ export async function getMessage(accountId, messageId) {
 }
 
 export async function syncAccount(accountId, io) {
+  if (syncLocks.has(accountId)) return { error: 'Sync already in progress', status: 409 };
+
   const account = await getAccount(accountId);
   if (!account) return { error: 'Account not found' };
 
+  syncLocks.set(accountId, true);
   io?.emit('messages:sync:started', { accountId });
   console.log(`📧 Starting sync for ${account.name} (${account.type})`);
 
-  const cache = await loadCache(accountId);
-
   const providerSync = async () => {
-    let newMessages = [];
+    const cache = await loadCache(accountId);
+    let providerResult;
     if (account.type === 'gmail') {
       const { syncGmail } = await import('./messageGmailSync.js');
-      newMessages = await syncGmail(account, cache, io);
+      providerResult = await syncGmail(account, cache, io);
     } else if (account.type === 'outlook' || account.type === 'teams') {
       const { syncPlaywright } = await import('./messagePlaywrightSync.js');
-      newMessages = await syncPlaywright(account, cache, io);
+      providerResult = await syncPlaywright(account, cache, io);
     }
+
+    // Support structured result { messages, status } or plain array
+    const newMessages = Array.isArray(providerResult) ? providerResult : providerResult?.messages ?? [];
+    const providerStatus = Array.isArray(providerResult) ? 'success' : providerResult?.status ?? 'success';
 
     // Deduplicate by externalId (skip dedup for messages without externalId)
     const existingIds = new Set(cache.messages.map(m => m.externalId).filter(Boolean));
@@ -109,13 +116,13 @@ export async function syncAccount(accountId, io) {
     }
 
     await saveCache(accountId, cache);
-    await updateSyncStatus(accountId, 'success');
+    await updateSyncStatus(accountId, providerStatus === 'success' ? 'success' : providerStatus);
 
-    io?.emit('messages:sync:completed', { accountId, newMessages: uniqueNew.length });
+    io?.emit('messages:sync:completed', { accountId, newMessages: uniqueNew.length, status: providerStatus });
     io?.emit('messages:changed', {});
-    console.log(`📧 Sync complete for ${account.name}: ${uniqueNew.length} new messages`);
+    console.log(`📧 Sync complete for ${account.name}: ${uniqueNew.length} new, status=${providerStatus}`);
 
-    return { newMessages: uniqueNew.length, total: cache.messages.length };
+    return { newMessages: uniqueNew.length, total: cache.messages.length, status: providerStatus };
   };
 
   const result = await providerSync().catch(async (error) => {
@@ -123,6 +130,8 @@ export async function syncAccount(accountId, io) {
     await updateSyncStatus(accountId, 'error').catch(() => {});
     io?.emit('messages:sync:failed', { accountId, error: error.message });
     throw error;
+  }).finally(() => {
+    syncLocks.delete(accountId);
   });
 
   return result;

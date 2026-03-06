@@ -109,7 +109,7 @@ router.post('/sync/:accountId', asyncHandler(async (req, res) => {
   }
   const io = req.app.get('io');
   const result = await messageSync.syncAccount(req.params.accountId, io);
-  if (result.error) return res.status(404).json({ error: result.error });
+  if (result.error) return res.status(result.status || 404).json({ error: result.error });
   res.json(result);
 }));
 

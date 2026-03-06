@@ -63,7 +63,9 @@ export async function updateConfig(updates) {
 
 export async function getHealthStatus() {
   const config = await loadConfig();
-  const healthUrl = `http://${config.cdpHost}:${config.healthPort}/health`;
+  // Bind-all addresses like 0.0.0.0 or :: are not connectable; use localhost instead
+  const connectHost = (config.cdpHost === '0.0.0.0' || config.cdpHost === '::') ? '127.0.0.1' : config.cdpHost;
+  const healthUrl = `http://${connectHost}:${config.healthPort}/health`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 3000);

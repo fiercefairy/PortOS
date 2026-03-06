@@ -331,20 +331,28 @@ app.use((req, res) => {
 // Error middleware (must be last)
 app.use(errorMiddleware);
 
-// Start server
-httpServer.listen(PORT, HOST, () => {
-  console.log(`🚀 PortOS server running at http://${HOST}:${PORT}`);
+// Initialize instance identity + sync log before accepting requests to prevent
+// race conditions where brain mutations arrive before the sync log is ready
+ensureSelf()
+  .then(() => initSyncLog())
+  .then(() => {
+    // Start server only after sync log is initialized
+    httpServer.listen(PORT, HOST, () => {
+      console.log(`🚀 PortOS server running at http://${HOST}:${PORT}`);
 
-  // Set up process error handlers with io instance
-  setupProcessErrorHandlers(io);
+      // Set up process error handlers with io instance
+      setupProcessErrorHandlers(io);
 
-  // Initialize instance identity, sync log, backfill origin tags, start peer polling + sync
-  ensureSelf()
-    .then(() => initSyncLog())
-    .then(() => backfillOriginInstanceId())
-    .then(() => {
-      startPolling();
-      initSyncOrchestrator();
-    })
-    .catch(err => console.error(`❌ Instance init failed: ${err.message}`));
-});
+      // Backfill origin tags and start peer polling + sync (non-blocking)
+      backfillOriginInstanceId()
+        .then(() => {
+          startPolling();
+          initSyncOrchestrator();
+        })
+        .catch(err => console.error(`❌ Post-startup init failed: ${err.message}`));
+    });
+  })
+  .catch(err => {
+    console.error(`❌ Instance init failed: ${err.message}`);
+    process.exit(1);
+  });

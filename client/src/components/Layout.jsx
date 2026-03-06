@@ -58,7 +58,10 @@ import {
   Shield,
   Wand2,
   Zap,
-  Mail
+  Mail,
+  Inbox,
+  RefreshCw,
+  FilePen
 } from 'lucide-react';
 /* global __APP_VERSION__ */
 import Logo from './Logo';
@@ -172,7 +175,16 @@ const navItems = [
       { to: '/meatspace/post', label: 'POST', icon: Zap }
     ]
   },
-  { to: '/messages/inbox', label: 'Messages', icon: Mail, single: true },
+  {
+    label: 'Messages',
+    icon: Mail,
+    children: [
+      { to: '/messages/accounts', label: 'Accounts', icon: Globe },
+      { to: '/messages/drafts', label: 'Drafts', icon: FilePen },
+      { to: '/messages/inbox', label: 'Inbox', icon: Inbox },
+      { to: '/messages/sync', label: 'Sync', icon: RefreshCw }
+    ]
+  },
   { to: '/security', label: 'Security', icon: Camera, single: true },
   { to: '/settings', label: 'Settings', icon: Settings, single: true },
   { to: '/shell', label: 'Shell', icon: SquareTerminal, single: true },

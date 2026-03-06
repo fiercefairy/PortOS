@@ -1,6 +1,20 @@
 // Tiered radial layout: lifetime/north-star goals at center, shorter horizons in outer rings
 // Sub-goals cluster near their parents
 
+// Deterministic pseudo-random based on goal id (seeded hash)
+function seededRandom(seed) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(31, h) + seed.charCodeAt(i) | 0;
+  }
+  return () => {
+    h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
+    h = Math.imul(h ^ (h >>> 13), 0x45d9f3b);
+    h = (h ^ (h >>> 16)) >>> 0;
+    return h / 4294967296;
+  };
+}
+
 const HORIZON_RING = {
   'lifetime': 0,
   '20-year': 1,
@@ -35,6 +49,7 @@ export function layoutGoalNodes(flatGoals) {
     const count = goals.length;
 
     goals.forEach((goal, i) => {
+      const rng = seededRandom(goal.id);
       const angle = (2 * Math.PI * i) / Math.max(count, 1);
       // If goal has parent that's already positioned, cluster near it
       const parent = goal.parentId ? positioned.get(goal.parentId) : null;
@@ -47,16 +62,16 @@ export function layoutGoalNodes(flatGoals) {
         const childAngle = parentAngle + (i - count / 2) * spread;
         x = Math.cos(childAngle) * radius;
         z = Math.sin(childAngle) * radius;
-        y = parent.y + (Math.random() - 0.5) * Y_SPREAD;
+        y = parent.y + (rng() - 0.5) * Y_SPREAD;
       } else if (radius === 0) {
         // Center ring - small spread
-        x = (Math.random() - 0.5) * 3;
-        z = (Math.random() - 0.5) * 3;
-        y = (Math.random() - 0.5) * Y_SPREAD;
+        x = (rng() - 0.5) * 3;
+        z = (rng() - 0.5) * 3;
+        y = (rng() - 0.5) * Y_SPREAD;
       } else {
         x = Math.cos(angle) * radius;
         z = Math.sin(angle) * radius;
-        y = (Math.random() - 0.5) * Y_SPREAD;
+        y = (rng() - 0.5) * Y_SPREAD;
       }
 
       positioned.set(goal.id, {

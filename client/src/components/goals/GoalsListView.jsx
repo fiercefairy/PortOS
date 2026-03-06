@@ -11,9 +11,10 @@ function urgencyIndicator(urgency) {
   return <div className={`w-2 h-2 rounded-full ${color}`} title={`${Math.round(urgency * 100)}% urgency`} />;
 }
 
-function GoalRow({ goal, depth, expanded, onToggle, onSelect, selectedId, allGoals, onAddChild }) {
+function GoalRow({ goal, depth, expandedIds, onToggle, onSelect, selectedId, allGoals, onAddChild }) {
   const cat = CATEGORY_CONFIG[goal.category] || CATEGORY_CONFIG.mastery;
   const CatIcon = cat.icon;
+  const expanded = expandedIds.has(goal.id);
   const hasChildren = goal.children?.length > 0;
   const isSelected = selectedId === goal.id;
 
@@ -79,7 +80,7 @@ function GoalRow({ goal, depth, expanded, onToggle, onSelect, selectedId, allGoa
           key={child.id}
           goal={child}
           depth={depth + 1}
-          expanded={expanded}
+          expandedIds={expandedIds}
           onToggle={onToggle}
           onSelect={onSelect}
           selectedId={selectedId}
@@ -248,7 +249,7 @@ export default function GoalsListView({ data, onRefresh }) {
                 key={root.id}
                 goal={root}
                 depth={0}
-                expanded={expandedIds.has(root.id)}
+                expandedIds={expandedIds}
                 onToggle={toggleExpand}
                 onSelect={handleSelect}
                 selectedId={selectedGoal?.id}

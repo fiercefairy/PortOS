@@ -3,6 +3,7 @@ import { join } from 'path';
 import { ensureDir, PATHS, safeJSONParse } from '../lib/fileUtils.js';
 import { getAccount, updateSyncStatus } from './messageAccounts.js';
 
+// TODO: Add unit tests for getMessages, syncAccount (cache, dedup, locking, status)
 const CACHE_DIR = join(PATHS.messages, 'cache');
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const syncLocks = new Map();
@@ -83,7 +84,9 @@ export async function deleteCache(accountId) {
 
 export async function getMessage(accountId, messageId) {
   const cache = await loadCache(accountId);
-  return cache.messages.find(m => m.id === messageId) || null;
+  const msg = cache.messages.find(m => m.id === messageId);
+  if (!msg) return null;
+  return { ...msg, accountId: msg.accountId || accountId };
 }
 
 export async function syncAccount(accountId, io) {
@@ -128,8 +131,12 @@ export async function syncAccount(accountId, io) {
     await saveCache(accountId, cache);
     await updateSyncStatus(accountId, providerStatus === 'success' ? 'success' : providerStatus);
 
-    io?.emit('messages:sync:completed', { accountId, newMessages: uniqueNew.length, status: providerStatus });
-    io?.emit('messages:changed', {});
+    if (providerStatus === 'success') {
+      io?.emit('messages:sync:completed', { accountId, newMessages: uniqueNew.length, status: providerStatus });
+      io?.emit('messages:changed', {});
+    } else {
+      io?.emit('messages:sync:failed', { accountId, error: `Sync finished with status: ${providerStatus}`, status: providerStatus });
+    }
     console.log(`📧 Sync complete for ${account.name}: ${uniqueNew.length} new, status=${providerStatus}`);
 
     return { newMessages: uniqueNew.length, total: cache.messages.length, status: providerStatus };

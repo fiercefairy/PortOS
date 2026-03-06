@@ -222,20 +222,6 @@ router.delete('/drafts/:id', asyncHandler(async (req, res) => {
   res.status(204).send();
 }));
 
-// === Message Detail Route (after drafts to avoid route collision) ===
-const messageParamsSchema = z.object({
-  accountId: z.string().uuid(),
-  messageId: z.string().min(1)
-});
-
-router.get('/:accountId/:messageId', asyncHandler(async (req, res) => {
-  const parsed = messageParamsSchema.safeParse(req.params);
-  if (!parsed.success) return res.status(400).json({ error: 'Invalid accountId or messageId format' });
-  const message = await messageSync.getMessage(parsed.data.accountId, parsed.data.messageId);
-  if (!message) return res.status(404).json({ error: 'Message not found' });
-  res.json(message);
-}));
-
 // === Browser Launch Route ===
 router.post('/launch/:accountId', asyncHandler(async (req, res) => {
   if (!z.string().uuid().safeParse(req.params.accountId).success) {
@@ -272,6 +258,20 @@ router.post('/selectors/:provider/test', asyncHandler(async (req, res) => {
   }
   const result = await testSelectors(req.params.provider);
   res.json(result);
+}));
+
+// === Message Detail Route (last to avoid capturing /launch, /selectors paths) ===
+const messageParamsSchema = z.object({
+  accountId: z.string().uuid(),
+  messageId: z.string().min(1)
+});
+
+router.get('/:accountId/:messageId', asyncHandler(async (req, res) => {
+  const parsed = messageParamsSchema.safeParse(req.params);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid accountId or messageId format' });
+  const message = await messageSync.getMessage(parsed.data.accountId, parsed.data.messageId);
+  if (!message) return res.status(404).json({ error: 'Message not found' });
+  res.json(message);
 }));
 
 export default router;

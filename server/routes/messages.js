@@ -107,8 +107,9 @@ router.post('/sync/:accountId', asyncHandler(async (req, res) => {
   if (!z.string().uuid().safeParse(req.params.accountId).success) {
     return res.status(400).json({ error: 'Invalid account ID format' });
   }
+  const mode = ['unread', 'full'].includes(req.body?.mode) ? req.body.mode : 'unread';
   const io = req.app.get('io');
-  const result = await messageSync.syncAccount(req.params.accountId, io);
+  const result = await messageSync.syncAccount(req.params.accountId, io, { mode });
   if (result.error) return res.status(result.status || 404).json({ error: result.error });
   res.json(result);
 }));

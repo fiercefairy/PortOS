@@ -287,20 +287,25 @@ describe('syncAccount', () => {
     expect(result.total).toBe(1);
     expect(result.status).toBe('success');
     expect(updateSyncStatus).toHaveBeenCalledWith(VALID_UUID, 'success');
-    expect(mockIo.emit).toHaveBeenCalledWith('messages:sync:started', { accountId: VALID_UUID });
+    expect(mockIo.emit).toHaveBeenCalledWith('messages:sync:started', { accountId: VALID_UUID, mode: 'unread' });
     expect(mockIo.emit).toHaveBeenCalledWith('messages:sync:completed', expect.objectContaining({ accountId: VALID_UUID, newMessages: 1 }));
     expect(mockIo.emit).toHaveBeenCalledWith('messages:changed', {});
   });
 
-  it('should call syncPlaywright for outlook accounts', async () => {
+  it('should call syncPlaywright for outlook accounts with mode', async () => {
     getAccount.mockResolvedValue({ id: VALID_UUID, name: 'Outlook', type: 'outlook', enabled: true });
     readFile.mockResolvedValue(JSON.stringify({ syncCursor: null, messages: [] }));
     syncPlaywright.mockResolvedValue([]);
     updateSyncStatus.mockResolvedValue();
 
-    const result = await syncAccount(VALID_UUID, mockIo);
+    const result = await syncAccount(VALID_UUID, mockIo, { mode: 'full' });
 
-    expect(syncPlaywright).toHaveBeenCalled();
+    expect(syncPlaywright).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'outlook' }),
+      expect.any(Object),
+      mockIo,
+      { mode: 'full' }
+    );
     expect(result.newMessages).toBe(0);
   });
 

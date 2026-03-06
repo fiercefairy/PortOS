@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Play, AlertCircle, Settings, Globe } from 'lucide-react';
+import { RefreshCw, Play, AlertCircle, Settings, Globe, Mail, MailOpen } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as api from '../../services/api';
 import socket from '../../services/socket';
@@ -7,7 +7,7 @@ import socket from '../../services/socket';
 // Default selectors for supported providers — ensures editor cards always render,
 // even on fresh installs before selectors.json exists.
 const DEFAULT_SELECTORS = {
-  outlook: { messageRow: "[role='listitem']" },
+  outlook: { messageRow: "[role='listbox'] [role='option']" },
   teams: { messageItem: "[role='listitem']" },
 };
 
@@ -69,9 +69,9 @@ export default function SyncTab({ accounts, onRefresh }) {
     if (result?.success) toast.success('Browser tab opened — log in if needed, then sync');
   };
 
-  const handleSync = async (accountId) => {
+  const handleSync = async (accountId, mode = 'unread') => {
     setSyncing(prev => ({ ...prev, [accountId]: 'syncing' }));
-    await api.syncMessageAccount(accountId).catch(() => {
+    await api.syncMessageAccount(accountId, mode).catch(() => {
       setSyncing(prev => ({ ...prev, [accountId]: null }));
     });
   };
@@ -130,13 +130,24 @@ export default function SyncTab({ accounts, onRefresh }) {
                 {syncing[account.id] === 'syncing' ? (
                   <RefreshCw size={16} className="text-port-accent animate-spin" />
                 ) : (
-                  <button
-                    onClick={() => handleSync(account.id)}
-                    disabled={!account.enabled}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-port-accent/10 text-port-accent rounded text-sm hover:bg-port-accent/20 transition-colors disabled:opacity-50"
-                  >
-                    <Play size={14} /> Sync
-                  </button>
+                  <>
+                    <button
+                      onClick={() => handleSync(account.id, 'unread')}
+                      disabled={!account.enabled}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-port-accent/10 text-port-accent rounded text-sm hover:bg-port-accent/20 transition-colors disabled:opacity-50"
+                      title="Sync unread messages only"
+                    >
+                      <MailOpen size={14} /> Sync Unread
+                    </button>
+                    <button
+                      onClick={() => handleSync(account.id, 'full')}
+                      disabled={!account.enabled}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-port-border text-gray-300 rounded text-sm hover:bg-port-border/80 transition-colors disabled:opacity-50"
+                      title="Sync all visible messages"
+                    >
+                      <Mail size={14} /> Full Sync
+                    </button>
+                  </>
                 )}
               </div>
             </div>

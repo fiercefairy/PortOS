@@ -69,7 +69,7 @@ async function evaluateOnPage(page, expression) {
 
   return new Promise((resolve) => {
     const ws = new WebSocket(wsUrl);
-    const timer = setTimeout(() => { ws.close(); resolve(null); }, 15000);
+    const timer = setTimeout(() => { ws.close(); resolve(null); }, 60000);
 
     ws.on('open', () => {
       ws.send(JSON.stringify({
@@ -121,11 +121,16 @@ export async function launchProvider(accountType) {
 /**
  * Sync messages via CDP browser automation
  * Connects to the portos-browser CDP instance, finds the provider page,
- * and scrapes messages using DOM evaluation
+ * and scrapes messages using DOM evaluation.
+ * @param {object} account
+ * @param {object} cache
+ * @param {object} io - Socket.IO instance
+ * @param {object} options - { mode: 'unread' | 'full' }
  */
-export async function syncPlaywright(account, cache, io) {
+export async function syncPlaywright(account, cache, io, options = {}) {
+  const mode = options.mode || 'unread';
   const targetUrl = account.type === 'teams' ? TEAMS_URL : OUTLOOK_URL;
-  console.log(`📧 Playwright sync for ${account.email} (${account.type})`);
+  console.log(`📧 Playwright sync (${mode}) for ${account.email} (${account.type})`);
 
   // Find the provider page in CDP browser
   const page = await findOrOpenPage(targetUrl).catch(() => null);
@@ -147,7 +152,7 @@ export async function syncPlaywright(account, cache, io) {
   const sels = allSelectors[account.type] || {};
 
   // Use CDP Runtime.evaluate to extract messages from the page DOM
-  const extractScript = buildExtractionScript(account.type, sels);
+  const extractScript = buildExtractionScript(account.type, sels, mode);
   const extracted = await evaluateOnPage(page, extractScript);
 
   if (!extracted || !Array.isArray(extracted)) {
@@ -169,7 +174,12 @@ export async function syncPlaywright(account, cache, io) {
     subject: msg.subject || '',
     bodyText: msg.preview || '',
     date: msg.date || new Date().toISOString(),
-    isRead: msg.isRead ?? true,
+    isRead: !(msg.isUnread ?? false),
+    isUnread: msg.isUnread ?? false,
+    isPinned: msg.isPinned ?? false,
+    isFlagged: msg.isFlagged ?? false,
+    isReplied: msg.isReplied ?? false,
+    hasMeetingInvite: msg.hasMeetingInvite ?? false,
     labels: [],
     source: account.type,
     syncedAt: new Date().toISOString()
@@ -177,23 +187,97 @@ export async function syncPlaywright(account, cache, io) {
   return { messages, status: 'success' };
 }
 
-function buildExtractionScript(type, sels) {
+function buildExtractionScript(type, sels, mode = 'unread') {
   if (type === 'outlook') {
-    const listSel = sels.messageRow || "[role='listitem']";
+    const maxMessages = mode === 'full' ? 200 : 100;
+    const maxScrolls = mode === 'full' ? 20 : 10;
+    // Scrolling extraction: scrapes visible rows, scrolls, repeats
     return `
-      (function() {
-        const rows = document.querySelectorAll(${JSON.stringify(listSel)});
-        return Array.from(rows).slice(0, 50).map(row => {
-          const text = row.innerText || '';
-          const lines = text.split('\\n').map(l => l.trim()).filter(Boolean);
-          return {
-            from: lines[0] || '',
-            subject: lines[1] || '',
-            preview: lines[2] || '',
-            date: lines[3] || '',
-            isRead: !row.querySelector('[aria-label*="Unread"]')
-          };
-        });
+      (async function() {
+        const listbox = document.querySelector("[role='listbox']");
+        if (!listbox) return [];
+        const seen = new Map();
+        let scrollAttempts = 0;
+        const maxMsg = ${maxMessages};
+        const maxScroll = ${maxScrolls};
+        const unreadOnly = ${mode === 'unread'};
+
+        function extractRow(row) {
+          const ariaLabel = row.getAttribute('aria-label') || '';
+          const isUnread = !!row.querySelector('button[aria-label="Mark as read"]');
+          const isPinned = !!row.querySelector('button[aria-label*="Unpin"]');
+          const isFlagged = !!row.querySelector('button[aria-label*="Unflag"]');
+          const isReplied = ariaLabel.includes('Replied');
+          const hasMeetingInvite = !!row.querySelector('button[aria-label="RSVP"]');
+
+          const avatarSpan = row.querySelector('div[aria-label="Select a conversation"] > span[aria-label]');
+          const from = avatarSpan?.getAttribute('aria-label') || '';
+
+          const checkbox = row.querySelector('div[aria-label="Select a conversation"]');
+          const contentArea = checkbox?.parentElement?.nextElementSibling;
+          const contentDivs = contentArea ? Array.from(contentArea.children) : [];
+
+          let subject = '', date = '', preview = '', fromEmail = '';
+
+          if (contentDivs.length >= 3) {
+            const senderDiv = contentDivs[0];
+            const emailSpan = senderDiv?.querySelector('span[title*="@"]');
+            fromEmail = emailSpan?.getAttribute('title') || '';
+
+            const subDateDiv = contentDivs[1];
+            const spans = subDateDiv ? Array.from(subDateDiv.querySelectorAll('span')) : [];
+            subject = spans[0]?.textContent?.trim() || '';
+            const dateSpan = spans.find(s => s.getAttribute('title')?.match(/\\d{4}/));
+            date = dateSpan?.getAttribute('title') || spans[spans.length - 1]?.textContent?.trim() || '';
+
+            preview = contentDivs[2]?.textContent?.trim() || '';
+          } else if (contentDivs.length >= 1) {
+            const allSpans = contentDivs[0]?.querySelectorAll('span[title]') || [];
+            const spanArr = Array.from(allSpans);
+            const emailSpan = spanArr.find(s => (s.getAttribute('title') || '').includes('@'));
+            fromEmail = emailSpan?.getAttribute('title') || '';
+            // In compact layout: first titled span is sender, second is subject
+            const titledSpans = spanArr.filter(s => s.closest('[class]'));
+            subject = titledSpans.length > 1 ? titledSpans[titledSpans.length - 1]?.textContent?.trim() || '' : '';
+            // Fallback: find span whose text differs from sender name
+            if (!subject) {
+              subject = spanArr.find(s => s.textContent?.trim() && s.textContent.trim() !== from && !(s.getAttribute('title') || '').includes('@'))?.textContent?.trim() || '';
+            }
+            const dateMatch = ariaLabel.match(/(\\d{1,2}\\/\\d{1,2}(?:\\/\\d{2,4})?)/);
+            date = dateMatch?.[1] || '';
+          }
+
+          return { from, fromEmail, subject, date, preview: preview.slice(0, 300), isUnread, isPinned, isFlagged, isReplied, hasMeetingInvite };
+        }
+
+        function scrapeVisible() {
+          const rows = listbox.querySelectorAll('[role="option"]');
+          let added = 0;
+          for (const row of rows) {
+            if (seen.size >= maxMsg) break;
+            const data = extractRow(row);
+            if (!data.from && !data.subject) continue;
+            const key = data.from + '|' + data.subject + '|' + data.date;
+            if (seen.has(key)) continue;
+            if (unreadOnly && !data.isUnread) continue;
+            seen.set(key, data);
+            added++;
+          }
+          return added;
+        }
+
+        scrapeVisible();
+        const scrollContainer = listbox.closest('[role="region"]') || listbox.parentElement;
+        while (scrollAttempts < maxScroll && seen.size < maxMsg) {
+          scrollContainer.scrollBy(0, 600);
+          await new Promise(r => setTimeout(r, 500));
+          const added = scrapeVisible();
+          if (added === 0) scrollAttempts++;
+          else scrollAttempts = 0;
+        }
+        // Scroll back to top
+        scrollContainer.scrollTo(0, 0);
+        return Array.from(seen.values());
       })()
     `;
   }
@@ -210,7 +294,11 @@ function buildExtractionScript(type, sels) {
             subject: '',
             preview: lines[1] || '',
             date: lines[2] || '',
-            isRead: true
+            isUnread: false,
+            isPinned: false,
+            isFlagged: false,
+            isReplied: false,
+            hasMeetingInvite: false
           };
         });
       })()

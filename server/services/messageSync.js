@@ -96,7 +96,7 @@ export async function getMessage(accountId, messageId) {
   return { ...msg, accountId: msg.accountId || accountId };
 }
 
-export async function syncAccount(accountId, io) {
+export async function syncAccount(accountId, io, options = {}) {
   if (syncLocks.has(accountId)) return { error: 'Sync already in progress', status: 409 };
 
   const account = await getAccount(accountId);
@@ -104,8 +104,9 @@ export async function syncAccount(accountId, io) {
   if (!account.enabled) return { error: 'Account is disabled', status: 400 };
 
   syncLocks.set(accountId, true);
-  io?.emit('messages:sync:started', { accountId });
-  console.log(`📧 Starting sync for ${account.name} (${account.type})`);
+  const mode = options.mode || 'unread';
+  io?.emit('messages:sync:started', { accountId, mode });
+  console.log(`📧 Starting ${mode} sync for ${account.name} (${account.type})`);
 
   const providerSync = async () => {
     const cache = await loadCache(accountId);
@@ -115,7 +116,7 @@ export async function syncAccount(accountId, io) {
       providerResult = await syncGmail(account, cache, io);
     } else if (account.type === 'outlook' || account.type === 'teams') {
       const { syncPlaywright } = await import('./messagePlaywrightSync.js');
-      providerResult = await syncPlaywright(account, cache, io);
+      providerResult = await syncPlaywright(account, cache, io, { mode });
     } else {
       throw new Error(`Unsupported account type: ${account.type}`);
     }
@@ -124,9 +125,23 @@ export async function syncAccount(accountId, io) {
     const newMessages = Array.isArray(providerResult) ? providerResult : providerResult?.messages ?? [];
     const providerStatus = Array.isArray(providerResult) ? 'success' : providerResult?.status ?? 'success';
 
-    // Deduplicate by externalId (skip dedup for messages without externalId)
-    const existingIds = new Set(cache.messages.map(m => m.externalId).filter(Boolean));
-    const uniqueNew = newMessages.filter(m => !m.externalId || !existingIds.has(m.externalId));
+    // Deduplicate by externalId; update flags on existing messages
+    const existingMap = new Map(cache.messages.filter(m => m.externalId).map(m => [m.externalId, m]));
+    const uniqueNew = [];
+    for (const msg of newMessages) {
+      if (!msg.externalId || !existingMap.has(msg.externalId)) {
+        uniqueNew.push(msg);
+      } else {
+        // Update flags on existing message
+        const existing = existingMap.get(msg.externalId);
+        if (msg.isUnread !== undefined) existing.isUnread = msg.isUnread;
+        if (msg.isRead !== undefined) existing.isRead = msg.isRead;
+        if (msg.isPinned !== undefined) existing.isPinned = msg.isPinned;
+        if (msg.isFlagged !== undefined) existing.isFlagged = msg.isFlagged;
+        if (msg.isReplied !== undefined) existing.isReplied = msg.isReplied;
+        if (msg.hasMeetingInvite !== undefined) existing.hasMeetingInvite = msg.hasMeetingInvite;
+      }
+    }
     cache.messages.push(...uniqueNew);
 
     // Trim to maxMessages

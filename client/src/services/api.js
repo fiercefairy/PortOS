@@ -1615,7 +1615,7 @@ export const getMessageAccounts = () => request('/messages/accounts');
 export const createMessageAccount = (data) => request('/messages/accounts', { method: 'POST', body: JSON.stringify(data) });
 export const updateMessageAccount = (id, data) => request(`/messages/accounts/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const deleteMessageAccount = (id) => request(`/messages/accounts/${id}`, { method: 'DELETE' });
-export const syncMessageAccount = (accountId) => request(`/messages/sync/${accountId}`, { method: 'POST' });
+export const syncMessageAccount = (accountId, mode = 'unread') => request(`/messages/sync/${accountId}`, { method: 'POST', body: JSON.stringify({ mode }) });
 export const getMessageSyncStatus = (accountId) => request(`/messages/sync/${accountId}/status`);
 export const getMessageInbox = (params = {}) => {
   const qs = new URLSearchParams();

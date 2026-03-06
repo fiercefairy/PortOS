@@ -199,7 +199,7 @@ describe('Messages Routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.newMessages).toBe(5);
-      expect(messageSync.syncAccount).toHaveBeenCalledWith(VALID_UUID, undefined);
+      expect(messageSync.syncAccount).toHaveBeenCalledWith(VALID_UUID, undefined, { mode: 'unread' });
     });
 
     it('should return 400 for invalid UUID', async () => {

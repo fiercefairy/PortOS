@@ -179,7 +179,7 @@ const navItems = [
     label: 'Messages',
     icon: Mail,
     children: [
-      { to: '/messages/accounts', label: 'Accounts', icon: Globe },
+      { to: '/messages/config', label: 'Config', icon: Settings },
       { to: '/messages/drafts', label: 'Drafts', icon: FilePen },
       { to: '/messages/inbox', label: 'Inbox', icon: Inbox },
       { to: '/messages/sync', label: 'Sync', icon: RefreshCw }

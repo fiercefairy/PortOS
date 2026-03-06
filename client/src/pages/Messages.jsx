@@ -1,16 +1,16 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { Mail, RefreshCw } from 'lucide-react';
+import { Mail, RefreshCw, Settings } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import * as api from '../services/api';
 
 import InboxTab from '../components/messages/InboxTab';
-import AccountsTab from '../components/messages/AccountsTab';
+import ConfigTab from '../components/messages/ConfigTab';
 import DraftsTab from '../components/messages/DraftsTab';
 import SyncTab from '../components/messages/SyncTab';
 
 const TABS = [
   { id: 'inbox', label: 'Inbox', icon: Mail },
-  { id: 'accounts', label: 'Accounts', icon: Mail },
+  { id: 'config', label: 'Config', icon: Settings },
   { id: 'drafts', label: 'Drafts', icon: Mail },
   { id: 'sync', label: 'Sync', icon: RefreshCw }
 ];
@@ -41,8 +41,8 @@ export default function Messages() {
     switch (activeTab) {
       case 'inbox':
         return <InboxTab accounts={accounts} />;
-      case 'accounts':
-        return <AccountsTab accounts={accounts} setAccounts={setAccounts} />;
+      case 'config':
+        return <ConfigTab accounts={accounts} setAccounts={setAccounts} />;
       case 'drafts':
         return <DraftsTab accounts={accounts} />;
       case 'sync':

@@ -23,7 +23,7 @@ const DEFAULT_PROFILE_DIR = join(DATA_DIR, 'browser-profile');
 
 const DEFAULT_CONFIG = {
   cdpPort: 5556,
-  cdpHost: '127.0.0.1',
+  cdpHost: process.env.CDP_HOST || '127.0.0.1',
   healthPort: 5557,
   autoConnect: true,
   headless: true,
@@ -63,7 +63,7 @@ export async function updateConfig(updates) {
 
 export async function getHealthStatus() {
   const config = await loadConfig();
-  const healthUrl = `http://127.0.0.1:${config.healthPort}/health`;
+  const healthUrl = `http://${config.cdpHost}:${config.healthPort}/health`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 3000);

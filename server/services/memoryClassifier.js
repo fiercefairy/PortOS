@@ -21,7 +21,7 @@ const MEMORY_CONFIG_FILE = join(CONFIG_DIR, 'memory-classifier-config.json');
 const DEFAULT_CONFIG = {
   enabled: true,
   provider: 'lmstudio',
-  endpoint: 'http://localhost:1234/v1/chat/completions',
+  endpoint: process.env.LM_STUDIO_URL ? `${process.env.LM_STUDIO_URL.replace(/\/+$/, '').replace(/\/v1$/, '')}/v1/chat/completions` : 'http://localhost:1234/v1/chat/completions',
   model: 'gptoss-20b',
   timeout: 60000,
   maxOutputLength: 10000,
@@ -41,7 +41,7 @@ async function loadConfig() {
     const content = await readFile(MEMORY_CONFIG_FILE, 'utf-8');
     // Handle empty or malformed config file
     if (content && content.trim() && content.trim().startsWith('{') && content.trim().endsWith('}')) {
-      configCache = { ...DEFAULT_CONFIG, ...JSON.parse(content) };
+      configCache = { ...DEFAULT_CONFIG, ...safeJSONParse(content, {}) };
     } else {
       console.log('⚠️ Memory classifier config file empty/malformed, using defaults');
       configCache = DEFAULT_CONFIG;

@@ -349,6 +349,15 @@ export const syncBranch = (path, branch) => request('/git/sync', {
   method: 'POST',
   body: JSON.stringify({ path, branch })
 });
+export const getRemoteBranches = (path) => request('/git/remote-branches', {
+  method: 'POST',
+  body: JSON.stringify({ path })
+});
+export const deleteBranch = (path, branch, { local = false, remote = false } = {}) =>
+  request('/git/delete-branch', {
+    method: 'POST',
+    body: JSON.stringify({ path, branch, local, remote })
+  });
 
 // Usage
 export const getUsage = () => request('/usage');
@@ -733,6 +742,7 @@ export const listCosWeeklyDigests = () => request('/cos/digest/list');
 export const getCosWeekProgress = () => request('/cos/digest/progress');
 export const getCosDigestText = async () => {
   const response = await fetch('/api/cos/digest/text');
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.text();
 };
 export const generateCosDigest = (weekId = null) => request('/cos/digest/generate', {
@@ -1059,8 +1069,8 @@ export const openBrainLinkFolder = (id) => request(`/brain/links/${id}/open-fold
 // Brain - Graph
 export const getBrainGraph = () => request('/brain/graph');
 
-// Brain - Sync
-export const syncBrainData = () => request('/brain/sync', { method: 'POST' });
+// Brain - Bridge Sync (brain data to CoS memory system)
+export const syncBrainData = () => request('/brain/bridge-sync', { method: 'POST' });
 
 // Media - Server media devices
 export const getMediaDevices = () => request('/media/devices');

@@ -20,7 +20,7 @@ import { fileURLToPath } from 'url'
 import { v4 as uuidv4 } from 'uuid'
 import { spawn } from 'child_process'
 import { cosEvents } from './cosEvents.js'
-import { ensureDir, PATHS, readJSONFile } from '../lib/fileUtils.js'
+import { DAY, ensureDir, HOUR, PATHS, readJSONFile } from '../lib/fileUtils.js'
 import { createMutex } from '../lib/asyncMutex.js'
 import { checkAndPrompt as autobiographyCheckAndPrompt } from './autobiography.js'
 
@@ -90,9 +90,6 @@ const JOB_SKILL_MAP = {
   'job-autobiography-prompt': 'autobiography-prompt'
 }
 
-// Time constants
-const HOUR = 60 * 60 * 1000
-const DAY = 24 * HOUR
 const WEEK = 7 * DAY
 
 /**
@@ -284,18 +281,11 @@ Phase 3 — Report:
 ]
 
 /**
- * Ensure data directory exists
- */
-async function ensureDataDir() {
-  await ensureDir(DATA_DIR)
-}
-
-/**
  * Load jobs from disk
  * @returns {Promise<Object>} Jobs data
  */
 async function loadJobs() {
-  await ensureDataDir()
+  await ensureDir(DATA_DIR)
 
   const loaded = await readJSONFile(JOBS_FILE, null)
   if (!loaded) {
@@ -356,7 +346,7 @@ function mergeWithDefaults(loaded) {
  * Save jobs to disk
  */
 async function saveJobs(data) {
-  await ensureDataDir()
+  await ensureDir(DATA_DIR)
   data.lastUpdated = new Date().toISOString()
   const tmp = JOBS_FILE + '.tmp'
   await writeFile(tmp, JSON.stringify(data, null, 2))

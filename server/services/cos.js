@@ -77,27 +77,36 @@ let initialStartup = false;
 // Lightweight index mapping agentId → YYYY-MM-DD date bucket (~50KB vs 16MB full cache)
 // Lazy-loaded from data/cos/agents/index.json on first access
 let agentIndex = null;
+let agentIndexPromise = null;
 const INDEX_FILE = join(AGENTS_DIR, 'index.json');
 
-// Load agent index from disk (lazy init)
+// Load agent index from disk (lazy init, singleton promise prevents concurrent migrations)
 async function loadAgentIndex() {
   if (agentIndex) return agentIndex;
+  if (agentIndexPromise) return agentIndexPromise;
 
-  if (!existsSync(AGENTS_DIR)) {
-    await mkdir(AGENTS_DIR, { recursive: true });
-  }
+  agentIndexPromise = (async () => {
+    if (!existsSync(AGENTS_DIR)) {
+      await mkdir(AGENTS_DIR, { recursive: true });
+    }
 
-  if (existsSync(INDEX_FILE)) {
-    const content = await readFile(INDEX_FILE, 'utf-8').catch(() => '{}');
-    const parsed = safeJSONParse(content, {});
-    agentIndex = new Map(Object.entries(parsed));
-    console.log(`📂 Loaded agent index: ${agentIndex.size} entries`);
-  } else {
-    // No index yet — run migration from flat dirs to date buckets
-    agentIndex = await migrateAgentsToDateBuckets();
-  }
+    if (existsSync(INDEX_FILE)) {
+      const content = await readFile(INDEX_FILE, 'utf-8').catch(() => '{}');
+      const parsed = safeJSONParse(content, {});
+      agentIndex = new Map(Object.entries(parsed));
+      console.log(`📂 Loaded agent index: ${agentIndex.size} entries`);
+    } else {
+      // No index yet — run migration from flat dirs to date buckets
+      agentIndex = await migrateAgentsToDateBuckets();
+    }
 
-  return agentIndex;
+    return agentIndex;
+  })().catch(err => {
+    agentIndexPromise = null;
+    throw err;
+  });
+
+  return agentIndexPromise;
 }
 
 // Persist agent index to disk (atomic write via temp file + rename)
@@ -208,16 +217,23 @@ async function migrateAgentsToDateBuckets() {
       continue;
     }
 
-    await rename(agentDir, targetDir).catch(async (err) => {
+    await rename(agentDir, targetDir).catch(async (renameErr) => {
       // rename can fail across filesystems — fall back to copy+delete
-      console.log(`⚠️ Rename failed for ${agentId}, using copy: ${err.message}`);
-      await mkdir(targetDir, { recursive: true });
-      const files = await readdir(agentDir);
-      for (const file of files) {
-        const content = await readFile(join(agentDir, file));
-        await writeFile(join(targetDir, file), content);
+      console.log(`⚠️ Rename failed for ${agentId}, using copy: ${renameErr.message}`);
+      try {
+        await mkdir(targetDir, { recursive: true });
+        const files = await readdir(agentDir);
+        for (const file of files) {
+          const content = await readFile(join(agentDir, file));
+          await writeFile(join(targetDir, file), content);
+        }
+        await rm(agentDir, { recursive: true });
+      } catch (copyErr) {
+        console.error(`❌ Copy fallback failed for ${agentId}: ${copyErr.message}`);
+        // Clean up partially-created target to avoid skipping on next startup
+        await rm(targetDir, { recursive: true, force: true }).catch(() => {});
+        throw copyErr;
       }
-      await rm(agentDir, { recursive: true });
     });
 
     index.set(agentId, dateStr);
@@ -357,8 +373,8 @@ function isValidJSON(str) {
   const trimmed = str.trim();
   // Check for basic JSON structure
   if (!(trimmed.startsWith('{') && trimmed.endsWith('}'))) return false;
-  // Check for common corruption patterns
-  if (trimmed.endsWith('}}') || trimmed.includes('}{')) return false;
+  // Check for common corruption patterns (concatenated JSON objects)
+  if (trimmed.includes('}{')) return false;
   return true;
 }
 
@@ -873,8 +889,16 @@ export async function evaluateTasks() {
   const { user: userTaskData, cos: cosTaskData } = await getAllTasks();
 
   // Count running agents and available slots (global + per-project)
-  const runningAgents = Object.values(state.agents).filter(a => a.status === 'running').length;
+  const runningAgentEntries = Object.values(state.agents).filter(a => a.status === 'running');
+  const runningAgents = runningAgentEntries.length;
   const availableSlots = state.config.maxConcurrentAgents - runningAgents;
+
+  // Track jobIds with running agents to prevent duplicate job spawns
+  const inFlightJobIds = new Set(
+    runningAgentEntries
+      .map(a => a.metadata?.jobId)
+      .filter(Boolean)
+  );
   const perProjectLimit = state.config.maxConcurrentAgentsPerProject || state.config.maxConcurrentAgents;
   const agentsByProject = countRunningAgentsByProject(state.agents);
 
@@ -1066,6 +1090,12 @@ export async function evaluateTasks() {
     });
 
     for (const job of dueJobs) {
+      // Skip jobs that already have a running agent (prevents duplicate spawns)
+      if (inFlightJobIds.has(job.id)) {
+        emitLog('debug', `Skipping job ${job.name} - agent already running`, { jobId: job.id });
+        continue;
+      }
+
       // Script jobs execute directly without spawning an AI agent
       if (isScriptJob(job)) {
         await executeScriptJob(job).catch(err => {
@@ -1080,6 +1110,8 @@ export async function evaluateTasks() {
       if (!canSpawnTask(task)) continue;
       tasksToSpawn.push(task);
       trackSpawn(task);
+      // Track this job as in-flight so it's not spawned again within this evaluation
+      inFlightJobIds.add(job.id);
       emitLog('info', `Autonomous job due: ${job.name} (${job.reason})`, {
         jobId: job.id,
         category: job.category
@@ -3085,6 +3117,7 @@ export function isRunning() {
  * Add a new task to TASKS.md or COS-TASKS.md
  */
 export async function addTask(taskData, taskType = 'user') {
+  return withStateLock(async () => {
   const state = await loadState();
   const filePath = taskType === 'user'
     ? join(ROOT_DIR, state.config.userTasksFile)
@@ -3158,6 +3191,7 @@ export async function addTask(taskData, taskType = 'user') {
   }
 
   return newTask;
+  });
 }
 
 /**
@@ -3376,6 +3410,7 @@ const PRIORITY_VALUES = {
  * Update an existing task
  */
 export async function updateTask(taskId, updates, taskType = 'user') {
+  return withStateLock(async () => {
   const state = await loadState();
   const filePath = taskType === 'user'
     ? join(ROOT_DIR, state.config.userTasksFile)
@@ -3430,12 +3465,14 @@ export async function updateTask(taskId, updates, taskType = 'user') {
 
   cosEvents.emit('tasks:changed', { type: taskType, action: 'updated', task: updatedTask });
   return updatedTask;
+  });
 }
 
 /**
  * Delete a task
  */
 export async function deleteTask(taskId, taskType = 'user') {
+  return withStateLock(async () => {
   const state = await loadState();
   const filePath = taskType === 'user'
     ? join(ROOT_DIR, state.config.userTasksFile)
@@ -3462,12 +3499,14 @@ export async function deleteTask(taskId, taskType = 'user') {
 
   cosEvents.emit('tasks:changed', { type: taskType, action: 'deleted', taskId });
   return { success: true, taskId };
+  });
 }
 
 /**
  * Reorder user tasks based on an array of task IDs
  */
 export async function reorderTasks(taskIds) {
+  return withStateLock(async () => {
   const state = await loadState();
   const filePath = join(ROOT_DIR, state.config.userTasksFile);
 
@@ -3502,12 +3541,14 @@ export async function reorderTasks(taskIds) {
 
   cosEvents.emit('tasks:changed', { type: 'user', action: 'reordered' });
   return { success: true, order: reorderedTasks.map(t => t.id) };
+  });
 }
 
 /**
  * Approve a task that requires approval (marks it as auto-approved)
  */
 export async function approveTask(taskId) {
+  return withStateLock(async () => {
   const state = await loadState();
   const filePath = join(ROOT_DIR, state.config.cosTasksFile);
 
@@ -3544,6 +3585,7 @@ export async function approveTask(taskId) {
   setImmediate(() => dequeueNextTask());
 
   return tasks[taskIndex];
+  });
 }
 
 /**
@@ -3631,6 +3673,16 @@ async function executeScheduledJob(jobId) {
     });
     emitLog('info', `Script job executed: ${job.name}`, { jobId: job.id });
   } else {
+    // Check if an agent is already running for this job (prevents duplicate spawns)
+    const agentAlreadyRunning = Object.values(state.agents).some(
+      a => a.status === 'running' && a.metadata?.jobId === jobId
+    );
+    if (agentAlreadyRunning) {
+      emitLog('debug', `Job ${job.name} skipped - agent already running`, { jobId });
+      await registerSingleJobSchedule(jobId);
+      return;
+    }
+
     // Check capacity before spawning an agent
     const runningAgents = Object.values(state.agents).filter(a => a.status === 'running').length;
     if (runningAgents >= state.config.maxConcurrentAgents) {

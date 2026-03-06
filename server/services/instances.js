@@ -17,6 +17,7 @@ import { DEFAULT_PEER_PORT } from '../lib/ports.js';
 const INSTANCES_FILE = dataPath('instances.json');
 const PROBE_TIMEOUT_MS = 5000;
 const POLL_INTERVAL_MS = 30000;
+const INITIAL_PROBE_DELAY_MS = 2000;
 
 const withLock = createMutex();
 let pollTimer = null;
@@ -68,6 +69,16 @@ export async function ensureSelf() {
 export async function getSelf() {
   const data = await loadData();
   return data.self;
+}
+
+let cachedInstanceId = null;
+export async function getInstanceId() {
+  if (!cachedInstanceId) {
+    const id = (await getSelf())?.instanceId;
+    if (id) cachedInstanceId = id;
+    return id ?? 'unknown';
+  }
+  return cachedInstanceId;
 }
 
 export async function updateSelf(name) {
@@ -150,12 +161,13 @@ export async function probePeer(peer) {
   const timeout = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
 
   const previousStatus = peer.status;
-  let status, lastHealth, lastSeen, remoteInstanceId, remoteVersion, remoteApps;
+  let status, lastHealth, lastSeen, remoteInstanceId, remoteVersion, remoteApps, remoteSyncSeqs;
   try {
-    // Fetch health details and apps in parallel
-    const [healthRes, appsRes] = await Promise.all([
+    // Fetch health details, apps, and sync status in parallel
+    const [healthRes, appsRes, syncRes] = await Promise.all([
       fetch(`${baseUrl}/api/system/health/details`, { signal: controller.signal }),
-      fetch(`${baseUrl}/api/apps`, { signal: controller.signal }).catch(() => null)
+      fetch(`${baseUrl}/api/apps`, { signal: controller.signal }).catch(() => null),
+      fetch(`${baseUrl}/api/instances/sync-status`, { signal: controller.signal }).catch(() => null)
     ]);
     if (!healthRes.ok) throw new Error(`HTTP ${healthRes.status}`);
     const json = await healthRes.json();
@@ -173,7 +185,11 @@ export async function probePeer(peer) {
         overallStatus: a.overallStatus, uiPort: a.uiPort, apiPort: a.apiPort, type: a.type
       })) ?? null;
     }
-  } catch {
+    if (syncRes?.ok) {
+      remoteSyncSeqs = await syncRes.json().catch(() => null);
+    }
+  } catch (err) {
+    console.log(`⚠️ Probe failed for ${peer.address}:${peer.port}: ${err.message}`);
     status = 'offline';
     lastHealth = peer.lastHealth; // preserve last known
     lastSeen = peer.lastSeen;
@@ -188,6 +204,7 @@ export async function probePeer(peer) {
     entry.lastSeen = lastSeen;
     entry.lastHealth = lastHealth;
     entry.lastApps = remoteApps ?? entry.lastApps ?? null;
+    entry.remoteSyncSeqs = remoteSyncSeqs ?? entry.remoteSyncSeqs ?? null;
     if (remoteInstanceId) entry.instanceId = remoteInstanceId;
     if (status === 'online') entry.version = remoteVersion;
     // Auto-update name from hostname if current name is just an IP address
@@ -207,7 +224,10 @@ export async function probePeer(peer) {
 
   // Announce ourselves only when peer transitions to online (not every poll cycle)
   if (status === 'online' && previousStatus !== 'online') {
-    announceSelf(peer.address, peer.port);
+    if (stored) {
+      announceSelf(peer.address, peer.port);
+      instanceEvents.emit('peer:online', stored);
+    }
   }
 
   return stored;
@@ -295,7 +315,9 @@ export async function handleAnnounce({ address, port, instanceId, name }) {
 
   // Immediately probe newly announced peers to populate health data
   if (result.created) {
-    probePeer(result.peer).catch(() => {});
+    probePeer(result.peer).catch(err => {
+      console.log(`⚠️ Initial probe failed for announced peer ${result.peer.name}: ${err.message}`);
+    });
   }
 
   return result;
@@ -363,7 +385,7 @@ export function startPolling() {
   console.log(`🌐 Instance polling started (${POLL_INTERVAL_MS / 1000}s interval)`);
 
   // Initial probe after a short delay
-  setTimeout(() => probeAllPeers(), 2000);
+  setTimeout(() => probeAllPeers(), INITIAL_PROBE_DELAY_MS);
 
   pollTimer = setInterval(() => probeAllPeers(), POLL_INTERVAL_MS);
 }

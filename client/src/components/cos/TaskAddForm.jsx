@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Plus, Image, X, ChevronDown, ChevronRight, Sparkles, Loader2, Paperclip, FileText, Zap, Bookmark, Ticket, GitBranch } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as api from '../../services/api';
-import { processScreenshotUploads, processAttachmentUploads, formatFileSize } from '../../utils/fileUpload';
+import { processScreenshotUploads, processAttachmentUploads } from '../../utils/fileUpload';
+import { formatBytes } from '../../utils/formatters';
 
 export default function TaskAddForm({ providers, apps, onTaskAdded, compact = false, defaultApp = '' }) {
   const [newTask, setNewTask] = useState({ description: '', context: '', model: '', provider: '', app: defaultApp });
@@ -102,7 +103,7 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
       setTemplateNameInput('');
       api.getCosPopularTemplates(8)
         .then(data => setTemplates(data.templates || []))
-        .catch(() => {});
+        .catch(err => console.warn('refresh templates:', err?.message ?? String(err)));
     }
   }, [newTask, templateNameInput, showTemplateSave]);
 
@@ -342,22 +343,6 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
     return (
       <>
         <div className="flex items-center gap-6 flex-wrap">
-          <div className="flex items-center gap-3">
-            <label htmlFor="add-position" className="text-sm text-gray-400">Queue Position:</label>
-            <button
-              id="add-position"
-              type="button"
-              onClick={() => setAddToTop(!addToTop)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                addToTop
-                  ? 'bg-port-accent/20 text-port-accent border border-port-accent/50'
-                  : 'bg-port-bg text-gray-400 border border-port-border'
-              }`}
-              aria-pressed={addToTop}
-            >
-              {addToTop ? 'Top of Queue' : 'Bottom of Queue'}
-            </button>
-          </div>
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -541,7 +526,7 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
                   <span className="text-xs text-white truncate max-w-[120px]" title={a.originalName}>
                     {a.originalName}
                   </span>
-                  <span className="text-xs text-gray-500">{formatFileSize(a.size)}</span>
+                  <span className="text-xs text-gray-500">{formatBytes(a.size)}</span>
                 </div>
                 <button
                   type="button"
@@ -582,7 +567,23 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
           </div>
         )}
         {!compact && (
-          <div className="flex justify-end gap-2">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mr-auto">
+              <label htmlFor="add-position" className="text-sm text-gray-400">Queue:</label>
+              <button
+                id="add-position"
+                type="button"
+                onClick={() => setAddToTop(!addToTop)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                  addToTop
+                    ? 'bg-port-accent/20 text-port-accent border border-port-accent/50'
+                    : 'bg-port-bg text-gray-400 border border-port-border'
+                }`}
+                aria-pressed={addToTop}
+              >
+                {addToTop ? 'Top of Queue' : 'Bottom of Queue'}
+              </button>
+            </div>
             <button
               onClick={saveAsTemplate}
               type="button"

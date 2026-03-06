@@ -12,25 +12,37 @@ import { safeJSONParse } from '../lib/fileUtils.js';
  */
 function execGit(args, cwd, options = {}) {
   return new Promise((resolve, reject) => {
+    const maxBuffer = options.maxBuffer || 10 * 1024 * 1024;
     const child = spawn('git', args, {
       cwd,
-      shell: false,
-      maxBuffer: options.maxBuffer || 10 * 1024 * 1024,
+      shell: process.platform === 'win32',
       windowsHide: true
     });
 
     let stdout = '';
     let stderr = '';
+    let killed = false;
 
     child.stdout.on('data', (data) => {
       stdout += data.toString();
+      if (stdout.length + stderr.length > maxBuffer && !killed) {
+        killed = true;
+        child.kill();
+        reject(new Error(`git output exceeded maxBuffer (${maxBuffer} bytes)`));
+      }
     });
 
     child.stderr.on('data', (data) => {
       stderr += data.toString();
+      if (stdout.length + stderr.length > maxBuffer && !killed) {
+        killed = true;
+        child.kill();
+        reject(new Error(`git output exceeded maxBuffer (${maxBuffer} bytes)`));
+      }
     });
 
     child.on('close', (code) => {
+      if (killed) return;
       if (code !== 0 && !options.ignoreExitCode) {
         reject(new Error(stderr || `git exited with code ${code}`));
       } else {
@@ -582,6 +594,106 @@ export async function ensureLatest(dir) {
   }
 
   return { success: true, branch: currentBranch, stashed, conflict: false, error: null };
+}
+
+/**
+ * Get remote branches with merge status relative to the default branch.
+ * Returns branches that exist on origin, indicating whether each has been
+ * fully merged into the default branch and whether a local copy exists.
+ */
+export async function getRemoteBranches(dir) {
+  // Fetch latest refs
+  await execGit(['fetch', 'origin', '--prune'], dir, { ignoreExitCode: true });
+
+  // Detect default branch
+  const { baseBranch } = await getRepoBranches(dir);
+  const defaultBranch = baseBranch || 'main';
+
+  // Get all remote branches
+  const result = await execGit(
+    ['branch', '-r', '--format=%(refname:short)|%(committerdate:iso8601)|%(authorname)'],
+    dir,
+    { ignoreExitCode: true }
+  );
+
+  // Get merged remote branches relative to default branch
+  const mergedResult = await execGit(
+    ['branch', '-r', '--merged', `origin/${defaultBranch}`, '--format=%(refname:short)'],
+    dir,
+    { ignoreExitCode: true }
+  );
+  const mergedSet = new Set(mergedResult.stdout.trim().split('\n').filter(Boolean));
+
+  // Get local branches for cross-reference
+  const localResult = await execGit(['branch', '--format=%(refname:short)'], dir, { ignoreExitCode: true });
+  const localSet = new Set(localResult.stdout.trim().split('\n').filter(Boolean));
+
+  const remoteBranches = result.stdout.trim().split('\n').filter(Boolean)
+    .map(line => {
+      const [fullRef, date, author] = line.split('|');
+      // Only include refs from origin remote
+      if (!fullRef.startsWith('origin/')) return null;
+      // Strip "origin/" prefix
+      const name = fullRef.replace(/^origin\//, '');
+      // Skip HEAD pointer and refs without a branch name (bare remote name)
+      if (name === 'HEAD' || fullRef.includes('HEAD') || !name) return null;
+      return {
+        name,
+        fullRef,
+        merged: mergedSet.has(fullRef),
+        hasLocal: localSet.has(name),
+        lastCommitDate: date?.trim() || null,
+        author: author?.trim() || null,
+        isDefault: name === defaultBranch
+      };
+    })
+    .filter(Boolean);
+
+  return { branches: remoteBranches, defaultBranch };
+}
+
+/**
+ * Delete a branch locally, remotely, or both.
+ * @param {string} dir - Working directory
+ * @param {string} branchName - Branch name to delete
+ * @param {object} options
+ * @param {boolean} options.local - Delete local branch
+ * @param {boolean} options.remote - Delete remote branch
+ */
+export async function deleteBranch(dir, branchName, { local = false, remote = false } = {}) {
+  // Safety: never delete default branches
+  const { baseBranch } = await getRepoBranches(dir);
+  const protectedBranches = ['main', 'master', 'dev', 'develop', 'release'];
+  if (baseBranch) protectedBranches.push(baseBranch);
+  if (protectedBranches.includes(branchName)) {
+    throw new Error(`Cannot delete protected branch: ${branchName}`);
+  }
+
+  // Safety: don't delete the current branch
+  const currentBranch = await getBranch(dir);
+  if (currentBranch === branchName && local) {
+    throw new Error(`Cannot delete the currently checked-out branch: ${branchName}`);
+  }
+
+  const results = {};
+
+  if (local) {
+    const localResult = await execGit(['branch', '-D', branchName], dir, { ignoreExitCode: true });
+    results.local = localResult.exitCode === 0
+      ? 'deleted'
+      : localResult.stderr?.includes('not found') ? 'not found' : `failed: ${localResult.stderr?.trim()}`;
+  }
+
+  if (remote) {
+    const remoteResult = await execGit(['push', 'origin', '--delete', branchName], dir, { ignoreExitCode: true });
+    results.remote = remoteResult.exitCode === 0
+      ? 'deleted'
+      : remoteResult.stderr?.includes('not found') || remoteResult.stderr?.includes('does not exist')
+        ? 'not found'
+        : `failed: ${remoteResult.stderr?.trim()}`;
+  }
+
+  return { branch: branchName, results };
 }
 
 /**

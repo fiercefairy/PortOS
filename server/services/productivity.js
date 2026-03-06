@@ -8,7 +8,7 @@
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { cosEvents, getAgents } from './cos.js';
-import { ensureDir, PATHS, readJSONFile } from '../lib/fileUtils.js';
+import { ensureDir, getDateString, PATHS, readJSONFile } from '../lib/fileUtils.js';
 
 const DATA_DIR = PATHS.cos;
 const PRODUCTIVITY_FILE = join(DATA_DIR, 'productivity.json');
@@ -41,17 +41,10 @@ const DEFAULT_PRODUCTIVITY = {
 };
 
 /**
- * Ensure data directory exists
- */
-async function ensureDataDir() {
-  await ensureDir(DATA_DIR);
-}
-
-/**
  * Load productivity data
  */
 export async function loadProductivity() {
-  await ensureDataDir();
+  await ensureDir(DATA_DIR);
   const data = await readJSONFile(PRODUCTIVITY_FILE, DEFAULT_PRODUCTIVITY);
   // Merge with defaults to ensure all fields exist
   return {
@@ -65,17 +58,10 @@ export async function loadProductivity() {
  * Save productivity data
  */
 async function saveProductivity(data) {
-  await ensureDataDir();
+  await ensureDir(DATA_DIR);
   data.lastUpdated = new Date().toISOString();
   await writeFile(PRODUCTIVITY_FILE, JSON.stringify(data, null, 2));
   return data;
-}
-
-/**
- * Get date string (YYYY-MM-DD) for a Date object
- */
-function getDateString(date = new Date()) {
-  return date.toISOString().split('T')[0];
 }
 
 /**

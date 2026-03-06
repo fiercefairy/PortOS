@@ -9,7 +9,11 @@ import pg from 'pg';
 
 const { Pool } = pg;
 
-// Connection config from environment or defaults
+if (!process.env.PGPASSWORD) {
+  console.warn('⚠️ PGPASSWORD not set — using default. Set PGPASSWORD env var for production.');
+}
+
+// Connection config from environment or defaults matching docker-compose.yml
 const pool = new Pool({
   host: process.env.PGHOST || 'localhost',
   port: parseInt(process.env.PGPORT || '5561', 10),
@@ -81,8 +85,27 @@ export async function checkHealth() {
     const { has_memories, has_links, has_sync } = result.rows[0];
     return { connected: true, hasSchema: has_memories && has_links && has_sync };
   } catch (err) {
+    console.error(`🗄️ Database health check failed: ${err.message}`);
     return { connected: false, hasSchema: false, error: err.message };
   }
+}
+
+/**
+ * Apply idempotent schema upgrades to an existing database.
+ * Each statement uses IF NOT EXISTS so it's safe to run on every startup.
+ * Add new ALTER TABLE statements here when the schema evolves.
+ */
+export async function ensureSchema() {
+  const upgrades = [
+    `ALTER TABLE memories ADD COLUMN IF NOT EXISTS sync_sequence BIGSERIAL`,
+    `ALTER TABLE memories ADD COLUMN IF NOT EXISTS origin_instance_id VARCHAR(36)`,
+    `CREATE INDEX IF NOT EXISTS idx_memories_origin_instance ON memories (origin_instance_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_memories_sync_sequence ON memories (sync_sequence)`,
+  ];
+  for (const sql of upgrades) {
+    await pool.query(sql);
+  }
+  console.log('🗄️ Database schema upgrades applied');
 }
 
 /**

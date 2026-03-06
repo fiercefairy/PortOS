@@ -41,7 +41,7 @@ async function loadConfig() {
     const content = await readFile(MEMORY_CONFIG_FILE, 'utf-8');
     // Handle empty or malformed config file
     if (content && content.trim() && content.trim().startsWith('{') && content.trim().endsWith('}')) {
-      configCache = { ...DEFAULT_CONFIG, ...JSON.parse(content) };
+      configCache = { ...DEFAULT_CONFIG, ...safeJSONParse(content, {}) };
     } else {
       console.log('⚠️ Memory classifier config file empty/malformed, using defaults');
       configCache = DEFAULT_CONFIG;

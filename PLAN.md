@@ -5,8 +5,8 @@ See [GOALS.md](./GOALS.md) for project goals and direction.
 ## Quick Reference
 
 ### Tech Stack
-- Frontend: React + Tailwind CSS + Vite (port 5555)
-- Backend: Express.js (port 5554)
+- Frontend: React + Tailwind CSS + Vite (port 5554)
+- Backend: Express.js (port 5555)
 - Process Manager: PM2
 - Data Storage: JSON files in `./data/`, PostgreSQL + pgvector (memory system)
 

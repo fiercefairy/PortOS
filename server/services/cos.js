@@ -373,8 +373,8 @@ function isValidJSON(str) {
   const trimmed = str.trim();
   // Check for basic JSON structure
   if (!(trimmed.startsWith('{') && trimmed.endsWith('}'))) return false;
-  // Check for common corruption patterns
-  if (trimmed.endsWith('}}') || trimmed.includes('}{')) return false;
+  // Check for common corruption patterns (concatenated JSON objects)
+  if (trimmed.includes('}{')) return false;
   return true;
 }
 

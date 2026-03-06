@@ -7,6 +7,8 @@ import AlcoholChart from '../AlcoholChart';
 import AlcoholHrvCorrelation from '../AlcoholHrvCorrelation';
 import StandardDrinkCalculator from '../StandardDrinkCalculator';
 
+const ML_PER_OZ = 29.5735;
+
 const DEFAULT_DRINKS = [
   { name: 'Modelo Especial (12oz)', oz: 12, abv: 4.4 },
   { name: 'Nitro Guinness (14.9oz)', oz: 14.9, abv: 4.2 },
@@ -14,6 +16,8 @@ const DEFAULT_DRINKS = [
   { name: 'Guinness 0 (14.9oz)', oz: 14.9, abv: 0.4 },
   { name: 'N/A Beer (12oz)', oz: 12, abv: 0.4 }
 ];
+
+const toOz = (value, unit) => unit === 'ml' ? value / ML_PER_OZ : value;
 
 const RISK_COLORS = {
   low: 'text-port-success',
@@ -53,6 +57,7 @@ export default function AlcoholTab() {
   const [managingButtons, setManagingButtons] = useState(false);
   const [editingButtonIdx, setEditingButtonIdx] = useState(null);
   const [buttonForm, setButtonForm] = useState({ name: '', oz: '', abv: '' });
+  const [buttonVolumeUnit, setButtonVolumeUnit] = useState('oz');
 
   // Form state
   const [name, setName] = useState('');
@@ -60,10 +65,12 @@ export default function AlcoholTab() {
   const [abv, setAbv] = useState('');
   const [count, setCount] = useState(1);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [volumeUnit, setVolumeUnit] = useState('oz');
 
   // Inline edit state
   const [editingKey, setEditingKey] = useState(null); // "date:index"
   const [editForm, setEditForm] = useState({ name: '', oz: '', abv: '', count: 1 });
+  const [editVolumeUnit, setEditVolumeUnit] = useState('oz');
 
   // Correlation chart state
   const [chartView, setChartView] = useState('30d');
@@ -126,7 +133,7 @@ export default function AlcoholTab() {
     setLogging(true);
     await api.logAlcoholDrink({
       name: name || '',
-      oz: parseFloat(oz),
+      oz: Math.round(toOz(parseFloat(oz), volumeUnit) * 100) / 100,
       abv: parseFloat(abv),
       count: count || 1,
       date: date || undefined
@@ -146,6 +153,7 @@ export default function AlcoholTab() {
 
   const startEdit = (entryDate, index, drink) => {
     setEditingKey(`${entryDate}:${index}`);
+    setEditVolumeUnit('oz');
     setEditForm({
       name: drink.name || '',
       oz: String(drink.oz || ''),
@@ -164,7 +172,7 @@ export default function AlcoholTab() {
     const index = parseInt(indexStr, 10);
     await api.updateAlcoholDrink(entryDate, index, {
       name: editForm.name,
-      oz: parseFloat(editForm.oz),
+      oz: Math.round(toOz(parseFloat(editForm.oz), editVolumeUnit) * 100) / 100,
       abv: parseFloat(editForm.abv),
       count: parseInt(editForm.count, 10) || 1
     }).catch(() => null);
@@ -175,10 +183,11 @@ export default function AlcoholTab() {
   // === Custom drink button management ===
 
   const validateDrinkButton = (form) => {
-    const parsedOz = parseFloat(form.oz);
+    const parsedVol = parseFloat(form.oz);
     const parsedAbv = parseFloat(form.abv);
     if (!form.name) return 'Name is required';
-    if (isNaN(parsedOz) || parsedOz < 0.1 || parsedOz > 1000) return 'Oz must be between 0.1 and 1000';
+    const maxVol = buttonVolumeUnit === 'ml' ? Math.round(1000 * ML_PER_OZ) : 1000;
+    if (isNaN(parsedVol) || parsedVol < 0.1 || parsedVol > maxVol) return `Volume must be between 0.1 and ${maxVol} ${buttonVolumeUnit}`;
     if (isNaN(parsedAbv) || parsedAbv < 0 || parsedAbv > 100) return 'ABV must be between 0 and 100';
     return null;
   };
@@ -187,17 +196,19 @@ export default function AlcoholTab() {
     e.preventDefault();
     const error = validateDrinkButton(buttonForm);
     if (error) { toast.error(error); return; }
-    const parsedOz = parseFloat(buttonForm.oz);
+    const parsedOz = Math.round(toOz(parseFloat(buttonForm.oz), buttonVolumeUnit) * 100) / 100;
     const parsedAbv = parseFloat(buttonForm.abv);
     const result = await api.addCustomDrink({ name: buttonForm.name, oz: parsedOz, abv: parsedAbv }).catch(() => null);
     if (!result) { toast.error('Failed to add drink button'); return; }
     setButtonForm({ name: '', oz: '', abv: '' });
+    setButtonVolumeUnit('oz');
     fetchDrinkButtons();
   };
 
   const startEditButton = (idx) => {
     const btn = drinkButtons[idx];
     setEditingButtonIdx(idx);
+    setButtonVolumeUnit('oz');
     setButtonForm({ name: btn.name, oz: String(btn.oz), abv: String(btn.abv) });
   };
 
@@ -205,18 +216,20 @@ export default function AlcoholTab() {
     if (editingButtonIdx === null) return;
     const error = validateDrinkButton(buttonForm);
     if (error) { toast.error(error); return; }
-    const parsedOz = parseFloat(buttonForm.oz);
+    const parsedOz = Math.round(toOz(parseFloat(buttonForm.oz), buttonVolumeUnit) * 100) / 100;
     const parsedAbv = parseFloat(buttonForm.abv);
     const result = await api.updateCustomDrink(editingButtonIdx, { name: buttonForm.name, oz: parsedOz, abv: parsedAbv }).catch(() => null);
     if (!result) { toast.error('Failed to update drink button'); return; }
     setEditingButtonIdx(null);
     setButtonForm({ name: '', oz: '', abv: '' });
+    setButtonVolumeUnit('oz');
     fetchDrinkButtons();
   };
 
   const cancelEditButton = () => {
     setEditingButtonIdx(null);
     setButtonForm({ name: '', oz: '', abv: '' });
+    setButtonVolumeUnit('oz');
   };
 
   const handleRemoveButton = async (idx) => {
@@ -356,9 +369,16 @@ export default function AlcoholTab() {
                       min="0.1"
                       value={buttonForm.oz}
                       onChange={e => setButtonForm(f => ({ ...f, oz: e.target.value }))}
-                      placeholder="Oz"
+                      placeholder={buttonVolumeUnit === 'oz' ? 'Oz' : 'mL'}
                       className="w-16 px-2 py-1.5 bg-port-bg border border-port-border rounded-lg text-xs text-white text-right"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setButtonVolumeUnit(u => u === 'oz' ? 'ml' : 'oz')}
+                      className="px-1.5 py-1 text-[10px] font-medium rounded bg-port-border/50 text-gray-400 hover:text-port-accent hover:bg-port-accent/10 transition-colors"
+                    >
+                      {buttonVolumeUnit}
+                    </button>
                     <input
                       type="number"
                       step="0.1"
@@ -406,9 +426,16 @@ export default function AlcoholTab() {
                   min="0.1"
                   value={buttonForm.oz}
                   onChange={e => setButtonForm(f => ({ ...f, oz: e.target.value }))}
-                  placeholder="Oz"
+                  placeholder={buttonVolumeUnit === 'oz' ? 'Oz' : 'mL'}
                   className="w-16 px-2 py-1.5 bg-port-bg border border-port-border rounded-lg text-xs text-white text-right placeholder-gray-600"
                 />
+                <button
+                  type="button"
+                  onClick={() => setButtonVolumeUnit(u => u === 'oz' ? 'ml' : 'oz')}
+                  className="px-1.5 py-1 text-[10px] font-medium rounded bg-port-border/50 text-gray-400 hover:text-port-accent hover:bg-port-accent/10 transition-colors"
+                >
+                  {buttonVolumeUnit}
+                </button>
                 <input
                   type="number"
                   step="0.1"
@@ -445,7 +472,16 @@ export default function AlcoholTab() {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Oz</label>
+            <div className="flex items-center gap-1.5 mb-1">
+              <label className="text-xs text-gray-500">Volume</label>
+              <button
+                type="button"
+                onClick={() => setVolumeUnit(u => u === 'oz' ? 'ml' : 'oz')}
+                className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-port-border/50 text-gray-400 hover:text-port-accent hover:bg-port-accent/10 transition-colors"
+              >
+                {volumeUnit}
+              </button>
+            </div>
             <input
               type="number"
               step="0.1"
@@ -453,7 +489,7 @@ export default function AlcoholTab() {
               value={oz}
               onChange={e => setOz(e.target.value)}
               required
-              placeholder="12"
+              placeholder={volumeUnit === 'oz' ? '12' : '355'}
               className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-sm text-white placeholder-gray-600"
             />
           </div>
@@ -561,14 +597,23 @@ export default function AlcoholTab() {
                               />
                             </td>
                             <td className="px-3 py-1.5">
-                              <input
-                                type="number"
-                                step="0.1"
-                                min="0.1"
-                                value={editForm.oz}
-                                onChange={e => setEditForm(f => ({ ...f, oz: e.target.value }))}
-                                className="w-16 px-2 py-1 bg-port-bg border border-port-border rounded text-xs text-white text-right"
-                              />
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  min="0.1"
+                                  value={editForm.oz}
+                                  onChange={e => setEditForm(f => ({ ...f, oz: e.target.value }))}
+                                  className="w-16 px-2 py-1 bg-port-bg border border-port-border rounded text-xs text-white text-right"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setEditVolumeUnit(u => u === 'oz' ? 'ml' : 'oz')}
+                                  className="px-1 py-0.5 text-[10px] font-medium rounded bg-port-border/50 text-gray-400 hover:text-port-accent hover:bg-port-accent/10 transition-colors"
+                                >
+                                  {editVolumeUnit}
+                                </button>
+                              </div>
                             </td>
                             <td className="px-3 py-1.5">
                               <input
@@ -592,7 +637,7 @@ export default function AlcoholTab() {
                               />
                             </td>
                             <td className="px-3 py-1.5 text-right text-gray-500 text-xs">
-                              {computeStdDrinks(parseFloat(editForm.oz), parseFloat(editForm.abv), parseInt(editForm.count) || 1)}
+                              {computeStdDrinks(toOz(parseFloat(editForm.oz), editVolumeUnit), parseFloat(editForm.abv), parseInt(editForm.count) || 1)}
                             </td>
                             <td className="px-3 py-1.5 text-right">
                               <div className="flex items-center justify-end gap-1">

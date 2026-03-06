@@ -276,7 +276,7 @@ export function parseEcosystemConfig(content) {
     // Match explicit "vite" command OR VITE_PORT in env config
     const usesVite = /\bvite\b/i.test(appBlock) || /VITE_PORT/i.test(appBlock);
 
-    processes.push({ name: processName, port, ports, cwd, usesVite, isViteProcess: usesVite });
+    processes.push({ name: processName, port, ports, cwd, usesVite });
     lastIndex = endPos;
   }
 
@@ -285,7 +285,7 @@ export function parseEcosystemConfig(content) {
   const hasApiProcess = processes.some(p => p.ports?.api);
   if (hasApiProcess) {
     for (const proc of processes) {
-      if (proc.isViteProcess && proc.ports?.ui && !proc.ports?.devUi) {
+      if (proc.usesVite && proc.ports?.ui && !proc.ports?.devUi) {
         proc.ports.devUi = proc.ports.ui;
         delete proc.ports.ui;
         // Update primary port reference
@@ -337,7 +337,6 @@ export async function parseEcosystemFromPath(dirPath) {
         // Clean up internal properties before returning
         delete proc.cwd;
         delete proc.usesVite;
-        delete proc.isViteProcess;
       }
 
       return { processes, pm2Home };
@@ -443,7 +442,7 @@ export async function streamDetection(socket, dirPath) {
     const portMatch = content.match(/PORT\s*=\s*(\d+)/i);
     if (portMatch) result.apiPort = parseInt(portMatch[1], 10);
     const viteMatch = content.match(/VITE_PORT\s*=\s*(\d+)/i);
-    if (viteMatch) result.uiPort = parseInt(viteMatch[1], 10);
+    if (viteMatch) result.devUiPort = parseInt(viteMatch[1], 10);
     configFiles.push('.env');
   }
 
@@ -453,7 +452,7 @@ export async function streamDetection(socket, dirPath) {
     if (existsSync(configPath)) {
       const content = await readFile(configPath, 'utf-8').catch(() => '');
       const portMatch = content.match(/port\s*:\s*(\d+)/);
-      if (portMatch) result.uiPort = parseInt(portMatch[1], 10);
+      if (portMatch) result.devUiPort = parseInt(portMatch[1], 10);
       configFiles.push(viteConfig);
     }
   }
@@ -489,8 +488,7 @@ export async function streamDetection(socket, dirPath) {
             // Clean up internal properties
             delete proc.cwd;
             delete proc.usesVite;
-            delete proc.isViteProcess;
-          }
+              }
 
           result.processes = parsedProcesses;
           result.pm2ProcessNames = parsedProcesses.map(p => p.name);
@@ -524,6 +522,12 @@ export async function streamDetection(socket, dirPath) {
         configFiles.push(ecosystemFile);
       }
     }
+  }
+
+  // When config-file heuristics found a Vite dev port but no dedicated uiPort,
+  // derive uiPort: API serves prod UI if present, otherwise devUiPort is the only UI
+  if (!result.uiPort && result.devUiPort) {
+    result.uiPort = result.apiPort ?? result.devUiPort;
   }
 
   emit('config', 'done', {

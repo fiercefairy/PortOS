@@ -413,7 +413,7 @@ describe('syncAccount', () => {
     // Start first sync (don't await — it will hang on loadCache)
     const firstSync = syncAccount(VALID_UUID_2, mockIo);
     // Yield to let the first sync reach the lock point
-    await new Promise(r => setTimeout(r, 10));
+    await new Promise(r => setImmediate(r));
 
     // Second sync should be rejected with 409
     const secondResult = await syncAccount(VALID_UUID_2, mockIo);

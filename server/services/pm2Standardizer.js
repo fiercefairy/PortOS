@@ -121,7 +121,7 @@ ${context.viteConfigs.map(f => `#### ${f.name}\n\`\`\`javascript\n${f.content}\n
 5. **Vite processes**: Use \`npx vite --host --port XXXX\` in args, disable watch (Vite has HMR)
 6. **Set cwd** for each process pointing to its directory
 7. **Include NODE_ENV** in all env blocks
-8. **UI vs Dev UI ports**: When the API server serves the production build of the frontend (Express static files), the production UI port equals the API port. The Vite dev server port is a separate "dev UI" port only used during development. Label Vite dev ports as WEB/DEV_UI in the PORTS object, not as UI.
+8. **UI vs Dev UI ports**: When the API server serves the production build of the frontend (Express static files), the production UI port equals the API port. The Vite dev server port is a separate "dev UI" port only used during development. Label Vite dev ports as UI or DEV_UI in the PORTS object (both conventions are acceptable).
 
 ## Output Format
 

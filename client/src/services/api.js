@@ -1714,8 +1714,10 @@ export const testMessageSelectors = (provider) => request(`/messages/selectors/$
 export const launchMessageBrowser = (accountId) => request(`/messages/launch/${accountId}`, { method: 'POST' });
 export const refreshMessage = (accountId, messageId) =>
   request(`/messages/${accountId}/${messageId}/refresh`, { method: 'POST' });
-export const fetchFullContent = (accountId) =>
-  request(`/messages/fetch-full/${accountId}`, { method: 'POST' });
+export const fetchFullContent = (accountId, { force } = {}) =>
+  request(`/messages/fetch-full/${accountId}`, { method: 'POST', body: force ? JSON.stringify({ force: true }) : undefined });
+export const executeMessageAction = (accountId, messageId, action) =>
+  request(`/messages/${accountId}/${messageId}/action`, { method: 'POST', body: JSON.stringify({ action }) });
 export const clearMessageCache = (accountId) =>
   request(`/messages/accounts/${accountId}/cache/clear`, { method: 'POST' });
 

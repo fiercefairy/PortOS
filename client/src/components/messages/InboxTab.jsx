@@ -226,6 +226,24 @@ export default function InboxTab({ accounts }) {
             {fetchingFull ? 'Fetching...' : 'Fetch Full Content'}
           </button>
         )}
+        {selectedAccount && (
+          <button
+            onClick={async () => {
+              setFetchingFull(true);
+              const result = await api.fetchFullContent(selectedAccount, { force: true }).catch(() => null);
+              setFetchingFull(false);
+              if (!result) return;
+              toast.success(`Re-fetched content for ${result.updated || 0}/${result.total || 0} messages`);
+              fetchMessages();
+            }}
+            disabled={fetchingFull}
+            className="flex items-center gap-1 px-3 py-2 bg-port-error/10 text-port-error rounded-lg text-sm hover:bg-port-error/20 transition-colors disabled:opacity-50"
+            title="Re-fetch body content for ALL messages (use if content was imported incorrectly)"
+          >
+            <RefreshCw size={14} className={fetchingFull ? 'animate-spin' : ''} />
+            {fetchingFull ? 'Fetching...' : 'Re-fetch All Content'}
+          </button>
+        )}
       </div>
 
       {/* Triage filter tabs */}

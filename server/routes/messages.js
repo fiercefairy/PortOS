@@ -346,17 +346,18 @@ router.post('/fetch-full/:accountId', asyncHandler(async (req, res) => {
   if (!account) return res.status(404).json({ error: 'Account not found' });
   if (account.type !== 'outlook') return res.json({ updated: 0, total: 0 });
 
+  const force = req.body?.force === true;
   const allResult = await messageSync.getMessages({ accountId, limit: 1000 });
-  const previewOnly = allResult.messages.filter(m => m.bodyFull === false);
+  const toRefresh = force ? allResult.messages : allResult.messages.filter(m => m.bodyFull === false);
   let updated = 0;
 
-  for (const msg of previewOnly) {
+  for (const msg of toRefresh) {
     const result = await messageSync.refreshMessage(accountId, msg.id);
     if (result) updated++;
   }
 
   if (updated > 0) req.app.get('io')?.emit('messages:changed', {});
-  res.json({ updated, total: previewOnly.length });
+  res.json({ updated, total: toRefresh.length });
 }));
 
 // === Clear account cache ===

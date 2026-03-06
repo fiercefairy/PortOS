@@ -19,6 +19,15 @@ const PRIORITY_DOT = {
   low: 'bg-gray-500'
 };
 
+const TRIAGE_TABS = [
+  { key: 'all',       label: 'All',       icon: Mail,    filter: () => true },
+  { key: 'reply',     label: 'Reply',     icon: Reply,   filter: m => m.evaluation?.action === 'reply' },
+  { key: 'review',    label: 'Review',    icon: Eye,     filter: m => m.evaluation?.action === 'review' },
+  { key: 'archive',   label: 'Archive',   icon: Archive, filter: m => m.evaluation?.action === 'archive' },
+  { key: 'delete',    label: 'Delete',    icon: Trash2,  filter: m => m.evaluation?.action === 'delete' },
+  { key: 'untriaged', label: 'Untriaged', icon: Mail,    filter: m => !m.evaluation },
+];
+
 export default function InboxTab({ accounts }) {
   const [messages, setMessages] = useState([]);
   const [total, setTotal] = useState(0);
@@ -30,6 +39,8 @@ export default function InboxTab({ accounts }) {
   const [evaluating, setEvaluating] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [fetchingFull, setFetchingFull] = useState(false);
+  const [actionInProgress, setActionInProgress] = useState(null);
+  const [activeTab, setActiveTab] = useState('all');
   const debounceRef = useRef(null);
   const navigate = useNavigate();
 
@@ -217,18 +228,51 @@ export default function InboxTab({ accounts }) {
         )}
       </div>
 
-      <div className="text-sm text-gray-500">{total} messages</div>
+      {/* Triage filter tabs */}
+      <div className="flex items-center gap-1 border-b border-port-border pb-1">
+        {TRIAGE_TABS.map(tab => {
+          const count = messages.filter(tab.filter).length;
+          const TabIcon = tab.icon;
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-t text-xs transition-colors ${
+                isActive
+                  ? 'bg-port-card text-white border border-port-border border-b-transparent -mb-[1px]'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              <TabIcon size={12} />
+              {tab.label}
+              {count > 0 && <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] ${isActive ? 'bg-port-accent/20 text-port-accent' : 'bg-port-border text-gray-400'}`}>{count}</span>}
+            </button>
+          );
+        })}
+      </div>
 
-      {messages.length === 0 && !loading && (
-        <div className="text-center py-12 text-gray-500">
-          <Mail size={48} className="mx-auto mb-4 opacity-50" />
-          <p>No messages yet</p>
-          <p className="text-sm mt-1">Add an account and sync to get started</p>
-        </div>
-      )}
+      {(() => {
+        const currentTab = TRIAGE_TABS.find(t => t.key === activeTab) || TRIAGE_TABS[0];
+        const filtered = messages.filter(currentTab.filter);
+        if (filtered.length === 0 && !loading) return (
+          <div className="text-center py-12 text-gray-500">
+            <Mail size={48} className="mx-auto mb-4 opacity-50" />
+            {messages.length === 0 ? (
+              <>
+                <p>No messages yet</p>
+                <p className="text-sm mt-1">Add an account and sync to get started</p>
+              </>
+            ) : (
+              <p>No {currentTab.label.toLowerCase()} messages</p>
+            )}
+          </div>
+        );
+        return null;
+      })()}
 
       <div className="space-y-1">
-        {messages.map((msg) => {
+        {messages.filter((TRIAGE_TABS.find(t => t.key === activeTab) || TRIAGE_TABS[0]).filter).map((msg) => {
           const ev = msg.evaluation;
           const actionCfg = ev ? ACTION_CONFIG[ev.action] : null;
           const ActionIcon = actionCfg?.icon;

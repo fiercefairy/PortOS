@@ -761,6 +761,10 @@ export async function updateGoal(goalId, updates) {
   for (const key of allowed) {
     if (updates[key] !== undefined) goal[key] = updates[key];
   }
+  // Normalize tags: deduplicate and trim
+  if (goal.tags) {
+    goal.tags = [...new Set(goal.tags.map(t => t.trim()).filter(Boolean))];
+  }
   goal.updatedAt = new Date().toISOString();
 
   // Recalculate urgency if horizon changed
@@ -815,10 +819,10 @@ export async function getGoalsTree() {
     }
   }
 
-  // Build tag index
+  // Build tag index (deduplicated per tag)
   const tagIndex = {};
   for (const goal of goals.goals) {
-    for (const tag of (goal.tags || [])) {
+    for (const tag of new Set(goal.tags || [])) {
       if (!tagIndex[tag]) tagIndex[tag] = [];
       tagIndex[tag].push(goal.id);
     }

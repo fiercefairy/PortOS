@@ -42,8 +42,8 @@ export function layoutGoalNodes(flatGoals) {
 
   const positioned = new Map();
 
-  // Position nodes ring by ring
-  for (const [ringStr, goals] of Object.entries(rings)) {
+  // Position nodes ring by ring (sorted so parents at inner rings are positioned first)
+  for (const [ringStr, goals] of Object.entries(rings).sort((a, b) => Number(a[0]) - Number(b[0]))) {
     const ring = Number(ringStr);
     const radius = ring * RING_RADIUS;
     const count = goals.length;

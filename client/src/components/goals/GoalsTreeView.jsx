@@ -19,42 +19,46 @@ function GoalEdges({ edges, selectedId }) {
 
   const parentGeoRef = useRef();
   const tagGeoRef = useRef();
+  const tagLineRef = useRef();
+
+  const setupGeo = useCallback((geo, edgeList) => {
+    if (!geo) return;
+    if (!edgeList.length) {
+      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(0), 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(0), 3));
+      geo.computeBoundingSphere();
+      return;
+    }
+    const count = edgeList.length;
+    const positions = new Float32Array(count * 6);
+    const colors = new Float32Array(count * 6);
+    const tmpColor = new THREE.Color();
+    edgeList.forEach((e, i) => {
+      const a = e.sourceNode, b = e.targetNode;
+      const off = i * 6;
+      positions[off] = a.x; positions[off + 1] = a.y; positions[off + 2] = a.z;
+      positions[off + 3] = b.x; positions[off + 4] = b.y; positions[off + 5] = b.z;
+      const dimmed = selectedId && e.source !== selectedId && e.target !== selectedId;
+      tmpColor.set(EDGE_COLORS[e.type] || '#6b7280');
+      const intensity = dimmed ? 0.06 : (e.type === 'parent' ? 0.5 : 0.2);
+      colors[off] = tmpColor.r * intensity;
+      colors[off + 1] = tmpColor.g * intensity;
+      colors[off + 2] = tmpColor.b * intensity;
+      colors[off + 3] = tmpColor.r * intensity;
+      colors[off + 4] = tmpColor.g * intensity;
+      colors[off + 5] = tmpColor.b * intensity;
+    });
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geo.computeBoundingSphere();
+  }, [selectedId]);
 
   useEffect(() => {
-    const setupGeo = (geo, edgeList) => {
-      if (!geo) return;
-      if (!edgeList.length) {
-        geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(0), 3));
-        geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(0), 3));
-        geo.computeBoundingSphere();
-        return;
-      }
-      const count = edgeList.length;
-      const positions = new Float32Array(count * 6);
-      const colors = new Float32Array(count * 6);
-      const tmpColor = new THREE.Color();
-      edgeList.forEach((e, i) => {
-        const a = e.sourceNode, b = e.targetNode;
-        const off = i * 6;
-        positions[off] = a.x; positions[off + 1] = a.y; positions[off + 2] = a.z;
-        positions[off + 3] = b.x; positions[off + 4] = b.y; positions[off + 5] = b.z;
-        const dimmed = selectedId && e.source !== selectedId && e.target !== selectedId;
-        tmpColor.set(EDGE_COLORS[e.type] || '#6b7280');
-        const intensity = dimmed ? 0.06 : (e.type === 'parent' ? 0.5 : 0.2);
-        colors[off] = tmpColor.r * intensity;
-        colors[off + 1] = tmpColor.g * intensity;
-        colors[off + 2] = tmpColor.b * intensity;
-        colors[off + 3] = tmpColor.r * intensity;
-        colors[off + 4] = tmpColor.g * intensity;
-        colors[off + 5] = tmpColor.b * intensity;
-      });
-      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-      geo.computeBoundingSphere();
-    };
     setupGeo(parentGeoRef.current, parentEdges);
     setupGeo(tagGeoRef.current, tagEdges);
-  }, [parentEdges, tagEdges, selectedId]);
+    // LineDashedMaterial requires computeLineDistances on the LineSegments mesh
+    tagLineRef.current?.computeLineDistances();
+  }, [parentEdges, tagEdges, setupGeo]);
 
   return (
     <>
@@ -62,7 +66,7 @@ function GoalEdges({ edges, selectedId }) {
         <bufferGeometry ref={parentGeoRef} />
         <lineBasicMaterial vertexColors />
       </lineSegments>
-      <lineSegments>
+      <lineSegments ref={tagLineRef}>
         <bufferGeometry ref={tagGeoRef} />
         <lineDashedMaterial vertexColors dashSize={0.5} gapSize={0.3} />
       </lineSegments>

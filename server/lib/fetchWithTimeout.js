@@ -9,6 +9,17 @@
 export async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...options, signal: controller.signal })
+
+  let signal = controller.signal;
+  if (options.signal) {
+    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function') {
+      signal = AbortSignal.any([controller.signal, options.signal]);
+    } else {
+      // Fallback: propagate caller abort to our controller
+      options.signal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
+  }
+
+  return fetch(url, { ...options, signal })
     .finally(() => clearTimeout(timeoutId));
 }

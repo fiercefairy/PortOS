@@ -230,6 +230,8 @@ async function migrateAgentsToDateBuckets() {
         await rm(agentDir, { recursive: true });
       } catch (copyErr) {
         console.error(`❌ Copy fallback failed for ${agentId}: ${copyErr.message}`);
+        // Clean up partially-created target to avoid skipping on next startup
+        await rm(targetDir, { recursive: true, force: true }).catch(() => {});
         throw copyErr;
       }
     });

@@ -64,9 +64,9 @@ describe('fetchWithTimeout', () => {
   });
 
   it('aborts immediately when caller signal is already aborted (fallback path)', async () => {
-    // Force fallback path by making AbortSignal.any non-function
-    const origAny = AbortSignal.any;
-    Object.defineProperty(AbortSignal, 'any', { value: undefined, configurable: true });
+    // Force fallback path by temporarily removing AbortSignal.any
+    const origDescriptor = Object.getOwnPropertyDescriptor(AbortSignal, 'any');
+    Object.defineProperty(AbortSignal, 'any', { value: undefined, writable: true, configurable: true });
 
     try {
       vi.stubGlobal('fetch', vi.fn().mockImplementation((_url, opts) =>
@@ -83,7 +83,11 @@ describe('fetchWithTimeout', () => {
       await expect(fetchWithTimeout('http://example.com', { signal: callerController.signal }, 60000))
         .rejects.toThrow('aborted');
     } finally {
-      Object.defineProperty(AbortSignal, 'any', { value: origAny, configurable: true });
+      if (origDescriptor) {
+        Object.defineProperty(AbortSignal, 'any', origDescriptor);
+      } else {
+        delete AbortSignal.any;
+      }
     }
   });
 });

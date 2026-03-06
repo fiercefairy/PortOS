@@ -314,11 +314,59 @@ router.get('/thread/:accountId/:threadId', asyncHandler(async (req, res) => {
   res.json({ messages });
 }));
 
-// === Message Detail Route (last to avoid capturing /launch, /selectors paths) ===
+// === Message params schema (shared by detail + refresh routes) ===
 const messageParamsSchema = z.object({
   accountId: z.string().uuid(),
   messageId: z.string().min(1)
 });
+
+// === Per-message refresh ===
+router.post('/:accountId/:messageId/refresh', asyncHandler(async (req, res) => {
+  const parsed = messageParamsSchema.safeParse(req.params);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid accountId or messageId format' });
+  const { accountId, messageId } = parsed.data;
+  const message = await messageSync.getMessage(accountId, messageId);
+  if (!message) return res.status(404).json({ error: 'Message not found' });
+  const updated = await messageSync.refreshMessage(accountId, messageId);
+  if (!updated) return res.status(502).json({ error: 'Failed to refresh message detail' });
+  req.app.get('io')?.emit('messages:changed', {});
+  res.json(updated);
+}));
+
+// === Fetch full content for preview-only messages ===
+router.post('/fetch-full/:accountId', asyncHandler(async (req, res) => {
+  if (!z.string().uuid().safeParse(req.params.accountId).success) {
+    return res.status(400).json({ error: 'Invalid account ID format' });
+  }
+  const { accountId } = req.params;
+  const account = await messageAccounts.getAccount(accountId);
+  if (!account) return res.status(404).json({ error: 'Account not found' });
+  if (account.type !== 'outlook') return res.json({ updated: 0, total: 0 });
+
+  const allResult = await messageSync.getMessages({ accountId, limit: 1000 });
+  const previewOnly = allResult.messages.filter(m => m.bodyFull === false);
+  let updated = 0;
+
+  for (const msg of previewOnly) {
+    const result = await messageSync.refreshMessage(accountId, msg.id);
+    if (result) updated++;
+  }
+
+  if (updated > 0) req.app.get('io')?.emit('messages:changed', {});
+  res.json({ updated, total: previewOnly.length });
+}));
+
+// === Clear account cache ===
+router.post('/accounts/:id/cache/clear', asyncHandler(async (req, res) => {
+  if (!z.string().uuid().safeParse(req.params.id).success) {
+    return res.status(400).json({ error: 'Invalid account ID format' });
+  }
+  await messageSync.deleteCache(req.params.id);
+  req.app.get('io')?.emit('messages:changed', {});
+  res.status(204).send();
+}));
+
+// === Message Detail Route (last to avoid capturing /launch, /selectors paths) ===
 
 router.get('/:accountId/:messageId', asyncHandler(async (req, res) => {
   const parsed = messageParamsSchema.safeParse(req.params);

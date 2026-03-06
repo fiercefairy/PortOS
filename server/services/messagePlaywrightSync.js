@@ -527,6 +527,25 @@ function buildExtractionScript(type, sels, mode = 'unread') {
 }
 
 /**
+ * Re-fetch detail for a single message via CDP browser automation.
+ * Returns updated thread messages array or null.
+ */
+export async function refreshMessageDetail(account, message) {
+  if (account.type !== 'outlook') return null;
+  const page = await findOrOpenPage(OUTLOOK_URL).catch(() => null);
+  if (!page) {
+    console.log(`📧 No CDP browser available for refresh`);
+    return null;
+  }
+  if (isAuthPage(page)) {
+    console.log(`📧 Auth required for ${account.type} — login page detected`);
+    return null;
+  }
+  const detail = await fetchOutlookConversationDetail(page, message.subject, message.from?.name);
+  return detail;
+}
+
+/**
  * Send message via Playwright browser automation
  */
 export async function sendPlaywright(account, draft) {

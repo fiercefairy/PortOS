@@ -193,6 +193,77 @@ export async function syncAccount(accountId, io, options = {}) {
   return result;
 }
 
+export async function refreshMessage(accountId, messageId) {
+  const cache = await loadCache(accountId);
+  const message = cache.messages.find(m => m.id === messageId);
+  if (!message) return null;
+
+  const account = await getAccount(accountId);
+  if (!account) return null;
+
+  const { refreshMessageDetail } = await import('./messagePlaywrightSync.js');
+  const detail = await refreshMessageDetail(account, message);
+  if (!detail || detail.length === 0) return null;
+
+  const { default: crypto } = await import('crypto');
+  const { v4: uuidv4 } = await import('uuid');
+  function makeExternalId(date, sender, subject) {
+    return 'pw-' + crypto.createHash('md5').update(`${date}|${sender}|${subject}`).digest('hex').slice(0, 12);
+  }
+
+  const threadKey = message.threadId || `thread-${message.externalId || messageId}`;
+  const existingMap = new Map(cache.messages.filter(m => m.externalId).map(m => [m.externalId, m]));
+  const updatedMessages = [];
+
+  for (const threadMsg of detail) {
+    const extId = makeExternalId(threadMsg.date || message.date || '', threadMsg.from || message.from?.name || '', message.subject || '');
+    const existing = existingMap.get(extId);
+    if (existing) {
+      existing.bodyText = threadMsg.body || existing.bodyText;
+      existing.bodyFull = true;
+      if (!existing.threadId) existing.threadId = threadKey;
+      if (threadMsg.to?.length) existing.to = threadMsg.to;
+      if (threadMsg.cc?.length) existing.cc = threadMsg.cc;
+      updatedMessages.push(existing);
+    } else {
+      const newMsg = {
+        id: uuidv4(),
+        externalId: extId,
+        threadId: threadKey,
+        from: { name: threadMsg.from || message.from?.name || '', email: threadMsg.fromEmail || message.from?.email || '' },
+        to: threadMsg.to || [],
+        cc: threadMsg.cc || [],
+        subject: message.subject || '',
+        bodyText: threadMsg.body || '',
+        bodyFull: true,
+        date: threadMsg.date || message.date || new Date().toISOString(),
+        isRead: message.isRead ?? true,
+        isUnread: message.isUnread ?? false,
+        isPinned: message.isPinned ?? false,
+        isFlagged: message.isFlagged ?? false,
+        isReplied: message.isReplied ?? false,
+        hasMeetingInvite: message.hasMeetingInvite ?? false,
+        labels: [],
+        source: account.type,
+        syncedAt: new Date().toISOString()
+      };
+      cache.messages.push(newMsg);
+      updatedMessages.push(newMsg);
+    }
+  }
+
+  // Update the original message too if it wasn't matched by externalId
+  if (!updatedMessages.find(m => m.id === message.id)) {
+    message.bodyText = detail[0]?.body || message.bodyText;
+    message.bodyFull = true;
+    if (!message.threadId) message.threadId = threadKey;
+    updatedMessages.push(message);
+  }
+
+  await saveCache(accountId, cache);
+  return updatedMessages.map(m => ({ ...m, accountId }));
+}
+
 export async function updateMessageEvaluations(evaluations) {
   await ensureDir(CACHE_DIR);
   const { readdir } = await import('fs/promises');

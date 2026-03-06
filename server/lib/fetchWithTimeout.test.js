@@ -4,6 +4,7 @@ import { fetchWithTimeout } from './fetchWithTimeout.js';
 describe('fetchWithTimeout', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('passes through successful fetch', async () => {
@@ -17,17 +18,20 @@ describe('fetchWithTimeout', () => {
 
   it('aborts after timeout', async () => {
     vi.useFakeTimers();
-    vi.stubGlobal('fetch', vi.fn().mockImplementation((_url, opts) =>
-      new Promise((_resolve, reject) => {
-        opts.signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
-      })
-    ));
+    try {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation((_url, opts) =>
+        new Promise((_resolve, reject) => {
+          opts.signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+        })
+      ));
 
-    const promise = fetchWithTimeout('http://example.com', {}, 100);
-    vi.advanceTimersByTime(100);
+      const promise = fetchWithTimeout('http://example.com', {}, 100);
+      vi.advanceTimersByTime(100);
 
-    await expect(promise).rejects.toThrow('aborted');
-    vi.useRealTimers();
+      await expect(promise).rejects.toThrow('aborted');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('clears timeout on success', async () => {
@@ -57,5 +61,33 @@ describe('fetchWithTimeout', () => {
     callerController.abort();
 
     await expect(promise).rejects.toThrow('aborted');
+  });
+
+  it('aborts immediately when caller signal is already aborted (fallback path)', async () => {
+    // Force fallback path by temporarily removing AbortSignal.any
+    const origDescriptor = Object.getOwnPropertyDescriptor(AbortSignal, 'any');
+    Object.defineProperty(AbortSignal, 'any', { value: undefined, writable: true, configurable: true });
+
+    try {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation((_url, opts) =>
+        new Promise((_resolve, reject) => {
+          // Handle already-aborted signal (event won't fire if already aborted)
+          if (opts.signal.aborted) return reject(new DOMException('aborted', 'AbortError'));
+          opts.signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+        })
+      ));
+
+      const callerController = new AbortController();
+      callerController.abort(); // Pre-abort before calling fetchWithTimeout
+
+      await expect(fetchWithTimeout('http://example.com', { signal: callerController.signal }, 60000))
+        .rejects.toThrow('aborted');
+    } finally {
+      if (origDescriptor) {
+        Object.defineProperty(AbortSignal, 'any', origDescriptor);
+      } else {
+        delete AbortSignal.any;
+      }
+    }
   });
 });

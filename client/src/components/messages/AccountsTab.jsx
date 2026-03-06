@@ -6,7 +6,7 @@ import * as api from '../../services/api';
 const TYPE_ICONS = { gmail: Mail, outlook: Globe, teams: MessageSquare };
 const TYPE_LABELS = { gmail: 'Gmail (MCP)', outlook: 'Outlook (Playwright)', teams: 'Teams (Playwright)' };
 
-export default function AccountsTab({ accounts, setAccounts, onRefresh }) {
+export default function AccountsTab({ accounts, setAccounts }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', type: 'gmail', email: '' });
   const [saving, setSaving] = useState(false);

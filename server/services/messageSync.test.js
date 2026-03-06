@@ -47,147 +47,6 @@ beforeEach(() => {
   writeFile.mockResolvedValue();
 });
 
-// ─── Pure logic: inline copies for unit testing ───
-
-describe('safeDate (inline)', () => {
-  function safeDate(d) {
-    const t = new Date(d).getTime();
-    return Number.isNaN(t) ? 0 : t;
-  }
-
-  it('should return timestamp for valid date string', () => {
-    expect(safeDate('2026-01-15T10:00:00Z')).toBe(new Date('2026-01-15T10:00:00Z').getTime());
-  });
-
-  it('should return 0 for invalid date', () => {
-    expect(safeDate('not-a-date')).toBe(0);
-  });
-
-  it('should return 0 for null/undefined', () => {
-    expect(safeDate(null)).toBe(0);
-    expect(safeDate(undefined)).toBe(0);
-  });
-});
-
-describe('filterBySearch (inline)', () => {
-  function filterBySearch(messages, search) {
-    if (!search) return messages;
-    const q = search.toLowerCase();
-    return messages.filter(m =>
-      m.subject?.toLowerCase().includes(q) ||
-      m.from?.name?.toLowerCase().includes(q) ||
-      m.from?.email?.toLowerCase().includes(q) ||
-      m.bodyText?.toLowerCase().includes(q)
-    );
-  }
-
-  it('should return all messages when no search term', () => {
-    const msgs = [{ subject: 'A' }, { subject: 'B' }];
-    expect(filterBySearch(msgs, '')).toHaveLength(2);
-    expect(filterBySearch(msgs, null)).toHaveLength(2);
-  });
-
-  it('should filter by subject', () => {
-    const msgs = [{ subject: 'Meeting Notes' }, { subject: 'Invoice' }];
-    expect(filterBySearch(msgs, 'meeting')).toHaveLength(1);
-    expect(filterBySearch(msgs, 'meeting')[0].subject).toBe('Meeting Notes');
-  });
-
-  it('should filter by from.name', () => {
-    const msgs = [{ from: { name: 'Alice' } }, { from: { name: 'Bob' } }];
-    expect(filterBySearch(msgs, 'alice')).toHaveLength(1);
-  });
-
-  it('should filter by from.email', () => {
-    const msgs = [{ from: { email: 'alice@test.com' } }, { from: { email: 'bob@test.com' } }];
-    expect(filterBySearch(msgs, 'alice@')).toHaveLength(1);
-  });
-
-  it('should filter by bodyText', () => {
-    const msgs = [{ bodyText: 'Hello world' }, { bodyText: 'Goodbye' }];
-    expect(filterBySearch(msgs, 'hello')).toHaveLength(1);
-  });
-
-  it('should handle messages with missing fields', () => {
-    const msgs = [{ id: '1' }, { subject: 'Test' }];
-    expect(filterBySearch(msgs, 'test')).toHaveLength(1);
-  });
-});
-
-// ─── Dedup logic (inline) ───
-
-describe('dedup by externalId (inline)', () => {
-  function dedup(existing, incoming) {
-    const existingIds = new Set(existing.map(m => m.externalId).filter(Boolean));
-    return incoming.filter(m => !m.externalId || !existingIds.has(m.externalId));
-  }
-
-  it('should filter out messages with duplicate externalId', () => {
-    const existing = [{ externalId: 'ext-1' }, { externalId: 'ext-2' }];
-    const incoming = [{ externalId: 'ext-2' }, { externalId: 'ext-3' }];
-    const result = dedup(existing, incoming);
-    expect(result).toHaveLength(1);
-    expect(result[0].externalId).toBe('ext-3');
-  });
-
-  it('should keep incoming messages without externalId (no dedup)', () => {
-    const existing = [{ externalId: 'ext-1' }];
-    const incoming = [{ id: 'local-1' }, { id: 'local-2' }];
-    const result = dedup(existing, incoming);
-    expect(result).toHaveLength(2);
-  });
-
-  it('should keep all messages when no overlap', () => {
-    const existing = [{ externalId: 'ext-1' }];
-    const incoming = [{ externalId: 'ext-2' }, { externalId: 'ext-3' }];
-    expect(dedup(existing, incoming)).toHaveLength(2);
-  });
-
-  it('should handle empty existing cache', () => {
-    const existing = [];
-    const incoming = [{ externalId: 'ext-1' }];
-    expect(dedup(existing, incoming)).toHaveLength(1);
-  });
-});
-
-// ─── Trimming logic (inline) ───
-
-describe('message trimming (inline)', () => {
-  function trimMessages(messages, maxMessages) {
-    if (!maxMessages || messages.length <= maxMessages) return messages;
-    // Sort newest first, then slice
-    const sorted = [...messages].sort((a, b) => {
-      const ta = new Date(b.date).getTime();
-      const tb = new Date(a.date).getTime();
-      return (Number.isNaN(ta) ? 0 : ta) - (Number.isNaN(tb) ? 0 : tb);
-    });
-    return sorted.slice(0, maxMessages);
-  }
-
-  it('should not trim when under limit', () => {
-    const msgs = [{ date: '2026-01-01' }, { date: '2026-01-02' }];
-    expect(trimMessages(msgs, 10)).toHaveLength(2);
-  });
-
-  it('should trim oldest messages when over limit', () => {
-    const msgs = [
-      { date: '2026-01-01', id: 'old' },
-      { date: '2026-01-03', id: 'new' },
-      { date: '2026-01-02', id: 'mid' }
-    ];
-    const result = trimMessages(msgs, 2);
-    expect(result).toHaveLength(2);
-    expect(result[0].id).toBe('new');
-    expect(result[1].id).toBe('mid');
-  });
-
-  it('should not trim when maxMessages is falsy', () => {
-    const msgs = [{ date: '2026-01-01' }];
-    expect(trimMessages(msgs, 0)).toHaveLength(1);
-    expect(trimMessages(msgs, undefined)).toHaveLength(1);
-  });
-});
-
 // ─── Cache I/O: getMessages ───
 
 describe('getMessages', () => {
@@ -236,6 +95,78 @@ describe('getMessages', () => {
     const result = await getMessages({ accountId: VALID_UUID, search: 'meeting' });
     expect(result.messages).toHaveLength(1);
     expect(result.total).toBe(1);
+  });
+
+  it('should filter by from.name', async () => {
+    const cache = {
+      messages: [
+        { id: 'msg-1', from: { name: 'Alice' }, date: '2026-01-01' },
+        { id: 'msg-2', from: { name: 'Bob' }, date: '2026-01-01' }
+      ]
+    };
+    readFile.mockResolvedValue(JSON.stringify(cache));
+
+    const result = await getMessages({ accountId: VALID_UUID, search: 'alice' });
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0].id).toBe('msg-1');
+  });
+
+  it('should filter by from.email', async () => {
+    const cache = {
+      messages: [
+        { id: 'msg-1', from: { email: 'alice@test.com' }, date: '2026-01-01' },
+        { id: 'msg-2', from: { email: 'bob@test.com' }, date: '2026-01-01' }
+      ]
+    };
+    readFile.mockResolvedValue(JSON.stringify(cache));
+
+    const result = await getMessages({ accountId: VALID_UUID, search: 'alice@' });
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0].id).toBe('msg-1');
+  });
+
+  it('should filter by bodyText', async () => {
+    const cache = {
+      messages: [
+        { id: 'msg-1', bodyText: 'Hello world', date: '2026-01-01' },
+        { id: 'msg-2', bodyText: 'Goodbye', date: '2026-01-01' }
+      ]
+    };
+    readFile.mockResolvedValue(JSON.stringify(cache));
+
+    const result = await getMessages({ accountId: VALID_UUID, search: 'hello' });
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0].id).toBe('msg-1');
+  });
+
+  it('should handle search with missing fields gracefully', async () => {
+    const cache = {
+      messages: [
+        { id: 'msg-1', date: '2026-01-01' },
+        { id: 'msg-2', subject: 'Test', date: '2026-01-01' }
+      ]
+    };
+    readFile.mockResolvedValue(JSON.stringify(cache));
+
+    const result = await getMessages({ accountId: VALID_UUID, search: 'test' });
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0].id).toBe('msg-2');
+  });
+
+  it('should sort messages with invalid dates to the end', async () => {
+    const cache = {
+      messages: [
+        { id: 'msg-bad', subject: 'Bad Date', date: 'not-a-date' },
+        { id: 'msg-good', subject: 'Good Date', date: '2026-01-15T10:00:00Z' },
+        { id: 'msg-null', subject: 'Null Date' }
+      ]
+    };
+    readFile.mockResolvedValue(JSON.stringify(cache));
+
+    const result = await getMessages({ accountId: VALID_UUID });
+    expect(result.messages).toHaveLength(3);
+    // Valid date should come first (newest first), invalid dates sort to end (timestamp 0)
+    expect(result.messages[0].id).toBe('msg-good');
   });
 
   it('should apply offset and limit', async () => {

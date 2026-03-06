@@ -527,6 +527,7 @@ module.exports = {
       watch: false,
       env: {
         NODE_ENV: 'development',
+        // VITE_PORT is a PortOS convention for port discovery (read by streamingDetect/detect), not consumed by Vite itself
         VITE_PORT: PORTS.WEB
       }
     }

@@ -77,8 +77,16 @@ export async function deleteCache(accountId) {
   if (!UUID_RE.test(accountId)) return;
   const { unlink } = await import('fs/promises');
   const filePath = join(CACHE_DIR, `${accountId}.json`);
-  await unlink(filePath).catch(() => {});
-  console.log(`🗑️ Message cache deleted for account ${accountId}`);
+  try {
+    await unlink(filePath);
+    console.log(`🗑️ Message cache deleted for account ${accountId}`);
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      console.log(`🗑️ No message cache to delete for account ${accountId}`);
+    } else {
+      console.error(`❌ Failed to delete message cache for account ${accountId}: ${err.message}`);
+    }
+  }
 }
 
 export async function getMessage(accountId, messageId) {

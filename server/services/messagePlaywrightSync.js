@@ -130,14 +130,14 @@ export async function syncPlaywright(account, cache, io) {
   if (!page) {
     io?.emit('messages:sync:progress', { accountId: account.id, current: 0, total: 0 });
     console.log(`📧 No CDP browser available — launch browser first`);
-    return [];
+    return { messages: [], status: 'no-browser' };
   }
 
   // Check for auth/login page
   if (isAuthPage(page)) {
     console.log(`📧 Auth required for ${account.type} — login page detected`);
     io?.emit('messages:sync:auth-required', { accountId: account.id });
-    return [];
+    return { messages: [], status: 'auth-required' };
   }
 
   // Load selectors for this provider

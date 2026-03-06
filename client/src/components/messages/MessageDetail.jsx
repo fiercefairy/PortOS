@@ -7,6 +7,7 @@ export default function MessageDetail({ message, accounts, onBack }) {
   const [showReply, setShowReply] = useState(false);
   const [replyBody, setReplyBody] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [generatedDraftId, setGeneratedDraftId] = useState(null);
 
   const account = accounts.find(a => a.id === message.accountId) || accounts[0];
 
@@ -23,6 +24,7 @@ export default function MessageDetail({ message, accounts, onBack }) {
     setGenerating(false);
     if (draft) {
       setReplyBody(draft.body);
+      setGeneratedDraftId(draft.id);
       setShowReply(true);
       toast.success('AI draft generated');
     }
@@ -30,20 +32,24 @@ export default function MessageDetail({ message, accounts, onBack }) {
 
   const handleCreateDraft = async () => {
     if (!account) return toast.error('No account available');
-    const result = await api.createMessageDraft({
+    const draftData = {
       accountId: account.id,
       replyToMessageId: message.id,
       threadId: message.threadId,
       to: [message.from?.email].filter(Boolean),
       subject: `Re: ${message.subject || ''}`,
       body: replyBody,
-      generatedBy: 'manual',
+      generatedBy: generatedDraftId ? 'ai' : 'manual',
       sendVia: account.provider
-    }).catch(() => null);
+    };
+    const result = generatedDraftId
+      ? await api.updateMessageDraft(generatedDraftId, draftData).catch(() => null)
+      : await api.createMessageDraft(draftData).catch(() => null);
     if (!result) return;
     toast.success('Draft saved');
     setShowReply(false);
     setReplyBody('');
+    setGeneratedDraftId(null);
   };
 
   return (
@@ -107,7 +113,7 @@ export default function MessageDetail({ message, accounts, onBack }) {
               <Send size={16} /> Save Draft
             </button>
             <button
-              onClick={() => { setShowReply(false); setReplyBody(''); }}
+              onClick={() => { setShowReply(false); setReplyBody(''); setGeneratedDraftId(null); }}
               className="px-4 py-2 bg-port-border text-gray-300 rounded-lg text-sm hover:bg-port-border/80 transition-colors"
             >
               Cancel

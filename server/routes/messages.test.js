@@ -586,12 +586,14 @@ describe('Messages Routes', () => {
 
   describe('POST /api/messages/selectors/:provider/test', () => {
     it('should test selectors for a valid provider', async () => {
-      messagePlaywrightSync.testSelectors.mockResolvedValue({ success: true, matched: 5 });
+      messagePlaywrightSync.testSelectors.mockResolvedValue({ provider: 'teams', results: { matched: 5 }, status: 'ok' });
 
       const response = await request(app).post('/api/messages/selectors/teams/test');
 
       expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
+      expect(response.body.status).toBe('ok');
+      expect(response.body.provider).toBe('teams');
+      expect(response.body.results).toEqual({ matched: 5 });
     });
 
     it('should return 400 for invalid provider', async () => {

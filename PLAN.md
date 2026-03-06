@@ -76,51 +76,21 @@ pm2 logs
 - [x] **M44 P1-P5**: MeatSpace - Health tracker with death clock, LEV 2045 tracker, alcohol logging, blood/body/epigenetic/eye tracking, lifestyle questionnaire, TSV import, dashboard widget, compact grid overview
 
 - [x] **M51**: Memory System PostgreSQL Upgrade - PostgreSQL + pgvector backend with HNSW vector search, tsvector full-text search, federation sync, and pg_dump backup integration
-
-### In Progress
-
 - [x] **M44 P6**: MeatSpace - Genome/Epigenetic Migration cleanup (route comments updated to `/api/meatspace/genome/`, IdentityTab genome link points to `/meatspace/genome`)
-- [x] **M53 P1**: POST (Power On Self Test) - Foundation + Mental Math (daily cognitive self-test with 5 drill types, scoring, history, config). Phase 1 complete: server service/routes/tests, client UI with drill runner, results, history charts, config editor
-- [x] **M53 P2**: POST - LLM-Powered Wit & Memory Drills (5 AI drill types: word association, story recall, verbal fluency, wit/comeback, pun/wordplay). Per-drill provider/model config, LLM-scored responses with feedback. Server: meatspacePostLlm.js service, score-llm route. Client: PostLlmDrillRunner component, provider selector in config
+- [x] **M53**: POST (Power On Self Test) - Daily cognitive self-test with mental math drills (P1) and LLM-powered wit & memory drills (P2). See [POST](./docs/features/post.md)
+- [x] **M44 P7**: MeatSpace - Apple Health Integration (live sync via Health Auto Export app + bulk XML import)
+- [x] **M46**: Unified Search (Cmd+K) - Global search across brain, memory, history, agents, tasks, and apps
+- [x] **GSD Tab**: Smart State Detection, One-Click Agent Spawn, Actionable Dashboard
 
 ### Planned
 
-- [x] **GSD Tab: Smart State Detection & Guided Setup** — Extend `GET /api/apps/:id/documents` to return GSD status fields and update GSD tab empty state with stepped setup guide
-- [x] **GSD Tab: One-Click Agent Spawn & Open Claude Code** — Run buttons on setup steps create CoS tasks, Open Claude Code button launches CLI in app directory
-- [x] **GSD Tab: Actionable Dashboard** — Fix phase file parsing bug, add phase action triggers, document CRUD, expandable phase cards with sub-plans/verification/research, deep-linkable phase and document views
-
-#### GSD Smart State Detection
-
-The GSD tab currently shows a binary state: project loaded or "No GSD project initialized". This misses intermediate states where partial GSD work exists (e.g., codebase mapped but no project created).
-
-**Server Changes** — Extend `GET /api/apps/:id/documents` response to include GSD status:
-- `hasCodebaseMap` — `.planning/codebase/` directory exists with analysis files
-- `hasProject` — `.planning/PROJECT.md` exists
-- `hasRoadmap` — `.planning/ROADMAP.md` exists
-- `hasState` — `.planning/STATE.md` exists
-- `hasConcerns` — `.planning/CONCERNS.md` exists
-
-Check via `existsSync()` against `app.repoPath + '/.planning/...'` (same pattern as existing document checks).
-
-**GSD Tab UI Changes** — Replace single empty state with stepped guide:
-| State | What to show |
-|---|---|
-| Nothing (no `.planning/`) | "Run `/gsd:map-codebase` to analyze your codebase" |
-| Has `.planning/codebase/` only | "Codebase mapped! Run `/gsd:new-project` to create a project" |
-| Has `PROJECT.md` but no `ROADMAP.md` | "Project created. Run `/gsd:plan-phase` or create a roadmap" |
-| Has `ROADMAP.md` + `STATE.md` | Full project view (current behavior) |
-
-*Touches: `server/routes/apps.js` (extend documents endpoint), `client/src/components/apps/tabs/GsdTab.jsx` (stepped empty state), `client/src/services/api.js` (consume new fields)*
-
+- [ ] **M50 P1-P4**: Email Management - Gmail + Outlook integration, AI categorization and priority extraction, Digital Twin voice drafting, review-before-send outbox, Brain knowledge capture
 - [ ] **M34 P5-P7**: Digital Twin - Multi-modal capture, advanced testing, personas
 - [ ] **M42 P5**: Unified Digital Twin Identity System - Cross-Insights Engine. See [Identity System](./docs/features/identity-system.md)
-- [ ] **M44 P7**: MeatSpace - Apple Health Integration (live sync via Health Auto Export app + bulk XML import)
 - [ ] **M45**: Data Backup & Recovery - Scheduled backup of `./data/` to external drive or NAS. All persistence is JSON files with zero redundancy — one bad write or disk failure loses brain, identity, health, and memory data. Incremental backup with restore verification.
-- [ ] **M46**: Unified Search (Cmd+K) - Global search across brain, memory, history, agents, tasks, and apps. Hybrid vector + BM25 extended to all data sources. Keyboard-driven launcher overlay.
 - [ ] **M47**: Push Notifications - Webhook-based alerts when agents complete tasks, critical errors occur, or goals stall. Discord/Telegram integration for mobile awareness without needing the dashboard open.
 - [ ] **M48 P1-P4**: Google Calendar Integration - OAuth2, two-way event sync, chronotype-aware smart scheduling, CoS autonomous rescheduling, calendar UI with week/month views
 - [ ] **M49 P1-P4**: Life Goals & Todo Planning - Enhanced goal model with todos and milestones, calendar time-blocking, AI-powered periodic check-ins, mortality-aware progress dashboard
-- [ ] **M50 P1-P4**: Email Management - Gmail + Outlook integration, AI categorization and priority extraction, Digital Twin voice drafting, review-before-send outbox, Brain knowledge capture
 - [ ] **M52**: Update Detection - Poll GitHub releases for new version tags, compare against local `package.json` version, surface update availability in dashboard and settings
 
 ---
@@ -284,7 +254,7 @@ Always review before send — AI-generated drafts go to an outbox queue. The use
 
 - [x] **P5: Per-action model selection** — Separate provider/model configs for triage vs reply generation (different cost/capability tiers). Expand `settings.messages` to `{ triage: { providerId, model }, reply: { providerId, model } }`. Update ConfigTab with two `ProviderModelSelector` sections.
 - [x] **P6: Prompt injection hardening** — XML-fence untrusted email content in AI prompts to prevent injection. Add content sanitization layer (`sanitize()` escapes `<>`), `<emails>` XML fencing on eval prompt.
-- [ ] **P6.5: Per-message re-fetch & detail fetch fixes** — Add "Refresh" button per message in MessageDetail that re-clicks into the conversation in Outlook and re-extracts full body (bypasses cache `bodyFull` check). Also: fix side-effect of detail fetch marking messages as read in Outlook (click opens them); consider extracting via Outlook's reading pane preview mode or re-marking as unread after extraction. Add inbox-level "Fetch Full Content" button that runs detail fetch for all preview-only messages. Clear/rebuild cache option in Config for debugging stale data.
+- [x] **P6.5: Per-message re-fetch & detail fetch fixes** — Refresh button in MessageDetail re-clicks conversation and re-extracts full body (bypasses cache). Inbox-level "Fetch Full Content" button runs detail fetch for all preview-only messages. Clear Cache button per account in Config. Note: Outlook marks messages as read when opened for detail fetch (native behavior, documented as known limitation).
 - [ ] **P7: Digital Twin voice drafting** — Draft responses using Digital Twin voice/style (reads COMMUNICATION.md, PERSONALITY.md, VALUES.md + recent thread context)
 - [ ] **P8: CoS Automation & Rules** — Automated classification on new emails via CoS job, rule-based pre-filtering, email-to-task pipeline, priority email notifications
 - [ ] **P9: Auto-Send with AI Review Gate** — Remove human-in-the-loop for trusted accounts. Before auto-sending, a second LLM call reviews the draft against the original email for: prompt injection artifacts, off-topic content, tone/identity drift, leaked system instructions. Configurable per-account trust level (manual → review-assisted → auto-send). See [Messages Security](./docs/features/messages-security.md) for threat model.
@@ -292,7 +262,7 @@ Always review before send — AI-generated drafts go to an outbox queue. The use
 
 **Data:** `data/messages/accounts.json`, `data/messages/cache/{accountId}.json`, `data/messages/selectors.json`, `settings.json` (messages key for AI config + templates)
 
-**Routes:** `GET /api/messages/inbox`, `GET /api/messages/:accountId/:messageId`, `GET /api/messages/thread/:accountId/:threadId`, `POST /api/messages/sync/:accountId`, `POST /api/messages/evaluate`, `POST /api/messages/drafts/generate`, CRUD for accounts/drafts/selectors
+**Routes:** `GET /api/messages/inbox`, `GET /api/messages/:accountId/:messageId`, `GET /api/messages/thread/:accountId/:threadId`, `POST /api/messages/sync/:accountId`, `POST /api/messages/:accountId/:messageId/refresh`, `POST /api/messages/fetch-full/:accountId`, `POST /api/messages/accounts/:id/cache/clear`, `POST /api/messages/evaluate`, `POST /api/messages/drafts/generate`, CRUD for accounts/drafts/selectors
 
 **Nav:** Collapsible "Messages" sidebar section with Drafts, Inbox, Sync, Config sub-pages
 

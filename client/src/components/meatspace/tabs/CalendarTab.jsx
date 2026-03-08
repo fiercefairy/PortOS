@@ -421,14 +421,42 @@ function WeekGridView({ grid, stats, birthDate, cellCfg, weekLayout, hideSpent, 
   );
 }
 
+// === Persisted state helper ===
+
+const STORAGE_KEY = 'portos:life-calendar';
+
+function loadGridPrefs() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return {};
+  return JSON.parse(raw);
+}
+
+function saveGridPrefs(prefs) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+}
+
+function usePersistedState(key, defaultValue) {
+  const [value, setValue] = useState(() => {
+    const prefs = loadGridPrefs();
+    return prefs[key] ?? defaultValue;
+  });
+  const set = useCallback((v) => {
+    setValue(v);
+    const prefs = loadGridPrefs();
+    prefs[key] = v;
+    saveGridPrefs(prefs);
+  }, [key]);
+  return [value, set];
+}
+
 // === Life Grid (main component) ===
 
 function LifeGrid({ grid, stats, birthDate, deathDate }) {
-  const [unit, setUnit] = useState('weeks');
-  const [weekLayout, setWeekLayout] = useState('year');
-  const [cellSizeId, setCellSizeId] = useState('sm');
-  const [showEvents, setShowEvents] = useState(true);
-  const [hideSpent, setHideSpent] = useState(false);
+  const [unit, setUnit] = usePersistedState('unit', 'weeks');
+  const [weekLayout, setWeekLayout] = usePersistedState('weekLayout', 'year');
+  const [cellSizeId, setCellSizeId] = usePersistedState('cellSize', 'sm');
+  const [showEvents, setShowEvents] = usePersistedState('showEvents', true);
+  const [hideSpent, setHideSpent] = usePersistedState('hideSpent', false);
 
   const cellCfg = CELL_SIZES.find(c => c.id === cellSizeId) || CELL_SIZES[1];
 

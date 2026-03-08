@@ -77,12 +77,13 @@ const WEEK_LAYOUTS = [
   { id: 'auto', label: 'Auto', weeksPerRow: null },
 ];
 
-const CELL_SIZES = [
-  { id: 'xs', label: 'XS', size: 5, gap: 1 },
-  { id: 'sm', label: 'S', size: 7, gap: 1 },
-  { id: 'md', label: 'M', size: 9, gap: 1 },
-  { id: 'lg', label: 'L', size: 12, gap: 2 },
-];
+// Fixed cell sizes per unit mode — no user toggle needed
+const UNIT_CELL_SIZES = {
+  years: { size: 18, gap: 2 },
+  months: { size: 9, gap: 1 },
+  weeks: { size: 7, gap: 1 },
+  days: { size: 12, gap: 2 },
+};
 
 const MS_PER_DAY = 86400000;
 
@@ -222,7 +223,7 @@ function YearGridView({ birthDate, deathDate, cellCfg, hideSpent, showEvents }) 
               <span
                 key={cell.index}
                 className={`shrink-0 rounded-sm ${cellClasses(cell.status, cell.index === currentAge, cell.isBirthday, showEvents)}`}
-                style={{ width: `${cellCfg.size + 6}px`, height: `${cellCfg.size + 6}px` }}
+                style={{ width: `${cellCfg.size}px`, height: `${cellCfg.size}px` }}
                 title={cell.label}
               />
             ))}
@@ -266,7 +267,7 @@ function MonthGridView({ birthDate, deathDate, cellCfg, hideSpent, showEvents })
               <span
                 key={cell.index}
                 className={`shrink-0 rounded-[1px] ${cellClasses(cell.status, cell.age === currentAge, cell.isBirthday, showEvents)}`}
-                style={{ width: `${cellCfg.size + 2}px`, height: `${cellCfg.size + 2}px` }}
+                style={{ width: `${cellCfg.size}px`, height: `${cellCfg.size}px` }}
                 title={cell.label}
               />
             ))}
@@ -294,10 +295,11 @@ function MiniMonth({ month, cellSize, gap, showEvents }) {
   }, [month]);
 
   const sz = cellSize;
+  const gridWidth = sz * 7 + gap * 6;
   const rowStyle = { display: 'grid', gridTemplateColumns: `repeat(7, ${sz}px)`, gap: `${gap}px` };
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col" style={{ width: `${gridWidth}px` }}>
       <div className="text-[10px] text-gray-400 font-medium mb-1 text-center">{month.name}</div>
       <div style={rowStyle}>
         {DAY_LABELS.map((d, i) => (
@@ -499,11 +501,10 @@ function usePersistedState(key, defaultValue) {
 function LifeGrid({ grid, stats, birthDate, deathDate }) {
   const [unit, setUnit] = usePersistedState('unit', 'weeks');
   const [weekLayout, setWeekLayout] = usePersistedState('weekLayout', 'year');
-  const [cellSizeId, setCellSizeId] = usePersistedState('cellSize', 'sm');
   const [showEvents, setShowEvents] = usePersistedState('showEvents', true);
   const [hideSpent, setHideSpent] = usePersistedState('hideSpent', false);
 
-  const cellCfg = CELL_SIZES.find(c => c.id === cellSizeId) || CELL_SIZES[1];
+  const cellCfg = UNIT_CELL_SIZES[unit] || UNIT_CELL_SIZES.weeks;
 
   const unitLabel = {
     years: `Year ${Math.floor(stats.age.years)} of ${Math.ceil(stats.remaining.years + stats.age.years)}`,
@@ -544,18 +545,6 @@ function LifeGrid({ grid, stats, birthDate, deathDate }) {
             ))}
           </div>
         )}
-        {/* Cell size */}
-        <div className="flex items-center gap-0.5 bg-port-bg rounded-md p-0.5 border border-port-border">
-          {CELL_SIZES.map(c => (
-            <button
-              key={c.id}
-              onClick={() => setCellSizeId(c.id)}
-              className={`px-2 py-0.5 text-xs rounded ${cellSizeId === c.id ? 'bg-port-accent/20 text-port-accent' : 'text-gray-400 hover:text-white'}`}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
         {/* Toggles */}
         <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
           <input type="checkbox" checked={showEvents} onChange={(e) => setShowEvents(e.target.checked)} className="rounded border-port-border" />

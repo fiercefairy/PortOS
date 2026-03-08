@@ -8,11 +8,13 @@
 
 import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
+import { randomUUID } from 'crypto';
 import { PATHS, ensureDir, readJSONFile } from '../lib/fileUtils.js';
 import { getDeathClock } from './meatspace.js';
 
 const MEATSPACE_DIR = PATHS.meatspace;
 const ACTIVITIES_FILE = join(MEATSPACE_DIR, 'activities.json');
+const EVENTS_FILE = join(MEATSPACE_DIR, 'life-events.json');
 
 const MS_PER_DAY = 86400000;
 const MS_PER_WEEK = MS_PER_DAY * 7;
@@ -204,6 +206,127 @@ const DEFAULT_ACTIVITIES = [
   { name: 'Vacations', cadence: 'year', frequency: 2, icon: 'plane' },
 ];
 
+// === Life Events ===
+
+const DEFAULT_EVENTS = [
+  { id: 'new-year', name: "New Year's Day", type: 'holiday', recurrence: 'yearly', month: 0, day: 1, enabled: true },
+  { id: 'valentines', name: "Valentine's Day", type: 'holiday', recurrence: 'yearly', month: 1, day: 14, enabled: true },
+  { id: 'independence', name: 'Independence Day', type: 'holiday', recurrence: 'yearly', month: 6, day: 4, enabled: true },
+  { id: 'halloween', name: 'Halloween', type: 'holiday', recurrence: 'yearly', month: 9, day: 31, enabled: true },
+  { id: 'thanksgiving', name: 'Thanksgiving', type: 'holiday', recurrence: 'yearly', month: 10, day: 28, enabled: true },
+  { id: 'christmas', name: 'Christmas', type: 'holiday', recurrence: 'yearly', month: 11, day: 25, enabled: true },
+];
+
+async function loadEvents() {
+  return readJSONFile(EVENTS_FILE, { events: [] });
+}
+
+async function saveEvents(data) {
+  await ensureDir(MEATSPACE_DIR);
+  await writeFile(EVENTS_FILE, JSON.stringify(data, null, 2));
+}
+
+export async function getLifeEvents() {
+  const data = await loadEvents();
+  return data.events.length > 0 ? data.events : DEFAULT_EVENTS;
+}
+
+export async function addLifeEvent(event) {
+  const data = await loadEvents();
+  if (data.events.length === 0) {
+    data.events = [...DEFAULT_EVENTS];
+  }
+  const newEvent = { id: randomUUID(), ...event };
+  data.events.push(newEvent);
+  await saveEvents(data);
+  console.log(`📅 Life event added: "${newEvent.name}"`);
+  return data.events;
+}
+
+export async function updateLifeEvent(id, updates) {
+  const data = await loadEvents();
+  if (data.events.length === 0) {
+    data.events = [...DEFAULT_EVENTS];
+  }
+  const idx = data.events.findIndex(e => e.id === id);
+  if (idx === -1) return null;
+  data.events[idx] = { ...data.events[idx], ...updates };
+  await saveEvents(data);
+  console.log(`📅 Life event updated: "${data.events[idx].name}"`);
+  return data.events;
+}
+
+export async function removeLifeEvent(id) {
+  const data = await loadEvents();
+  if (data.events.length === 0) {
+    data.events = [...DEFAULT_EVENTS];
+  }
+  const idx = data.events.findIndex(e => e.id === id);
+  if (idx === -1) return null;
+  const removed = data.events.splice(idx, 1)[0];
+  await saveEvents(data);
+  console.log(`📅 Life event removed: "${removed.name}"`);
+  return data.events;
+}
+
+/**
+ * Compute which weeks in the life grid correspond to events.
+ * Returns a Map<"age-week", { type, name }> for grid coloring.
+ */
+export function computeAllEventWeeks(birthDate, deathDate, events) {
+  const result = new Map();
+  const birth = new Date(birthDate);
+  const death = new Date(deathDate);
+  const now = new Date();
+  const totalYears = Math.ceil((death - birth) / (365.25 * 86400000));
+
+  for (const event of events) {
+    if (!event.enabled) continue;
+
+    if (event.recurrence === 'yearly' && event.month != null && event.day != null) {
+      // Yearly recurring: mark each future year
+      for (let y = 0; y < totalYears; y++) {
+        const yearStart = new Date(birth);
+        yearStart.setFullYear(birth.getFullYear() + y);
+        const eventDate = new Date(yearStart.getFullYear(), event.month, event.day);
+        if (eventDate <= now || eventDate > death) continue;
+        const weekOfYear = Math.floor((eventDate - yearStart) / (7 * 86400000));
+        if (weekOfYear >= 0 && weekOfYear < 52) {
+          const key = `${y}-${weekOfYear}`;
+          // Don't overwrite existing events (first-registered wins)
+          if (!result.has(key)) {
+            result.set(key, { type: event.type, name: event.name });
+          }
+        }
+      }
+    } else if (event.recurrence === 'once' && event.date) {
+      // One-time event: mark single date (or range if endDate)
+      const start = new Date(event.date);
+      const end = event.endDate ? new Date(event.endDate) : start;
+      const cursor = new Date(start);
+      while (cursor <= end && cursor <= death) {
+        if (cursor > now) {
+          // Find age and week
+          const ageMs = cursor - birth;
+          const age = Math.floor(ageMs / (365.25 * 86400000));
+          const yearStart = new Date(birth);
+          yearStart.setFullYear(birth.getFullYear() + age);
+          const weekOfYear = Math.floor((cursor - yearStart) / (7 * 86400000));
+          if (weekOfYear >= 0 && weekOfYear < 52) {
+            const key = `${age}-${weekOfYear}`;
+            if (!result.has(key)) {
+              result.set(key, { type: event.type, name: event.name });
+            }
+          }
+        }
+        cursor.setDate(cursor.getDate() + 7); // Jump by week for ranges
+      }
+    }
+  }
+
+  return result;
+}
+
 // === Exported Service Functions ===
 
 export async function getCalendarData() {
@@ -223,6 +346,9 @@ export async function getCalendarData() {
   const activities = data.activities.length > 0 ? data.activities : DEFAULT_ACTIVITIES;
   const budgets = computeActivityBudgets(deathDate, activities);
 
+  // Load life events
+  const events = await getLifeEvents();
+
   return {
     birthDate,
     deathDate,
@@ -230,6 +356,7 @@ export async function getCalendarData() {
     stats,
     grid,
     budgets,
+    events,
     activitiesConfigured: data.activities.length > 0,
   };
 }

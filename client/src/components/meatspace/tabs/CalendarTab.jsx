@@ -2,7 +2,7 @@ import { Fragment, useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Calendar, Coffee, Droplets, Utensils, Dumbbell, BookOpen, Scissors,
   Cake, Plane, Plus, Trash2, Circle, Sun, Moon, TreePine, Snowflake,
-  Flower2, CloudSun
+  Flower2, CloudSun, X, ChevronDown, Eye, EyeOff, Save
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -24,19 +24,12 @@ function IconForName({ name, size = 16, className }) {
 
 // === Event Colors ===
 
-const EVENT_COLORS = [
-  { id: 'birthday', label: 'Birthday', color: 'bg-pink-500', ring: 'ring-pink-500/50' },
-  { id: 'holiday', label: 'Holiday', color: 'bg-amber-500', ring: 'ring-amber-500/50' },
-  { id: 'vacation', label: 'Vacation', color: 'bg-cyan-500', ring: 'ring-cyan-500/50' },
-  { id: 'milestone', label: 'Milestone', color: 'bg-purple-500', ring: 'ring-purple-500/50' },
-  { id: 'health', label: 'Health', color: 'bg-red-500', ring: 'ring-red-500/50' },
-];
-
 /**
- * Compute which weeks in the remaining grid correspond to birthdays.
- * Returns a Map<string, string> where key is "age-week" and value is event id.
+ * Compute which weeks in the remaining grid correspond to events.
+ * Uses server-provided events plus birthdays.
+ * Returns a Map<string, { type, name }> where key is "age-week".
  */
-function computeEventWeeks(birthDate, grid, stats) {
+function computeEventWeeks(birthDate, grid, stats, lifeEvents) {
   const events = new Map();
   if (!birthDate) return events;
 
@@ -44,17 +37,54 @@ function computeEventWeeks(birthDate, grid, stats) {
   const birthMonth = birth.getMonth();
   const birthDay = birth.getDate();
   const currentAge = Math.floor(stats.age.years);
+  const now = new Date();
 
   // Mark birthday weeks for remaining years
   for (const row of grid) {
     if (row.age <= currentAge) continue;
-    // Birthday falls in this year — find which week
     const yearStart = new Date(birth);
     yearStart.setFullYear(birth.getFullYear() + row.age);
     const bday = new Date(yearStart.getFullYear(), birthMonth, birthDay);
     const weekOfYear = Math.floor((bday - yearStart) / (7 * 86400000));
     if (weekOfYear >= 0 && weekOfYear < 52) {
-      events.set(`${row.age}-${weekOfYear}`, 'birthday');
+      events.set(`${row.age}-${weekOfYear}`, { type: 'birthday', name: 'Birthday' });
+    }
+  }
+
+  // Add life events from server
+  if (lifeEvents?.length) {
+    for (const event of lifeEvents) {
+      if (!event.enabled) continue;
+
+      if (event.recurrence === 'yearly' && event.month != null && event.day != null) {
+        for (const row of grid) {
+          const yearStart = new Date(birth);
+          yearStart.setFullYear(birth.getFullYear() + row.age);
+          const eventDate = new Date(yearStart.getFullYear(), event.month, event.day);
+          if (eventDate <= now) continue;
+          const weekOfYear = Math.floor((eventDate - yearStart) / (7 * 86400000));
+          if (weekOfYear >= 0 && weekOfYear < 52) {
+            const key = `${row.age}-${weekOfYear}`;
+            if (!events.has(key)) {
+              events.set(key, { type: event.type, name: event.name });
+            }
+          }
+        }
+      } else if (event.recurrence === 'once' && event.date) {
+        const eventDate = new Date(event.date);
+        if (eventDate <= now) continue;
+        const ageMs = eventDate - birth;
+        const age = Math.floor(ageMs / (365.25 * 86400000));
+        const yearStart = new Date(birth);
+        yearStart.setFullYear(birth.getFullYear() + age);
+        const weekOfYear = Math.floor((eventDate - yearStart) / (7 * 86400000));
+        if (weekOfYear >= 0 && weekOfYear < 52) {
+          const key = `${age}-${weekOfYear}`;
+          if (!events.has(key)) {
+            events.set(key, { type: event.type, name: event.name });
+          }
+        }
+      }
     }
   }
 
@@ -182,17 +212,23 @@ function computeMonthCalendars(birthDate, deathDate, selectedAge) {
   return months;
 }
 
-const BIRTHDAY_BG = 'bg-pink-500';
-const BIRTHDAY_RING = 'ring-1 ring-pink-500/50';
+const EVENT_TYPE_STYLES = {
+  birthday: { bg: 'bg-pink-500', ring: 'ring-1 ring-pink-500/50' },
+  holiday: { bg: 'bg-amber-500', ring: 'ring-1 ring-amber-500/50' },
+  vacation: { bg: 'bg-cyan-500', ring: 'ring-1 ring-cyan-500/50' },
+  milestone: { bg: 'bg-purple-500', ring: 'ring-1 ring-purple-500/50' },
+  health: { bg: 'bg-red-500', ring: 'ring-1 ring-red-500/50' },
+  custom: { bg: 'bg-emerald-500', ring: 'ring-1 ring-emerald-500/50' },
+};
 
 function cellClasses(status, isCurrent, isBirthday, showEvents) {
-  if (isBirthday && showEvents && status === 'r') return `${BIRTHDAY_BG} ${BIRTHDAY_RING}`;
+  if (isBirthday && showEvents && status === 'r') return 'bg-pink-500 ring-1 ring-pink-500/50';
   if (status === 'c') return 'bg-port-accent shadow-[0_0_4px_rgba(59,130,246,0.5)]';
   if (status === 's') {
     const base = isCurrent ? 'bg-gray-500' : 'bg-gray-700';
-    return isBirthday && showEvents ? `${base} ${BIRTHDAY_RING}` : base;
+    return isBirthday && showEvents ? `${base} ring-1 ring-pink-500/50` : base;
   }
-  return isBirthday && showEvents ? `${BIRTHDAY_BG} ${BIRTHDAY_RING}` : 'bg-port-success/20';
+  return isBirthday && showEvents ? 'bg-pink-500 ring-1 ring-pink-500/50' : 'bg-port-success/20';
 }
 
 // === Year Grid ===
@@ -375,7 +411,7 @@ function DayGridView({ birthDate, deathDate, cellCfg, stats, showEvents }) {
 
 // === Week Grid (original) ===
 
-function WeekGridView({ grid, stats, birthDate, cellCfg, weekLayout, hideSpent, showEvents }) {
+function WeekGridView({ grid, stats, birthDate, cellCfg, weekLayout, hideSpent, showEvents, lifeEvents }) {
   const currentAge = Math.floor(stats.age.years);
   const layoutCfg = WEEK_LAYOUTS.find(v => v.id === weekLayout) || WEEK_LAYOUTS[0];
 
@@ -390,8 +426,8 @@ function WeekGridView({ grid, stats, birthDate, cellCfg, weekLayout, hideSpent, 
   }, [grid]);
 
   const eventWeeks = useMemo(
-    () => showEvents ? computeEventWeeks(birthDate, grid, stats) : new Map(),
-    [birthDate, grid, stats, showEvents]
+    () => showEvents ? computeEventWeeks(birthDate, grid, stats, lifeEvents) : new Map(),
+    [birthDate, grid, stats, showEvents, lifeEvents]
   );
 
   const weeksPerRow = layoutCfg.weeksPerRow || 104;
@@ -439,12 +475,12 @@ function WeekGridView({ grid, stats, birthDate, cellCfg, weekLayout, hideSpent, 
               {shouldLabel(row.label) ? row.label : '.'}
             </span>
             {row.weeks.map((cell, wi) => {
-              const eventId = eventWeeks.get(`${cell.age}-${cell.week}`);
-              const eventCfg = eventId ? EVENT_COLORS.find(e => e.id === eventId) : null;
+              const eventInfo = eventWeeks.get(`${cell.age}-${cell.week}`);
+              const eventStyle = eventInfo ? EVENT_TYPE_STYLES[eventInfo.type] : null;
 
               let bgClass;
-              if (eventCfg && cell.status === 'r') {
-                bgClass = eventCfg.color;
+              if (eventStyle && cell.status === 'r') {
+                bgClass = eventStyle.bg;
               } else if (cell.status === 'c') {
                 bgClass = 'bg-port-accent shadow-[0_0_4px_rgba(59,130,246,0.5)]';
               } else if (cell.status === 's') {
@@ -456,9 +492,9 @@ function WeekGridView({ grid, stats, birthDate, cellCfg, weekLayout, hideSpent, 
               return (
                 <span
                   key={wi}
-                  className={`shrink-0 rounded-[1px] ${bgClass} ${eventCfg ? `ring-1 ${eventCfg.ring}` : ''}`}
+                  className={`shrink-0 rounded-[1px] ${bgClass} ${eventStyle ? eventStyle.ring : ''}`}
                   style={{ width: `${cellCfg.size}px`, height: `${cellCfg.size}px` }}
-                  title={`Age ${cell.age}, Week ${cell.week + 1}${eventCfg ? ` — ${eventCfg.label}` : ''}`}
+                  title={`Age ${cell.age}, Week ${cell.week + 1}${eventInfo ? ` — ${eventInfo.name}` : ''}`}
                 />
               );
             })}
@@ -499,13 +535,20 @@ function usePersistedState(key, defaultValue) {
 
 // === Life Grid (main component) ===
 
-function LifeGrid({ grid, stats, birthDate, deathDate }) {
+function LifeGrid({ grid, stats, birthDate, deathDate, lifeEvents }) {
   const [unit, setUnit] = usePersistedState('unit', 'weeks');
   const [weekLayout, setWeekLayout] = usePersistedState('weekLayout', 'year');
   const [showEvents, setShowEvents] = usePersistedState('showEvents', true);
   const [hideSpent, setHideSpent] = usePersistedState('hideSpent', false);
 
   const cellCfg = UNIT_CELL_SIZES[unit] || UNIT_CELL_SIZES.weeks;
+
+  // Unique event types from configured events (for legend)
+  const activeEventTypes = useMemo(() => {
+    if (!lifeEvents?.length) return [];
+    const types = new Set(lifeEvents.filter(e => e.enabled).map(e => e.type));
+    return [...types];
+  }, [lifeEvents]);
 
   const unitLabel = {
     years: `Year ${Math.floor(stats.age.years)} of ${Math.ceil(stats.remaining.years + stats.age.years)}`,
@@ -549,7 +592,7 @@ function LifeGrid({ grid, stats, birthDate, deathDate }) {
         {/* Toggles */}
         <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
           <input type="checkbox" checked={showEvents} onChange={(e) => setShowEvents(e.target.checked)} className="rounded border-port-border" />
-          Birthdays
+          Events
         </label>
         {unit !== 'days' && (
           <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
@@ -567,11 +610,19 @@ function LifeGrid({ grid, stats, birthDate, deathDate }) {
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-gray-600" /> Spent</span>
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-port-accent" /> Now</span>
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-port-success/30" /> Remaining</span>
-        {showEvents && EVENT_COLORS.filter(e => e.id === 'birthday').map(e => (
-          <span key={e.id} className="flex items-center gap-1">
-            <span className={`w-2 h-2 rounded-sm ${e.color}`} /> {e.label}
-          </span>
-        ))}
+        {showEvents && (
+          <>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-pink-500" /> Birthday</span>
+            {activeEventTypes.map(type => {
+              const style = EVENT_TYPE_STYLES[type];
+              return style ? (
+                <span key={type} className="flex items-center gap-1">
+                  <span className={`w-2 h-2 rounded-sm ${style.bg}`} /> {type.charAt(0).toUpperCase() + type.slice(1)}
+                </span>
+              ) : null;
+            })}
+          </>
+        )}
       </div>
 
       {/* Grid */}
@@ -582,7 +633,7 @@ function LifeGrid({ grid, stats, birthDate, deathDate }) {
         <MonthGridView birthDate={birthDate} deathDate={deathDate} hideSpent={hideSpent} showEvents={showEvents} />
       )}
       {unit === 'weeks' && (
-        <WeekGridView grid={grid} stats={stats} birthDate={birthDate} cellCfg={cellCfg} weekLayout={weekLayout} hideSpent={hideSpent} showEvents={showEvents} />
+        <WeekGridView grid={grid} stats={stats} birthDate={birthDate} cellCfg={cellCfg} weekLayout={weekLayout} hideSpent={hideSpent} showEvents={showEvents} lifeEvents={lifeEvents} />
       )}
       {unit === 'days' && (
         <DayGridView birthDate={birthDate} deathDate={deathDate} cellCfg={cellCfg} stats={stats} showEvents={showEvents} />
@@ -770,6 +821,28 @@ export default function CalendarTab() {
     }
   };
 
+  const handleAddEvent = async (event) => {
+    const result = await api.addLifeEvent(event).catch(() => null);
+    if (result) {
+      toast.success(`Added ${event.name}`);
+      fetchData();
+    }
+  };
+
+  const handleToggleEvent = async (id, enabled) => {
+    const result = await api.updateLifeEvent(id, { enabled }).catch(() => null);
+    if (result) fetchData();
+  };
+
+  const handleRemoveEvent = async (id) => {
+    const event = lifeEvents?.find(e => e.id === id);
+    const result = await api.removeLifeEvent(id).catch(() => null);
+    if (result) {
+      toast.success(`Removed ${event?.name || 'event'}`);
+      fetchData();
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -797,7 +870,7 @@ export default function CalendarTab() {
     );
   }
 
-  const { stats, grid, budgets, birthDate, deathDate } = data;
+  const { stats, grid, budgets, birthDate, deathDate, events: lifeEvents } = data;
 
   const pctSpent = stats.age.weeks / stats.total.weeks * 100;
   const pctColor = pctSpent < 50 ? 'text-port-accent' : pctSpent < 75 ? 'text-port-warning' : 'text-port-error';
@@ -848,7 +921,7 @@ export default function CalendarTab() {
 
       {/* Dashboard grid: Life Grid (main) + Time Stats (sidebar) */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
-        <LifeGrid grid={grid} stats={stats} birthDate={birthDate} deathDate={deathDate} />
+        <LifeGrid grid={grid} stats={stats} birthDate={birthDate} deathDate={deathDate} lifeEvents={lifeEvents} />
         <TimeStats stats={stats} />
       </div>
 
@@ -880,6 +953,217 @@ export default function CalendarTab() {
           ))}
         </div>
       </div>
+
+      {/* Life Events */}
+      <LifeEventsPanel
+        events={lifeEvents || []}
+        onAdd={handleAddEvent}
+        onToggle={handleToggleEvent}
+        onRemove={handleRemoveEvent}
+      />
+    </div>
+  );
+}
+
+// === Life Events Panel ===
+
+const MONTH_NAMES_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const EVENT_TYPES = [
+  { id: 'holiday', label: 'Holiday' },
+  { id: 'vacation', label: 'Vacation' },
+  { id: 'milestone', label: 'Milestone' },
+  { id: 'health', label: 'Health' },
+  { id: 'custom', label: 'Custom' },
+];
+
+function LifeEventsPanel({ events, onAdd, onToggle, onRemove }) {
+  const [expanded, setExpanded] = useState(false);
+  const [adding, setAdding] = useState(false);
+
+  // Add form state
+  const [name, setName] = useState('');
+  const [type, setType] = useState('holiday');
+  const [recurrence, setRecurrence] = useState('yearly');
+  const [month, setMonth] = useState(0);
+  const [day, setDay] = useState(1);
+  const [date, setDate] = useState('');
+
+  function resetForm() {
+    setName('');
+    setType('holiday');
+    setRecurrence('yearly');
+    setMonth(0);
+    setDay(1);
+    setDate('');
+    setAdding(false);
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    const event = {
+      name: name.trim(),
+      type,
+      recurrence,
+      ...(recurrence === 'yearly' ? { month, day: parseInt(day) } : { date }),
+    };
+    onAdd(event);
+    resetForm();
+  }
+
+  const enabledCount = events.filter(e => e.enabled).length;
+
+  return (
+    <div className="bg-port-card border border-port-border rounded-lg overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between p-4 text-left hover:bg-port-bg/30 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Calendar size={16} className="text-amber-400" />
+          <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Life Events</h3>
+          <span className="text-xs text-gray-600">{enabledCount} active</span>
+        </div>
+        <ChevronDown size={16} className={`text-gray-500 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-4 space-y-3">
+          {/* Event list */}
+          <div className="space-y-1.5">
+            {events.map(event => {
+              const style = EVENT_TYPE_STYLES[event.type] || EVENT_TYPE_STYLES.custom;
+              return (
+                <div key={event.id} className="flex items-center gap-2.5 py-1.5 group">
+                  <span className={`w-2.5 h-2.5 rounded-sm shrink-0 ${style.bg}`} />
+                  <div className="flex-1 min-w-0">
+                    <span className={`text-sm ${event.enabled ? 'text-white' : 'text-gray-600 line-through'}`}>
+                      {event.name}
+                    </span>
+                    <span className="text-[10px] text-gray-600 ml-2">
+                      {event.recurrence === 'yearly'
+                        ? `${MONTH_NAMES_FULL[event.month]} ${event.day}`
+                        : event.date}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-gray-600">{event.type}</span>
+                  <button
+                    onClick={() => onToggle(event.id, !event.enabled)}
+                    className="text-gray-500 hover:text-white transition-colors p-0.5"
+                    title={event.enabled ? 'Disable' : 'Enable'}
+                  >
+                    {event.enabled ? <Eye size={12} /> : <EyeOff size={12} />}
+                  </button>
+                  <button
+                    onClick={() => onRemove(event.id)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-600 hover:text-port-error p-0.5"
+                    title="Remove"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Add form */}
+          {adding ? (
+            <form onSubmit={handleSubmit} className="bg-port-bg border border-port-border rounded-lg p-3 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Name</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder="e.g. Anniversary"
+                    className="w-full px-2 py-1.5 bg-port-card border border-port-border rounded text-sm text-white focus:border-port-accent focus:outline-hidden"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Type</label>
+                  <select
+                    value={type}
+                    onChange={e => setType(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-port-card border border-port-border rounded text-sm text-white focus:border-port-accent focus:outline-hidden"
+                  >
+                    {EVENT_TYPES.map(t => (
+                      <option key={t.id} value={t.id}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Recurrence</label>
+                  <select
+                    value={recurrence}
+                    onChange={e => setRecurrence(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-port-card border border-port-border rounded text-sm text-white focus:border-port-accent focus:outline-hidden"
+                  >
+                    <option value="yearly">Yearly</option>
+                    <option value="once">One-time</option>
+                  </select>
+                </div>
+                {recurrence === 'yearly' ? (
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className="text-xs text-gray-400 mb-1 block">Month</label>
+                      <select
+                        value={month}
+                        onChange={e => setMonth(parseInt(e.target.value))}
+                        className="w-full px-2 py-1.5 bg-port-card border border-port-border rounded text-sm text-white focus:border-port-accent focus:outline-hidden"
+                      >
+                        {MONTH_NAMES_FULL.map((m, i) => (
+                          <option key={i} value={i}>{m}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="w-16">
+                      <label className="text-xs text-gray-400 mb-1 block">Day</label>
+                      <input
+                        type="number"
+                        value={day}
+                        onChange={e => setDay(e.target.value)}
+                        min="1"
+                        max="31"
+                        className="w-full px-2 py-1.5 bg-port-card border border-port-border rounded text-sm text-white focus:border-port-accent focus:outline-hidden"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Date</label>
+                    <input
+                      type="date"
+                      value={date}
+                      onChange={e => setDate(e.target.value)}
+                      className="w-full px-2 py-1.5 bg-port-card border border-port-border rounded text-sm text-white focus:border-port-accent focus:outline-hidden"
+                    />
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button type="submit" disabled={!name.trim()} className="px-3 py-1.5 bg-port-accent text-white text-sm rounded hover:bg-port-accent/80 disabled:opacity-50 transition-colors">
+                  Add Event
+                </button>
+                <button type="button" onClick={resetForm} className="px-3 py-1.5 text-gray-400 text-sm hover:text-white transition-colors">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : (
+            <button
+              onClick={() => setAdding(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-gray-400 hover:text-white border border-dashed border-port-border rounded hover:border-port-accent/50 transition-colors"
+            >
+              <Plus size={14} />
+              Add Event
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

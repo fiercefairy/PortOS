@@ -14,6 +14,23 @@ export const activitySchema = z.object({
 export const activityUpdateSchema = activitySchema.partial();
 
 // =============================================================================
+// LIFE CALENDAR EVENTS
+// =============================================================================
+
+export const lifeEventSchema = z.object({
+  name: z.string().min(1).max(100),
+  type: z.enum(['holiday', 'vacation', 'milestone', 'health', 'custom']),
+  recurrence: z.enum(['yearly', 'once']),
+  month: z.number().int().min(0).max(11).optional(),     // 0-indexed, for yearly
+  day: z.number().int().min(1).max(31).optional(),        // for yearly
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), // for 'once' events
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), // optional end for vacations
+  enabled: z.boolean().optional().default(true),
+});
+
+export const lifeEventUpdateSchema = lifeEventSchema.partial();
+
+// =============================================================================
 // MEATSPACE CONFIG & LIFESTYLE
 // =============================================================================
 

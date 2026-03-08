@@ -1557,6 +1557,16 @@ export const updateActivity = (index, data) => request(`/meatspace/activities/${
 });
 export const removeActivity = (index) => request(`/meatspace/activities/${index}`, { method: 'DELETE' });
 
+// Life Events
+export const getLifeEvents = () => request('/meatspace/life-events');
+export const addLifeEvent = (data) => request('/meatspace/life-events', {
+  method: 'POST', body: JSON.stringify(data)
+});
+export const updateLifeEvent = (id, data) => request(`/meatspace/life-events/${id}`, {
+  method: 'PUT', body: JSON.stringify(data)
+});
+export const removeLifeEvent = (id) => request(`/meatspace/life-events/${id}`, { method: 'DELETE' });
+
 // JIRA
 export const getJiraInstances = () => request('/jira/instances');
 export const getJiraProjects = (instanceId) => request(`/jira/instances/${instanceId}/projects`);

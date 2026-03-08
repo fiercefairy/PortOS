@@ -15,6 +15,8 @@ import {
   eyeExamUpdateSchema,
   activitySchema,
   activityUpdateSchema,
+  lifeEventSchema,
+  lifeEventUpdateSchema,
 } from '../lib/meatspaceValidation.js';
 import { birthDateInputSchema } from '../lib/identityValidation.js';
 import {
@@ -667,6 +669,50 @@ router.delete('/activities/:index', asyncHandler(async (req, res) => {
     throw new ServerError('Activity not found', { status: 404, code: 'NOT_FOUND' });
   }
   res.json(activities);
+}));
+
+// ============================================================
+// Life Events
+// ============================================================
+
+/**
+ * GET /api/meatspace/life-events
+ * List all life events (or defaults if none configured).
+ */
+router.get('/life-events', asyncHandler(async (_req, res) => {
+  const events = await calendarService.getLifeEvents();
+  res.json(events);
+}));
+
+/**
+ * POST /api/meatspace/life-events
+ * Add a new life event.
+ */
+router.post('/life-events', asyncHandler(async (req, res) => {
+  const data = validateRequest(lifeEventSchema, req.body);
+  const events = await calendarService.addLifeEvent(data);
+  res.json(events);
+}));
+
+/**
+ * PUT /api/meatspace/life-events/:id
+ * Update a life event by ID.
+ */
+router.put('/life-events/:id', asyncHandler(async (req, res) => {
+  const data = validateRequest(lifeEventUpdateSchema, req.body);
+  const events = await calendarService.updateLifeEvent(req.params.id, data);
+  if (!events) throw new ServerError('Life event not found', { status: 404, code: 'NOT_FOUND' });
+  res.json(events);
+}));
+
+/**
+ * DELETE /api/meatspace/life-events/:id
+ * Remove a life event by ID.
+ */
+router.delete('/life-events/:id', asyncHandler(async (req, res) => {
+  const events = await calendarService.removeLifeEvent(req.params.id);
+  if (!events) throw new ServerError('Life event not found', { status: 404, code: 'NOT_FOUND' });
+  res.json(events);
 }));
 
 export default router;

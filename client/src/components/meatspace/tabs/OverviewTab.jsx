@@ -314,7 +314,7 @@ export default function OverviewTab() {
           icon={Eye}
           iconColor="text-cyan-400"
           label="Eyes"
-          onClick={() => navigate('/meatspace/eyes')}
+          onClick={() => navigate('/meatspace/body')}
           metrics={[
             { label: 'Exams', value: eyes?.exams?.length ?? '—' },
             { label: 'Latest', value: latestEye?.date ?? '—' },

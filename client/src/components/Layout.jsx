@@ -48,7 +48,6 @@ import {
   HeartPulse,
   ClipboardList,
   Compass,
-  Eye,
   Scale,
   LayoutDashboard,
   Lightbulb,
@@ -168,13 +167,11 @@ const navItems = [
       { to: '/meatspace/blood', label: 'Blood', icon: HeartPulse },
       { to: '/meatspace/body', label: 'Body', icon: Scale },
       { to: '/meatspace/calendar', label: 'Calendar', icon: Calendar },
-      { to: '/meatspace/eyes', label: 'Eyes', icon: Eye },
       { to: '/meatspace/genome', label: 'Genome', icon: Dna },
       { to: '/meatspace/health', label: 'Health', icon: Heart },
       { to: '/meatspace/import', label: 'Import', icon: Upload },
       { to: '/meatspace/lifestyle', label: 'Lifestyle', icon: ClipboardList },
       { to: '/meatspace/overview', label: 'Overview', icon: Activity },
-      { to: '/meatspace/post', label: 'POST', icon: Zap }
     ]
   },
   {
@@ -187,6 +184,7 @@ const navItems = [
       { to: '/messages/config', label: 'Config', icon: Settings }
     ]
   },
+  { to: '/post', label: 'POST', icon: Zap, single: true },
   { to: '/security', label: 'Security', icon: Camera, single: true },
   { to: '/settings', label: 'Settings', icon: Settings, single: true },
   { to: '/shell', label: 'Shell', icon: SquareTerminal, single: true },
@@ -622,6 +620,7 @@ export default function Layout() {
             location.pathname.startsWith('/insights') ||
             location.pathname.startsWith('/meatspace') ||
             location.pathname.startsWith('/messages') ||
+            location.pathname === '/post' ||
             location.pathname.startsWith('/agents') ||
             location.pathname === '/shell' ||
             location.pathname.startsWith('/city') ||

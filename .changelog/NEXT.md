@@ -5,6 +5,8 @@
 - Life Calendar tile on MeatSpace Overview linking to full calendar view
 
 ## Changed
+- Merged Eyes tab into Body tab — eye prescriptions now appear below body composition chart
+- POST promoted to top-level page outside MeatSpace
 - Life Calendar redesigned as admin dashboard: summary bar + side-by-side grid/stats layout on desktop, compact time-remaining sidebar, inline activity budget card
 - Years view uses fluid CSS grid cells that fill available card width
 - Months view shows decade-per-row with flex-wrap (no horizontal scrolling)
@@ -18,3 +20,5 @@
 - App refresh-config and detection now auto-detect buildCommand from package.json, enabling Build button for apps with production builds
 
 ## Removed
+- Eyes tab removed from MeatSpace (consolidated into Body tab)
+- POST tab removed from MeatSpace (now a standalone top-level page)

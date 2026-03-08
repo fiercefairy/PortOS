@@ -81,6 +81,8 @@ When CoS agents or AI tools work on managed apps outside PortOS, all research, p
 - **Functional programming** - no classes, use hooks in React
 - **Zod validation** - all route inputs validated via `lib/validation.js`
 - **Command allowlist** - shell execution restricted to approved commands only
+- **Mobile responsive** - all pages should be mobile responsive friendly
+- **Above the fold** - keep actionable content and info above the fold and design pages for maximum information and acess without scrolling
 - **No hardcoded localhost** - use `window.location.hostname` for URLs; app accessed via Tailscale remotely
 - **Alphabetical navigation** - sidebar nav items in `Layout.jsx` are alphabetically ordered after the Dashboard+CyberCity top section and separator; children within collapsible sections are also alphabetical
 - **Reactive UI updates** - after mutations (delete, create, update), update local state directly instead of refetching the entire list from the server. Use `setState(prev => prev.filter(...))` or similar patterns for immediate feedback

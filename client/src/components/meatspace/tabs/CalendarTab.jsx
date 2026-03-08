@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useCallback, useMemo } from 'react';
+import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Calendar, Coffee, Droplets, Utensils, Dumbbell, BookOpen, Scissors,
   Cake, Plane, Plus, Trash2, Circle, Sun, Moon, TreePine, Snowflake,
@@ -114,6 +114,22 @@ const UNIT_CELL_SIZES = {
   weeks: { size: 7, gap: 1 },
   days: { size: 16, gap: 2 },
 };
+
+// Hook: track container width via ResizeObserver for responsive sizing
+function useContainerWidth() {
+  const ref = useRef(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    if (!ref.current) return;
+    const ro = new ResizeObserver(entries => {
+      const w = entries[0]?.contentRect?.width;
+      if (w) setWidth(Math.floor(w));
+    });
+    ro.observe(ref.current);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, width];
+}
 
 const MS_PER_DAY = 86400000;
 
@@ -237,7 +253,10 @@ function YearGridView({ birthDate, deathDate, hideSpent, showEvents }) {
   const cells = useMemo(() => computeYearGrid(birthDate, deathDate), [birthDate, deathDate]);
   const currentAge = Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * MS_PER_DAY));
   const filtered = hideSpent ? cells.filter(c => c.status === 'c' || c.status === 'r') : cells;
-  const cols = 10;
+  const [containerRef, containerWidth] = useContainerWidth();
+  // Responsive columns: shrink from 10 on narrow screens
+  const cols = containerWidth < 200 ? 5 : 10;
+  const labelW = containerWidth < 300 ? 28 : 36;
 
   const rows = useMemo(() => {
     const result = [];
@@ -245,11 +264,11 @@ function YearGridView({ birthDate, deathDate, hideSpent, showEvents }) {
       result.push(filtered.slice(i, i + cols));
     }
     return result;
-  }, [filtered]);
+  }, [filtered, cols]);
 
   return (
-    <div>
-      <div style={{ display: 'grid', gridTemplateColumns: `36px repeat(${cols}, 1fr)`, gap: '3px' }}>
+    <div ref={containerRef}>
+      <div style={{ display: 'grid', gridTemplateColumns: `${labelW}px repeat(${cols}, 1fr)`, gap: '3px' }}>
         {rows.map((row, ri) => (
           <Fragment key={ri}>
             <span className="text-right text-gray-500 self-center" style={{ fontSize: '10px' }}>
@@ -263,7 +282,6 @@ function YearGridView({ birthDate, deathDate, hideSpent, showEvents }) {
                 title={cell.label}
               />
             ))}
-            {/* Fill empty trailing cells in last row */}
             {row.length < cols && Array.from({ length: cols - row.length }).map((_, i) => (
               <span key={`empty-${i}`} />
             ))}
@@ -280,31 +298,45 @@ function MonthGridView({ birthDate, deathDate, hideSpent, showEvents }) {
   const cells = useMemo(() => computeMonthGrid(birthDate, deathDate), [birthDate, deathDate]);
   const currentAge = Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * MS_PER_DAY));
   const filtered = hideSpent ? cells.filter(c => c.status === 'c' || c.status === 'r') : cells;
-  const cols = 120; // 10 years × 12 months = 1 decade per row
+  const [containerRef, containerWidth] = useContainerWidth();
+
+  // Responsive: fit cells to container width
+  // Each row is N years × 12 months. Pick years-per-row based on width.
+  const baseCellSize = 6;
+  const gap = 1;
+  const yearsPerRow = containerWidth
+    ? Math.max(1, Math.min(10, Math.floor(containerWidth / ((baseCellSize + gap) * 12))))
+    : 10;
+  const cols = yearsPerRow * 12;
+  // Auto-size cells to fill available width
+  const cellSize = containerWidth
+    ? Math.max(3, Math.floor((containerWidth - (cols - 1) * gap) / cols))
+    : baseCellSize;
 
   const rows = useMemo(() => {
     const result = [];
     for (let i = 0; i < filtered.length; i += cols) {
       const row = filtered.slice(i, i + cols);
       const startAge = row[0]?.age ?? 0;
-      result.push({ label: startAge, cells: row });
+      const endAge = startAge + yearsPerRow - 1;
+      result.push({ label: startAge, endAge, cells: row });
     }
     return result;
-  }, [filtered]);
+  }, [filtered, cols, yearsPerRow]);
 
   return (
-    <div>
+    <div ref={containerRef}>
       {rows.map((row, ri) => (
         <div key={ri} className="mb-2">
           <span className="text-gray-400 font-medium" style={{ fontSize: '9px' }}>
-            {row.label}–{row.label + 9}
+            {row.label}–{row.endAge}
           </span>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1px', marginTop: '1px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: `${gap}px`, marginTop: '1px' }}>
             {row.cells.map((cell) => (
               <span
                 key={cell.index}
                 className={`rounded-[1px] ${cellClasses(cell.status, cell.age === currentAge, cell.isBirthday, showEvents)}`}
-                style={{ width: '6px', height: '6px' }}
+                style={{ width: `${cellSize}px`, height: `${cellSize}px` }}
                 title={cell.label}
               />
             ))}
@@ -332,11 +364,10 @@ function MiniMonth({ month, cellSize, gap, showEvents }) {
   }, [month]);
 
   const sz = cellSize;
-  const gridWidth = sz * 7 + gap * 6;
-  const rowStyle = { display: 'grid', gridTemplateColumns: `repeat(7, ${sz}px)`, gap: `${gap}px` };
+  const rowStyle = { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: `${gap}px` };
 
   return (
-    <div className="flex flex-col" style={{ width: `${gridWidth}px` }}>
+    <div className="flex flex-col w-full">
       <div className="text-[10px] text-gray-400 font-medium mb-1 text-center">{month.name}</div>
       <div style={rowStyle}>
         {DAY_LABELS.map((d, i) => (
@@ -352,11 +383,11 @@ function MiniMonth({ month, cellSize, gap, showEvents }) {
               <span
                 key={ci}
                 className={`rounded-[1px] ${cellClasses(cell.status, false, cell.isBirthday, showEvents)}`}
-                style={{ width: `${sz}px`, height: `${sz}px` }}
+                style={{ aspectRatio: '1', width: '100%' }}
                 title={cell.label}
               />
             ) : (
-              <span key={ci} style={{ width: `${sz}px`, height: `${sz}px` }} />
+              <span key={ci} style={{ aspectRatio: '1', width: '100%' }} />
             ))}
           </div>
         ))}
@@ -369,14 +400,23 @@ function DayGridView({ birthDate, deathDate, cellCfg, stats, showEvents }) {
   const currentAge = Math.floor(stats.age.years);
   const totalYears = Math.ceil((new Date(deathDate) - new Date(birthDate)) / (365.25 * MS_PER_DAY));
   const [selectedAge, setSelectedAge] = useState(currentAge);
+  const [containerRef, containerWidth] = useContainerWidth();
 
   const months = useMemo(
     () => computeMonthCalendars(birthDate, deathDate, selectedAge),
     [birthDate, deathDate, selectedAge]
   );
 
+  // Responsive: compute grid cols and cell size based on container width
+  const gridCols = containerWidth < 300 ? 2 : containerWidth < 400 ? 3 : containerWidth < 600 ? 4 : 6;
+  const gridGap = 12;
+  const monthWidth = containerWidth ? Math.floor((containerWidth - (gridCols - 1) * gridGap) / gridCols) : null;
+  // Fit 7 day columns + 6 gaps into monthWidth
+  const responsiveDaySize = monthWidth ? Math.max(8, Math.floor((monthWidth - cellCfg.gap * 6) / 7)) : cellCfg.size;
+  const responsiveDayGap = cellCfg.gap;
+
   return (
-    <div>
+    <div ref={containerRef}>
       <div className="flex items-center gap-3 mb-3">
         <button
           onClick={() => setSelectedAge(Math.max(0, selectedAge - 1))}
@@ -400,9 +440,9 @@ function DayGridView({ birthDate, deathDate, cellCfg, stats, showEvents }) {
           </button>
         )}
       </div>
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${gridCols}, 1fr)`, gap: `${gridGap}px` }}>
         {months.map((m, i) => (
-          <MiniMonth key={i} month={m} cellSize={cellCfg.size} gap={cellCfg.gap} showEvents={showEvents} />
+          <MiniMonth key={i} month={m} cellSize={responsiveDaySize} gap={responsiveDayGap} showEvents={showEvents} />
         ))}
       </div>
     </div>
@@ -414,6 +454,7 @@ function DayGridView({ birthDate, deathDate, cellCfg, stats, showEvents }) {
 function WeekGridView({ grid, stats, birthDate, cellCfg, weekLayout, hideSpent, showEvents, lifeEvents }) {
   const currentAge = Math.floor(stats.age.years);
   const layoutCfg = WEEK_LAYOUTS.find(v => v.id === weekLayout) || WEEK_LAYOUTS[0];
+  const [containerRef, containerWidth] = useContainerWidth();
 
   const allWeeks = useMemo(() => {
     const weeks = [];
@@ -430,7 +471,25 @@ function WeekGridView({ grid, stats, birthDate, cellCfg, weekLayout, hideSpent, 
     [birthDate, grid, stats, showEvents, lifeEvents]
   );
 
-  const weeksPerRow = layoutCfg.weeksPerRow || 104;
+  // Responsive: compute how many weeks fit in available width
+  const labelW = 24;
+  const effectiveWeeksPerRow = useMemo(() => {
+    const desired = layoutCfg.weeksPerRow || 104;
+    if (!containerWidth) return desired;
+    const available = containerWidth - labelW - cellCfg.gap;
+    const maxWeeks = Math.floor((available + cellCfg.gap) / (cellCfg.size + cellCfg.gap));
+    return Math.max(13, Math.min(desired, maxWeeks));
+  }, [containerWidth, layoutCfg, cellCfg, labelW]);
+
+  // Auto-size cells to fill when constrained
+  const responsiveCell = useMemo(() => {
+    if (!containerWidth) return cellCfg;
+    const available = containerWidth - labelW - cellCfg.gap;
+    const neededWidth = effectiveWeeksPerRow * (cellCfg.size + cellCfg.gap) - cellCfg.gap;
+    if (neededWidth <= available) return cellCfg;
+    const size = Math.max(2, Math.floor((available + cellCfg.gap) / effectiveWeeksPerRow - cellCfg.gap));
+    return { size, gap: cellCfg.gap };
+  }, [containerWidth, effectiveWeeksPerRow, cellCfg, labelW]);
 
   const filteredGrid = useMemo(() => {
     if (!hideSpent) return grid;
@@ -439,13 +498,13 @@ function WeekGridView({ grid, stats, birthDate, cellCfg, weekLayout, hideSpent, 
 
   const rows = useMemo(() => {
     if (weekLayout !== 'auto' && layoutCfg.weeksPerRow) {
-      if (layoutCfg.weeksPerRow === 52) {
+      if (effectiveWeeksPerRow >= 52) {
         return filteredGrid.map(row => ({ label: row.age, weeks: row.weeks.map((s, w) => ({ age: row.age, week: w, status: s })) }));
       }
       const result = [];
       for (const row of filteredGrid) {
-        for (let start = 0; start < row.weeks.length; start += layoutCfg.weeksPerRow) {
-          const slice = row.weeks.slice(start, start + layoutCfg.weeksPerRow);
+        for (let start = 0; start < row.weeks.length; start += effectiveWeeksPerRow) {
+          const slice = row.weeks.slice(start, start + effectiveWeeksPerRow);
           const label = start === 0 ? row.age : null;
           result.push({ label, weeks: slice.map((s, i) => ({ age: row.age, week: start + i, status: s })) });
         }
@@ -453,24 +512,24 @@ function WeekGridView({ grid, stats, birthDate, cellCfg, weekLayout, hideSpent, 
       return result;
     }
     const result = [];
-    for (let i = 0; i < allWeeks.length; i += weeksPerRow) {
-      const slice = allWeeks.slice(i, i + weeksPerRow);
+    for (let i = 0; i < allWeeks.length; i += effectiveWeeksPerRow) {
+      const slice = allWeeks.slice(i, i + effectiveWeeksPerRow);
       const firstAge = slice[0]?.age;
       result.push({ label: firstAge, weeks: slice });
     }
     return result;
-  }, [filteredGrid, allWeeks, weekLayout, layoutCfg, weeksPerRow, hideSpent]);
+  }, [filteredGrid, allWeeks, weekLayout, layoutCfg, effectiveWeeksPerRow, hideSpent]);
 
   const shouldLabel = (age) => age != null && age % 10 === 0;
 
   return (
-    <div className="overflow-x-auto">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: `${cellCfg.gap}px` }}>
+    <div ref={containerRef} className="overflow-x-auto">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: `${responsiveCell.gap}px` }}>
         {rows.map((row, ri) => (
-          <div key={ri} style={{ display: 'flex', alignItems: 'center', gap: `${cellCfg.gap}px` }}>
+          <div key={ri} style={{ display: 'flex', alignItems: 'center', gap: `${responsiveCell.gap}px` }}>
             <span
               className={`text-right shrink-0 ${shouldLabel(row.label) ? 'text-gray-400 font-medium' : 'text-transparent'}`}
-              style={{ width: '24px', fontSize: '9px' }}
+              style={{ width: `${labelW}px`, fontSize: '9px' }}
             >
               {shouldLabel(row.label) ? row.label : '.'}
             </span>
@@ -493,7 +552,7 @@ function WeekGridView({ grid, stats, birthDate, cellCfg, weekLayout, hideSpent, 
                 <span
                   key={wi}
                   className={`shrink-0 rounded-[1px] ${bgClass} ${eventStyle ? eventStyle.ring : ''}`}
-                  style={{ width: `${cellCfg.size}px`, height: `${cellCfg.size}px` }}
+                  style={{ width: `${responsiveCell.size}px`, height: `${responsiveCell.size}px` }}
                   title={`Age ${cell.age}, Week ${cell.week + 1}${eventInfo ? ` — ${eventInfo.name}` : ''}`}
                 />
               );

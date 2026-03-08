@@ -294,29 +294,30 @@ function MiniMonth({ month, cellSize, gap, showEvents }) {
   }, [month]);
 
   const sz = cellSize;
+  const rowStyle = { display: 'grid', gridTemplateColumns: `repeat(7, ${sz}px)`, gap: `${gap}px` };
 
   return (
     <div className="flex flex-col">
       <div className="text-[10px] text-gray-400 font-medium mb-1 text-center">{month.name}</div>
-      <div style={{ display: 'flex', gap: `${gap}px`, justifyContent: 'center' }}>
+      <div style={rowStyle}>
         {DAY_LABELS.map((d, i) => (
-          <span key={i} className="text-center text-gray-600 shrink-0" style={{ width: `${sz}px`, fontSize: '7px' }}>
+          <span key={i} className="text-center text-gray-600" style={{ fontSize: '7px', lineHeight: `${sz}px` }}>
             {d}
           </span>
         ))}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: `${gap}px`, marginTop: `${gap}px` }}>
         {rows.map((row, ri) => (
-          <div key={ri} style={{ display: 'flex', gap: `${gap}px` }}>
+          <div key={ri} style={rowStyle}>
             {row.map((cell, ci) => cell ? (
               <span
                 key={ci}
-                className={`shrink-0 rounded-[1px] ${cellClasses(cell.status, false, cell.isBirthday, showEvents)}`}
+                className={`rounded-[1px] ${cellClasses(cell.status, false, cell.isBirthday, showEvents)}`}
                 style={{ width: `${sz}px`, height: `${sz}px` }}
                 title={cell.label}
               />
             ) : (
-              <span key={ci} className="shrink-0" style={{ width: `${sz}px`, height: `${sz}px` }} />
+              <span key={ci} style={{ width: `${sz}px`, height: `${sz}px` }} />
             ))}
           </div>
         ))}

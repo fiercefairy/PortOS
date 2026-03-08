@@ -104,7 +104,8 @@ function computeYearGrid(birthDate, deathDate) {
     else if (yearStart <= now && now < yearEnd) status = 'c';
     else if (yearStart > death) break;
     else status = 'r';
-    cells.push({ index: y, label: `Age ${y}`, status });
+    // Every year contains a birthday
+    cells.push({ index: y, label: `Age ${y}`, status, isBirthday: true });
   }
   return cells;
 }
@@ -113,6 +114,7 @@ function computeMonthGrid(birthDate, deathDate) {
   const birth = new Date(birthDate);
   const death = new Date(deathDate);
   const now = new Date();
+  const birthMonth = birth.getMonth();
   const cells = [];
   const cursor = new Date(birth);
   let i = 0;
@@ -126,7 +128,8 @@ function computeMonthGrid(birthDate, deathDate) {
     else status = 'r';
     const age = Math.floor(i / 12);
     const mo = i % 12;
-    cells.push({ index: i, age, month: mo, label: `Age ${age}, Month ${mo + 1}`, status });
+    const isBirthday = cursor.getMonth() === birthMonth;
+    cells.push({ index: i, age, month: mo, label: `Age ${age}, Month ${mo + 1}`, status, isBirthday });
     cursor.setMonth(cursor.getMonth() + 1);
     i++;
   }
@@ -135,6 +138,8 @@ function computeMonthGrid(birthDate, deathDate) {
 
 function computeDayGrid(birthDate, deathDate, selectedYear) {
   const birth = new Date(birthDate);
+  const birthMonth = birth.getMonth();
+  const birthDay = birth.getDate();
   const yearStart = new Date(birth);
   yearStart.setFullYear(birth.getFullYear() + selectedYear);
   const yearEnd = new Date(yearStart);
@@ -151,22 +156,30 @@ function computeDayGrid(birthDate, deathDate, selectedYear) {
     if (dayEnd <= now) status = 's';
     else if (dayStart <= now && now < dayEnd) status = 'c';
     else status = 'r';
-    cells.push({ index: dayIdx, dayOfWeek: cursor.getDay(), label: cursor.toLocaleDateString(), status });
+    const isBirthday = cursor.getMonth() === birthMonth && cursor.getDate() === birthDay;
+    cells.push({ index: dayIdx, dayOfWeek: cursor.getDay(), label: cursor.toLocaleDateString(), status, isBirthday });
     cursor.setDate(cursor.getDate() + 1);
     dayIdx++;
   }
   return cells;
 }
 
-function cellBgClass(status, isCurrent) {
+const BIRTHDAY_BG = 'bg-pink-500';
+const BIRTHDAY_RING = 'ring-1 ring-pink-500/50';
+
+function cellClasses(status, isCurrent, isBirthday, showEvents) {
+  if (isBirthday && showEvents && status === 'r') return `${BIRTHDAY_BG} ${BIRTHDAY_RING}`;
   if (status === 'c') return 'bg-port-accent shadow-[0_0_4px_rgba(59,130,246,0.5)]';
-  if (status === 's') return isCurrent ? 'bg-gray-500' : 'bg-gray-700';
-  return 'bg-port-success/20';
+  if (status === 's') {
+    const base = isCurrent ? 'bg-gray-500' : 'bg-gray-700';
+    return isBirthday && showEvents ? `${base} ${BIRTHDAY_RING}` : base;
+  }
+  return isBirthday && showEvents ? `${BIRTHDAY_BG} ${BIRTHDAY_RING}` : 'bg-port-success/20';
 }
 
 // === Year Grid ===
 
-function YearGridView({ birthDate, deathDate, cellCfg, hideSpent }) {
+function YearGridView({ birthDate, deathDate, cellCfg, hideSpent, showEvents }) {
   const cells = useMemo(() => computeYearGrid(birthDate, deathDate), [birthDate, deathDate]);
   const currentAge = Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * MS_PER_DAY));
   const filtered = hideSpent ? cells.filter(c => c.status === 'c' || c.status === 'r') : cells;
@@ -191,7 +204,7 @@ function YearGridView({ birthDate, deathDate, cellCfg, hideSpent }) {
             {row.map((cell) => (
               <span
                 key={cell.index}
-                className={`shrink-0 rounded-sm ${cellBgClass(cell.status, cell.index === currentAge)}`}
+                className={`shrink-0 rounded-sm ${cellClasses(cell.status, cell.index === currentAge, cell.isBirthday, showEvents)}`}
                 style={{ width: `${cellCfg.size + 6}px`, height: `${cellCfg.size + 6}px` }}
                 title={cell.label}
               />
@@ -205,7 +218,7 @@ function YearGridView({ birthDate, deathDate, cellCfg, hideSpent }) {
 
 // === Month Grid ===
 
-function MonthGridView({ birthDate, deathDate, cellCfg, hideSpent }) {
+function MonthGridView({ birthDate, deathDate, cellCfg, hideSpent, showEvents }) {
   const cells = useMemo(() => computeMonthGrid(birthDate, deathDate), [birthDate, deathDate]);
   const currentAge = Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * MS_PER_DAY));
   const filtered = hideSpent ? cells.filter(c => c.status === 'c' || c.status === 'r') : cells;
@@ -235,7 +248,7 @@ function MonthGridView({ birthDate, deathDate, cellCfg, hideSpent }) {
             {row.cells.map((cell) => (
               <span
                 key={cell.index}
-                className={`shrink-0 rounded-[1px] ${cellBgClass(cell.status, cell.age === currentAge)}`}
+                className={`shrink-0 rounded-[1px] ${cellClasses(cell.status, cell.age === currentAge, cell.isBirthday, showEvents)}`}
                 style={{ width: `${cellCfg.size + 2}px`, height: `${cellCfg.size + 2}px` }}
                 title={cell.label}
               />
@@ -249,7 +262,7 @@ function MonthGridView({ birthDate, deathDate, cellCfg, hideSpent }) {
 
 // === Day Grid (single year) ===
 
-function DayGridView({ birthDate, deathDate, cellCfg, stats }) {
+function DayGridView({ birthDate, deathDate, cellCfg, stats, showEvents }) {
   const currentAge = Math.floor(stats.age.years);
   const totalYears = Math.ceil((new Date(deathDate) - new Date(birthDate)) / (365.25 * MS_PER_DAY));
   const [selectedYear, setSelectedYear] = useState(currentAge);
@@ -310,7 +323,7 @@ function DayGridView({ birthDate, deathDate, cellCfg, stats }) {
               {row.map((cell, ci) => cell ? (
                 <span
                   key={ci}
-                  className={`shrink-0 rounded-[1px] ${cellBgClass(cell.status, false)}`}
+                  className={`shrink-0 rounded-[1px] ${cellClasses(cell.status, false, cell.isBirthday, showEvents)}`}
                   style={{ width: `${cellCfg.size}px`, height: `${cellCfg.size}px` }}
                   title={cell.label}
                 />
@@ -512,12 +525,10 @@ function LifeGrid({ grid, stats, birthDate, deathDate }) {
           ))}
         </div>
         {/* Toggles */}
-        {unit === 'weeks' && (
-          <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
-            <input type="checkbox" checked={showEvents} onChange={(e) => setShowEvents(e.target.checked)} className="rounded border-port-border" />
-            Birthdays
-          </label>
-        )}
+        <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
+          <input type="checkbox" checked={showEvents} onChange={(e) => setShowEvents(e.target.checked)} className="rounded border-port-border" />
+          Birthdays
+        </label>
         {unit !== 'days' && (
           <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
             <input type="checkbox" checked={hideSpent} onChange={(e) => setHideSpent(e.target.checked)} className="rounded border-port-border" />
@@ -534,7 +545,7 @@ function LifeGrid({ grid, stats, birthDate, deathDate }) {
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-gray-600" /> Spent</span>
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-port-accent" /> Now</span>
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-port-success/30" /> Remaining</span>
-        {unit === 'weeks' && showEvents && EVENT_COLORS.filter(e => e.id === 'birthday').map(e => (
+        {showEvents && EVENT_COLORS.filter(e => e.id === 'birthday').map(e => (
           <span key={e.id} className="flex items-center gap-1">
             <span className={`w-2 h-2 rounded-sm ${e.color}`} /> {e.label}
           </span>
@@ -543,16 +554,16 @@ function LifeGrid({ grid, stats, birthDate, deathDate }) {
 
       {/* Grid */}
       {unit === 'years' && (
-        <YearGridView birthDate={birthDate} deathDate={deathDate} cellCfg={cellCfg} hideSpent={hideSpent} />
+        <YearGridView birthDate={birthDate} deathDate={deathDate} cellCfg={cellCfg} hideSpent={hideSpent} showEvents={showEvents} />
       )}
       {unit === 'months' && (
-        <MonthGridView birthDate={birthDate} deathDate={deathDate} cellCfg={cellCfg} hideSpent={hideSpent} />
+        <MonthGridView birthDate={birthDate} deathDate={deathDate} cellCfg={cellCfg} hideSpent={hideSpent} showEvents={showEvents} />
       )}
       {unit === 'weeks' && (
         <WeekGridView grid={grid} stats={stats} birthDate={birthDate} cellCfg={cellCfg} weekLayout={weekLayout} hideSpent={hideSpent} showEvents={showEvents} />
       )}
       {unit === 'days' && (
-        <DayGridView birthDate={birthDate} deathDate={deathDate} cellCfg={cellCfg} stats={stats} />
+        <DayGridView birthDate={birthDate} deathDate={deathDate} cellCfg={cellCfg} stats={stats} showEvents={showEvents} />
       )}
     </div>
   );

@@ -136,32 +136,49 @@ function computeMonthGrid(birthDate, deathDate) {
   return cells;
 }
 
-function computeDayGrid(birthDate, deathDate, selectedYear) {
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+function computeMonthCalendars(birthDate, deathDate, selectedAge) {
   const birth = new Date(birthDate);
   const birthMonth = birth.getMonth();
   const birthDay = birth.getDate();
-  const yearStart = new Date(birth);
-  yearStart.setFullYear(birth.getFullYear() + selectedYear);
-  const yearEnd = new Date(yearStart);
-  yearEnd.setFullYear(yearEnd.getFullYear() + 1);
   const death = new Date(deathDate);
   const now = new Date();
-  const cells = [];
-  const cursor = new Date(yearStart);
-  let dayIdx = 0;
-  while (cursor < yearEnd && cursor < death) {
-    const dayStart = new Date(cursor);
-    const dayEnd = new Date(cursor.getTime() + MS_PER_DAY);
-    let status;
-    if (dayEnd <= now) status = 's';
-    else if (dayStart <= now && now < dayEnd) status = 'c';
-    else status = 'r';
-    const isBirthday = cursor.getMonth() === birthMonth && cursor.getDate() === birthDay;
-    cells.push({ index: dayIdx, dayOfWeek: cursor.getDay(), label: cursor.toLocaleDateString(), status, isBirthday });
-    cursor.setDate(cursor.getDate() + 1);
-    dayIdx++;
+
+  // 2-year span centered on birthday: from birthday at selectedAge to birthday at selectedAge+2
+  const rangeStart = new Date(birth);
+  rangeStart.setFullYear(birth.getFullYear() + selectedAge);
+  const rangeEnd = new Date(rangeStart);
+  rangeEnd.setFullYear(rangeEnd.getFullYear() + 2);
+
+  const months = [];
+  const cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+
+  while (cursor < rangeEnd && cursor < death) {
+    const year = cursor.getFullYear();
+    const month = cursor.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDow = new Date(year, month, 1).getDay();
+
+    const days = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(year, month, d);
+      const dateEnd = new Date(date.getTime() + MS_PER_DAY);
+      let status;
+      if (date >= death) break;
+      if (dateEnd <= now) status = 's';
+      else if (date <= now && now < dateEnd) status = 'c';
+      else status = 'r';
+      const isBirthday = month === birthMonth && d === birthDay;
+      days.push({ day: d, status, isBirthday, dow: date.getDay(), label: date.toLocaleDateString() });
+    }
+
+    months.push({ year, month, name: `${MONTH_NAMES[month]} ${year}`, firstDow, days });
+    cursor.setMonth(cursor.getMonth() + 1);
   }
-  return cells;
+
+  return months;
 }
 
 const BIRTHDAY_BG = 'bg-pink-500';
@@ -260,79 +277,93 @@ function MonthGridView({ birthDate, deathDate, cellCfg, hideSpent, showEvents })
   );
 }
 
-// === Day Grid (single year) ===
+// === Day Grid (monthly calendar layout, 2-year span) ===
+
+function MiniMonth({ month, cellSize, gap, showEvents }) {
+  // Build week rows with leading padding
+  const rows = useMemo(() => {
+    const result = [];
+    const padded = [...Array(month.firstDow).fill(null), ...month.days];
+    for (let i = 0; i < padded.length; i += 7) {
+      result.push(padded.slice(i, i + 7));
+    }
+    // Pad last row to 7
+    const last = result[result.length - 1];
+    while (last && last.length < 7) last.push(null);
+    return result;
+  }, [month]);
+
+  const sz = cellSize;
+
+  return (
+    <div className="flex flex-col">
+      <div className="text-[10px] text-gray-400 font-medium mb-1 text-center">{month.name}</div>
+      <div style={{ display: 'flex', gap: `${gap}px`, justifyContent: 'center' }}>
+        {DAY_LABELS.map((d, i) => (
+          <span key={i} className="text-center text-gray-600 shrink-0" style={{ width: `${sz}px`, fontSize: '7px' }}>
+            {d}
+          </span>
+        ))}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: `${gap}px`, marginTop: `${gap}px` }}>
+        {rows.map((row, ri) => (
+          <div key={ri} style={{ display: 'flex', gap: `${gap}px` }}>
+            {row.map((cell, ci) => cell ? (
+              <span
+                key={ci}
+                className={`shrink-0 rounded-[1px] ${cellClasses(cell.status, false, cell.isBirthday, showEvents)}`}
+                style={{ width: `${sz}px`, height: `${sz}px` }}
+                title={cell.label}
+              />
+            ) : (
+              <span key={ci} className="shrink-0" style={{ width: `${sz}px`, height: `${sz}px` }} />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function DayGridView({ birthDate, deathDate, cellCfg, stats, showEvents }) {
   const currentAge = Math.floor(stats.age.years);
   const totalYears = Math.ceil((new Date(deathDate) - new Date(birthDate)) / (365.25 * MS_PER_DAY));
-  const [selectedYear, setSelectedYear] = useState(currentAge);
+  const [selectedAge, setSelectedAge] = useState(currentAge);
 
-  const cells = useMemo(() => computeDayGrid(birthDate, deathDate, selectedYear), [birthDate, deathDate, selectedYear]);
-
-  // Group into rows of 7 (week rows)
-  const rows = useMemo(() => {
-    const result = [];
-    // Pad start to align with day of week
-    const firstDow = cells[0]?.dayOfWeek ?? 0;
-    const padded = [...Array(firstDow).fill(null), ...cells];
-    for (let i = 0; i < padded.length; i += 7) {
-      result.push(padded.slice(i, i + 7));
-    }
-    return result;
-  }, [cells]);
-
-  const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const months = useMemo(
+    () => computeMonthCalendars(birthDate, deathDate, selectedAge),
+    [birthDate, deathDate, selectedAge]
+  );
 
   return (
     <div>
       <div className="flex items-center gap-3 mb-3">
         <button
-          onClick={() => setSelectedYear(Math.max(0, selectedYear - 1))}
+          onClick={() => setSelectedAge(Math.max(0, selectedAge - 1))}
           className="px-2 py-0.5 text-xs text-gray-400 hover:text-white rounded bg-port-bg border border-port-border"
         >
           &larr;
         </button>
-        <span className="text-sm text-white font-medium">Age {selectedYear}</span>
+        <span className="text-sm text-white font-medium">Age {selectedAge}&ndash;{selectedAge + 2}</span>
         <button
-          onClick={() => setSelectedYear(Math.min(totalYears - 1, selectedYear + 1))}
+          onClick={() => setSelectedAge(Math.min(totalYears - 2, selectedAge + 1))}
           className="px-2 py-0.5 text-xs text-gray-400 hover:text-white rounded bg-port-bg border border-port-border"
         >
           &rarr;
         </button>
-        {selectedYear !== currentAge && (
+        {selectedAge !== currentAge && (
           <button
-            onClick={() => setSelectedYear(currentAge)}
+            onClick={() => setSelectedAge(currentAge)}
             className="px-2 py-0.5 text-xs text-port-accent hover:text-white"
           >
             Current
           </button>
         )}
       </div>
-      <div className="overflow-x-auto">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: `${cellCfg.gap}px` }}>
-          {/* Day-of-week header */}
-          <div style={{ display: 'flex', gap: `${cellCfg.gap}px`, marginLeft: '0px' }}>
-            {dayLabels.map((d, i) => (
-              <span key={i} className="text-center text-gray-600 shrink-0" style={{ width: `${cellCfg.size}px`, fontSize: '8px' }}>
-                {d}
-              </span>
-            ))}
-          </div>
-          {rows.map((row, ri) => (
-            <div key={ri} style={{ display: 'flex', gap: `${cellCfg.gap}px` }}>
-              {row.map((cell, ci) => cell ? (
-                <span
-                  key={ci}
-                  className={`shrink-0 rounded-[1px] ${cellClasses(cell.status, false, cell.isBirthday, showEvents)}`}
-                  style={{ width: `${cellCfg.size}px`, height: `${cellCfg.size}px` }}
-                  title={cell.label}
-                />
-              ) : (
-                <span key={ci} className="shrink-0" style={{ width: `${cellCfg.size}px`, height: `${cellCfg.size}px` }} />
-              ))}
-            </div>
-          ))}
-        </div>
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+        {months.map((m, i) => (
+          <MiniMonth key={i} month={m} cellSize={cellCfg.size} gap={cellCfg.gap} showEvents={showEvents} />
+        ))}
       </div>
     </div>
   );

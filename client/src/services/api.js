@@ -1537,6 +1537,14 @@ export const generateMemoryDrill = (data) => request('/meatspace/post/memory-dri
   body: JSON.stringify(data)
 });
 
+// MeatSpace - POST Training Log
+export const submitTrainingEntry = (data) => request('/meatspace/post/training', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const getTrainingStats = (days) => request(`/meatspace/post/training/stats${days != null ? `?days=${days}` : ''}`);
+export const getTrainingEntries = (limit) => request(`/meatspace/post/training/entries${limit ? `?limit=${limit}` : ''}`);
+
 // Life Calendar
 export const getLifeCalendar = () => request('/meatspace/calendar');
 export const getActivities = () => request('/meatspace/activities');

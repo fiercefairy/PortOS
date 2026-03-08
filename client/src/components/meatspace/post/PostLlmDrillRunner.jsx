@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { CheckCircle, XCircle, Loader } from 'lucide-react';
+import { scorePostLlmDrill } from '../../../services/api';
 
 const DRILL_LABELS = {
   'word-association': 'Word Association',
@@ -13,13 +15,14 @@ const DRILL_LABELS = {
   'reframe': 'Reframe',
 };
 
-export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, drillCount, onComplete }) {
+export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, drillCount, onComplete, isTraining, providerId, model }) {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [responses, setResponses] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [timeLeft, setTimeLeft] = useState(0);
   const [phase, setPhase] = useState('active'); // active | reading | recall
   const [items, setItems] = useState([]); // for verbal-fluency
+  const [trainingFeedback, setTrainingFeedback] = useState(null); // { score, feedback, scoring }
   const inputRef = useRef(null);
   const timerRef = useRef(null);
   const questionStartRef = useRef(Date.now());
@@ -39,6 +42,12 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
     drillStartRef.current = Date.now();
     questionStartRef.current = Date.now();
     setPhase(drillType === 'story-recall' ? 'reading' : 'active');
+    setTrainingFeedback(null);
+
+    if (isTraining) {
+      setTimeLeft(0);
+      return;
+    }
 
     const startTime = Date.now();
     const limit = timeLimitMs;
@@ -55,7 +64,7 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
     }, 100);
 
     return () => clearInterval(timerRef.current);
-  }, [drill]);
+  }, [drill, isTraining]);
 
   // Keep refs in sync with state for use in interval callbacks
   useEffect(() => { responsesRef.current = responses; }, [responses]);
@@ -92,13 +101,12 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
     });
   }
 
-  const handleSubmit = useCallback((e) => {
+  const handleSubmit = useCallback(async (e) => {
     e?.preventDefault();
     const responseMs = Date.now() - questionStartRef.current;
 
     let responseObj;
     if (drillType === 'story-recall') {
-      // Submit all recall answers at once
       responseObj = {
         answers: items.length > 0 ? items : [inputValue.trim()],
         responseMs
@@ -119,6 +127,21 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
     const newResponses = [...responses, responseObj];
     setResponses(newResponses);
 
+    // Training mode: score this response immediately and show feedback
+    if (isTraining) {
+      setTrainingFeedback({ scoring: true });
+      const scored = await scorePostLlmDrill(
+        drillType, drill, [responseObj], timeLimitMs, providerId, model
+      ).catch(() => null);
+      const fb = scored?.evaluation?.scores?.[0] || {};
+      setTrainingFeedback({
+        scoring: false,
+        score: fb.score ?? scored?.score ?? 0,
+        feedback: fb.feedback || scored?.evaluation?.summary || 'No feedback available',
+      });
+      return;
+    }
+
     if (questionIndex + 1 >= totalPrompts) {
       finishDrill(newResponses);
     } else {
@@ -129,7 +152,22 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
         setItems([]);
       }
     }
-  }, [inputValue, items, responses, questionIndex, totalPrompts, drillType, currentPrompt]);
+  }, [inputValue, items, responses, questionIndex, totalPrompts, drillType, currentPrompt, isTraining, drill, timeLimitMs, providerId, model]);
+
+  // Training mode: advance after acknowledging feedback
+  const acknowledgeTrainingFeedback = useCallback(() => {
+    setTrainingFeedback(null);
+    if (questionIndex + 1 >= totalPrompts) {
+      finishDrill(responses);
+    } else {
+      setQuestionIndex(questionIndex + 1);
+      questionStartRef.current = Date.now();
+      if (drillType === 'story-recall') {
+        setPhase('reading');
+        setItems([]);
+      }
+    }
+  }, [questionIndex, totalPrompts, responses, drillType]);
 
   // Story recall: transition from reading to answering
   function handleStartRecall() {
@@ -171,19 +209,79 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
   if (timePct <= 10) timerColor = 'bg-port-error';
   else if (timePct <= 25) timerColor = 'bg-port-warning';
 
+  // Training mode: feedback overlay
+  if (isTraining && trainingFeedback) {
+    if (trainingFeedback.scoring) {
+      return (
+        <div className="max-w-lg mx-auto space-y-6">
+          <div className="flex items-center justify-between text-sm text-gray-400">
+            <span className="text-purple-400">{DRILL_LABELS[drillType] || drillType} — Training</span>
+            <span>Drill {drillIndex + 1} of {drillCount}</span>
+          </div>
+          <div className="flex flex-col items-center gap-3 py-12">
+            <Loader size={32} className="text-purple-400 animate-spin" />
+            <span className="text-gray-400 text-sm">Evaluating your response...</span>
+          </div>
+        </div>
+      );
+    }
+
+    const fbScoreColor = (trainingFeedback.score || 0) >= 70 ? 'text-port-success' :
+      (trainingFeedback.score || 0) >= 40 ? 'text-port-warning' : 'text-port-error';
+    const FbIcon = (trainingFeedback.score || 0) >= 70 ? CheckCircle : XCircle;
+
+    return (
+      <div className="max-w-lg mx-auto space-y-6">
+        <div className="flex items-center justify-between text-sm text-gray-400">
+          <span className="text-purple-400">{DRILL_LABELS[drillType] || drillType} — Training</span>
+          <span>Drill {drillIndex + 1} of {drillCount}</span>
+        </div>
+        <div className="text-center py-6">
+          <FbIcon size={40} className={fbScoreColor} />
+          <div className={`text-3xl font-mono font-bold mt-2 ${fbScoreColor}`}>{trainingFeedback.score}</div>
+        </div>
+        <div className="bg-port-card border border-port-border rounded-lg p-4">
+          <p className="text-sm text-gray-300">{trainingFeedback.feedback}</p>
+        </div>
+        <button
+          onClick={acknowledgeTrainingFeedback}
+          autoFocus
+          className="w-full px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-medium rounded-lg transition-colors"
+        >
+          Next
+        </button>
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs text-gray-500">
+            <span>Prompt {questionIndex + 1} of {totalPrompts}</span>
+          </div>
+          <div className="w-full h-1.5 bg-port-border rounded-full overflow-hidden">
+            <div className="h-full bg-purple-500/60 transition-all" style={{ width: `${((questionIndex + 1) / totalPrompts) * 100}%` }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-lg mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between text-sm text-gray-400">
-        <span>{DRILL_LABELS[drillType] || drillType}</span>
+        <span className={isTraining ? 'text-purple-400' : ''}>
+          {DRILL_LABELS[drillType] || drillType}
+          {isTraining && ' — Training'}
+        </span>
         <span>Drill {drillIndex + 1} of {drillCount}</span>
       </div>
 
-      {/* Timer bar */}
-      <div className="w-full h-2 bg-port-border rounded-full overflow-hidden">
-        <div className={`h-full ${timerColor} transition-all duration-100`} style={{ width: `${timePct}%` }} />
-      </div>
-      <div className="text-center text-sm text-gray-500">{Math.ceil(timeLeft / 1000)}s remaining</div>
+      {/* Timer bar (hidden in training mode) */}
+      {!isTraining && (
+        <>
+          <div className="w-full h-2 bg-port-border rounded-full overflow-hidden">
+            <div className={`h-full ${timerColor} transition-all duration-100`} style={{ width: `${timePct}%` }} />
+          </div>
+          <div className="text-center text-sm text-gray-500">{Math.ceil(timeLeft / 1000)}s remaining</div>
+        </>
+      )}
 
       {/* Drill-specific UI */}
       {drillType === 'word-association' && (

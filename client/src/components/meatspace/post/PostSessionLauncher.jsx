@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Zap, History, Settings, Play, Brain, BookOpen } from 'lucide-react';
+import { Zap, History, Settings, Play, Brain, BookOpen, Dumbbell } from 'lucide-react';
 import { getProviders } from '../../../services/api';
 
 const DRILL_LABELS = {
@@ -25,6 +25,7 @@ const DRILL_LABELS = {
 
 export default function PostSessionLauncher({ config, recentSessions, onStart, onViewHistory, onViewConfig, onViewMemory }) {
   const [tags, setTags] = useState({ sleep: '', caffeine: '', stress: '' });
+  const [mode, setMode] = useState('test'); // 'test' | 'train'
   const [providers, setProviders] = useState([]);
 
   useEffect(() => {
@@ -78,7 +79,7 @@ export default function PostSessionLauncher({ config, recentSessions, onStart, o
     for (const [k, v] of Object.entries(tags)) {
       if (v.trim()) cleanTags[k] = v.trim();
     }
-    onStart(drillConfigs, cleanTags);
+    onStart(drillConfigs, cleanTags, mode === 'train');
   }
 
   const hasAnyDrills = enabledMathDrills.length > 0 || enabledLlmDrills.length > 0;
@@ -180,8 +181,42 @@ export default function PostSessionLauncher({ config, recentSessions, onStart, o
         </div>
       )}
 
-      {/* Condition Tags */}
+      {/* Mode Toggle */}
       <div className="bg-port-card border border-port-border rounded-lg p-4">
+        <h3 className="text-sm font-medium text-gray-400 mb-3">Session Mode</h3>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setMode('test')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              mode === 'test'
+                ? 'bg-port-accent text-white'
+                : 'bg-port-bg border border-port-border text-gray-400 hover:text-white'
+            }`}
+          >
+            <Zap size={14} />
+            Test
+          </button>
+          <button
+            onClick={() => setMode('train')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              mode === 'train'
+                ? 'bg-purple-600 text-white'
+                : 'bg-port-bg border border-port-border text-gray-400 hover:text-white'
+            }`}
+          >
+            <Dumbbell size={14} />
+            Train
+          </button>
+        </div>
+        <p className="text-xs text-gray-500 mt-2">
+          {mode === 'train'
+            ? 'Training mode: immediate feedback, hints on wrong answers. Not scored.'
+            : 'Test mode: timed drills with scoring. Saved to history.'}
+        </p>
+      </div>
+
+      {/* Condition Tags */}
+      {mode === 'test' && <div className="bg-port-card border border-port-border rounded-lg p-4">
         <h3 className="text-sm font-medium text-gray-400 mb-3">Conditions (optional)</h3>
         <div className="grid grid-cols-3 gap-3">
           {Object.entries(tags).map(([key, value]) => (
@@ -197,16 +232,20 @@ export default function PostSessionLauncher({ config, recentSessions, onStart, o
             </div>
           ))}
         </div>
-      </div>
+      </div>}
 
       {/* Start Button */}
       <button
         onClick={handleStart}
         disabled={!hasAnyDrills}
-        className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-port-accent hover:bg-port-accent/80 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+        className={`w-full flex items-center justify-center gap-2 px-6 py-3 ${
+          mode === 'train'
+            ? 'bg-purple-600 hover:bg-purple-500'
+            : 'bg-port-accent hover:bg-port-accent/80'
+        } disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors`}
       >
-        <Play size={18} />
-        Start POST
+        {mode === 'train' ? <Dumbbell size={18} /> : <Play size={18} />}
+        {mode === 'train' ? 'Start Training' : 'Start POST'}
       </button>
 
       {/* Recent Scores */}

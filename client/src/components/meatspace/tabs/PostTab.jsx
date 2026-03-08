@@ -30,9 +30,9 @@ export default function PostTab() {
     setRecentSessions(sessions || []);
   }
 
-  async function handleStart(drillConfigs, tags) {
+  async function handleStart(drillConfigs, tags, training = false) {
     setSessionTags(tags || {});
-    const started = await session.startSession(drillConfigs);
+    const started = await session.startSession(drillConfigs, training);
     if (started) setView('running');
   }
 
@@ -88,6 +88,7 @@ export default function PostTab() {
   switch (view) {
     case 'running':
       if (isLlmDrill) {
+        const drillConfig = session.drills[session.currentDrillIndex];
         return (
           <PostLlmDrillRunner
             drill={session.currentDrill}
@@ -95,6 +96,9 @@ export default function PostTab() {
             drillIndex={session.currentDrillIndex}
             drillCount={session.drillCount}
             onComplete={session.completeLlmDrill}
+            isTraining={session.isTraining}
+            providerId={drillConfig?.providerId}
+            model={drillConfig?.model}
           />
         );
       }

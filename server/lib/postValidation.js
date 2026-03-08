@@ -184,4 +184,13 @@ export const memoryDrillRequestSchema = z.object({
   count: z.number().int().min(1).max(30).optional().default(5),
 });
 
+// Training log entry submission
+export const trainingEntrySchema = z.object({
+  module: z.string(),
+  drillType: z.enum(DRILL_TYPES),
+  questionCount: z.number().int().min(0),
+  correctCount: z.number().int().min(0),
+  totalMs: z.number().min(0),
+});
+
 export { LLM_DRILL_TYPES, MATH_DRILL_TYPES, MEMORY_DRILL_TYPES };

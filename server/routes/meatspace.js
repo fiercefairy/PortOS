@@ -28,6 +28,7 @@ import {
   memoryDrillRequestSchema,
   LLM_DRILL_TYPES,
   MEMORY_DRILL_TYPES,
+  trainingEntrySchema,
 } from '../lib/postValidation.js';
 import * as meatspaceService from '../services/meatspace.js';
 import * as alcoholService from '../services/meatspaceAlcohol.js';
@@ -35,6 +36,7 @@ import * as healthService from '../services/meatspaceHealth.js';
 import * as postService from '../services/meatspacePost.js';
 import * as memoryService from '../services/meatspacePostMemory.js';
 import { generateLlmDrill, scoreLlmDrill } from '../services/meatspacePostLlm.js';
+import * as trainingService from '../services/meatspacePostTraining.js';
 import * as calendarService from '../services/meatspaceCalendar.js';
 
 const router = Router();
@@ -475,6 +477,41 @@ router.post('/post/score-llm', asyncHandler(async (req, res) => {
     data.timeLimitMs, data.providerId, data.model
   );
   res.json(result);
+}));
+
+// =============================================================================
+// POST - Training Log
+// =============================================================================
+
+/**
+ * POST /api/meatspace/post/training
+ * Submit a training practice entry (separate from scored sessions)
+ */
+router.post('/post/training', asyncHandler(async (req, res) => {
+  const data = validateRequest(trainingEntrySchema, req.body);
+  const entry = await trainingService.submitTrainingEntry(data);
+  res.status(201).json(entry);
+}));
+
+/**
+ * GET /api/meatspace/post/training/stats
+ * Training stats: practice counts, streaks, accuracy by drill type
+ */
+router.get('/post/training/stats', asyncHandler(async (req, res) => {
+  const rawDays = req.query.days != null ? parseInt(req.query.days, 10) : 30;
+  const days = Number.isNaN(rawDays) ? 30 : rawDays > 0 ? Math.min(rawDays, 365) : 0;
+  const stats = await trainingService.getTrainingStats(days);
+  res.json(stats);
+}));
+
+/**
+ * GET /api/meatspace/post/training/entries
+ * Recent training entries
+ */
+router.get('/post/training/entries', asyncHandler(async (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+  const entries = await trainingService.getTrainingEntries(limit);
+  res.json(entries);
 }));
 
 // =============================================================================

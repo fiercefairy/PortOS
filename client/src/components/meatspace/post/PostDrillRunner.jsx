@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { CheckCircle, XCircle } from 'lucide-react';
 
 const DRILL_LABELS = {
   'doubling-chain': 'Doubling Chain',
@@ -15,8 +16,11 @@ export default function PostDrillRunner({ session }) {
     currentDrillIndex,
     drillCount,
     state,
+    isTraining,
+    lastAnswer,
     submitAnswer,
     skipQuestion,
+    acknowledgeAnswer,
     timeExpired
   } = session;
 
@@ -34,9 +38,14 @@ export default function PostDrillRunner({ session }) {
     timeExpiredRef.current = timeExpired;
   }, [timeExpired]);
 
-  // Timer
+  // Timer (disabled in training mode — no time pressure)
   useEffect(() => {
     if (state !== 'drilling' || !currentDrill) return;
+
+    if (isTraining) {
+      setTimeLeft(0);
+      return;
+    }
 
     const startTime = Date.now();
     const limit = (currentDrill.timeLimitSec || 120) * 1000;
@@ -53,7 +62,7 @@ export default function PostDrillRunner({ session }) {
     }, 100);
 
     return () => clearInterval(timerRef.current);
-  }, [state, currentDrill, currentDrillIndex]);
+  }, [state, currentDrill, currentDrillIndex, isTraining]);
 
   // Auto-focus input on question change
   useEffect(() => {
@@ -86,26 +95,89 @@ export default function PostDrillRunner({ session }) {
   if (timePct <= 10) timerColor = 'bg-port-error';
   else if (timePct <= 25) timerColor = 'bg-port-warning';
 
+  // Training mode: show feedback overlay
+  if (isTraining && lastAnswer) {
+    return (
+      <div className="max-w-lg mx-auto space-y-6">
+        <div className="flex items-center justify-between text-sm text-gray-400">
+          <span className="text-purple-400">{DRILL_LABELS[currentDrill.type] || currentDrill.type} — Training</span>
+          <span>Drill {currentDrillIndex + 1} of {drillCount}</span>
+        </div>
+
+        <div className="text-center py-8">
+          <div className="text-2xl font-mono text-gray-400 mb-4">{lastAnswer.prompt}</div>
+          {lastAnswer.correct ? (
+            <div className="flex flex-col items-center gap-2">
+              <CheckCircle size={48} className="text-port-success" />
+              <div className="text-3xl font-mono font-bold text-port-success">{lastAnswer.answered}</div>
+              <div className="text-sm text-gray-400">Correct</div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-3">
+              <XCircle size={48} className="text-port-error" />
+              {lastAnswer.answered != null ? (
+                <div className="text-2xl font-mono text-port-error line-through">{lastAnswer.answered}</div>
+              ) : (
+                <div className="text-sm text-gray-500">Skipped</div>
+              )}
+              <div className="text-sm text-gray-400">Expected</div>
+              <div className="text-3xl font-mono font-bold text-port-success">{lastAnswer.expected}</div>
+              {/* Hint: break down the calculation */}
+              {lastAnswer.prompt && (
+                <div className="text-xs text-gray-500 mt-2 bg-port-bg border border-port-border rounded px-3 py-2">
+                  {formatHint(lastAnswer.prompt, lastAnswer.expected)}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={acknowledgeAnswer}
+          autoFocus
+          className="w-full px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-medium rounded-lg transition-colors"
+        >
+          Next
+        </button>
+
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs text-gray-500">
+            <span>Question {currentQuestionIndex + 1} of {totalQuestions}</span>
+            <span>{Math.round(progressPct)}%</span>
+          </div>
+          <div className="w-full h-1.5 bg-port-border rounded-full overflow-hidden">
+            <div className="h-full bg-purple-500/60 transition-all" style={{ width: `${progressPct}%` }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-lg mx-auto space-y-6">
       {/* Drill header */}
       <div className="flex items-center justify-between text-sm text-gray-400">
-        <span>{DRILL_LABELS[currentDrill.type] || currentDrill.type}</span>
+        <span className={isTraining ? 'text-purple-400' : ''}>
+          {DRILL_LABELS[currentDrill.type] || currentDrill.type}
+          {isTraining && ' — Training'}
+        </span>
         <span>Drill {currentDrillIndex + 1} of {drillCount}</span>
       </div>
 
-      {/* Timer bar */}
-      <div className="w-full h-2 bg-port-border rounded-full overflow-hidden">
-        <div
-          className={`h-full ${timerColor} transition-all duration-100`}
-          style={{ width: `${timePct}%` }}
-        />
-      </div>
-
-      {/* Time remaining */}
-      <div className="text-center text-sm text-gray-500">
-        {Math.ceil(timeLeft / 1000)}s remaining
-      </div>
+      {/* Timer bar (hidden in training mode) */}
+      {!isTraining && (
+        <>
+          <div className="w-full h-2 bg-port-border rounded-full overflow-hidden">
+            <div
+              className={`h-full ${timerColor} transition-all duration-100`}
+              style={{ width: `${timePct}%` }}
+            />
+          </div>
+          <div className="text-center text-sm text-gray-500">
+            {Math.ceil(timeLeft / 1000)}s remaining
+          </div>
+        </>
+      )}
 
       {/* Question */}
       <div className="text-center py-8">
@@ -129,7 +201,7 @@ export default function PostDrillRunner({ session }) {
         <button
           type="submit"
           disabled={inputValue.trim() === ''}
-          className="px-6 py-3 bg-port-accent hover:bg-port-accent/80 disabled:opacity-50 text-white font-medium rounded-lg transition-colors"
+          className={`px-6 py-3 ${isTraining ? 'bg-purple-600 hover:bg-purple-500' : 'bg-port-accent hover:bg-port-accent/80'} disabled:opacity-50 text-white font-medium rounded-lg transition-colors`}
         >
           Enter
         </button>
@@ -153,11 +225,21 @@ export default function PostDrillRunner({ session }) {
         </div>
         <div className="w-full h-1.5 bg-port-border rounded-full overflow-hidden">
           <div
-            className="h-full bg-port-accent/60 transition-all"
+            className={`h-full ${isTraining ? 'bg-purple-500/60' : 'bg-port-accent/60'} transition-all`}
             style={{ width: `${progressPct}%` }}
           />
         </div>
       </div>
     </div>
   );
+}
+
+function formatHint(prompt, expected) {
+  // Break down the calculation for learning
+  const match = prompt.match(/^(-?\d+)\s*([+\-x^])\s*(-?\d+)$/);
+  if (!match) return `${prompt} = ${expected}`;
+  const [, a, op, b] = match;
+  if (op === 'x') return `${a} × ${b} = ${expected}`;
+  if (op === '^') return `${a}^${b} = ${expected}`;
+  return `${prompt} = ${expected}`;
 }

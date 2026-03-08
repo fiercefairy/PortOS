@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle, Save, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle, Save, ArrowLeft, ChevronDown, ChevronUp, Dumbbell } from 'lucide-react';
 import { LLM_DRILL_TYPES } from './constants';
 
 const DRILL_LABELS = {
@@ -16,7 +16,7 @@ const DRILL_LABELS = {
 };
 
 export default function PostSessionResults({ session, tags = {}, onSaved, onBack }) {
-  const { drillResults, sessionScore, state, saveSession } = session;
+  const { drillResults, sessionScore, state, saveSession, isTraining } = session;
   const [expandedDrill, setExpandedDrill] = useState(null);
 
   const scoreColor = sessionScore >= 80 ? 'text-port-success' :
@@ -32,12 +32,16 @@ export default function PostSessionResults({ session, tags = {}, onSaved, onBack
       {/* Overall Score */}
       <div className="text-center py-8">
         <div className="flex items-center justify-center gap-3 mb-2">
-          <CheckCircle size={28} className={scoreColor} />
-          <span className="text-sm text-gray-400">Session Score</span>
+          {isTraining ? <Dumbbell size={28} className="text-purple-400" /> : <CheckCircle size={28} className={scoreColor} />}
+          <span className="text-sm text-gray-400">{isTraining ? 'Training Session' : 'Session Score'}</span>
         </div>
-        <div className={`text-6xl font-mono font-bold ${scoreColor}`}>
-          {sessionScore}
-        </div>
+        {isTraining ? (
+          <div className="text-2xl text-purple-400 font-medium">Practice Complete</div>
+        ) : (
+          <div className={`text-6xl font-mono font-bold ${scoreColor}`}>
+            {sessionScore}
+          </div>
+        )}
       </div>
 
       {/* Per-drill Breakdown */}
@@ -117,10 +121,12 @@ export default function PostSessionResults({ session, tags = {}, onSaved, onBack
       {state === 'complete' && (
         <button
           onClick={handleSave}
-          className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-port-success hover:bg-port-success/80 text-white font-medium rounded-lg transition-colors"
+          className={`w-full flex items-center justify-center gap-2 px-6 py-3 ${
+            isTraining ? 'bg-purple-600 hover:bg-purple-500' : 'bg-port-success hover:bg-port-success/80'
+          } text-white font-medium rounded-lg transition-colors`}
         >
-          <Save size={18} />
-          Save Session
+          {isTraining ? <Dumbbell size={18} /> : <Save size={18} />}
+          {isTraining ? 'Log Training' : 'Save Session'}
         </button>
       )}
 

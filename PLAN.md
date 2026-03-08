@@ -88,7 +88,7 @@ pm2 logs
   - [x] P1-P2: Memory Builder engine + Elements Song + UI — data model, CRUD routes, practice/mastery tracking, built-in Elements Song with lyrics and element mapping, periodic table mastery visualization, practice modes (learn/fill-blank/sequence/speed-run/element-flash)
   - [x] P3: Imagination & Ideation drills — what-if, alternative-uses, story-prompt, invention-pitch, reframe; LLM generation + scoring; ImaginationDrillRunner UI
   - [x] P4: Training mode — train/test toggle in session launcher, no time pressure, immediate correct/wrong feedback with hints (math), per-response LLM scoring feedback, practice log tracking in `post-training-log.json` (separate from scored history)
-  - [ ] P5: 5-minute session flow — time-budgeted session that pulls one drill per enabled domain, transition UI between drills, session score as weighted domain average
+  - [x] P5: 5-minute session flow — Quick 5 Min button picks one drill per enabled domain with time budgets (Math 60s, Memory 90s, Wordplay 60s, Verbal 60s, Imagination 60s), DrillTransition UI between drills with domain label/progress/auto-advance, domain-weighted session scoring, per-domain score summary in results
   - [ ] P6: Custom memory items — user adds songs/poems/speeches/sequences via config UI, auto-chunking, spaced repetition scheduling based on mastery
 
 - [ ] **M54**: MeatSpace Life Calendar — "4000 Weeks" mortality-aware time mapping

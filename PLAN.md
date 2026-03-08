@@ -86,7 +86,7 @@ pm2 logs
 
 - [ ] **M55**: POST Enhancement — Memory builder, imagination drills, training mode, 5-min balanced sessions. See [POST](./docs/features/post.md)
   - [x] P1-P2: Memory Builder engine + Elements Song + UI — data model, CRUD routes, practice/mastery tracking, built-in Elements Song with lyrics and element mapping, periodic table mastery visualization, practice modes (learn/fill-blank/sequence/speed-run/element-flash)
-  - [ ] P3: Imagination & Ideation drills — what-if, alternative-uses, story-prompt, invention-pitch, reframe; LLM generation + scoring; ImaginationDrillRunner UI
+  - [x] P3: Imagination & Ideation drills — what-if, alternative-uses, story-prompt, invention-pitch, reframe; LLM generation + scoring; ImaginationDrillRunner UI
   - [ ] P4: Training mode — per-domain train vs test toggle in session launcher, progressive difficulty, hints, immediate feedback, practice log tracking (separate from scored history)
   - [ ] P5: 5-minute session flow — time-budgeted session that pulls one drill per enabled domain, transition UI between drills, session score as weighted domain average
   - [ ] P6: Custom memory items — user adds songs/poems/speeches/sequences via config UI, auto-chunking, spaced repetition scheduling based on mastery

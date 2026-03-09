@@ -27,7 +27,7 @@ function formatDate(date) {
   return date.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 }
 
-export default function DayView({ accounts }) {
+export default function DayView() {
   const [date, setDate] = useState(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);

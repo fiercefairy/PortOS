@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
-import { getToken } from './messageTokenExtractor.js';
+import { getToken, clearTokenCache } from './messageTokenExtractor.js';
 
 function makeExternalId(id) {
   const hash = crypto.createHash('md5').update(id).digest('hex').slice(0, 12);
@@ -51,6 +51,7 @@ export async function syncOutlookCalendarApi(account, cache, io, options = {}) {
   const baseUrl = `https://outlook.office.com/api/v2.0/me/calendarview?startDateTime=${encodeURIComponent(startDateTime)}&endDateTime=${encodeURIComponent(endDateTime)}&${select}&${orderBy}&$top=200`;
 
   const events = [];
+  const syncedAt = new Date().toISOString();
   let url = baseUrl;
   let page = 0;
 
@@ -70,7 +71,6 @@ export async function syncOutlookCalendarApi(account, cache, io, options = {}) {
       const text = await response.text().catch(() => '');
       console.log(`📅 Calendar API sync failed (${response.status}): ${text.slice(0, 200)}`);
       if (response.status === 401) {
-        const { clearTokenCache } = await import('./messageTokenExtractor.js');
         clearTokenCache('outlook');
         return null;
       }
@@ -111,7 +111,7 @@ export async function syncOutlookCalendarApi(account, cache, io, options = {}) {
         importance: item.Importance || 'Normal',
         source: 'outlook-calendar',
         syncMethod: 'api',
-        syncedAt: new Date().toISOString()
+        syncedAt
       };
       events.push(event);
     }

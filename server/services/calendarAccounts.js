@@ -1,15 +1,13 @@
-import { readFile, writeFile } from 'fs/promises';
+import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { ensureDir, PATHS, safeJSONParse } from '../lib/fileUtils.js';
+import { ensureDir, PATHS, readJSONFile } from '../lib/fileUtils.js';
 
 const ACCOUNTS_FILE = join(PATHS.calendar, 'accounts.json');
 
 async function loadAccounts() {
   await ensureDir(PATHS.calendar);
-  const content = await readFile(ACCOUNTS_FILE, 'utf-8').catch(() => null);
-  if (!content) return {};
-  const parsed = safeJSONParse(content, {}, { context: 'calendarAccounts' });
+  const parsed = await readJSONFile(ACCOUNTS_FILE, {});
   return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
 }
 

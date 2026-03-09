@@ -83,8 +83,7 @@ export default function AgendaTab({ accounts }) {
     toast.success('Calendar sync started');
   };
 
-  const filtered = events;
-  const grouped = groupEventsByDay(filtered);
+  const grouped = groupEventsByDay(events);
 
   return (
     <div className="space-y-4">

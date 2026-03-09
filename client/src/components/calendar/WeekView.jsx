@@ -38,7 +38,7 @@ function getEventPosition(event) {
   return { top: Math.max(top, 0), height };
 }
 
-export default function WeekView({ accounts }) {
+export default function WeekView() {
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);

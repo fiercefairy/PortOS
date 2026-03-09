@@ -30,7 +30,7 @@ function getMonthGrid(year, month) {
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export default function MonthView({ accounts }) {
+export default function MonthView() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
@@ -42,8 +42,9 @@ export default function MonthView({ accounts }) {
   const monthLabel = new Date(year, month).toLocaleDateString([], { month: 'long', year: 'numeric' });
 
   const fetchEvents = useCallback(async () => {
-    const startDate = cells[0].date.toISOString();
-    const endDate = new Date(cells[cells.length - 1].date.getTime() + 24 * 60 * 60 * 1000).toISOString();
+    const grid = getMonthGrid(year, month);
+    const startDate = grid[0].date.toISOString();
+    const endDate = new Date(grid[grid.length - 1].date.getTime() + 24 * 60 * 60 * 1000).toISOString();
     const data = await api.getCalendarEvents({ startDate, endDate, limit: 500 }).catch(() => ({ events: [] }));
     setEvents(data?.events || []);
     setLoading(false);

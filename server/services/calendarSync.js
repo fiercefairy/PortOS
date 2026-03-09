@@ -1,6 +1,6 @@
-import { readFile, writeFile } from 'fs/promises';
+import { readdir, unlink, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { ensureDir, PATHS, safeJSONParse } from '../lib/fileUtils.js';
+import { ensureDir, PATHS, readJSONFile } from '../lib/fileUtils.js';
 import { getAccount, updateSyncStatus } from './calendarAccounts.js';
 
 const CACHE_DIR = join(PATHS.calendar, 'cache');
@@ -36,14 +36,13 @@ function filterByDateRange(events, startDate, endDate) {
   return filtered;
 }
 
+const DEFAULT_CACHE = { syncCursor: null, events: [] };
+
 async function loadCache(accountId) {
   if (!UUID_RE.test(accountId)) throw new Error(`Invalid accountId: ${accountId}`);
   await ensureDir(CACHE_DIR);
-  const filePath = join(CACHE_DIR, `${accountId}.json`);
-  const content = await readFile(filePath, 'utf-8').catch(() => null);
-  if (!content) return { syncCursor: null, events: [] };
-  const parsed = safeJSONParse(content, { syncCursor: null, events: [] }, { context: `calendarCache:${accountId}` });
-  if (!parsed || !Array.isArray(parsed.events)) return { syncCursor: null, events: [] };
+  const parsed = await readJSONFile(join(CACHE_DIR, `${accountId}.json`), DEFAULT_CACHE);
+  if (!parsed || !Array.isArray(parsed.events)) return { ...DEFAULT_CACHE };
   return parsed;
 }
 
@@ -69,7 +68,6 @@ export async function getEvents(options = {}) {
 
   // Aggregate across all account caches
   await ensureDir(CACHE_DIR);
-  const { readdir } = await import('fs/promises');
   const files = await readdir(CACHE_DIR).catch(() => []);
   let allEvents = [];
   for (const file of files) {
@@ -97,7 +95,6 @@ export async function getEvent(accountId, eventId) {
 
 export async function deleteCache(accountId) {
   if (!UUID_RE.test(accountId)) return;
-  const { unlink } = await import('fs/promises');
   const filePath = join(CACHE_DIR, `${accountId}.json`);
   try {
     await unlink(filePath);

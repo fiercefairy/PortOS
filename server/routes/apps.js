@@ -411,6 +411,26 @@ router.post('/:id/build', loadApp, asyncHandler(async (req, res) => {
 
   console.log(`🔨 Building ${app.name}: ${buildCommand}`);
 
+  // Install dependencies before building (root, client, server subdirs)
+  for (const sub of ['', 'client', 'server']) {
+    const subDir = sub ? join(app.repoPath, sub) : app.repoPath;
+    if (existsSync(join(subDir, 'package.json'))) {
+      const label = sub || 'root';
+      console.log(`📦 Installing ${label} dependencies for ${app.name}`);
+      const installResult = await new Promise((resolve) => {
+        const child = spawn('npm', ['install'], { cwd: subDir, shell: false, windowsHide: true });
+        let stderr = '';
+        child.stderr.on('data', d => { stderr += d; });
+        child.on('close', code => resolve({ success: code === 0, stderr: stderr.trim() }));
+        child.on('error', err => resolve({ success: false, stderr: err.message }));
+      });
+      if (!installResult.success) {
+        await logAction('build', app.id, app.name, { buildCommand, step: `npm install (${label})` }, false);
+        throw new ServerError(`npm install failed (${label}): ${installResult.stderr}`, { status: 500, code: 'INSTALL_FAILED' });
+      }
+    }
+  }
+
   const BUILD_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
   const result = await new Promise((resolve) => {
     const child = spawn(cmd, args, { cwd: app.repoPath, shell: false, windowsHide: true });

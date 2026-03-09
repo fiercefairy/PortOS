@@ -33,6 +33,7 @@ import {
   Target,
   Clock,
   Calendar,
+  CalendarDays,
   GraduationCap,
   Settings,
   Users,
@@ -98,6 +99,18 @@ const navItems = [
       { to: '/brain/links', label: 'Links', icon: Link2 },
       { to: '/brain/memory', label: 'Memory', icon: Database },
       { to: '/brain/trust', label: 'Trust', icon: Shield }
+    ]
+  },
+  {
+    label: 'Calendar',
+    icon: CalendarDays,
+    children: [
+      { to: '/calendar/agenda', label: 'Agenda', icon: CalendarDays },
+      { to: '/calendar/config', label: 'Config', icon: Settings },
+      { to: '/calendar/day', label: 'Day', icon: Calendar },
+      { to: '/calendar/month', label: 'Month', icon: CalendarDays },
+      { to: '/calendar/sync', label: 'Sync', icon: RefreshCw },
+      { to: '/calendar/week', label: 'Week', icon: CalendarDays }
     ]
   },
   {
@@ -612,7 +625,8 @@ export default function Layout() {
 
         {/* Main content */}
         {(() => {
-          const isFullWidth = location.pathname.startsWith('/cos') ||
+          const isFullWidth = location.pathname.startsWith('/calendar') ||
+            location.pathname.startsWith('/cos') ||
             location.pathname.startsWith('/brain') ||
             location.pathname.startsWith('/digital-twin') ||
             location.pathname.startsWith('/feature-agents') ||

@@ -52,6 +52,7 @@ const CyberCity = lazyWithReload(() => import('./pages/CyberCity'));
 const AppDetail = lazyWithReload(() => import('./pages/AppDetail'));
 const FeatureAgents = lazyWithReload(() => import('./pages/FeatureAgents'));
 const FeatureAgentDetail = lazyWithReload(() => import('./pages/FeatureAgentDetail'));
+const CalendarPage = lazyWithReload(() => import('./pages/Calendar'));
 const Messages = lazyWithReload(() => import('./pages/Messages'));
 const Goals = lazyWithReload(() => import('./pages/Goals'));
 
@@ -87,6 +88,8 @@ export default function App() {
           <Route path="prompts" element={<PromptManager />} />
           <Route path="cos" element={<Navigate to="/cos/tasks" replace />} />
           <Route path="cos/:tab" element={<ChiefOfStaff />} />
+          <Route path="calendar" element={<Navigate to="/calendar/agenda" replace />} />
+          <Route path="calendar/:tab" element={<CalendarPage />} />
           <Route path="brain" element={<Navigate to="/brain/inbox" replace />} />
           <Route path="brain/:tab" element={<Brain />} />
           <Route path="digital-twin" element={<Navigate to="/digital-twin/overview" replace />} />

@@ -1721,6 +1721,22 @@ export const executeMessageAction = (accountId, messageId, action) =>
 export const clearMessageCache = (accountId) =>
   request(`/messages/accounts/${accountId}/cache/clear`, { method: 'POST' });
 
+// Calendar
+export const getCalendarAccounts = () => request('/calendar/accounts');
+export const createCalendarAccount = (data) => request('/calendar/accounts', { method: 'POST', body: JSON.stringify(data) });
+export const updateCalendarAccount = (id, data) => request(`/calendar/accounts/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const deleteCalendarAccount = (id) => request(`/calendar/accounts/${id}`, { method: 'DELETE' });
+export const syncCalendarAccount = (accountId) => request(`/calendar/sync/${accountId}`, { method: 'POST' });
+export const getCalendarSyncStatus = (accountId) => request(`/calendar/sync/${accountId}/status`);
+export const getCalendarEvents = (params = {}) => {
+  const str = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null)).toString();
+  return request(`/calendar/events${str ? `?${str}` : ''}`);
+};
+export const getCalendarEvent = (accountId, eventId) => request(`/calendar/events/${accountId}/${eventId}`);
+export const getCalendarTokenStatus = () => request('/calendar/debug/token-status');
+export const testCalendarToken = (provider) => request('/calendar/debug/test-token', { method: 'POST', body: JSON.stringify({ provider }) });
+export const clearCalendarToken = (provider) => request('/calendar/debug/clear-token', { method: 'POST', body: JSON.stringify({ provider }) });
+
 // Default export for simplified imports
 export default {
   get: (endpoint, options) => request(endpoint, { method: 'GET', ...options }),

@@ -30,6 +30,7 @@ export const PATHS = {
   // AI Agent Personalities data
   agentPersonalities: join(__lib_dirname, '../../data/agents'),
   meatspace: join(__lib_dirname, '../../data/meatspace'),
+  calendar: join(__lib_dirname, '../../data/calendar'),
   messages: join(__lib_dirname, '../../data/messages')
 };
 

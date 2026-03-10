@@ -16,6 +16,7 @@
 - Months view shows decade-per-row with flex-wrap (no horizontal scrolling)
 
 ## Fixed
+- Outlook email delete no longer throws 500 error when message was already deleted in Outlook (gracefully cleans up local cache instead)
 - Life Calendar: birthdays and holidays now visible on Week view (fixed time-of-day offset bug and cross-birthday-boundary event mapping)
 - Life Calendar: holidays now shown on Month view with event type coloring
 - Life Calendar: Year view no longer applies birthday/holiday coloring since every cell contains both

@@ -7,8 +7,9 @@ import { z } from 'zod';
 // Tags for session conditions (sleep, caffeine, stress, etc.)
 export const postTagsSchema = z.record(z.string().max(200));
 
-// Individual question result (math drills)
-// expected and correct are optional — the server recomputes both via scoreDrill
+// Individual question result (math + memory drills)
+// Math: server recomputes expected/correct via scoreDrill (numeric values)
+// Memory: client scores with string comparison (text values)
 const questionResultSchema = z.object({
   prompt: z.string(),
   expected: z.union([z.number(), z.string()]).optional(),

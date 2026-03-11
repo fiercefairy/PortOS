@@ -107,9 +107,13 @@ export async function submitPostSession(sessionData) {
       return { ...rest, score: t.score || 0 };
     }
 
-    // Memory drills: client-side scoring with string comparison is authoritative
-    if (MEMORY_DRILL_TYPES.includes(rest.type)) {
+    // Memory drills: trust client-side scoring only for supported types
+    if (rest.type === 'memory-sequence' || rest.type === 'memory-element-flash') {
       return { ...rest, score: t.score || 0 };
+    }
+    // Unsupported memory drills (e.g. memory-fill-blank): preserve data, zero score
+    if (MEMORY_DRILL_TYPES.includes(rest.type)) {
+      return { ...rest, score: 0 };
     }
 
     // Math drills: strip correct from individual questions and rescore
@@ -305,16 +309,18 @@ export function scoreDrill(type, questions, timeLimitMs, config = {}) {
   // Recompute expected from the prompt server-side — never trust client-provided expected
   const recomputed = questions.map(q => {
     const expected = computeExpectedFromPrompt(q.prompt);
+    // Coerce answered to number for math drills (handles string "42" → 42)
+    const answered = q.answered != null ? Number(q.answered) : null;
     let correct;
-    if (expected == null || q.answered == null) {
+    if (expected == null || answered == null || isNaN(answered)) {
       correct = false;
     } else if (type === 'estimation') {
       const tolerance = ((config.tolerancePct ?? 10) / 100);
-      correct = Math.abs(q.answered - expected) <= Math.abs(expected * tolerance);
+      correct = Math.abs(answered - expected) <= Math.abs(expected * tolerance);
     } else {
-      correct = q.answered === expected;
+      correct = answered === expected;
     }
-    return { ...q, expected, correct };
+    return { ...q, answered, expected, correct };
   });
 
   const answered = recomputed.filter(q => q.answered != null);

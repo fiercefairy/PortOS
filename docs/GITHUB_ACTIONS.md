@@ -35,8 +35,8 @@ Triggers on push to `release` branch. Steps:
    - Then: `.changelog/v{major}.{minor}.x.md` (pattern match, replaces placeholders)
    - Fallback: generates changelog from commit messages
 4. Creates GitHub release with tag `v{version}`
-5. Archives changelog on `main` (renames `.x.md` → exact version)
-6. Fast-forwards `release` to match `main`
+5. If a pattern changelog file (`.changelog/v{major}.{minor}.x.md`) was used, archives it on `main` (renames `.x.md` → exact version)
+6. If the archive step ran, fast-forwards `release` to match `main`
 
 ## Working with CI
 

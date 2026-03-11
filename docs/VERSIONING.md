@@ -34,8 +34,8 @@ CI runs tests and linting. No version changes.
 1. Release workflow triggers
 2. Creates git tag with current version (e.g., `v1.31.0`)
 3. Generates GitHub release with changelog (priority: exact `.changelog/v{version}.md` → pattern `.changelog/v{major}.{minor}.x.md` → fallback commit log)
-4. Archives the changelog (renames pattern file to exact version) on `main`
-5. Fast-forwards `release` to match `main`
+4. If a pattern changelog file (`.changelog/v{major}.{minor}.x.md`) was used, archives it by renaming to the exact version file on `main`
+5. If the archive step ran, fast-forwards `release` to match `main`
 
 ### Regular Development
 

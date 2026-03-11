@@ -309,18 +309,15 @@ Three audit passes identified remaining items across architecture, bugs, code qu
 - [ ] **[MEDIUM]** `server/services/memory.js` — Sort comparison not type-safe for dates.
 
 #### Code Quality
-- [ ] **[HIGH]** `server/services/mediaService.js` — Class-based (violates functional convention).
 - [ ] **[HIGH]** `server/services/memorySync.js:156` + `server/lib/db.js:85` — Unsafe `rows[0]` access without bounds check.
 - [ ] **[MEDIUM]** Hardcoded localhost in `server/services/lmStudioManager.js`, `server/services/memoryClassifier.js`.
 - [ ] **[MEDIUM]** Empty `.catch(() => {})` in 5 client files (`client/src/pages/Browser.jsx`, `Shell.jsx`, `client/src/components/cos/TaskAddForm.jsx`, `client/src/hooks/useAgentFeedbackToast.jsx`, `client/src/components/meatspace/HealthCategorySection.jsx`).
 - [ ] **[MEDIUM]** `client/src/pages/DevTools.jsx` — Stale closure risk.
 - [ ] **[MEDIUM]** Silent catch blocks in `client/src/hooks/useTheme.js`, `server/services/runner.js`, `server/lib/db.js`, `client/src/pages/Settings.jsx`.
-- [ ] **[MEDIUM]** `server/services/contextUpgrader.js` — Unused 350-line module (DELETE).
 
 #### DRY
 - [ ] **[HIGH]** Duplicate `getDateString` in `server/services/agentActivity.js` + `server/services/productivity.js`.
 - [ ] **[HIGH]** Duplicate HOUR/DAY constants in `server/services/autonomousJobs.js` + `server/services/taskSchedule.js`.
-- [ ] **[HIGH]** `server/lib/logger.js` — Unused module (DELETE with test).
 - [ ] **[HIGH]** Duplicate DATA_DIR/path constants in 8+ files.
 - [ ] **[MEDIUM]** Missing fetch timeouts in `server/integrations/moltworld/api.js` + `server/integrations/moltbook/api.js`.
 - [ ] **[MEDIUM]** 39 instances of `mkdir({recursive:true})` vs centralized `ensureDir()`.

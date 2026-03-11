@@ -909,7 +909,7 @@ router.post('/jobs/:id/trigger', asyncHandler(async (req, res) => {
       success: false,
       error: err.message
     }));
-    return res.json({ success: result.success !== false, type: 'script', ...result });
+    return res.json({ success: (result?.success ?? true) !== false, type: 'script', ...(result || {}) });
   }
 
   // Generate task and add to CoS internal task queue

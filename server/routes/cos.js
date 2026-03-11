@@ -1046,11 +1046,11 @@ router.get('/actionable-insights', asyncHandler(async (req, res) => {
     cos.getAllTasks().catch(err => { console.error(`❌ Failed to load tasks: ${err.message}`); return { user: null, cos: null }; }),
     taskLearning.getLearningInsights().catch(err => { console.error(`❌ Failed to load learning insights: ${err.message}`); return null; }),
     cos.runHealthCheck().catch(err => { console.error(`❌ Failed to run health check: ${err.message}`); return { issues: [] }; }),
-    import('../services/notifications.js'),
+    import('../services/notifications.js').catch(err => { console.error(`❌ Failed to load notifications: ${err.message}`); return null; }),
     productivity.getOptimalTimeInfo().catch(() => ({ hasData: false }))
   ]);
 
-  const notificationsData = await notificationsModule.getNotifications({ unreadOnly: true, limit: 10 }).catch(() => []);
+  const notificationsData = notificationsModule ? await notificationsModule.getNotifications({ unreadOnly: true, limit: 10 }).catch(() => []) : [];
 
   const insights = [];
 

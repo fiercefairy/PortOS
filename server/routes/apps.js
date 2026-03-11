@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { validateRequest, appSchema, appUpdateSchema } from '../lib/validation.js';
 import * as git from '../services/git.js';
 import { asyncHandler, ServerError } from '../lib/errorHandler.js';
+import { safeJSONParse } from '../lib/fileUtils.js';
 import { parseEcosystemFromPath } from '../services/streamingDetect.js';
 
 const router = Router();
@@ -650,8 +651,8 @@ router.post('/:id/refresh-config', loadApp, asyncHandler(async (req, res) => {
     const pkgPath = join(app.repoPath, 'package.json');
     const pkgContent = await readFile(pkgPath, 'utf-8').catch(() => null);
     if (pkgContent) {
-      const pkg = JSON.parse(pkgContent);
-      if (pkg.scripts?.build) updates.buildCommand = 'npm run build';
+      const pkg = safeJSONParse(pkgContent);
+      if (pkg?.scripts?.build) updates.buildCommand = 'npm run build';
     }
   }
 

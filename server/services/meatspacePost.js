@@ -9,7 +9,7 @@ import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { PATHS, ensureDir, readJSONFile } from '../lib/fileUtils.js';
-import { LLM_DRILL_TYPES, MEMORY_DRILL_TYPES } from '../lib/postValidation.js';
+import { LLM_DRILL_TYPES, MEMORY_DRILL_TYPES, POST_SUPPORTED_MEMORY_TYPES } from '../lib/postValidation.js';
 
 const MEATSPACE_DIR = PATHS.meatspace;
 const SESSIONS_FILE = join(MEATSPACE_DIR, 'post-sessions.json');
@@ -108,7 +108,7 @@ export async function submitPostSession(sessionData) {
     }
 
     // Memory drills: trust client-side scoring only for supported types
-    if (rest.type === 'memory-sequence' || rest.type === 'memory-element-flash') {
+    if (POST_SUPPORTED_MEMORY_TYPES.includes(rest.type)) {
       return { ...rest, score: t.score || 0 };
     }
     // Unsupported memory drills (e.g. memory-fill-blank): preserve data, zero score

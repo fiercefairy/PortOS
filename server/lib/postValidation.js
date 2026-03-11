@@ -33,6 +33,8 @@ const llmResponseSchema = z.object({
 const MATH_DRILL_TYPES = ['doubling-chain', 'serial-subtraction', 'multiplication', 'powers', 'estimation'];
 const LLM_DRILL_TYPES = ['word-association', 'story-recall', 'verbal-fluency', 'wit-comeback', 'pun-wordplay', 'what-if', 'alternative-uses', 'story-prompt', 'invention-pitch', 'reframe'];
 const MEMORY_DRILL_TYPES = ['memory-fill-blank', 'memory-sequence', 'memory-element-flash'];
+// Memory drills supported by the POST runner (client-side scoring with string comparison)
+const POST_SUPPORTED_MEMORY_TYPES = ['memory-sequence', 'memory-element-flash'];
 const DRILL_TYPES = [...MATH_DRILL_TYPES, ...LLM_DRILL_TYPES, ...MEMORY_DRILL_TYPES];
 
 const drillTypeConfigSchema = z.object({
@@ -194,4 +196,4 @@ export const trainingEntrySchema = z.object({
   totalMs: z.number().min(0),
 });
 
-export { LLM_DRILL_TYPES, MATH_DRILL_TYPES, MEMORY_DRILL_TYPES };
+export { LLM_DRILL_TYPES, MATH_DRILL_TYPES, MEMORY_DRILL_TYPES, POST_SUPPORTED_MEMORY_TYPES };

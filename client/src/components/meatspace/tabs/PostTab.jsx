@@ -109,7 +109,7 @@ export default function PostTab() {
         return (
           <div className="flex flex-col items-center justify-center h-64 gap-3">
             <Loader size={32} className="text-purple-400 animate-spin" />
-            <div className="text-gray-400">Generating {currentDrillConfig?.type ? currentDrillConfig.type.replace(/-/g, ' ') : 'drill'}...</div>
+            <div className="text-gray-400">Processing {currentDrillConfig?.type ? currentDrillConfig.type.replace(/-/g, ' ') : 'drill'}...</div>
           </div>
         );
       }

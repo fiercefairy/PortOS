@@ -9,7 +9,7 @@ import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { PATHS, ensureDir, readJSONFile } from '../lib/fileUtils.js';
-import { LLM_DRILL_TYPES } from '../lib/postValidation.js';
+import { LLM_DRILL_TYPES, MEMORY_DRILL_TYPES } from '../lib/postValidation.js';
 
 const MEATSPACE_DIR = PATHS.meatspace;
 const SESSIONS_FILE = join(MEATSPACE_DIR, 'post-sessions.json');
@@ -104,6 +104,11 @@ export async function submitPostSession(sessionData) {
     // This is a single-user internal tool so client score trust is acceptable.
     // The evaluation field and per-response llmScore/llmFeedback contain the server-generated breakdown.
     if (LLM_DRILL_TYPES.includes(rest.type)) {
+      return { ...rest, score: t.score || 0 };
+    }
+
+    // Memory drills: client-side scoring with string comparison is authoritative
+    if (MEMORY_DRILL_TYPES.includes(rest.type)) {
       return { ...rest, score: t.score || 0 };
     }
 

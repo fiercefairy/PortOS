@@ -6,9 +6,9 @@ PortOS uses semantic versioning: **Major.Minor.Patch**
 
 | Component | Description | When Incremented |
 |-----------|-------------|------------------|
-| **Major** | Breaking changes | Manual — in commit |
-| **Minor** | New features | Manual — in commit |
-| **Patch** | Bug fixes, refactors | Manual — in commit |
+| **Major** | Breaking changes | Via `/release` slash command |
+| **Minor** | New features | Via `/release` slash command |
+| **Patch** | Bug fixes, refactors | Via `/release` slash command |
 
 Example progression: `0.22.0` → `0.22.1` (fix) → `0.23.0` (feature) → `1.0.0` (breaking)
 
@@ -33,8 +33,8 @@ CI runs tests and linting. No version changes.
 
 1. Release workflow triggers
 2. Creates git tag with current version (e.g., `v1.31.0`)
-3. Generates GitHub release with changelog from `.changelog/v{major}.{minor}.x.md`
-4. Archives the changelog (renames `v1.31.x.md` → `v1.31.0.md`) on `main`
+3. Generates GitHub release with changelog (priority: exact `.changelog/v{version}.md` → pattern `.changelog/v{major}.{minor}.x.md` → fallback commit log)
+4. Archives the changelog (renames pattern file to exact version) on `main`
 5. Fast-forwards `release` to match `main`
 
 ### Regular Development

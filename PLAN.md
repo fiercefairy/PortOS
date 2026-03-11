@@ -299,36 +299,36 @@ Three audit passes identified remaining items across architecture, bugs, code qu
 - [ ] **[MEDIUM]** Inconsistent pagination patterns and error response envelope.
 
 #### Bugs & Performance
-- [ ] **[CRITICAL]** `cos.js` TOCTOU race: addTask/updateTask/deleteTask lack withStateLock mutex.
-- [ ] **[CRITICAL]** `cosRunnerClient.js` — 12 fetch calls missing timeouts.
-- [ ] **[HIGH]** `cosRunnerClient.js` — Socket.IO with infinite reconnection, no error handler.
-- [ ] **[HIGH]** `memory.js` — Data race: loadMemory() outside withMemoryLock.
-- [ ] **[HIGH]** `agentActionExecutor.js:137` — Unsafe array fallback may yield non-array.
-- [ ] **[HIGH]** `PromptManager.jsx` — Fetch calls missing response.ok check.
-- [ ] **[MEDIUM]** `cos.js` — Migration rename fallback silently swallowed; agent index lazy-load race.
-- [ ] **[MEDIUM]** `memory.js` — Sort comparison not type-safe for dates.
+- [ ] **[CRITICAL]** `server/services/cos.js` TOCTOU race: addTask/updateTask/deleteTask lack withStateLock mutex.
+- [ ] **[CRITICAL]** `server/services/cosRunnerClient.js` — 12 fetch calls missing timeouts.
+- [ ] **[HIGH]** `server/services/cosRunnerClient.js` — Socket.IO with infinite reconnection, no error handler.
+- [ ] **[HIGH]** `server/services/memory.js` — Data race: loadMemory() outside withMemoryLock.
+- [ ] **[HIGH]** `server/services/agentActionExecutor.js:137` — Unsafe array fallback may yield non-array.
+- [ ] **[HIGH]** `client/src/pages/PromptManager.jsx` — Fetch calls missing response.ok check.
+- [ ] **[MEDIUM]** `server/services/cos.js` — Migration rename fallback silently swallowed; agent index lazy-load race.
+- [ ] **[MEDIUM]** `server/services/memory.js` — Sort comparison not type-safe for dates.
 
 #### Code Quality
-- [ ] **[HIGH]** `mediaService.js` — Class-based (violates functional convention).
-- [ ] **[HIGH]** `memorySync.js:156` + `db.js:85` — Unsafe `rows[0]` access without bounds check.
-- [ ] **[MEDIUM]** Hardcoded localhost in `lmStudioManager.js`, `memoryClassifier.js`.
-- [ ] **[MEDIUM]** Empty `.catch(() => {})` in 5 client files (Browser, Shell, TaskAddForm, AgentFeedbackToast, HealthCategorySection).
-- [ ] **[MEDIUM]** `DevTools.jsx` — Stale closure risk.
-- [ ] **[MEDIUM]** Silent catch blocks in `useTheme.js`, `runner.js`, `db.js`, `Settings.jsx`.
-- [ ] **[MEDIUM]** `contextUpgrader.js` — Unused 350-line module (DELETE).
+- [ ] **[HIGH]** `server/services/mediaService.js` — Class-based (violates functional convention).
+- [ ] **[HIGH]** `server/services/memorySync.js:156` + `server/lib/db.js:85` — Unsafe `rows[0]` access without bounds check.
+- [ ] **[MEDIUM]** Hardcoded localhost in `server/services/lmStudioManager.js`, `server/services/memoryClassifier.js`.
+- [ ] **[MEDIUM]** Empty `.catch(() => {})` in 5 client files (`client/src/pages/Browser.jsx`, `Shell.jsx`, `client/src/components/cos/TaskAddForm.jsx`, `client/src/hooks/useAgentFeedbackToast.jsx`, `client/src/components/meatspace/HealthCategorySection.jsx`).
+- [ ] **[MEDIUM]** `client/src/pages/DevTools.jsx` — Stale closure risk.
+- [ ] **[MEDIUM]** Silent catch blocks in `client/src/hooks/useTheme.js`, `server/services/runner.js`, `server/lib/db.js`, `client/src/pages/Settings.jsx`.
+- [ ] **[MEDIUM]** `server/services/contextUpgrader.js` — Unused 350-line module (DELETE).
 
 #### DRY
-- [ ] **[HIGH]** Duplicate `getDateString` in agentActivity.js + productivity.js.
-- [ ] **[HIGH]** Duplicate HOUR/DAY constants in autonomousJobs.js + taskSchedule.js.
-- [ ] **[HIGH]** `logger.js` — Unused module (DELETE with test).
+- [ ] **[HIGH]** Duplicate `getDateString` in `server/services/agentActivity.js` + `server/services/productivity.js`.
+- [ ] **[HIGH]** Duplicate HOUR/DAY constants in `server/services/autonomousJobs.js` + `server/services/taskSchedule.js`.
+- [ ] **[HIGH]** `server/lib/logger.js` — Unused module (DELETE with test).
 - [ ] **[HIGH]** Duplicate DATA_DIR/path constants in 8+ files.
-- [ ] **[MEDIUM]** Missing fetch timeouts in moltworld/moltbook API integrations.
+- [ ] **[MEDIUM]** Missing fetch timeouts in `server/integrations/moltworld/api.js` + `server/integrations/moltbook/api.js`.
 - [ ] **[MEDIUM]** 39 instances of `mkdir({recursive:true})` vs centralized `ensureDir()`.
 
 #### Test Coverage
 - Overall: ~29% service coverage, ~12% route coverage
-- Critical gaps: cos.js, cosRunnerClient.js, agentActionExecutor.js, memorySync.js
-- High gaps: autoFixer.js, digital-twin.js, memory.js, brain.js, pm2.js, shell.js, instances.js
+- Critical gaps: `server/services/cos.js`, `server/services/cosRunnerClient.js`, `server/services/agentActionExecutor.js`, `server/services/memorySync.js`
+- High gaps: `server/services/autoFixer.js`, `server/services/digital-twin.js`, `server/services/memory.js`, `server/services/brain.js`, `server/services/pm2.js`, `server/services/shell.js`, `server/services/instances.js`
 
 ---
 

@@ -542,7 +542,6 @@ export function validateRequest(schema, data) {
 // =============================================================================
 
 const ALLOWED_TASK_METADATA_KEYS = ['useWorktree', 'simplify'];
-const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 /**
  * Sanitize taskMetadata to only allowed agent-option keys with boolean values.

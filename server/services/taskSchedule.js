@@ -557,6 +557,42 @@ const PROMPT_VERSIONS = {
   'feature-ideas': 2   // v2: implement feature in worktree+PR with /simplify, check GOALS/PLAN/FEATURES
 };
 
+// Known previous default prompts for legacy migration.
+// When a schedule has no promptVersion, we check if the stored prompt matches
+// any known previous default. If so, it's safe to auto-upgrade (not user-customized).
+const PREVIOUS_DEFAULT_PROMPTS = {
+  'feature-ideas': [
+    // v1 default prompt
+    `[Improvement: {appName}] Feature Review and Development
+
+Evaluate existing features and consider new ones to make {appName} more useful:
+
+Repository: {repoPath}
+
+1. Read GOALS.md from {repoPath} for context on the app's goals and priorities.
+   If no GOALS.md exists, focus on general improvements.
+2. Review recent completed tasks and user feedback to understand patterns
+3. Assess current features:
+   - Are existing features working well toward our goals?
+   - Are there features that could be improved or refined?
+   - Are there features that are underperforming or causing friction?
+
+4. Choose ONE action to take (in order of preference):
+   a) IMPROVE an existing feature that isn't meeting its potential
+   b) ADD a new high-impact feature
+   c) ARCHIVE a feature that is not helping our goals
+
+5. Implement it:
+   - Write clean, tested code
+   - Follow existing patterns
+   - Update relevant documentation
+
+6. Commit with a clear description of the change and rationale
+
+Think critically about what we have before adding more.`
+  ]
+};
+
 // Unified default interval settings for all 15 task types
 export const SELF_IMPROVEMENT_TASK_TYPES = [
   'security', 'code-quality', 'test-coverage', 'performance',
@@ -712,14 +748,22 @@ export async function loadSchedule() {
     return migrated;
   }
 
-  // v2: merge with defaults to ensure all task types have settings
+  // v2: deep-merge each task config with its default to pick up new default fields
+  const mergedTasks = {};
+  for (const taskType of Object.keys(DEFAULT_TASK_INTERVALS)) {
+    mergedTasks[taskType] = { ...DEFAULT_TASK_INTERVALS[taskType], ...(loaded.tasks?.[taskType] || {}) };
+  }
+  // Preserve any extra task types from loaded that aren't in defaults
+  for (const taskType of Object.keys(loaded.tasks || {})) {
+    if (!mergedTasks[taskType]) {
+      mergedTasks[taskType] = loaded.tasks[taskType];
+    }
+  }
+
   const schedule = {
     ...DEFAULT_SCHEDULE,
     ...loaded,
-    tasks: {
-      ...DEFAULT_TASK_INTERVALS,
-      ...loaded.tasks
-    },
+    tasks: mergedTasks,
     executions: loaded.executions || {},
     templates: loaded.templates || []
   };
@@ -739,13 +783,17 @@ export async function loadSchedule() {
         config.promptVersion === undefined &&
         DEFAULT_TASK_PROMPTS[taskType]
       ) {
-        if (config.prompt !== DEFAULT_TASK_PROMPTS[taskType]) {
-          // Prompt differs from default — treat as customized to avoid overwriting
-          config.promptCustomized = true;
+        // Check if prompt matches current default or any known previous default
+        const isKnownDefault = config.prompt === DEFAULT_TASK_PROMPTS[taskType] ||
+          (PREVIOUS_DEFAULT_PROMPTS[taskType] || []).includes(config.prompt);
+
+        if (isKnownDefault) {
+          // Matches a known default — safe to assign version 1 for auto-upgrade
+          config.promptVersion = 1;
           needsSave = true;
         } else {
-          // Prompt matches default — safe to assign version for future upgrades
-          config.promptVersion = PROMPT_VERSIONS[taskType] || 1;
+          // Prompt differs from all known defaults — treat as user-customized
+          config.promptCustomized = true;
           needsSave = true;
         }
       }

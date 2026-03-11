@@ -22,6 +22,7 @@ import { schedule as scheduleEvent, cancel as cancelEvent, getStats as getSchedu
 import { createMutex } from '../lib/asyncMutex.js';
 import { generateProactiveTasks as generateMissionTasks, getStats as getMissionStats } from './missions.js';
 import { generateTaskFromJob, recordJobExecution, isScriptJob, executeScriptJob, isShellJob, executeShellJob } from './autonomousJobs.js';
+import { checkJobGate, hasGate } from './jobGates.js';
 import { formatDuration, safeJSONParse } from '../lib/fileUtils.js';
 import { sanitizeTaskMetadata } from '../lib/validation.js';
 import { addNotification, NOTIFICATION_TYPES } from './notifications.js';
@@ -3739,6 +3740,17 @@ async function executeScheduledJob(jobId) {
         metadata: { description: `Autonomous job: ${job.name} (retry)`, jobId }
       });
       return;
+    }
+
+    // Run gate check — skip LLM if precondition not met
+    const gateResult = await checkJobGate(jobId);
+    if (!gateResult.shouldRun) {
+      emitLog('debug', `Job ${job.name} gate skipped: ${gateResult.reason}`, { jobId, gate: gateResult });
+      await registerSingleJobSchedule(jobId);
+      return;
+    }
+    if (hasGate(jobId)) {
+      emitLog('info', `Job ${job.name} gate passed: ${gateResult.reason}`, { jobId, gate: gateResult });
     }
 
     // Mark as spawning before emitting task:ready to prevent races

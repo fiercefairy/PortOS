@@ -10,6 +10,7 @@ import * as taskLearning from '../services/taskLearning.js';
 import * as weeklyDigest from '../services/weeklyDigest.js';
 import * as taskSchedule from '../services/taskSchedule.js';
 import * as autonomousJobs from '../services/autonomousJobs.js';
+import { checkJobGate, hasGate, getRegisteredGates } from '../services/jobGates.js';
 import * as taskTemplates from '../services/taskTemplates.js';
 import { enhanceTaskPrompt } from '../services/taskEnhancer.js';
 import * as productivity from '../services/productivity.js';
@@ -813,7 +814,8 @@ router.get('/schedule/interval-types', (req, res) => {
 router.get('/jobs', asyncHandler(async (req, res) => {
   const jobs = await autonomousJobs.getAllJobs();
   const stats = await autonomousJobs.getJobStats();
-  res.json({ jobs, stats });
+  const jobsWithGates = jobs.map(j => ({ ...j, hasGate: hasGate(j.id) }));
+  res.json({ jobs: jobsWithGates, stats, registeredGates: getRegisteredGates() });
 }));
 
 // GET /api/cos/jobs/due - Get jobs that are due to run
@@ -831,6 +833,24 @@ router.get('/jobs/intervals', (req, res) => {
 router.get('/jobs/allowed-commands', (req, res) => {
   res.json({ commands: autonomousJobs.getAllowedCommands() });
 });
+
+// GET /api/cos/jobs/gates - Get all registered LLM gates
+router.get('/jobs/gates', asyncHandler(async (req, res) => {
+  const gateIds = getRegisteredGates();
+  const results = await Promise.all(
+    gateIds.map(async (id) => {
+      const result = await checkJobGate(id);
+      return { jobId: id, ...result };
+    })
+  );
+  res.json({ gates: results });
+}));
+
+// POST /api/cos/jobs/:id/gate-check - Check a job's LLM gate without running
+router.post('/jobs/:id/gate-check', asyncHandler(async (req, res) => {
+  const result = await checkJobGate(req.params.id);
+  res.json({ jobId: req.params.id, hasGate: hasGate(req.params.id), ...result });
+}));
 
 // GET /api/cos/jobs/:id - Get a single job
 router.get('/jobs/:id', asyncHandler(async (req, res) => {

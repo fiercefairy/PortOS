@@ -529,6 +529,8 @@ function AppOverrideRow({ app, taskType, globalIntervalType, globalTaskMetadata,
             key={field}
             onClick={() => handleMetaToggle(field)}
             disabled={updating}
+            aria-pressed={effective}
+            aria-label={`${label}: ${effective ? 'on' : 'off'}${hasOverride ? ' (app override)' : ' (inherited)'}`}
             className={`text-xs px-1.5 py-0.5 rounded transition-colors shrink-0 ${
               effective
                 ? hasOverride ? 'bg-port-accent/30 text-port-accent' : 'bg-port-accent/15 text-port-accent/60'

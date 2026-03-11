@@ -748,7 +748,7 @@ export async function loadSchedule() {
     return migrated;
   }
 
-  // v2: deep-merge each task config with its default to pick up new default fields
+  // v2: merge each task config with its default (shallow per-task) to backfill new top-level fields
   const mergedTasks = {};
   for (const taskType of Object.keys(DEFAULT_TASK_INTERVALS)) {
     mergedTasks[taskType] = { ...DEFAULT_TASK_INTERVALS[taskType], ...(loaded.tasks?.[taskType] || {}) };
@@ -783,12 +783,12 @@ export async function loadSchedule() {
         config.promptVersion === undefined &&
         DEFAULT_TASK_PROMPTS[taskType]
       ) {
-        // Check if prompt matches current default or any known previous default
-        const isKnownDefault = config.prompt === DEFAULT_TASK_PROMPTS[taskType] ||
-          (PREVIOUS_DEFAULT_PROMPTS[taskType] || []).includes(config.prompt);
-
-        if (isKnownDefault) {
-          // Matches a known default — safe to assign version 1 for auto-upgrade
+        if (config.prompt === DEFAULT_TASK_PROMPTS[taskType]) {
+          // Matches current default — assign current version (no upgrade needed)
+          config.promptVersion = PROMPT_VERSIONS[taskType] || 1;
+          needsSave = true;
+        } else if ((PREVIOUS_DEFAULT_PROMPTS[taskType] || []).includes(config.prompt)) {
+          // Matches a known previous default — assign version 1 so auto-upgrade triggers
           config.promptVersion = 1;
           needsSave = true;
         } else {

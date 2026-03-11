@@ -45,7 +45,7 @@ function mapAttendeeStatus(status) {
   return map[status?.Response] || 'unknown';
 }
 
-export async function syncOutlookCalendarApi(account, cache, io, options = {}) {
+export async function syncOutlookCalendarApi(account, _cache, io, options = {}) {
   const tokenResult = await getToken('outlook');
 
   if (tokenResult.error) {
@@ -55,8 +55,10 @@ export async function syncOutlookCalendarApi(account, cache, io, options = {}) {
 
   const token = tokenResult.token;
   const now = new Date();
-  const startRange = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); // -7d
-  const endRange = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000); // +90d
+  const pastDays = options.pastDays ?? 7;
+  const futureDays = options.futureDays ?? 90;
+  const startRange = new Date(now.getTime() - pastDays * 24 * 60 * 60 * 1000);
+  const endRange = new Date(now.getTime() + futureDays * 24 * 60 * 60 * 1000);
   const startDateTime = startRange.toISOString();
   const endDateTime = endRange.toISOString();
 

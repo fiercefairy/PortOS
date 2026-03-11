@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Zap, History, Settings, Play, Brain } from 'lucide-react';
+import { Zap, History, Settings, Play, Brain, BookOpen, Dumbbell, Timer } from 'lucide-react';
 import { getProviders } from '../../../services/api';
+import { DOMAINS, DRILL_TO_DOMAIN } from './constants';
 
 const DRILL_LABELS = {
   'doubling-chain': 'Doubling Chain',
@@ -12,11 +13,20 @@ const DRILL_LABELS = {
   'story-recall': 'Story Recall',
   'verbal-fluency': 'Verbal Fluency',
   'wit-comeback': 'Wit & Comeback',
-  'pun-wordplay': 'Pun & Wordplay'
+  'pun-wordplay': 'Pun & Wordplay',
+  'memory-fill-blank': 'Memory Fill Blank',
+  'memory-sequence': 'Memory Sequence',
+  'memory-element-flash': 'Element Flash',
+  'what-if': 'What If?',
+  'alternative-uses': 'Alternative Uses',
+  'story-prompt': 'Story Prompt',
+  'invention-pitch': 'Invention Pitch',
+  'reframe': 'Reframe',
 };
 
-export default function PostSessionLauncher({ config, recentSessions, onStart, onViewHistory, onViewConfig }) {
+export default function PostSessionLauncher({ config, recentSessions, onStart, onViewHistory, onViewConfig, onViewMemory }) {
   const [tags, setTags] = useState({ sleep: '', caffeine: '', stress: '' });
+  const [mode, setMode] = useState('test'); // 'test' | 'train'
   const [providers, setProviders] = useState([]);
 
   useEffect(() => {
@@ -70,10 +80,66 @@ export default function PostSessionLauncher({ config, recentSessions, onStart, o
     for (const [k, v] of Object.entries(tags)) {
       if (v.trim()) cleanTags[k] = v.trim();
     }
-    onStart(drillConfigs, cleanTags);
+    onStart(drillConfigs, cleanTags, mode === 'train');
+  }
+
+  // Build domain → enabled drills map for quick session
+  const allEnabledDrills = [
+    ...enabledMathDrills.map(([type, cfg]) => ({ type, cfg, source: 'math' })),
+    ...enabledLlmDrills.map(([type, cfg]) => ({ type, cfg, source: 'llm' })),
+  ];
+
+  const enabledDomains = {};
+  for (const { type, cfg, source } of allEnabledDrills) {
+    const domain = DRILL_TO_DOMAIN[type];
+    if (!domain) continue;
+    if (!enabledDomains[domain]) enabledDomains[domain] = [];
+    enabledDomains[domain].push({ type, cfg, source });
+  }
+
+  function handleQuickSession() {
+    const drillConfigs = [];
+    for (const [domainKey, drills] of Object.entries(enabledDomains)) {
+      const domain = DOMAINS[domainKey];
+      // Pick one random drill from this domain
+      const pick = drills[Math.floor(Math.random() * drills.length)];
+      const cfg = pick.cfg;
+
+      const drillConfig = {
+        type: pick.type,
+        domain: domainKey,
+        config: pick.source === 'math'
+          ? {
+              steps: cfg.steps,
+              count: cfg.count ? Math.min(cfg.count, 5) : undefined,
+              maxDigits: cfg.maxDigits,
+              subtrahend: cfg.subtrahend,
+              startRange: cfg.startRange,
+              bases: cfg.bases,
+              maxExponent: cfg.maxExponent,
+              tolerancePct: cfg.tolerancePct,
+            }
+          : { count: Math.min(cfg.count || 5, 3) }, // Fewer prompts for quick session
+        timeLimitSec: domain.timeBudgetSec,
+      };
+
+      if (pick.source === 'llm') {
+        drillConfig.providerId = cfg.providerId || llmProviderId;
+        drillConfig.model = cfg.model || llmModel;
+      }
+
+      drillConfigs.push(drillConfig);
+    }
+
+    const cleanTags = {};
+    for (const [k, v] of Object.entries(tags)) {
+      if (v.trim()) cleanTags[k] = v.trim();
+    }
+    onStart(drillConfigs, cleanTags, mode === 'train');
   }
 
   const hasAnyDrills = enabledMathDrills.length > 0 || enabledLlmDrills.length > 0;
+  const domainCount = Object.keys(enabledDomains).length;
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -84,6 +150,13 @@ export default function PostSessionLauncher({ config, recentSessions, onStart, o
           <h2 className="text-xl font-bold text-white">Power On Self Test</h2>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={onViewMemory}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-400 hover:text-white bg-port-card border border-port-border rounded-lg transition-colors"
+          >
+            <BookOpen size={14} />
+            Memory
+          </button>
           <button
             onClick={onViewHistory}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-400 hover:text-white bg-port-card border border-port-border rounded-lg transition-colors"
@@ -165,8 +238,42 @@ export default function PostSessionLauncher({ config, recentSessions, onStart, o
         </div>
       )}
 
-      {/* Condition Tags */}
+      {/* Mode Toggle */}
       <div className="bg-port-card border border-port-border rounded-lg p-4">
+        <h3 className="text-sm font-medium text-gray-400 mb-3">Session Mode</h3>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setMode('test')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              mode === 'test'
+                ? 'bg-port-accent text-white'
+                : 'bg-port-bg border border-port-border text-gray-400 hover:text-white'
+            }`}
+          >
+            <Zap size={14} />
+            Test
+          </button>
+          <button
+            onClick={() => setMode('train')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              mode === 'train'
+                ? 'bg-purple-600 text-white'
+                : 'bg-port-bg border border-port-border text-gray-400 hover:text-white'
+            }`}
+          >
+            <Dumbbell size={14} />
+            Train
+          </button>
+        </div>
+        <p className="text-xs text-gray-500 mt-2">
+          {mode === 'train'
+            ? 'Training mode: immediate feedback, hints on wrong answers. Not scored.'
+            : 'Test mode: timed drills with scoring. Saved to history.'}
+        </p>
+      </div>
+
+      {/* Condition Tags */}
+      {mode === 'test' && <div className="bg-port-card border border-port-border rounded-lg p-4">
         <h3 className="text-sm font-medium text-gray-400 mb-3">Conditions (optional)</h3>
         <div className="grid grid-cols-3 gap-3">
           {Object.entries(tags).map(([key, value]) => (
@@ -182,17 +289,37 @@ export default function PostSessionLauncher({ config, recentSessions, onStart, o
             </div>
           ))}
         </div>
-      </div>
+      </div>}
 
-      {/* Start Button */}
-      <button
-        onClick={handleStart}
-        disabled={!hasAnyDrills}
-        className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-port-accent hover:bg-port-accent/80 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
-      >
-        <Play size={18} />
-        Start POST
-      </button>
+      {/* Start Buttons */}
+      <div className="flex gap-3">
+        {domainCount >= 2 && (
+          <button
+            onClick={handleQuickSession}
+            disabled={!hasAnyDrills}
+            className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 ${
+              mode === 'train'
+                ? 'bg-purple-600 hover:bg-purple-500'
+                : 'bg-port-success hover:bg-port-success/80'
+            } disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors`}
+          >
+            <Timer size={18} />
+            Quick 5 Min ({domainCount} domains)
+          </button>
+        )}
+        <button
+          onClick={handleStart}
+          disabled={!hasAnyDrills}
+          className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 ${
+            mode === 'train'
+              ? 'bg-purple-600/70 hover:bg-purple-500/70'
+              : 'bg-port-accent hover:bg-port-accent/80'
+          } disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors`}
+        >
+          {mode === 'train' ? <Dumbbell size={18} /> : <Play size={18} />}
+          {mode === 'train' ? 'Full Training' : 'Full POST'}
+        </button>
+      </div>
 
       {/* Recent Scores */}
       {lastThree.length > 0 && (

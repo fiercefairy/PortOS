@@ -1,7 +1,31 @@
 import { useState, useCallback, useRef } from 'react';
-import { generatePostDrill, submitPostSession, scorePostLlmDrill } from '../services/api';
+import { generatePostDrill, submitPostSession, scorePostLlmDrill, submitTrainingEntry } from '../services/api';
 import toast from 'react-hot-toast';
-import { LLM_DRILL_TYPES } from '../components/meatspace/post/constants';
+import { LLM_DRILL_TYPES, DRILL_TO_DOMAIN } from '../components/meatspace/post/constants';
+
+function computeSessionScoreFromResults(results) {
+  if (!results.length) return 0;
+  // Group by domain — if any drills have domain info, use weighted avg per domain
+  const byDomain = {};
+  let hasDomains = false;
+  for (const r of results) {
+    const dk = DRILL_TO_DOMAIN[r.type];
+    if (dk) {
+      hasDomains = true;
+      if (!byDomain[dk]) byDomain[dk] = [];
+      byDomain[dk].push(r.score || 0);
+    }
+  }
+  if (hasDomains && Object.keys(byDomain).length > 1) {
+    // Average within each domain, then average across domains (equal weight per domain)
+    const domainAvgs = Object.values(byDomain).map(scores =>
+      Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+    );
+    return Math.round(domainAvgs.reduce((a, b) => a + b, 0) / domainAvgs.length);
+  }
+  // Fallback: simple average
+  return Math.round(results.reduce((s, r) => s + (r.score || 0), 0) / results.length);
+}
 
 // States: idle → loading → drilling → between-drills → complete → saving → saved
 const STATES = {
@@ -24,21 +48,25 @@ export function usePostSession() {
   const [drillResults, setDrillResults] = useState([]); // completed drill results
   const [sessionScore, setSessionScore] = useState(0);
   const [savedSession, setSavedSession] = useState(null);
+  const [isTraining, setIsTraining] = useState(false);
+  const [lastAnswer, setLastAnswer] = useState(null); // { correct, expected, answered } for training feedback
   const questionStartRef = useRef(Date.now());
   const drillStartRef = useRef(Date.now());
   const finishDrillRef = useRef(null);
 
-  const startSession = useCallback(async (drillConfigs) => {
+  const startSession = useCallback(async (drillConfigs, training = false) => {
     // drillConfigs: [{ type, config, timeLimitSec }]
     if (!drillConfigs?.length) {
       toast.error('No drills configured');
       return;
     }
     setState(STATES.LOADING);
+    setIsTraining(training);
     setDrills(drillConfigs);
     setCurrentDrillIndex(0);
     setDrillResults([]);
     setSavedSession(null);
+    setLastAnswer(null);
 
     const first = drillConfigs[0];
     const drill = await generatePostDrill(first.type, first.config, first.providerId, first.model).catch(err => {
@@ -86,9 +114,7 @@ export function usePostSession() {
     if (currentDrillIndex + 1 < drills.length) {
       setState(STATES.BETWEEN_DRILLS);
     } else {
-      // Session complete
-      const avgScore = Math.round(newResults.reduce((s, r) => s + r.score, 0) / newResults.length);
-      setSessionScore(avgScore);
+      setSessionScore(computeSessionScoreFromResults(newResults));
       setState(STATES.COMPLETE);
     }
   }, [currentDrill, drillResults, currentDrillIndex, drills]);
@@ -124,6 +150,12 @@ export function usePostSession() {
     const newAnswers = [...answers, answer];
     setAnswers(newAnswers);
 
+    // Training mode: pause to show feedback before advancing
+    if (isTraining) {
+      setLastAnswer(answer);
+      return;
+    }
+
     // Check if drill is complete
     if (currentQuestionIndex + 1 >= (currentDrill.questions?.length ?? 0)) {
       finishDrillRef.current(newAnswers);
@@ -131,11 +163,22 @@ export function usePostSession() {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       questionStartRef.current = Date.now();
     }
-  }, [state, currentDrill, currentQuestionIndex, answers]);
+  }, [state, currentDrill, currentQuestionIndex, answers, isTraining]);
 
   const skipQuestion = useCallback(() => {
     submitAnswer(null);
   }, [submitAnswer]);
+
+  // Training mode: advance to next question after user sees feedback
+  const acknowledgeAnswer = useCallback(() => {
+    setLastAnswer(null);
+    if (currentQuestionIndex + 1 >= (currentDrill?.questions?.length ?? 0)) {
+      finishDrillRef.current(answers);
+    } else {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+      questionStartRef.current = Date.now();
+    }
+  }, [currentQuestionIndex, currentDrill, answers]);
 
   const nextDrill = useCallback(async () => {
     const nextIndex = currentDrillIndex + 1;
@@ -209,14 +252,32 @@ export function usePostSession() {
     if (currentDrillIndex + 1 < drills.length) {
       setState(STATES.BETWEEN_DRILLS);
     } else {
-      const avgScore = Math.round(newResults.reduce((s, r) => s + (r.score || 0), 0) / newResults.length);
-      setSessionScore(avgScore);
+      setSessionScore(computeSessionScoreFromResults(newResults));
       setState(STATES.COMPLETE);
     }
   }, [drillResults, currentDrillIndex, drills]);
 
   const saveSession = useCallback(async (tags = {}) => {
     setState(STATES.SAVING);
+
+    // Training mode: log each drill to the training log, don't save scored session
+    if (isTraining) {
+      for (const r of drillResults) {
+        const questionCount = r.questions?.length || r.responses?.length || 0;
+        const correctCount = r.questions?.filter(q => q.correct)?.length ?? 0;
+        await submitTrainingEntry({
+          module: r.module,
+          drillType: r.type,
+          questionCount,
+          correctCount,
+          totalMs: r.totalMs || 0,
+        }).catch(() => {});
+      }
+      toast.success('Training session logged');
+      setState(STATES.SAVED);
+      return { training: true };
+    }
+
     const modules = [...new Set(drillResults.map(r => r.module))];
     const session = await submitPostSession({
       cadence: 'daily',
@@ -233,7 +294,7 @@ export function usePostSession() {
     toast.success(`POST complete — score: ${session.score}`);
     setState(STATES.SAVED);
     return session;
-  }, [drillResults]);
+  }, [drillResults, isTraining]);
 
   const reset = useCallback(() => {
     setState(STATES.IDLE);
@@ -245,6 +306,8 @@ export function usePostSession() {
     setDrillResults([]);
     setSessionScore(0);
     setSavedSession(null);
+    setIsTraining(false);
+    setLastAnswer(null);
   }, []);
 
   return {
@@ -252,14 +315,18 @@ export function usePostSession() {
     currentDrill,
     currentQuestionIndex,
     currentDrillIndex,
+    drills,
     drillCount: drills.length,
     answers,
     drillResults,
     sessionScore,
     savedSession,
+    isTraining,
+    lastAnswer,
     startSession,
     submitAnswer,
     skipQuestion,
+    acknowledgeAnswer,
     nextDrill,
     timeExpired,
     completeLlmDrill,

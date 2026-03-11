@@ -13,9 +13,19 @@ import { z } from 'zod';
 import { validateRequest, appSchema, appUpdateSchema } from '../lib/validation.js';
 import * as git from '../services/git.js';
 import { asyncHandler, ServerError } from '../lib/errorHandler.js';
+import { safeJSONParse } from '../lib/fileUtils.js';
 import { parseEcosystemFromPath } from '../services/streamingDetect.js';
 
 const router = Router();
+
+/**
+ * Derive uiPort from apiPort when app has dev UI but no dedicated prod UI port
+ * (prod UI is served by the API server in these cases).
+ */
+function deriveUiPort(uiPort, apiPort, devUiPort) {
+  if (!uiPort && apiPort && devUiPort) return apiPort;
+  return uiPort;
+}
 
 /** Read and parse a JSON file, returning null on any failure (missing file, bad JSON, etc.) */
 const safeReadJson = (path) => readFile(path, 'utf-8').then(JSON.parse).catch(() => null);
@@ -97,6 +107,7 @@ router.get('/', asyncHandler(async (req, res) => {
       const devUiProc = processes.find(p => p.ports?.devUi);
       if (devUiProc) devUiPort = devUiProc.ports.devUi;
     }
+    uiPort = deriveUiPort(uiPort, apiPort, devUiPort);
 
     return {
       ...app,
@@ -149,6 +160,7 @@ router.get('/:id', loadApp, asyncHandler(async (req, res) => {
     const devUiProc = processes.find(p => p.ports?.devUi);
     if (devUiProc) devUiPort = devUiProc.ports.devUi;
   }
+  uiPort = deriveUiPort(uiPort, apiPort, devUiPort);
 
   // Read version from app's package.json if available
   let appVersion = null;
@@ -401,6 +413,31 @@ router.post('/:id/build', loadApp, asyncHandler(async (req, res) => {
 
   console.log(`🔨 Building ${app.name}: ${buildCommand}`);
 
+  // Install dependencies before building (root + common subdirs)
+  for (const sub of ['', 'client', 'server', 'admin']) {
+    const subDir = sub ? join(app.repoPath, sub) : app.repoPath;
+    if (existsSync(join(subDir, 'package.json'))) {
+      const label = sub || 'root';
+      console.log(`📦 Installing ${label} dependencies for ${app.name}`);
+      const INSTALL_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
+      const installResult = await new Promise((resolve) => {
+        const child = spawn('npm', ['install'], { cwd: subDir, shell: false, windowsHide: true });
+        let stderr = '';
+        let settled = false;
+        const timer = setTimeout(() => {
+          if (!settled) { settled = true; child.kill('SIGTERM'); resolve({ success: false, stderr: `npm install timed out after ${INSTALL_TIMEOUT_MS / 1000}s` }); }
+        }, INSTALL_TIMEOUT_MS);
+        child.stderr.on('data', d => { stderr += d; });
+        child.on('close', code => { if (!settled) { settled = true; clearTimeout(timer); resolve({ success: code === 0, stderr: stderr.trim() }); } });
+        child.on('error', err => { if (!settled) { settled = true; clearTimeout(timer); resolve({ success: false, stderr: err.message }); } });
+      });
+      if (!installResult.success) {
+        await logAction('build', app.id, app.name, { buildCommand, step: `npm install (${label})` }, false);
+        throw new ServerError(`npm install failed (${label}): ${installResult.stderr}`, { status: 500, code: 'INSTALL_FAILED' });
+      }
+    }
+  }
+
   const BUILD_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
   const result = await new Promise((resolve) => {
     const child = spawn(cmd, args, { cwd: app.repoPath, shell: false, windowsHide: true });
@@ -615,6 +652,16 @@ router.post('/:id/refresh-config', loadApp, asyncHandler(async (req, res) => {
   // Update app with new process data
   const updates = {};
 
+  // Detect buildCommand from package.json if not already set
+  if (!app.buildCommand) {
+    const pkgPath = join(app.repoPath, 'package.json');
+    const pkgContent = await readFile(pkgPath, 'utf-8').catch(() => null);
+    if (pkgContent) {
+      const pkg = safeJSONParse(pkgContent);
+      if (pkg?.scripts?.build) updates.buildCommand = 'npm run build';
+    }
+  }
+
   // Update pm2Home if detected and different from current
   if (pm2Home && pm2Home !== app.pm2Home) {
     updates.pm2Home = pm2Home;
@@ -624,11 +671,17 @@ router.post('/:id/refresh-config', loadApp, asyncHandler(async (req, res) => {
     updates.processes = processes;
     updates.pm2ProcessNames = processes.map(p => p.name);
 
-    // Update apiPort if we found one and it's different
-    const processWithPort = processes.find(p => p.port);
-    if (processWithPort && processWithPort.port !== app.apiPort) {
-      updates.apiPort = processWithPort.port;
-    }
+    // Derive ports from parsed process labels (same logic as streamDetection)
+    const apiProc = processes.find(p => p.ports?.api);
+    if (apiProc) updates.apiPort = apiProc.ports.api;
+
+    const uiProc = processes.find(p => p.ports?.ui);
+    if (uiProc) updates.uiPort = uiProc.ports.ui;
+
+    const devUiProc = processes.find(p => p.ports?.devUi);
+    if (devUiProc) updates.devUiPort = devUiProc.ports.devUi;
+
+    updates.uiPort = deriveUiPort(updates.uiPort, updates.apiPort, updates.devUiPort || app.devUiPort);
   }
 
   // Only update if we have changes

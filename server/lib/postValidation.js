@@ -30,8 +30,9 @@ const llmResponseSchema = z.object({
 
 // Drill type configuration
 const MATH_DRILL_TYPES = ['doubling-chain', 'serial-subtraction', 'multiplication', 'powers', 'estimation'];
-const LLM_DRILL_TYPES = ['word-association', 'story-recall', 'verbal-fluency', 'wit-comeback', 'pun-wordplay'];
-const DRILL_TYPES = [...MATH_DRILL_TYPES, ...LLM_DRILL_TYPES];
+const LLM_DRILL_TYPES = ['word-association', 'story-recall', 'verbal-fluency', 'wit-comeback', 'pun-wordplay', 'what-if', 'alternative-uses', 'story-prompt', 'invention-pitch', 'reframe'];
+const MEMORY_DRILL_TYPES = ['memory-fill-blank', 'memory-sequence', 'memory-element-flash'];
+const DRILL_TYPES = [...MATH_DRILL_TYPES, ...LLM_DRILL_TYPES, ...MEMORY_DRILL_TYPES];
 
 const drillTypeConfigSchema = z.object({
   enabled: z.boolean().optional(),
@@ -121,4 +122,75 @@ export const postLlmScoreRequestSchema = z.object({
   model: z.string().optional()
 });
 
-export { LLM_DRILL_TYPES, MATH_DRILL_TYPES };
+// =============================================================================
+// MEMORY BUILDER VALIDATION
+// =============================================================================
+
+const memoryLineSchema = z.object({
+  text: z.string().min(1),
+  elements: z.array(z.string()).optional(),
+});
+
+const memoryChunkSchema = z.object({
+  id: z.string(),
+  lineRange: z.array(z.number().int().min(0)).length(2),
+  label: z.string(),
+});
+
+export const memoryItemCreateSchema = z.object({
+  title: z.string().min(1).max(200),
+  type: z.enum(['song', 'poem', 'speech', 'sequence', 'text']).optional().default('text'),
+  lines: z.array(z.union([z.string(), memoryLineSchema])).min(1),
+  chunks: z.array(memoryChunkSchema).optional(),
+});
+
+export const memoryItemUpdateSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  type: z.enum(['song', 'poem', 'speech', 'sequence', 'text']).optional(),
+  lines: z.array(z.union([z.string(), memoryLineSchema])).optional(),
+  chunks: z.array(memoryChunkSchema).optional(),
+  mastery: z.object({
+    overallPct: z.number().min(0).max(100).optional(),
+    chunks: z.record(z.object({
+      correct: z.number().int().min(0),
+      attempts: z.number().int().min(0),
+      lastPracticed: z.string().nullable().optional(),
+    })).optional(),
+    elements: z.record(z.object({
+      correct: z.number().int().min(0),
+      attempts: z.number().int().min(0),
+    })).optional(),
+  }).optional(),
+});
+
+const practiceResultSchema = z.object({
+  correct: z.boolean(),
+  word: z.string().optional(),
+  element: z.string().nullable().optional(),
+  expected: z.string().optional(),
+  answered: z.string().optional(),
+});
+
+export const memoryPracticeSchema = z.object({
+  mode: z.enum(['fill-blank', 'sequence', 'element-flash', 'learn', 'speed-run']),
+  chunkId: z.string().nullable().optional(),
+  results: z.array(practiceResultSchema).min(1),
+  totalMs: z.number().min(0).optional(),
+});
+
+export const memoryDrillRequestSchema = z.object({
+  mode: z.enum(['fill-blank', 'sequence', 'element-flash']).optional().default('fill-blank'),
+  memoryItemId: z.string().optional(),
+  count: z.number().int().min(1).max(30).optional().default(5),
+});
+
+// Training log entry submission
+export const trainingEntrySchema = z.object({
+  module: z.string(),
+  drillType: z.enum(DRILL_TYPES),
+  questionCount: z.number().int().min(0),
+  correctCount: z.number().int().min(0),
+  totalMs: z.number().min(0),
+});
+
+export { LLM_DRILL_TYPES, MATH_DRILL_TYPES, MEMORY_DRILL_TYPES };

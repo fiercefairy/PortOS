@@ -1,20 +1,28 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { CheckCircle, XCircle, Loader } from 'lucide-react';
+import { scorePostLlmDrill } from '../../../services/api';
 
 const DRILL_LABELS = {
   'word-association': 'Word Association',
   'story-recall': 'Story Recall',
   'verbal-fluency': 'Verbal Fluency',
   'wit-comeback': 'Wit & Comeback',
-  'pun-wordplay': 'Pun & Wordplay'
+  'pun-wordplay': 'Pun & Wordplay',
+  'what-if': 'What If?',
+  'alternative-uses': 'Alternative Uses',
+  'story-prompt': 'Story Prompt',
+  'invention-pitch': 'Invention Pitch',
+  'reframe': 'Reframe',
 };
 
-export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, drillCount, onComplete }) {
+export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, drillCount, onComplete, isTraining, providerId, model }) {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [responses, setResponses] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [timeLeft, setTimeLeft] = useState(0);
   const [phase, setPhase] = useState('active'); // active | reading | recall
   const [items, setItems] = useState([]); // for verbal-fluency
+  const [trainingFeedback, setTrainingFeedback] = useState(null); // { score, feedback, scoring }
   const inputRef = useRef(null);
   const timerRef = useRef(null);
   const questionStartRef = useRef(Date.now());
@@ -34,6 +42,12 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
     drillStartRef.current = Date.now();
     questionStartRef.current = Date.now();
     setPhase(drillType === 'story-recall' ? 'reading' : 'active');
+    setTrainingFeedback(null);
+
+    if (isTraining) {
+      setTimeLeft(0);
+      return;
+    }
 
     const startTime = Date.now();
     const limit = timeLimitMs;
@@ -50,7 +64,7 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
     }, 100);
 
     return () => clearInterval(timerRef.current);
-  }, [drill]);
+  }, [drill, isTraining]);
 
   // Keep refs in sync with state for use in interval callbacks
   useEffect(() => { responsesRef.current = responses; }, [responses]);
@@ -87,13 +101,12 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
     });
   }
 
-  const handleSubmit = useCallback((e) => {
+  const handleSubmit = useCallback(async (e) => {
     e?.preventDefault();
     const responseMs = Date.now() - questionStartRef.current;
 
     let responseObj;
     if (drillType === 'story-recall') {
-      // Submit all recall answers at once
       responseObj = {
         answers: items.length > 0 ? items : [inputValue.trim()],
         responseMs
@@ -114,6 +127,21 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
     const newResponses = [...responses, responseObj];
     setResponses(newResponses);
 
+    // Training mode: score this response immediately and show feedback
+    if (isTraining) {
+      setTrainingFeedback({ scoring: true });
+      const scored = await scorePostLlmDrill(
+        drillType, drill, [responseObj], timeLimitMs, providerId, model
+      ).catch(() => null);
+      const fb = scored?.evaluation?.scores?.[0] || {};
+      setTrainingFeedback({
+        scoring: false,
+        score: fb.score ?? scored?.score ?? 0,
+        feedback: fb.feedback || scored?.evaluation?.summary || 'No feedback available',
+      });
+      return;
+    }
+
     if (questionIndex + 1 >= totalPrompts) {
       finishDrill(newResponses);
     } else {
@@ -124,7 +152,22 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
         setItems([]);
       }
     }
-  }, [inputValue, items, responses, questionIndex, totalPrompts, drillType, currentPrompt]);
+  }, [inputValue, items, responses, questionIndex, totalPrompts, drillType, currentPrompt, isTraining, drill, timeLimitMs, providerId, model]);
+
+  // Training mode: advance after acknowledging feedback
+  const acknowledgeTrainingFeedback = useCallback(() => {
+    setTrainingFeedback(null);
+    if (questionIndex + 1 >= totalPrompts) {
+      finishDrill(responses);
+    } else {
+      setQuestionIndex(questionIndex + 1);
+      questionStartRef.current = Date.now();
+      if (drillType === 'story-recall') {
+        setPhase('reading');
+        setItems([]);
+      }
+    }
+  }, [questionIndex, totalPrompts, responses, drillType]);
 
   // Story recall: transition from reading to answering
   function handleStartRecall() {
@@ -166,19 +209,79 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
   if (timePct <= 10) timerColor = 'bg-port-error';
   else if (timePct <= 25) timerColor = 'bg-port-warning';
 
+  // Training mode: feedback overlay
+  if (isTraining && trainingFeedback) {
+    if (trainingFeedback.scoring) {
+      return (
+        <div className="max-w-lg mx-auto space-y-6">
+          <div className="flex items-center justify-between text-sm text-gray-400">
+            <span className="text-purple-400">{DRILL_LABELS[drillType] || drillType} — Training</span>
+            <span>Drill {drillIndex + 1} of {drillCount}</span>
+          </div>
+          <div className="flex flex-col items-center gap-3 py-12">
+            <Loader size={32} className="text-purple-400 animate-spin" />
+            <span className="text-gray-400 text-sm">Evaluating your response...</span>
+          </div>
+        </div>
+      );
+    }
+
+    const fbScoreColor = (trainingFeedback.score || 0) >= 70 ? 'text-port-success' :
+      (trainingFeedback.score || 0) >= 40 ? 'text-port-warning' : 'text-port-error';
+    const FbIcon = (trainingFeedback.score || 0) >= 70 ? CheckCircle : XCircle;
+
+    return (
+      <div className="max-w-lg mx-auto space-y-6">
+        <div className="flex items-center justify-between text-sm text-gray-400">
+          <span className="text-purple-400">{DRILL_LABELS[drillType] || drillType} — Training</span>
+          <span>Drill {drillIndex + 1} of {drillCount}</span>
+        </div>
+        <div className="text-center py-6">
+          <FbIcon size={40} className={fbScoreColor} />
+          <div className={`text-3xl font-mono font-bold mt-2 ${fbScoreColor}`}>{trainingFeedback.score}</div>
+        </div>
+        <div className="bg-port-card border border-port-border rounded-lg p-4">
+          <p className="text-sm text-gray-300">{trainingFeedback.feedback}</p>
+        </div>
+        <button
+          onClick={acknowledgeTrainingFeedback}
+          autoFocus
+          className="w-full px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-medium rounded-lg transition-colors"
+        >
+          Next
+        </button>
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs text-gray-500">
+            <span>Prompt {questionIndex + 1} of {totalPrompts}</span>
+          </div>
+          <div className="w-full h-1.5 bg-port-border rounded-full overflow-hidden">
+            <div className="h-full bg-purple-500/60 transition-all" style={{ width: `${((questionIndex + 1) / totalPrompts) * 100}%` }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-lg mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between text-sm text-gray-400">
-        <span>{DRILL_LABELS[drillType] || drillType}</span>
+        <span className={isTraining ? 'text-purple-400' : ''}>
+          {DRILL_LABELS[drillType] || drillType}
+          {isTraining && ' — Training'}
+        </span>
         <span>Drill {drillIndex + 1} of {drillCount}</span>
       </div>
 
-      {/* Timer bar */}
-      <div className="w-full h-2 bg-port-border rounded-full overflow-hidden">
-        <div className={`h-full ${timerColor} transition-all duration-100`} style={{ width: `${timePct}%` }} />
-      </div>
-      <div className="text-center text-sm text-gray-500">{Math.ceil(timeLeft / 1000)}s remaining</div>
+      {/* Timer bar (hidden in training mode) */}
+      {!isTraining && (
+        <>
+          <div className="w-full h-2 bg-port-border rounded-full overflow-hidden">
+            <div className={`h-full ${timerColor} transition-all duration-100`} style={{ width: `${timePct}%` }} />
+          </div>
+          <div className="text-center text-sm text-gray-500">{Math.ceil(timeLeft / 1000)}s remaining</div>
+        </>
+      )}
 
       {/* Drill-specific UI */}
       {drillType === 'word-association' && (
@@ -247,6 +350,84 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
           totalPrompts={totalPrompts}
         />
       )}
+
+      {drillType === 'what-if' && (
+        <ImaginationUI
+          label="Imagine this scenario"
+          prompt={currentPrompt?.prompt}
+          badge={currentPrompt?.category}
+          badgeColor="bg-cyan-500/20 text-cyan-400"
+          placeholder="Describe what would happen..."
+          inputValue={inputValue}
+          setInputValue={setInputValue}
+          onSubmit={handleSubmit}
+          inputRef={inputRef}
+          questionIndex={questionIndex}
+          totalPrompts={totalPrompts}
+        />
+      )}
+
+      {drillType === 'alternative-uses' && (
+        <AlternativeUsesUI
+          object={currentPrompt}
+          items={items}
+          inputValue={inputValue}
+          setInputValue={setInputValue}
+          onAddItem={handleAddItem}
+          onRemoveItem={handleRemoveItem}
+          onSubmit={handleSubmit}
+          inputRef={inputRef}
+          questionIndex={questionIndex}
+          totalPrompts={totalPrompts}
+        />
+      )}
+
+      {drillType === 'story-prompt' && (
+        <>
+          <div className="text-center py-4">
+            <div className="text-sm text-gray-500 mb-3">Write a micro-story using all 3 words:</div>
+            <div className="flex justify-center gap-3">
+              {(currentPrompt?.words || []).map((w, i) => (
+                <span key={i} className="px-3 py-1.5 bg-indigo-500/20 text-indigo-400 rounded-lg text-lg font-medium">{w}</span>
+              ))}
+            </div>
+          </div>
+          <TextInput inputRef={inputRef} value={inputValue} onChange={setInputValue} onSubmit={handleSubmit} placeholder="Your micro-story (2-4 sentences)..." buttonLabel="Next" />
+          <ProgressBar index={questionIndex} total={totalPrompts} />
+        </>
+      )}
+
+      {drillType === 'invention-pitch' && (
+        <ImaginationUI
+          label="Invent a solution"
+          prompt={currentPrompt?.problem}
+          badge={currentPrompt?.difficulty}
+          badgeColor={currentPrompt?.difficulty === 'hard' ? 'bg-port-error/20 text-port-error' : currentPrompt?.difficulty === 'medium' ? 'bg-port-warning/20 text-port-warning' : 'bg-port-success/20 text-port-success'}
+          placeholder="Pitch your invention in 2-3 sentences..."
+          inputValue={inputValue}
+          setInputValue={setInputValue}
+          onSubmit={handleSubmit}
+          inputRef={inputRef}
+          questionIndex={questionIndex}
+          totalPrompts={totalPrompts}
+        />
+      )}
+
+      {drillType === 'reframe' && (
+        <ImaginationUI
+          label="Reframe positively"
+          prompt={currentPrompt?.situation}
+          badge={currentPrompt?.severity}
+          badgeColor="bg-amber-500/20 text-amber-400"
+          placeholder="Find the silver lining..."
+          inputValue={inputValue}
+          setInputValue={setInputValue}
+          onSubmit={handleSubmit}
+          inputRef={inputRef}
+          questionIndex={questionIndex}
+          totalPrompts={totalPrompts}
+        />
+      )}
     </div>
   );
 }
@@ -259,6 +440,11 @@ function getPrompts(drill) {
     case 'verbal-fluency': return drill.categories || [];
     case 'wit-comeback': return drill.scenarios || [];
     case 'pun-wordplay': return drill.challenges || [];
+    case 'what-if': return drill.scenarios || [];
+    case 'alternative-uses': return drill.objects || [];
+    case 'story-prompt': return drill.prompts || [];
+    case 'invention-pitch': return drill.problems || [];
+    case 'reframe': return drill.situations || [];
     default: return [];
   }
 }
@@ -488,6 +674,80 @@ function PunWordplayUI({ challenge, inputValue, setInputValue, onSubmit, inputRe
         placeholder="Your pun or wordplay..."
         buttonLabel="Next"
       />
+      <ProgressBar index={questionIndex} total={totalPrompts} />
+    </>
+  );
+}
+
+function ImaginationUI({ label, prompt, badge, badgeColor, placeholder, inputValue, setInputValue, onSubmit, inputRef, questionIndex, totalPrompts }) {
+  return (
+    <>
+      <div className="bg-port-card border border-port-border rounded-lg p-6 text-center">
+        <div className="text-sm text-gray-500 mb-3">
+          {badge && <span className={`inline-block px-2 py-0.5 rounded text-xs mr-2 ${badgeColor}`}>{badge}</span>}
+          {label}
+        </div>
+        <p className="text-white text-lg leading-relaxed">{prompt}</p>
+      </div>
+      <TextInput
+        inputRef={inputRef}
+        value={inputValue}
+        onChange={setInputValue}
+        onSubmit={onSubmit}
+        placeholder={placeholder}
+        buttonLabel="Next"
+      />
+      <ProgressBar index={questionIndex} total={totalPrompts} />
+    </>
+  );
+}
+
+function AlternativeUsesUI({ object, items, inputValue, setInputValue, onAddItem, onRemoveItem, onSubmit, inputRef, questionIndex, totalPrompts }) {
+  return (
+    <>
+      <div className="text-center py-4">
+        <div className="text-sm text-gray-500 mb-2">List creative uses for:</div>
+        <div className="text-3xl font-bold text-white">{object?.object}</div>
+        {object?.commonUse && <div className="text-sm text-gray-500 mt-2">Common use: {object.commonUse}</div>}
+        {object?.minExpected && <div className="text-sm text-gray-500">Target: {object.minExpected}+ uses</div>}
+      </div>
+
+      <form onSubmit={onAddItem} className="flex gap-2">
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputValue}
+          onChange={e => setInputValue(e.target.value)}
+          placeholder="Type a creative use and press Enter..."
+          autoFocus
+          className="flex-1 bg-port-bg border border-port-border rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:border-port-accent focus:outline-none"
+        />
+        <button type="submit" disabled={!inputValue.trim()} className="px-4 py-2.5 bg-port-accent hover:bg-port-accent/80 disabled:opacity-50 text-white font-medium rounded-lg transition-colors">
+          Add
+        </button>
+      </form>
+
+      {items.length > 0 && (
+        <div className="bg-port-card border border-port-border rounded-lg p-4">
+          <div className="text-sm text-gray-400 mb-2">Uses ({items.length})</div>
+          <div className="flex flex-wrap gap-2">
+            {items.map((item, i) => (
+              <span key={i} className="inline-flex items-center gap-1 px-2 py-1 bg-port-bg border border-port-border rounded text-sm text-white">
+                {item}
+                <button onClick={() => onRemoveItem(i)} className="text-gray-500 hover:text-port-error ml-1">&times;</button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <button
+        onClick={onSubmit}
+        disabled={items.length === 0}
+        className="w-full px-6 py-2.5 bg-port-success hover:bg-port-success/80 disabled:opacity-50 text-white font-medium rounded-lg transition-colors"
+      >
+        Done — Submit {items.length} uses
+      </button>
       <ProgressBar index={questionIndex} total={totalPrompts} />
     </>
   );

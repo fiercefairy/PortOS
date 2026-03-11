@@ -1,16 +1,14 @@
 import {
-  Skull,
   Beer,
+  Calendar,
   Clock,
   Dna,
-  Eye,
   HeartPulse,
   ClipboardList,
   Activity,
   Scale,
   Stethoscope,
-  Upload,
-  Zap
+  Upload
 } from 'lucide-react';
 
 export const TABS = [
@@ -19,12 +17,11 @@ export const TABS = [
   { id: 'alcohol', label: 'Alcohol', icon: Beer },
   { id: 'blood', label: 'Blood', icon: HeartPulse },
   { id: 'body', label: 'Body', icon: Scale },
-  { id: 'eyes', label: 'Eyes', icon: Eye },
+  { id: 'calendar', label: 'Calendar', icon: Calendar },
   { id: 'genome', label: 'Genome', icon: Dna },
   { id: 'health', label: 'Health', icon: Stethoscope },
   { id: 'import', label: 'Import', icon: Upload },
   { id: 'lifestyle', label: 'Lifestyle', icon: ClipboardList },
-  { id: 'post', label: 'POST', icon: Zap }
 ];
 
 // Lifestyle adjustment table for death clock

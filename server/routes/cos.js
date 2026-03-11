@@ -174,13 +174,13 @@ router.post('/tasks/enhance', asyncHandler(async (req, res) => {
 
 // POST /api/cos/tasks - Add a new task
 router.post('/tasks', asyncHandler(async (req, res) => {
-  const { description, priority, context, model, provider, app, type = 'user', approvalRequired, screenshots, attachments, position = 'bottom', createJiraTicket, jiraTicketId, jiraTicketUrl, useWorktree } = req.body;
+  const { description, priority, context, model, provider, app, type = 'user', approvalRequired, screenshots, attachments, position = 'bottom', createJiraTicket, jiraTicketId, jiraTicketUrl, useWorktree, simplify, reviewLoop } = req.body;
 
   if (!description) {
     throw new ServerError('Description is required', { status: 400, code: 'VALIDATION_ERROR' });
   }
 
-  const taskData = { description, priority, context, model, provider, app, approvalRequired, screenshots, attachments, position, createJiraTicket, jiraTicketId, jiraTicketUrl, useWorktree };
+  const taskData = { description, priority, context, model, provider, app, approvalRequired, screenshots, attachments, position, createJiraTicket, jiraTicketId, jiraTicketUrl, useWorktree, simplify, reviewLoop };
   const result = await cos.addTask(taskData, type);
 
   if (result?.duplicate) {
@@ -827,6 +827,11 @@ router.get('/jobs/intervals', (req, res) => {
   res.json({ intervals: autonomousJobs.INTERVAL_OPTIONS });
 });
 
+// GET /api/cos/jobs/allowed-commands - Get allowed commands for shell jobs
+router.get('/jobs/allowed-commands', (req, res) => {
+  res.json({ commands: autonomousJobs.getAllowedCommands() });
+});
+
 // GET /api/cos/jobs/:id - Get a single job
 router.get('/jobs/:id', asyncHandler(async (req, res) => {
   const job = await autonomousJobs.getJob(req.params.id);
@@ -838,15 +843,27 @@ router.get('/jobs/:id', asyncHandler(async (req, res) => {
 
 // POST /api/cos/jobs - Create a new autonomous job
 router.post('/jobs', asyncHandler(async (req, res) => {
-  const { name, description, category, interval, intervalMs, scheduledTime, enabled, priority, autonomyLevel, promptTemplate } = req.body;
+  const { name, description, category, type, interval, intervalMs, scheduledTime, enabled, priority, autonomyLevel, promptTemplate, command, triggerAction } = req.body;
 
-  if (!name || !promptTemplate) {
-    throw new ServerError('name and promptTemplate are required', { status: 400, code: 'VALIDATION_ERROR' });
+  const VALID_JOB_TYPES = ['agent', 'shell', 'script'];
+  if (!name) {
+    throw new ServerError('name is required', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+  if (type && !VALID_JOB_TYPES.includes(type)) {
+    throw new ServerError(`Invalid job type: ${type}. Must be one of: ${VALID_JOB_TYPES.join(', ')}`, { status: 400, code: 'VALIDATION_ERROR' });
+  }
+  if (type === 'shell' && !command?.trim()) {
+    throw new ServerError('command is required for shell jobs', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+  if (!type || type === 'agent') {
+    if (!promptTemplate) {
+      throw new ServerError('promptTemplate is required for agent jobs', { status: 400, code: 'VALIDATION_ERROR' });
+    }
   }
 
   const job = await autonomousJobs.createJob({
-    name, description, category, interval, intervalMs, scheduledTime,
-    enabled, priority, autonomyLevel, promptTemplate
+    name, description, category, type, interval, intervalMs, scheduledTime,
+    enabled, priority, autonomyLevel, promptTemplate, command, triggerAction
   });
   res.json({ success: true, job });
 }));
@@ -876,18 +893,41 @@ router.post('/jobs/:id/trigger', asyncHandler(async (req, res) => {
     throw new ServerError('Job not found', { status: 404, code: 'NOT_FOUND' });
   }
 
+  // Shell jobs execute the command directly
+  if (autonomousJobs.isShellJob(job)) {
+    const result = await autonomousJobs.executeShellJob(job).catch(err => ({
+      success: false,
+      exitCode: err.exitCode ?? 1,
+      output: err.message
+    }));
+    return res.json({ success: result.success !== false, type: 'shell', ...result });
+  }
+
+  // Script jobs run their built-in handler directly
+  if (autonomousJobs.isScriptJob(job)) {
+    const result = await autonomousJobs.executeScriptJob(job).catch(err => ({
+      success: false,
+      error: err.message
+    }));
+    return res.json({ success: (result?.success ?? true) !== false, type: 'script', ...(result || {}) });
+  }
+
   // Generate task and add to CoS internal task queue
   // Job execution is recorded via the job:spawned event when the agent actually starts
   // Manual triggers always bypass approval — the user explicitly requested execution
   const task = await autonomousJobs.generateTaskFromJob(job);
-  const result = await cos.addTask({
+  const taskResult = await cos.addTask({
     description: task.description,
     priority: task.priority,
     context: `Manually triggered autonomous job: ${job.name}`,
     approvalRequired: false
   }, 'internal');
 
-  res.json({ success: true, task: result });
+  if (!taskResult?.id) {
+    res.json({ success: false, type: 'agent', error: 'Task was not queued (may be duplicate or blocked)' });
+    return;
+  }
+  res.json({ success: true, type: 'agent', taskId: taskResult.id });
 }));
 
 // DELETE /api/cos/jobs/:id - Delete a job
@@ -1015,11 +1055,11 @@ router.get('/actionable-insights', asyncHandler(async (req, res) => {
     cos.getAllTasks().catch(err => { console.error(`❌ Failed to load tasks: ${err.message}`); return { user: null, cos: null }; }),
     taskLearning.getLearningInsights().catch(err => { console.error(`❌ Failed to load learning insights: ${err.message}`); return null; }),
     cos.runHealthCheck().catch(err => { console.error(`❌ Failed to run health check: ${err.message}`); return { issues: [] }; }),
-    import('../services/notifications.js'),
+    import('../services/notifications.js').catch(err => { console.error(`❌ Failed to load notifications: ${err.message}`); return null; }),
     productivity.getOptimalTimeInfo().catch(() => ({ hasData: false }))
   ]);
 
-  const notificationsData = await notificationsModule.getNotifications({ unreadOnly: true, limit: 10 }).catch(() => []);
+  const notificationsData = notificationsModule ? await notificationsModule.getNotifications({ unreadOnly: true, limit: 10 }).catch(() => []) : [];
 
   const insights = [];
 

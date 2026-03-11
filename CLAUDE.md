@@ -26,7 +26,7 @@ pm2 logs
 
 ## Security Model
 
-PortOS is a single-user, internal tool running on a private network behind Tailscale VPN. It is not exposed to the public internet. As such, it intentionally omits authentication, CORS restrictions, rate limiting, and HTTPS — these are non-issues for its deployment context. Do not add these or flag their absence as security concerns.
+PortOS is a **single-user, single-instance** application running on a private network behind Tailscale VPN. It is not exposed to the public internet. There is exactly one user and one server process — concurrent request races, mutex locking on file I/O, and atomic write patterns are unnecessary and should not be added or flagged as concerns. Simple re-entrancy guards (e.g., per-account sync locks to prevent duplicate in-flight operations) are fine and expected. As such, it intentionally omits authentication, CORS restrictions, rate limiting, HTTPS, and full concurrency controls — these are non-issues for its deployment context. Do not add these or flag their absence as security concerns.
 
 The default database password `portos` (in `ecosystem.config.cjs`, `docker-compose.yml`, and `.env.example`) is an intentional backward-compatible fallback for local development. Do not remove it or flag it as a security concern. Production deployments override it via the `PGPASSWORD` environment variable.
 
@@ -81,6 +81,8 @@ When CoS agents or AI tools work on managed apps outside PortOS, all research, p
 - **Functional programming** - no classes, use hooks in React
 - **Zod validation** - all route inputs validated via `lib/validation.js`
 - **Command allowlist** - shell execution restricted to approved commands only
+- **Mobile responsive** - all pages should be mobile responsive friendly
+- **Above the fold** - keep actionable content and info above the fold and design pages for maximum information and access without scrolling
 - **No hardcoded localhost** - use `window.location.hostname` for URLs; app accessed via Tailscale remotely
 - **Alphabetical navigation** - sidebar nav items in `Layout.jsx` are alphabetically ordered after the Dashboard+CyberCity top section and separator; children within collapsible sections are also alphabetical
 - **Reactive UI updates** - after mutations (delete, create, update), update local state directly instead of refetching the entire list from the server. Use `setState(prev => prev.filter(...))` or similar patterns for immediate feedback
@@ -107,6 +109,7 @@ port-error: #ef4444
 - **Push pattern**: `git pull --rebase --autostash && git push`
 - **Changelog**: `/cam` appends to `.changelog/NEXT.md`; `/release` finalizes it into a versioned file
 - **Versioning**: Version in `package.json` reflects the last release. Do not bump during development — `/release` handles version bumps
-- Commit code after each feature or bug fix
+- After each feature or bug fix, run `/simplify` and then commit and push code
+- If we have created enough commits to wrap up a feature or issue to warrant a production release, pull the latest main and release branches and then run `/release` from main
 
 See `.changelog/README.md` for detailed format and best practices.

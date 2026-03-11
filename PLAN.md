@@ -76,56 +76,47 @@ pm2 logs
 - [x] **M44 P1-P5**: MeatSpace - Health tracker with death clock, LEV 2045 tracker, alcohol logging, blood/body/epigenetic/eye tracking, lifestyle questionnaire, TSV import, dashboard widget, compact grid overview
 
 - [x] **M51**: Memory System PostgreSQL Upgrade - PostgreSQL + pgvector backend with HNSW vector search, tsvector full-text search, federation sync, and pg_dump backup integration
-
-### In Progress
-
 - [x] **M44 P6**: MeatSpace - Genome/Epigenetic Migration cleanup (route comments updated to `/api/meatspace/genome/`, IdentityTab genome link points to `/meatspace/genome`)
-- [x] **M53 P1**: POST (Power On Self Test) - Foundation + Mental Math (daily cognitive self-test with 5 drill types, scoring, history, config). Phase 1 complete: server service/routes/tests, client UI with drill runner, results, history charts, config editor
-- [ ] **M53 P2**: POST - LLM-Powered Wit & Memory Drills (5 AI drill types: word association, story recall, verbal fluency, wit/comeback, pun/wordplay). Per-drill provider/model config, LLM-scored responses with feedback. Server: meatspacePostLlm.js service, score-llm route. Client: PostLlmDrillRunner component, provider selector in config
+- [x] **M53**: POST (Power On Self Test) - Daily cognitive self-test with mental math drills (P1) and LLM-powered wit & memory drills (P2).
+- [x] **M44 P7**: MeatSpace - Apple Health Integration (live sync via Health Auto Export app + bulk XML import)
+- [x] **M46**: Unified Search (Cmd+K) - Global search across brain, memory, history, agents, tasks, and apps
+- [x] **GSD Tab**: Smart State Detection, One-Click Agent Spawn, Actionable Dashboard
+- [x] **M55**: POST Enhancement — Memory builder, imagination drills, training mode, 5-min balanced sessions. See [POST](./docs/features/post.md)
+- [x] **M54**: MeatSpace Life Calendar — "4000 Weeks" mortality-aware time mapping with responsive grid, goal-activity linking, and time feasibility analysis
 
 ### Planned
 
-- [x] **GSD Tab: Smart State Detection & Guided Setup** — Extend `GET /api/apps/:id/documents` to return GSD status fields and update GSD tab empty state with stepped setup guide
-- [x] **GSD Tab: One-Click Agent Spawn & Open Claude Code** — Run buttons on setup steps create CoS tasks, Open Claude Code button launches CLI in app directory
-- [x] **GSD Tab: Actionable Dashboard** — Fix phase file parsing bug, add phase action triggers, document CRUD, expandable phase cards with sub-plans/verification/research, deep-linkable phase and document views
-
-#### GSD Smart State Detection
-
-The GSD tab currently shows a binary state: project loaded or "No GSD project initialized". This misses intermediate states where partial GSD work exists (e.g., codebase mapped but no project created).
-
-**Server Changes** — Extend `GET /api/apps/:id/documents` response to include GSD status:
-- `hasCodebaseMap` — `.planning/codebase/` directory exists with analysis files
-- `hasProject` — `.planning/PROJECT.md` exists
-- `hasRoadmap` — `.planning/ROADMAP.md` exists
-- `hasState` — `.planning/STATE.md` exists
-- `hasConcerns` — `.planning/CONCERNS.md` exists
-
-Check via `existsSync()` against `app.repoPath + '/.planning/...'` (same pattern as existing document checks).
-
-**GSD Tab UI Changes** — Replace single empty state with stepped guide:
-| State | What to show |
-|---|---|
-| Nothing (no `.planning/`) | "Run `/gsd:map-codebase` to analyze your codebase" |
-| Has `.planning/codebase/` only | "Codebase mapped! Run `/gsd:new-project` to create a project" |
-| Has `PROJECT.md` but no `ROADMAP.md` | "Project created. Run `/gsd:plan-phase` or create a roadmap" |
-| Has `ROADMAP.md` + `STATE.md` | Full project view (current behavior) |
-
-*Touches: `server/routes/apps.js` (extend documents endpoint), `client/src/components/apps/tabs/GsdTab.jsx` (stepped empty state), `client/src/services/api.js` (consume new fields)*
-
+- [ ] **M50 P1-P4**: Email Management - Gmail + Outlook integration, AI categorization and priority extraction, Digital Twin voice drafting, review-before-send outbox, Brain knowledge capture
 - [ ] **M34 P5-P7**: Digital Twin - Multi-modal capture, advanced testing, personas
 - [ ] **M42 P5**: Unified Digital Twin Identity System - Cross-Insights Engine. See [Identity System](./docs/features/identity-system.md)
-- [ ] **M44 P7**: MeatSpace - Apple Health Integration (live sync via Health Auto Export app + bulk XML import)
 - [ ] **M45**: Data Backup & Recovery - Scheduled backup of `./data/` to external drive or NAS. All persistence is JSON files with zero redundancy — one bad write or disk failure loses brain, identity, health, and memory data. Incremental backup with restore verification.
-- [ ] **M46**: Unified Search (Cmd+K) - Global search across brain, memory, history, agents, tasks, and apps. Hybrid vector + BM25 extended to all data sources. Keyboard-driven launcher overlay.
 - [ ] **M47**: Push Notifications - Webhook-based alerts when agents complete tasks, critical errors occur, or goals stall. Discord/Telegram integration for mobile awareness without needing the dashboard open.
 - [ ] **M48 P1-P4**: Google Calendar Integration - OAuth2, two-way event sync, chronotype-aware smart scheduling, CoS autonomous rescheduling, calendar UI with week/month views
 - [ ] **M49 P1-P4**: Life Goals & Todo Planning - Enhanced goal model with todos and milestones, calendar time-blocking, AI-powered periodic check-ins, mortality-aware progress dashboard
-- [ ] **M50 P1-P4**: Email Management - Gmail + Outlook integration, AI categorization and priority extraction, Digital Twin voice drafting, review-before-send outbox, Brain knowledge capture
 - [ ] **M52**: Update Detection - Poll GitHub releases for new version tags, compare against local `package.json` version, surface update availability in dashboard and settings
 
 ---
 
 ## Planned Feature Details
+
+### M55: POST Enhancement — Training + Memory Builder + Imagination
+
+Evolves POST from a test-only system into a cognitive training platform. Covers five domains: **Math** (existing), **Memory** (new), **Wordplay** (existing), **Verbal Agility** (existing), **Imagination** (new). Sessions take ~5 minutes with balanced time budgets across domains.
+
+**Phases:**
+
+- **P1: Memory Builder Engine + Elements Song** — Memory item data model (`data/meatspace/post-memory-items.json`), CRUD routes (`GET/POST/PUT/DELETE /api/meatspace/post/memory-items`), practice submission with mastery tracking (`POST /memory-items/:id/practice`), mastery retrieval. Built-in Elements Song: Tom Lehrer lyrics parsed into lines with element name → symbol/atomic number mapping, chunked into verses.
+- **P2: Memory Builder UI** — `MemoryItemList` (browse/add items), `MemoryPractice` with 5 training modes (learn, fill-in-the-blank, sequence recall, random prompt, speed run), `ElementsSong` component with periodic table grid colored by mastery (green/yellow/red), karaoke-style progressive reveal.
+- **P3: Imagination & Ideation Drills** — 5 new LLM drill types: `what-if` (absurd hypotheticals), `alternative-uses` (divergent thinking), `story-prompt` (connect 3 random words), `invention-pitch` (solve a problem creatively), `reframe` (positive reframing). LLM generation prompts + scoring prompts. `ImaginationDrillRunner` UI with textarea input and difficulty badges.
+- **P4: Training Mode** — Per-domain train/test toggle in `PostSessionLauncher`. Train mode: progressive difficulty, hints on wrong answers, immediate feedback, no final score. Practice log in `data/meatspace/post-training-log.json` tracks practice count, streaks, time spent. Train sessions don't appear in scored POST history.
+- **P5: 5-Minute Session Flow** — Session pulls 1 drill per enabled domain with time budgets (Math ~60s, Memory ~90s, Wordplay ~60s, Verbal ~60s, Imagination ~60s). Smooth transition UI between drills with domain label and progress. Session score = weighted average across domains.
+- **P6: Custom Memory Items** ✅ — Config UI for adding songs/poems/speeches/sequences with title, type picker, and content textarea. Auto-chunking splits by blank lines (verse boundaries) with 4-line fallback. Spaced repetition mode orders chunks by mastery (weakest first) with graduated hint levels (full first-letters → partial → word-count-only → none). Chunk mastery overview with expandable per-chunk accuracy bars. New `GET /memory-items/:id/chunk-mastery` endpoint.
+
+**Data:** `data/meatspace/post-memory-items.json` (content + mastery), `data/meatspace/post-training-log.json` (practice sessions), extended `post-config.json` (imagination + memory drill settings)
+
+**Routes:** Extend existing POST routes + new memory item CRUD + practice endpoints. See [POST feature doc](./docs/features/post.md).
+
+*Touches: server/services/meatspacePost.js, server/services/meatspacePostLlm.js, new server/services/meatspacePostMemory.js, server/routes/meatspace.js, server/lib/postValidation.js, client/src/components/meatspace/post/*, client/src/hooks/usePostSession.js, client/src/services/api.js*
 
 ### M44 P7: Apple Health Integration
 
@@ -266,44 +257,35 @@ Extends the existing goal system in `server/services/identity.js` and `data/digi
 
 *Touches: server/services/identity.js (extend), new server/services/goalEvaluator.js, server/routes/identity.js (extend), client/src/pages/Goals.jsx, client/src/components/goals/tabs/, Layout.jsx, autonomousJobs.js*
 
-### M50: Email Management
+### M50: Messages (Email Management)
 
-Multi-provider email integration — Gmail via Google OAuth (shared with M48) + Outlook via Microsoft Graph API (separate OAuth2 flow). Provider abstraction layer so both behave identically from the service layer up.
+Multi-provider email integration — Gmail via MCP, Outlook/Teams via CDP browser automation (Playwright). Unified Messages page with Inbox, Drafts, Sync, and Config sub-pages.
 
 Always review before send — AI-generated drafts go to an outbox queue. The user reviews, edits, and approves each response before it's sent. No auto-send.
 
-**Phases:**
+**Completed:**
 
-- **P1: Email Read & Provider Auth** — Gmail API integration using shared Google OAuth (`gmail.modify` scope), Microsoft Graph API with separate OAuth2 for Outlook, provider abstraction layer (`emailProvider.js`), email listing with pagination, thread view, basic email inbox UI
-- **P2: AI Categorization & Priority Extraction** — LLM-powered classification (action required, informational, promotional, social, receipts), configurable rules for known senders (skip AI for obvious categories like GitHub notifications), todo extraction from email content (linkable to M49 goal todos), priority scoring, Brain system integration for knowledge capture from action/info emails
-- **P3: Response Drafting with Digital Twin** — Draft responses using Digital Twin voice/style (reads COMMUNICATION.md, PERSONALITY.md, VALUES.md + recent thread context), outbox queue with pending/approved/sent states, draft review/editing UI, all drafts require manual approval before sending
-- **P4: CoS Automation & Rules** — Automated classification on new emails via CoS job `job-email-triage`, rule-based pre-filtering, email-to-task pipeline (email todos → M49 goal todos), priority email notifications via existing notification system
+- [x] **P1: Email Read & Sync** — Outlook CDP browser scraping with `[role='listbox'] [role='option']` selectors, Gmail MCP integration, account CRUD, Sync Unread / Full Sync modes with scrolling for virtualized lists, message caching with dedup
+- [x] **P2: AI Triage & Inbox Actions** — AI evaluation endpoint (`POST /messages/evaluate`) classifies messages as reply/archive/delete/review with priority, inbox shows action badges + priority dots + pin/flag indicators, 1-click "Draft" button generates AI reply and navigates to Drafts
+- [x] **P3: AI Reply Generation** — Real AI reply using configured provider/model and customizable prompt templates (reply + forward), `{{variable}}` substitution, settings persisted in `settings.json`
+- [x] **P3.5: Full Body & Thread Capture** — Outlook sync clicks into each conversation to extract full email body (not just 300-char preview). Conversation threads linked by `threadId`. `GET /messages/thread/:accountId/:threadId` endpoint. MessageDetail shows full conversation chain with "Preview only" indicator for uncaptured messages. Dedup preserves full body upgrades on re-sync.
+- [x] **P4: Config Page** — Unified Config tab with AI Provider & Model selector, prompt template editor, and email account management
 
-**Data:** `data/email/config.json` (sync settings, categories, rules, brain capture config), `data/email/cache/YYYY-MM-DD.jsonl` (date-bucketed email cache, bodies fetched on demand), `data/email/outbox.json` (draft queue with status tracking), `data/outlook/auth.json` (Microsoft OAuth tokens)
+**Remaining TODO:**
 
-**Routes:** `GET /api/email/messages`, `GET /api/email/threads/:threadId`, `POST /api/email/sync`, `POST /api/email/classify/:id`, `POST /api/email/draft/:id`, `GET/PUT/POST/DELETE /api/email/outbox/:id`, `POST /api/email/outbox/:id/approve`
+- [x] **P5: Per-action model selection** — Separate provider/model configs for triage vs reply generation (different cost/capability tiers). Expand `settings.messages` to `{ triage: { providerId, model }, reply: { providerId, model } }`. Update ConfigTab with two `ProviderModelSelector` sections.
+- [x] **P6: Prompt injection hardening** — XML-fence untrusted email content in AI prompts to prevent injection. Add content sanitization layer (`sanitize()` escapes `<>`), `<emails>` XML fencing on eval prompt.
+- [x] **P6.5: Per-message re-fetch & detail fetch fixes** — Refresh button in MessageDetail re-clicks conversation and re-extracts full body (bypasses cache). Inbox-level "Fetch Full Content" button runs detail fetch for all preview-only messages. Clear Cache button per account in Config. Note: Outlook marks messages as read when opened for detail fetch (native behavior, documented as known limitation).
+- [ ] **P7: Digital Twin voice drafting** — Draft responses using Digital Twin voice/style (reads COMMUNICATION.md, PERSONALITY.md, VALUES.md + recent thread context)
+- [ ] **P8: CoS Automation & Rules** — Automated classification on new emails via CoS job, rule-based pre-filtering, email-to-task pipeline, priority email notifications
+- [ ] **P9: Auto-Send with AI Review Gate** — Remove human-in-the-loop for trusted accounts. Before auto-sending, a second LLM call reviews the draft against the original email for: prompt injection artifacts, off-topic content, tone/identity drift, leaked system instructions. Configurable per-account trust level (manual → review-assisted → auto-send). See [Messages Security](./docs/features/messages-security.md) for threat model.
+- [x] **Cleanup** — Delete unused `client/src/components/messages/AccountsTab.jsx` (replaced by ConfigTab)
 
-**Nav:** Top-level sidebar item "Email" (alphabetically between Digital Twin and Goals)
+**Data:** `data/messages/accounts.json`, `data/messages/cache/{accountId}.json`, `data/messages/selectors.json`, `settings.json` (messages key for AI config + templates)
 
-**Dependency Graph:**
+**Routes:** `GET /api/messages/inbox`, `GET /api/messages/:accountId/:messageId`, `GET /api/messages/thread/:accountId/:threadId`, `POST /api/messages/sync/:accountId`, `POST /api/messages/:accountId/:messageId/refresh`, `POST /api/messages/fetch-full/:accountId`, `POST /api/messages/accounts/:id/cache/clear`, `POST /api/messages/evaluate`, `POST /api/messages/drafts/generate`, CRUD for accounts/drafts/selectors
 
-```
-M48 P1 (Google OAuth + Calendar Read)
-  ├── M48 P2 (Calendar Write + Sync)
-  │     ├── M49 P2 (Calendar Time-Blocking)
-  │     └── M48 P3 (Smart Scheduling + CoS)
-  │           └── M48 P4 (Calendar UI Polish)
-  └── M50 P1 (Gmail + Outlook Read — reuses Google OAuth)
-        └── M50 P2 (AI Classification)
-              └── M50 P3 (Response Drafting)
-                    └── M50 P4 (CoS Automation)
-
-M49 P1 (Enhanced Goals + Todos) — independent, no deps
-  ├── M49 P2 (Calendar Integration — needs M48 P2)
-  └── M49 P3 (Check-ins) → M49 P4 (Dashboard)
-```
-
-*Touches: new server/services/email.js, server/services/emailProvider.js, server/services/emailClassifier.js, server/services/emailDrafter.js, server/routes/email.js, client/src/pages/Email.jsx, client/src/components/email/tabs/, Layout.jsx, brain.js, autonomousJobs.js, portos-ai-toolkit (Digital Twin context for drafting)*
+**Nav:** Collapsible "Messages" sidebar section with Drafts, Inbox, Sync, Config sub-pages
 
 ### M52: Update Detection
 
@@ -395,6 +377,8 @@ Check for new PortOS releases on GitHub and notify the user when an update is av
 - [Identity System](./docs/features/identity-system.md) - Unified identity architecture (M42 spec)
 - [JIRA Sprint Manager](./docs/features/jira-sprint-manager.md) - Autonomous JIRA triage and implementation
 - [Memory System](./docs/features/memory-system.md) - Semantic memory with LLM classification
+- [Messages Security](./docs/features/messages-security.md) - AI prompt injection threat model and defenses
+- [POST](./docs/features/post.md) - Cognitive self-test and training system
 - [Prompt Manager](./docs/features/prompt-manager.md) - Customizable AI prompts
 - [Soul System](./docs/features/soul-system.md) - Digital twin identity scaffold
 

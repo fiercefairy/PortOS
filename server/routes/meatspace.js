@@ -13,19 +13,33 @@ import {
   epigeneticTestSchema,
   eyeExamSchema,
   eyeExamUpdateSchema,
+  activitySchema,
+  activityUpdateSchema,
+  lifeEventSchema,
+  lifeEventUpdateSchema,
 } from '../lib/meatspaceValidation.js';
+import { birthDateInputSchema } from '../lib/identityValidation.js';
 import {
   postSessionSubmitSchema,
   postConfigUpdateSchema,
   postDrillRequestSchema,
   postLlmScoreRequestSchema,
+  memoryItemCreateSchema,
+  memoryItemUpdateSchema,
+  memoryPracticeSchema,
+  memoryDrillRequestSchema,
   LLM_DRILL_TYPES,
+  MEMORY_DRILL_TYPES,
+  trainingEntrySchema,
 } from '../lib/postValidation.js';
 import * as meatspaceService from '../services/meatspace.js';
 import * as alcoholService from '../services/meatspaceAlcohol.js';
 import * as healthService from '../services/meatspaceHealth.js';
 import * as postService from '../services/meatspacePost.js';
+import * as memoryService from '../services/meatspacePostMemory.js';
 import { generateLlmDrill, scoreLlmDrill } from '../services/meatspacePostLlm.js';
+import * as trainingService from '../services/meatspacePostTraining.js';
+import * as calendarService from '../services/meatspaceCalendar.js';
 
 const router = Router();
 
@@ -73,6 +87,29 @@ router.put('/lifestyle', asyncHandler(async (req, res) => {
   const data = validateRequest(lifestyleUpdateSchema, req.body);
   const config = await meatspaceService.updateLifestyle(data);
   res.json(config);
+}));
+
+// =============================================================================
+// BIRTH DATE
+// =============================================================================
+
+/**
+ * GET /api/meatspace/birth-date
+ * Get birth date (migrates from goals.json on first read)
+ */
+router.get('/birth-date', asyncHandler(async (req, res) => {
+  const result = await meatspaceService.getBirthDate();
+  res.json(result);
+}));
+
+/**
+ * PUT /api/meatspace/birth-date
+ * Set or update birth date
+ */
+router.put('/birth-date', asyncHandler(async (req, res) => {
+  const { birthDate } = validateRequest(birthDateInputSchema, req.body);
+  const result = await meatspaceService.updateBirthDate(birthDate);
+  res.json(result);
 }));
 
 // =============================================================================
@@ -415,6 +452,15 @@ router.post('/post/drill', asyncHandler(async (req, res) => {
     return res.json(drill);
   }
 
+  if (MEMORY_DRILL_TYPES.includes(data.type)) {
+    const mode = data.type.replace('memory-', '');
+    const drill = await memoryService.generateMemoryDrill({ mode, count: data.config?.count, memoryItemId: data.config?.memoryItemId });
+    if (!drill) {
+      throw new ServerError('Failed to generate memory drill', { status: 500, code: 'MEMORY_DRILL_FAILED' });
+    }
+    return res.json(drill);
+  }
+
   const drill = postService.generateDrill(data.type, data.config);
   if (!drill) {
     throw new ServerError('Unknown drill type', { status: 400, code: 'INVALID_DRILL_TYPE' });
@@ -433,6 +479,240 @@ router.post('/post/score-llm', asyncHandler(async (req, res) => {
     data.timeLimitMs, data.providerId, data.model
   );
   res.json(result);
+}));
+
+// =============================================================================
+// POST - Training Log
+// =============================================================================
+
+/**
+ * POST /api/meatspace/post/training
+ * Submit a training practice entry (separate from scored sessions)
+ */
+router.post('/post/training', asyncHandler(async (req, res) => {
+  const data = validateRequest(trainingEntrySchema, req.body);
+  const entry = await trainingService.submitTrainingEntry(data);
+  res.status(201).json(entry);
+}));
+
+/**
+ * GET /api/meatspace/post/training/stats
+ * Training stats: practice counts, streaks, accuracy by drill type
+ */
+router.get('/post/training/stats', asyncHandler(async (req, res) => {
+  const rawDays = req.query.days != null ? parseInt(req.query.days, 10) : 30;
+  const days = Number.isNaN(rawDays) ? 30 : rawDays > 0 ? Math.min(rawDays, 365) : 0;
+  const stats = await trainingService.getTrainingStats(days);
+  res.json(stats);
+}));
+
+/**
+ * GET /api/meatspace/post/training/entries
+ * Recent training entries
+ */
+router.get('/post/training/entries', asyncHandler(async (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+  const entries = await trainingService.getTrainingEntries(limit);
+  res.json(entries);
+}));
+
+// =============================================================================
+// POST - Memory Builder
+// =============================================================================
+
+/**
+ * GET /api/meatspace/post/memory-items
+ * List all memory items (includes built-in Elements Song)
+ */
+router.get('/post/memory-items', asyncHandler(async (req, res) => {
+  const items = await memoryService.getMemoryItems();
+  res.json(items);
+}));
+
+/**
+ * GET /api/meatspace/post/memory-items/:id
+ * Get a single memory item
+ */
+router.get('/post/memory-items/:id', asyncHandler(async (req, res) => {
+  const item = await memoryService.getMemoryItem(req.params.id);
+  if (!item) throw new ServerError('Memory item not found', { status: 404, code: 'NOT_FOUND' });
+  res.json(item);
+}));
+
+/**
+ * POST /api/meatspace/post/memory-items
+ * Create a custom memory item
+ */
+router.post('/post/memory-items', asyncHandler(async (req, res) => {
+  const data = validateRequest(memoryItemCreateSchema, req.body);
+  const item = await memoryService.createMemoryItem(data);
+  res.status(201).json(item);
+}));
+
+/**
+ * PUT /api/meatspace/post/memory-items/:id
+ * Update a memory item (built-in items: mastery only)
+ */
+router.put('/post/memory-items/:id', asyncHandler(async (req, res) => {
+  const data = validateRequest(memoryItemUpdateSchema, req.body);
+  const item = await memoryService.updateMemoryItem(req.params.id, data);
+  if (!item) throw new ServerError('Memory item not found', { status: 404, code: 'NOT_FOUND' });
+  res.json(item);
+}));
+
+/**
+ * DELETE /api/meatspace/post/memory-items/:id
+ * Delete a custom memory item (built-in items cannot be deleted)
+ */
+router.delete('/post/memory-items/:id', asyncHandler(async (req, res) => {
+  const removed = await memoryService.deleteMemoryItem(req.params.id);
+  if (!removed) throw new ServerError('Cannot delete item (not found or built-in)', { status: 400, code: 'DELETE_FAILED' });
+  res.json(removed);
+}));
+
+/**
+ * POST /api/meatspace/post/memory-items/:id/practice
+ * Submit practice results and update mastery
+ */
+router.post('/post/memory-items/:id/practice', asyncHandler(async (req, res) => {
+  const data = validateRequest(memoryPracticeSchema, req.body);
+  const result = await memoryService.submitPractice(req.params.id, data);
+  if (!result) throw new ServerError('Memory item not found', { status: 404, code: 'NOT_FOUND' });
+  res.json(result);
+}));
+
+/**
+ * GET /api/meatspace/post/memory-items/:id/mastery
+ * Get mastery breakdown for a memory item
+ */
+router.get('/post/memory-items/:id/mastery', asyncHandler(async (req, res) => {
+  const mastery = await memoryService.getMastery(req.params.id);
+  if (!mastery) throw new ServerError('Memory item not found', { status: 404, code: 'NOT_FOUND' });
+  res.json(mastery);
+}));
+
+/**
+ * GET /api/meatspace/post/memory-items/:id/chunk-mastery
+ * Get chunk mastery order for spaced repetition practice
+ */
+router.get('/post/memory-items/:id/chunk-mastery', asyncHandler(async (req, res) => {
+  const item = await memoryService.getMemoryItem(req.params.id);
+  if (!item) throw new ServerError('Memory item not found', { status: 404, code: 'NOT_FOUND' });
+  res.json(memoryService.getChunkMasteryOrder(item));
+}));
+
+/**
+ * POST /api/meatspace/post/memory-drill
+ * Generate a memory drill for a POST session
+ */
+router.post('/post/memory-drill', asyncHandler(async (req, res) => {
+  const data = validateRequest(memoryDrillRequestSchema, req.body);
+  const drill = await memoryService.generateMemoryDrill(data);
+  if (!drill) throw new ServerError('No memory items available', { status: 400, code: 'NO_MEMORY_ITEMS' });
+  res.json(drill);
+}));
+
+// ============================================================
+// Life Calendar
+// ============================================================
+
+/**
+ * GET /api/meatspace/calendar
+ * Full life calendar data: grid, stats, activity budgets.
+ */
+router.get('/calendar', asyncHandler(async (_req, res) => {
+  const data = await calendarService.getCalendarData();
+  res.json(data);
+}));
+
+/**
+ * GET /api/meatspace/activities
+ * List all custom activities (or defaults if none configured).
+ */
+router.get('/activities', asyncHandler(async (_req, res) => {
+  const activities = await calendarService.getActivities();
+  res.json(activities);
+}));
+
+/**
+ * POST /api/meatspace/activities
+ * Add a new activity.
+ */
+router.post('/activities', asyncHandler(async (req, res) => {
+  const data = validateRequest(activitySchema, req.body);
+  const activities = await calendarService.addActivity(data);
+  res.json(activities);
+}));
+
+/**
+ * PUT /api/meatspace/activities/:index
+ * Update an activity by index.
+ */
+router.put('/activities/:index', asyncHandler(async (req, res) => {
+  const index = parseInt(req.params.index, 10);
+  const data = validateRequest(activityUpdateSchema, req.body);
+  const activities = await calendarService.updateActivity(index, data);
+  if (!activities) {
+    throw new ServerError('Activity not found', { status: 404, code: 'NOT_FOUND' });
+  }
+  res.json(activities);
+}));
+
+/**
+ * DELETE /api/meatspace/activities/:index
+ * Remove an activity by index.
+ */
+router.delete('/activities/:index', asyncHandler(async (req, res) => {
+  const index = parseInt(req.params.index, 10);
+  const activities = await calendarService.removeActivity(index);
+  if (!activities) {
+    throw new ServerError('Activity not found', { status: 404, code: 'NOT_FOUND' });
+  }
+  res.json(activities);
+}));
+
+// ============================================================
+// Life Events
+// ============================================================
+
+/**
+ * GET /api/meatspace/life-events
+ * List all life events (or defaults if none configured).
+ */
+router.get('/life-events', asyncHandler(async (_req, res) => {
+  const events = await calendarService.getLifeEvents();
+  res.json(events);
+}));
+
+/**
+ * POST /api/meatspace/life-events
+ * Add a new life event.
+ */
+router.post('/life-events', asyncHandler(async (req, res) => {
+  const data = validateRequest(lifeEventSchema, req.body);
+  const events = await calendarService.addLifeEvent(data);
+  res.json(events);
+}));
+
+/**
+ * PUT /api/meatspace/life-events/:id
+ * Update a life event by ID.
+ */
+router.put('/life-events/:id', asyncHandler(async (req, res) => {
+  const data = validateRequest(lifeEventUpdateSchema, req.body);
+  const events = await calendarService.updateLifeEvent(req.params.id, data);
+  if (!events) throw new ServerError('Life event not found', { status: 404, code: 'NOT_FOUND' });
+  res.json(events);
+}));
+
+/**
+ * DELETE /api/meatspace/life-events/:id
+ * Remove a life event by ID.
+ */
+router.delete('/life-events/:id', asyncHandler(async (req, res) => {
+  const events = await calendarService.removeLifeEvent(req.params.id);
+  if (!events) throw new ServerError('Life event not found', { status: 404, code: 'NOT_FOUND' });
+  res.json(events);
 }));
 
 export default router;

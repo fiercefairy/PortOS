@@ -52,7 +52,9 @@ export const createGoalInputSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().max(2000).optional(),
   horizon: goalHorizonEnum.optional().default('5-year'),
-  category: goalCategoryEnum.optional().default('mastery')
+  category: goalCategoryEnum.optional().default('mastery'),
+  parentId: z.string().min(1).nullable().optional().default(null),
+  tags: z.array(z.string().min(1).max(50)).max(20).optional().default([])
 });
 
 export const updateGoalInputSchema = z.object({
@@ -60,10 +62,20 @@ export const updateGoalInputSchema = z.object({
   description: z.string().max(2000).optional(),
   horizon: goalHorizonEnum.optional(),
   category: goalCategoryEnum.optional(),
-  status: goalStatusEnum.optional()
+  status: goalStatusEnum.optional(),
+  parentId: z.string().min(1).nullable().optional(),
+  tags: z.array(z.string().min(1).max(50)).max(20).optional()
 });
 
 export const addMilestoneInputSchema = z.object({
   title: z.string().min(1).max(200),
   targetDate: validCalendarDate.optional()
+});
+
+// --- Goal-Activity Link Schemas ---
+
+export const linkActivityInputSchema = z.object({
+  activityName: z.string().min(1).max(200),
+  requiredFrequency: z.number().positive().optional(),
+  note: z.string().max(500).optional().default('')
 });

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { CheckCircle, Save, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
-import { LLM_DRILL_TYPES } from './constants';
+import { CheckCircle, Save, ArrowLeft, ChevronDown, ChevronUp, Dumbbell } from 'lucide-react';
+import { LLM_DRILL_TYPES, DRILL_TO_DOMAIN, DOMAINS } from './constants';
 
 const DRILL_LABELS = {
   'doubling-chain': 'Doubling Chain',
@@ -12,11 +12,19 @@ const DRILL_LABELS = {
   'story-recall': 'Story Recall',
   'verbal-fluency': 'Verbal Fluency',
   'wit-comeback': 'Wit & Comeback',
-  'pun-wordplay': 'Pun & Wordplay'
+  'pun-wordplay': 'Pun & Wordplay',
+  'memory-fill-blank': 'Memory Fill Blank',
+  'memory-sequence': 'Memory Sequence',
+  'memory-element-flash': 'Element Flash',
+  'what-if': 'What If?',
+  'alternative-uses': 'Alternative Uses',
+  'story-prompt': 'Story Prompt',
+  'invention-pitch': 'Invention Pitch',
+  'reframe': 'Reframe',
 };
 
 export default function PostSessionResults({ session, tags = {}, onSaved, onBack }) {
-  const { drillResults, sessionScore, state, saveSession } = session;
+  const { drillResults, sessionScore, state, saveSession, isTraining } = session;
   const [expandedDrill, setExpandedDrill] = useState(null);
 
   const scoreColor = sessionScore >= 80 ? 'text-port-success' :
@@ -32,13 +40,46 @@ export default function PostSessionResults({ session, tags = {}, onSaved, onBack
       {/* Overall Score */}
       <div className="text-center py-8">
         <div className="flex items-center justify-center gap-3 mb-2">
-          <CheckCircle size={28} className={scoreColor} />
-          <span className="text-sm text-gray-400">Session Score</span>
+          {isTraining ? <Dumbbell size={28} className="text-purple-400" /> : <CheckCircle size={28} className={scoreColor} />}
+          <span className="text-sm text-gray-400">{isTraining ? 'Training Session' : 'Session Score'}</span>
         </div>
-        <div className={`text-6xl font-mono font-bold ${scoreColor}`}>
-          {sessionScore}
-        </div>
+        {isTraining ? (
+          <div className="text-2xl text-purple-400 font-medium">Practice Complete</div>
+        ) : (
+          <div className={`text-6xl font-mono font-bold ${scoreColor}`}>
+            {sessionScore}
+          </div>
+        )}
       </div>
+
+      {/* Domain Scores (for multi-domain sessions) */}
+      {(() => {
+        const byDomain = {};
+        for (const r of drillResults) {
+          const dk = DRILL_TO_DOMAIN[r.type];
+          if (dk) {
+            if (!byDomain[dk]) byDomain[dk] = [];
+            byDomain[dk].push(r.score || 0);
+          }
+        }
+        const domainKeys = Object.keys(byDomain);
+        if (domainKeys.length < 2) return null;
+        return (
+          <div className="flex justify-center gap-4">
+            {domainKeys.map(dk => {
+              const d = DOMAINS[dk];
+              const avg = Math.round(byDomain[dk].reduce((a, b) => a + b, 0) / byDomain[dk].length);
+              const sc = avg >= 80 ? 'text-port-success' : avg >= 50 ? 'text-port-warning' : 'text-port-error';
+              return (
+                <div key={dk} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg ${d?.bgColor || 'bg-port-card'}`}>
+                  <span className={`text-xs font-medium ${d?.color || 'text-gray-400'}`}>{d?.label || dk}</span>
+                  <span className={`text-lg font-mono font-bold ${sc}`}>{avg}</span>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Per-drill Breakdown */}
       <div className="bg-port-card border border-port-border rounded-lg p-4">
@@ -117,10 +158,12 @@ export default function PostSessionResults({ session, tags = {}, onSaved, onBack
       {state === 'complete' && (
         <button
           onClick={handleSave}
-          className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-port-success hover:bg-port-success/80 text-white font-medium rounded-lg transition-colors"
+          className={`w-full flex items-center justify-center gap-2 px-6 py-3 ${
+            isTraining ? 'bg-purple-600 hover:bg-purple-500' : 'bg-port-success hover:bg-port-success/80'
+          } text-white font-medium rounded-lg transition-colors`}
         >
-          <Save size={18} />
-          Save Session
+          {isTraining ? <Dumbbell size={18} /> : <Save size={18} />}
+          {isTraining ? 'Log Training' : 'Save Session'}
         </button>
       )}
 

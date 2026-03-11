@@ -20,6 +20,7 @@ import Jira from './pages/Jira';
 import Insights from './pages/Insights';
 import Instances from './pages/Instances';
 import MeatSpace from './pages/MeatSpace';
+import Post from './pages/Post';
 
 // Auto-reload on stale chunk errors (e.g., after a rebuild changes chunk hashes)
 // Uses sessionStorage to prevent infinite reload loops (max 1 reload per session)
@@ -46,11 +47,15 @@ const RunnerPage = lazyWithReload(() => import('./pages/DevTools').then(m => ({ 
 const UsagePage = lazyWithReload(() => import('./pages/DevTools').then(m => ({ default: m.UsagePage })));
 const ProcessesPage = lazyWithReload(() => import('./pages/DevTools').then(m => ({ default: m.ProcessesPage })));
 const AgentsPage = lazyWithReload(() => import('./pages/DevTools').then(m => ({ default: m.AgentsPage })));
+const DataDog = lazyWithReload(() => import('./pages/DataDog'));
 const GitHub = lazyWithReload(() => import('./pages/GitHub'));
 const CyberCity = lazyWithReload(() => import('./pages/CyberCity'));
 const AppDetail = lazyWithReload(() => import('./pages/AppDetail'));
 const FeatureAgents = lazyWithReload(() => import('./pages/FeatureAgents'));
 const FeatureAgentDetail = lazyWithReload(() => import('./pages/FeatureAgentDetail'));
+const CalendarPage = lazyWithReload(() => import('./pages/Calendar'));
+const Messages = lazyWithReload(() => import('./pages/Messages'));
+const Goals = lazyWithReload(() => import('./pages/Goals'));
 
 // Loading fallback for lazy-loaded pages
 const PageLoader = () => (
@@ -73,6 +78,7 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="apps" element={<Apps />} />
           <Route path="devtools" element={<Navigate to="/devtools/runs" replace />} />
+          <Route path="devtools/datadog" element={<DataDog />} />
           <Route path="devtools/github" element={<GitHub />} />
           <Route path="devtools/history" element={<HistoryPage />} />
           <Route path="devtools/runs" element={<RunsHistoryPage />} />
@@ -84,10 +90,14 @@ export default function App() {
           <Route path="prompts" element={<PromptManager />} />
           <Route path="cos" element={<Navigate to="/cos/tasks" replace />} />
           <Route path="cos/:tab" element={<ChiefOfStaff />} />
+          <Route path="calendar" element={<Navigate to="/calendar/agenda" replace />} />
+          <Route path="calendar/:tab" element={<CalendarPage />} />
           <Route path="brain" element={<Navigate to="/brain/inbox" replace />} />
           <Route path="brain/:tab" element={<Brain />} />
           <Route path="digital-twin" element={<Navigate to="/digital-twin/overview" replace />} />
           <Route path="digital-twin/:tab" element={<DigitalTwin />} />
+          <Route path="goals" element={<Navigate to="/goals/tree" replace />} />
+          <Route path="goals/:tab" element={<Goals />} />
           <Route path="feature-agents" element={<FeatureAgents />} />
           <Route path="feature-agents/create" element={<FeatureAgentDetail />} />
           <Route path="feature-agents/:id" element={<Navigate to="overview" replace />} />
@@ -106,6 +116,10 @@ export default function App() {
           <Route path="instances" element={<Instances />} />
           <Route path="meatspace" element={<Navigate to="/meatspace/overview" replace />} />
           <Route path="meatspace/:tab" element={<MeatSpace />} />
+          <Route path="post" element={<Post />} />
+          <Route path="messages" element={<Navigate to="/messages/inbox" replace />} />
+          <Route path="messages/:tab" element={<Messages />} />
+          <Route path="datadog" element={<Navigate to="/devtools/datadog" replace />} />
           <Route path="jira" element={<Navigate to="/devtools/jira" replace />} />
           <Route path="devtools/jira" element={<Jira />} />
           <Route path="city" element={<CyberCity />} />

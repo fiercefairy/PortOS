@@ -203,7 +203,8 @@ export async function create(type, recordData) {
 
   data.records[id] = record;
   await saveJsonStore(type, data);
-  await brainSyncLog.appendChange('create', type, id, record, originInstanceId);
+  await brainSyncLog.appendChange('create', type, id, record, originInstanceId)
+    .catch(err => console.error(`⚠️ Sync log append failed for create ${type}/${id}: ${err.message}`));
 
   console.log(`🧠 Created ${type} record: ${id}`);
   return { id, ...record };
@@ -230,7 +231,8 @@ export async function update(type, id, updates) {
 
   data.records[id] = record;
   await saveJsonStore(type, data);
-  await brainSyncLog.appendChange('update', type, id, record, record.originInstanceId);
+  await brainSyncLog.appendChange('update', type, id, record, record.originInstanceId)
+    .catch(err => console.error(`⚠️ Sync log append failed for update ${type}/${id}: ${err.message}`));
 
   console.log(`🧠 Updated ${type} record: ${id}`);
   return { id, ...record };
@@ -250,7 +252,8 @@ export async function remove(type, id) {
   const deleteRecord = { updatedAt: now() };
   delete data.records[id];
   await saveJsonStore(type, data);
-  await brainSyncLog.appendChange('delete', type, id, deleteRecord, originInstanceId);
+  await brainSyncLog.appendChange('delete', type, id, deleteRecord, originInstanceId)
+    .catch(err => console.error(`⚠️ Sync log append failed for delete ${type}/${id}: ${err.message}`));
 
   console.log(`🧠 Deleted ${type} record: ${id}`);
   return true;

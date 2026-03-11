@@ -2,8 +2,10 @@ import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { PATHS, ensureDir, safeJSONParse } from '../lib/fileUtils.js';
+import { ServerError } from '../lib/errorHandler.js';
 import { getGenomeSummary } from './genome.js';
 import { getTasteProfile } from './taste-questionnaire.js';
+import { getActivities } from './meatspaceCalendar.js';
 
 const IDENTITY_DIR = PATHS.digitalTwin;
 const IDENTITY_FILE = join(IDENTITY_DIR, 'identity.json');
@@ -317,19 +319,53 @@ export function computeLifeExpectancy(longevityMarkers, cardiovascularMarkers, b
   };
 }
 
+function getHorizonYears(horizon, timeHorizons) {
+  const map = { '1-year': 1, '3-year': 3, '5-year': 5, '10-year': 10, '20-year': 20, 'lifetime': timeHorizons.yearsRemaining };
+  return map[horizon] ?? 5;
+}
+
+/**
+ * Compute time feasibility for a goal based on its linked activities.
+ * Returns { feasible, totalPerWeek, weeksAvailable, links } or null if no links.
+ */
+export function computeGoalFeasibility(goal, timeHorizons, activities) {
+  if (!goal.linkedActivities?.length || !timeHorizons) return null;
+
+  const horizonYears = getHorizonYears(goal.horizon, timeHorizons);
+  const weeksAvailable = Math.floor(Math.min(horizonYears, timeHorizons.yearsRemaining) * 52);
+
+  let totalPerWeek = 0;
+  const links = [];
+  for (const link of goal.linkedActivities) {
+    const activity = activities.find(a => a.name === link.activityName);
+    if (!activity) continue;
+    const freq = link.requiredFrequency ?? activity.frequency;
+    // Normalize to per-week
+    let perWeek;
+    switch (activity.cadence) {
+      case 'day': perWeek = freq * 7; break;
+      case 'week': perWeek = freq; break;
+      case 'month': perWeek = freq / 4.35; break;
+      case 'year': perWeek = freq / 52; break;
+      default: perWeek = 0;
+    }
+    totalPerWeek += perWeek;
+    const totalOverHorizon = Math.floor(perWeek * weeksAvailable);
+    links.push({ activityName: link.activityName, perWeek: Math.round(perWeek * 10) / 10, totalOverHorizon });
+  }
+
+  return {
+    feasible: weeksAvailable > 0,
+    weeksAvailable,
+    totalPerWeek: Math.round(totalPerWeek * 10) / 10,
+    links
+  };
+}
+
 export function computeGoalUrgency(goal, timeHorizons) {
   if (!timeHorizons || !goal.horizon) return null;
 
-  const horizonMap = {
-    '1-year': 1,
-    '3-year': 3,
-    '5-year': 5,
-    '10-year': 10,
-    '20-year': 20,
-    'lifetime': timeHorizons.yearsRemaining
-  };
-
-  const horizonYears = horizonMap[goal.horizon] ?? 5;
+  const horizonYears = getHorizonYears(goal.horizon, timeHorizons);
   const yearsRemaining = timeHorizons.yearsRemaining;
 
   if (horizonYears <= 0 || yearsRemaining <= 0) return 1;
@@ -653,7 +689,16 @@ export async function deriveLongevity(birthDate) {
 // === Goal Service Functions ===
 
 export async function getGoals() {
-  return loadJSON(GOALS_FILE, DEFAULT_GOALS);
+  const data = await loadJSON(GOALS_FILE, DEFAULT_GOALS);
+  // Lazy migration: backfill parentId, tags, linkedActivities on goals missing them
+  let needsSave = false;
+  for (const goal of data.goals) {
+    if (goal.parentId === undefined) { goal.parentId = null; needsSave = true; }
+    if (!Array.isArray(goal.tags)) { goal.tags = []; needsSave = true; }
+    if (!Array.isArray(goal.linkedActivities)) { goal.linkedActivities = []; needsSave = true; }
+  }
+  if (needsSave) await saveJSON(GOALS_FILE, data);
+  return data;
 }
 
 export async function setBirthDate(birthDate) {
@@ -661,6 +706,10 @@ export async function setBirthDate(birthDate) {
   goals.birthDate = birthDate;
   goals.updatedAt = new Date().toISOString();
   await saveJSON(GOALS_FILE, goals);
+
+  // Sync to meatspace config (canonical source), skip goals sync since we just wrote it
+  const { updateBirthDate } = await import('./meatspace.js');
+  await updateBirthDate(birthDate, { syncGoals: false });
 
   // Re-derive longevity with new birth date
   const longevity = await deriveLongevity(birthDate);
@@ -680,9 +729,14 @@ export async function setBirthDate(birthDate) {
   return goals;
 }
 
-export async function createGoal({ title, description, horizon, category }) {
-  const goals = await loadJSON(GOALS_FILE, DEFAULT_GOALS);
+export async function createGoal({ title, description, horizon, category, parentId, tags }) {
+  const goals = await getGoals();
   const longevity = await loadJSON(LONGEVITY_FILE, DEFAULT_LONGEVITY);
+
+  // Validate parentId references an existing goal
+  if (parentId && !goals.goals.find(g => g.id === parentId)) {
+    throw new ServerError('Parent goal not found', { status: 400, code: 'INVALID_PARENT' });
+  }
 
   const id = `goal-${uuidv4()}`;
   const goal = {
@@ -691,6 +745,9 @@ export async function createGoal({ title, description, horizon, category }) {
     description: description || '',
     horizon: horizon || '5-year',
     category: category || 'mastery',
+    parentId: parentId || null,
+    tags: [...new Set((tags || []).map(t => t.trim()).filter(Boolean))],
+    linkedActivities: [],
     urgency: null,
     status: 'active',
     milestones: [],
@@ -711,15 +768,43 @@ export async function createGoal({ title, description, horizon, category }) {
   return goal;
 }
 
+function hasAncestorCycle(goals, goalId, newParentId) {
+  let current = newParentId;
+  const visited = new Set();
+  while (current) {
+    if (current === goalId) return true;
+    if (visited.has(current)) return true;
+    visited.add(current);
+    const parent = goals.find(g => g.id === current);
+    current = parent?.parentId || null;
+  }
+  return false;
+}
+
 export async function updateGoal(goalId, updates) {
-  const goals = await loadJSON(GOALS_FILE, DEFAULT_GOALS);
+  const goals = await getGoals();
   const idx = goals.goals.findIndex(g => g.id === goalId);
   if (idx === -1) return null;
 
   const goal = goals.goals[idx];
-  const allowed = ['title', 'description', 'horizon', 'category', 'status'];
+
+  // Validate parentId doesn't create a cycle
+  if (updates.parentId !== undefined && updates.parentId !== null) {
+    if (!goals.goals.find(g => g.id === updates.parentId)) {
+      throw new ServerError('Parent goal not found', { status: 400, code: 'INVALID_PARENT' });
+    }
+    if (hasAncestorCycle(goals.goals, goalId, updates.parentId)) {
+      throw new ServerError('Cannot set parent: would create a cycle', { status: 400, code: 'CYCLE_DETECTED' });
+    }
+  }
+
+  const allowed = ['title', 'description', 'horizon', 'category', 'status', 'parentId', 'tags'];
   for (const key of allowed) {
     if (updates[key] !== undefined) goal[key] = updates[key];
+  }
+  // Normalize tags: deduplicate and trim
+  if (goal.tags) {
+    goal.tags = [...new Set(goal.tags.map(t => t.trim()).filter(Boolean))];
   }
   goal.updatedAt = new Date().toISOString();
 
@@ -735,14 +820,110 @@ export async function updateGoal(goalId, updates) {
 }
 
 export async function deleteGoal(goalId) {
-  const goals = await loadJSON(GOALS_FILE, DEFAULT_GOALS);
+  const goals = await getGoals();
   const idx = goals.goals.findIndex(g => g.id === goalId);
   if (idx === -1) return false;
+
+  const deletedGoal = goals.goals[idx];
+  // Orphan children: reparent to deleted goal's parent (or root)
+  const now = new Date().toISOString();
+  for (const goal of goals.goals) {
+    if (goal.parentId === goalId) {
+      goal.parentId = deletedGoal.parentId || null;
+      goal.updatedAt = now;
+    }
+  }
 
   goals.goals.splice(idx, 1);
   goals.updatedAt = new Date().toISOString();
   await saveJSON(GOALS_FILE, goals);
   return true;
+}
+
+export async function getGoalsTree() {
+  const goals = await getGoals();
+  const longevity = await loadJSON(LONGEVITY_FILE, DEFAULT_LONGEVITY);
+  const activities = await getActivities();
+
+  // Enrich goals with urgency and feasibility (shallow copies to avoid mutating persisted objects)
+  const enriched = goals.goals.map(goal => {
+    const enrichedGoal = { ...goal };
+    if (goal.status === 'active' && longevity.timeHorizons) {
+      enrichedGoal.urgency = computeGoalUrgency(goal, longevity.timeHorizons);
+      enrichedGoal.feasibility = computeGoalFeasibility(goal, longevity.timeHorizons, activities);
+    }
+    return enrichedGoal;
+  });
+
+  // Build hierarchical tree
+  const goalMap = new Map(enriched.map(g => [g.id, { ...g, children: [] }]));
+  const roots = [];
+  for (const node of goalMap.values()) {
+    if (node.parentId && goalMap.has(node.parentId)) {
+      goalMap.get(node.parentId).children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
+  // Build tag index (deduplicated per tag)
+  const tagIndex = {};
+  for (const goal of enriched) {
+    for (const tag of new Set(goal.tags || [])) {
+      if (!tagIndex[tag]) tagIndex[tag] = [];
+      tagIndex[tag].push(goal.id);
+    }
+  }
+
+  return {
+    roots,
+    flat: enriched,
+    tagIndex,
+    birthDate: goals.birthDate,
+    lifeExpectancy: longevity.lifeExpectancy || goals.lifeExpectancy,
+    timeHorizons: longevity.timeHorizons || goals.timeHorizons
+  };
+}
+
+export async function linkActivity(goalId, { activityName, requiredFrequency, note }) {
+  const goals = await getGoals();
+  const goal = goals.goals.find(g => g.id === goalId);
+  if (!goal) return null;
+
+  // Prevent duplicates
+  if (goal.linkedActivities.some(l => l.activityName === activityName)) {
+    // Update existing link
+    const link = goal.linkedActivities.find(l => l.activityName === activityName);
+    if (requiredFrequency !== undefined) link.requiredFrequency = requiredFrequency;
+    if (note !== undefined) link.note = note;
+  } else {
+    goal.linkedActivities.push({
+      activityName,
+      requiredFrequency: requiredFrequency || null,
+      note: note || ''
+    });
+  }
+  goal.updatedAt = new Date().toISOString();
+  goals.updatedAt = new Date().toISOString();
+  await saveJSON(GOALS_FILE, goals);
+  console.log(`🔗 Activity "${activityName}" linked to goal "${goal.title}"`);
+  return goal;
+}
+
+export async function unlinkActivity(goalId, activityName) {
+  const goals = await getGoals();
+  const goal = goals.goals.find(g => g.id === goalId);
+  if (!goal) return null;
+
+  const idx = goal.linkedActivities.findIndex(l => l.activityName === activityName);
+  if (idx === -1) return goal;
+
+  goal.linkedActivities.splice(idx, 1);
+  goal.updatedAt = new Date().toISOString();
+  goals.updatedAt = new Date().toISOString();
+  await saveJSON(GOALS_FILE, goals);
+  console.log(`🔗 Activity "${activityName}" unlinked from goal "${goal.title}"`);
+  return goal;
 }
 
 export async function addMilestone(goalId, { title, targetDate }) {

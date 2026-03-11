@@ -30,12 +30,13 @@ import agentToolsRoutes from './routes/agentTools.js';
 import cosRoutes from './routes/cos.js';
 import featureAgentsRoutes from './routes/featureAgents.js';
 import gsdRoutes from './routes/gsd.js';
-import scriptsRoutes from './routes/scripts.js';
 import memoryRoutes from './routes/memory.js';
 import notificationsRoutes from './routes/notifications.js';
 import standardizeRoutes from './routes/standardize.js';
 import brainRoutes from './routes/brain.js';
 import mediaRoutes from './routes/media.js';
+import calendarRoutes from './routes/calendar.js';
+import messagesRoutes from './routes/messages.js';
 import genomeRoutes from './routes/genome.js';
 import digitalTwinRoutes from './routes/digital-twin.js';
 import socialAccountsRoutes from './routes/socialAccounts.js';
@@ -44,6 +45,7 @@ import browserRoutes from './routes/browser.js';
 import moltworldToolsRoutes from './routes/moltworldTools.js';
 import moltworldWsRoutes from './routes/moltworldWs.js';
 import insightsRoutes from './routes/insights.js';
+import datadogRoutes from './routes/datadog.js';
 import jiraRoutes from './routes/jira.js';
 import autobiographyRoutes from './routes/autobiography.js';
 import backupRoutes from './routes/backup.js';
@@ -59,7 +61,6 @@ import { initSyncLog } from './services/brainSyncLog.js';
 import { backfillOriginInstanceId } from './services/brainStorage.js';
 import { initSyncOrchestrator } from './services/syncOrchestrator.js';
 import { initSocket } from './services/socket.js';
-import { initScriptRunner } from './services/scriptRunner.js';
 import { errorMiddleware, setupProcessErrorHandlers, asyncHandler } from './lib/errorHandler.js';
 import { initAutoFixer } from './services/autoFixer.js';
 import { initTaskLearning } from './services/taskLearning.js';
@@ -218,7 +219,6 @@ app.use('/api/agents/tools', agentToolsRoutes);
 // Existing running agents routes (process management)
 app.use('/api/agents', agentsRoutes);
 app.use('/api/cos/gsd', gsdRoutes);
-app.use('/api/cos/scripts', scriptsRoutes); // Mount before /api/cos to avoid route conflicts
 app.use('/api/cos', cosRoutes);
 app.use('/api/feature-agents', featureAgentsRoutes);
 app.use('/api/memory', memoryRoutes);
@@ -226,6 +226,8 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/standardize', standardizeRoutes);
 app.use('/api/brain', brainRoutes);
 app.use('/api/media', mediaRoutes);
+app.use('/api/calendar', calendarRoutes);
+app.use('/api/messages', messagesRoutes);
 app.use('/api/digital-twin/social-accounts', socialAccountsRoutes);
 app.use('/api/meatspace/genome', genomeRoutes);
 app.use('/api/digital-twin/identity', identityRoutes);
@@ -233,6 +235,7 @@ app.use('/api/digital-twin/autobiography', autobiographyRoutes);
 app.use('/api/digital-twin', digitalTwinRoutes);
 app.use('/api/lmstudio', lmstudioRoutes);
 app.use('/api/browser', browserRoutes);
+app.use('/api/datadog', datadogRoutes);
 app.use('/api/jira', jiraRoutes);
 app.use('/api/health', appleHealthRoutes);
 app.use('/api/insights', insightsRoutes);
@@ -241,9 +244,6 @@ app.use('/api/meatspace', meatspaceRoutes);
 app.use('/api/github', githubRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/update', updateRoutes);
-
-// Initialize script runner
-initScriptRunner().catch(err => console.error(`❌ Script runner init failed: ${err.message}`));
 
 // Initialize agent automation scheduler and action executor
 automationScheduler.init().catch(err => console.error(`❌ Agent scheduler init failed: ${err.message}`));
@@ -331,20 +331,28 @@ app.use((req, res) => {
 // Error middleware (must be last)
 app.use(errorMiddleware);
 
-// Start server
-httpServer.listen(PORT, HOST, () => {
-  console.log(`🚀 PortOS server running at http://${HOST}:${PORT}`);
+// Initialize instance identity + sync log before accepting requests to prevent
+// race conditions where brain mutations arrive before the sync log is ready
+ensureSelf()
+  .then(() => initSyncLog())
+  .then(() => {
+    // Start server only after sync log is initialized
+    httpServer.listen(PORT, HOST, () => {
+      console.log(`🚀 PortOS server running at http://${HOST}:${PORT}`);
 
-  // Set up process error handlers with io instance
-  setupProcessErrorHandlers(io);
+      // Set up process error handlers with io instance
+      setupProcessErrorHandlers(io);
 
-  // Initialize instance identity, sync log, backfill origin tags, start peer polling + sync
-  ensureSelf()
-    .then(() => initSyncLog())
-    .then(() => backfillOriginInstanceId())
-    .then(() => {
-      startPolling();
-      initSyncOrchestrator();
-    })
-    .catch(err => console.error(`❌ Instance init failed: ${err.message}`));
-});
+      // Backfill origin tags and start peer polling + sync (non-blocking)
+      backfillOriginInstanceId()
+        .then(() => {
+          startPolling();
+          initSyncOrchestrator();
+        })
+        .catch(err => console.error(`❌ Post-startup init failed: ${err.message}`));
+    });
+  })
+  .catch(err => {
+    console.error(`❌ Instance init failed: ${err.message}`);
+    process.exit(1);
+  });

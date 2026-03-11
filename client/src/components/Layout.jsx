@@ -33,6 +33,7 @@ import {
   Target,
   Clock,
   Calendar,
+  CalendarDays,
   GraduationCap,
   Settings,
   Users,
@@ -48,7 +49,6 @@ import {
   HeartPulse,
   ClipboardList,
   Compass,
-  Eye,
   Scale,
   LayoutDashboard,
   Lightbulb,
@@ -57,7 +57,12 @@ import {
   Database,
   Shield,
   Wand2,
-  Zap
+  Zap,
+  Mail,
+  Inbox,
+  RefreshCw,
+  Dog,
+  FilePen
 } from 'lucide-react';
 /* global __APP_VERSION__ */
 import Logo from './Logo';
@@ -98,6 +103,18 @@ const navItems = [
     ]
   },
   {
+    label: 'Calendar',
+    icon: CalendarDays,
+    children: [
+      { to: '/calendar/agenda', label: 'Agenda', icon: CalendarDays },
+      { to: '/calendar/config', label: 'Config', icon: Settings },
+      { to: '/calendar/day', label: 'Day', icon: Calendar },
+      { to: '/calendar/month', label: 'Month', icon: CalendarDays },
+      { to: '/calendar/sync', label: 'Sync', icon: RefreshCw },
+      { to: '/calendar/week', label: 'Week', icon: CalendarDays }
+    ]
+  },
+  {
     label: 'Chief of Staff',
     icon: Crown,
     showBadge: true,
@@ -126,6 +143,7 @@ const navItems = [
       { href: '//:5560', label: 'Autofixer', icon: Wrench, external: true, dynamicHost: true },
       { to: '/browser', label: 'Browser', icon: Globe },
       { to: '/devtools/runner', label: 'Code', icon: Code2 },
+      { to: '/devtools/datadog', label: 'DataDog', icon: Dog },
       { to: '/devtools/github', label: 'GitHub', icon: Github },
       { to: '/devtools/history', label: 'History', icon: History },
       { to: '/devtools/jira', label: 'JIRA', icon: Ticket },
@@ -152,6 +170,7 @@ const navItems = [
     ]
   },
   { to: '/feature-agents', label: 'Feature Agents', icon: Wand2, single: true },
+  { to: '/goals/tree', label: 'Goals', icon: Target, single: true },
   { to: '/insights/overview', label: 'Insights', icon: Lightbulb, single: true },
   { to: '/instances', label: 'Instances', icon: Network, single: true },
   {
@@ -162,15 +181,25 @@ const navItems = [
       { to: '/meatspace/alcohol', label: 'Alcohol', icon: Activity },
       { to: '/meatspace/blood', label: 'Blood', icon: HeartPulse },
       { to: '/meatspace/body', label: 'Body', icon: Scale },
-      { to: '/meatspace/eyes', label: 'Eyes', icon: Eye },
+      { to: '/meatspace/calendar', label: 'Calendar', icon: Calendar },
       { to: '/meatspace/genome', label: 'Genome', icon: Dna },
       { to: '/meatspace/health', label: 'Health', icon: Heart },
       { to: '/meatspace/import', label: 'Import', icon: Upload },
       { to: '/meatspace/lifestyle', label: 'Lifestyle', icon: ClipboardList },
       { to: '/meatspace/overview', label: 'Overview', icon: Activity },
-      { to: '/meatspace/post', label: 'POST', icon: Zap }
     ]
   },
+  {
+    label: 'Messages',
+    icon: Mail,
+    children: [
+      { to: '/messages/config', label: 'Config', icon: Settings },
+      { to: '/messages/drafts', label: 'Drafts', icon: FilePen },
+      { to: '/messages/inbox', label: 'Inbox', icon: Inbox },
+      { to: '/messages/sync', label: 'Sync', icon: RefreshCw }
+    ]
+  },
+  { to: '/post', label: 'POST', icon: Zap, single: true },
   { to: '/security', label: 'Security', icon: Camera, single: true },
   { to: '/settings', label: 'Settings', icon: Settings, single: true },
   { to: '/shell', label: 'Shell', icon: SquareTerminal, single: true },
@@ -598,12 +627,16 @@ export default function Layout() {
 
         {/* Main content */}
         {(() => {
-          const isFullWidth = location.pathname.startsWith('/cos') ||
+          const isFullWidth = location.pathname.startsWith('/calendar') ||
+            location.pathname.startsWith('/cos') ||
             location.pathname.startsWith('/brain') ||
             location.pathname.startsWith('/digital-twin') ||
             location.pathname.startsWith('/feature-agents') ||
+            location.pathname.startsWith('/goals') ||
             location.pathname.startsWith('/insights') ||
             location.pathname.startsWith('/meatspace') ||
+            location.pathname.startsWith('/messages') ||
+            location.pathname === '/post' ||
             location.pathname.startsWith('/agents') ||
             location.pathname === '/shell' ||
             location.pathname.startsWith('/city') ||

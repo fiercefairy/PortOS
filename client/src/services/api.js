@@ -717,22 +717,6 @@ export const updateCosTaskTemplate = (id, data) => request(`/cos/templates/${id}
 });
 export const deleteCosTaskTemplate = (id) => request(`/cos/templates/${id}`, { method: 'DELETE' });
 
-// CoS Scripts
-export const getCosScripts = () => request('/cos/scripts');
-export const getCosScript = (id) => request(`/cos/scripts/${id}`);
-export const createCosScript = (data) => request('/cos/scripts', {
-  method: 'POST',
-  body: JSON.stringify(data)
-});
-export const updateCosScript = (id, data) => request(`/cos/scripts/${id}`, {
-  method: 'PUT',
-  body: JSON.stringify(data)
-});
-export const deleteCosScript = (id) => request(`/cos/scripts/${id}`, { method: 'DELETE' });
-export const runCosScript = (id) => request(`/cos/scripts/${id}/run`, { method: 'POST' });
-export const getCosScriptRuns = (id) => request(`/cos/scripts/${id}/runs`);
-export const getCosScriptPresets = () => request('/cos/scripts/presets');
-
 // Weekly Digest
 export const getCosWeeklyDigest = (weekId = null) => {
   if (weekId) return request(`/cos/digest/${weekId}`);
@@ -807,6 +791,7 @@ export const deleteCosScheduleTemplate = (templateId) => request(`/cos/schedule/
 export const getCosJobs = () => request('/cos/jobs');
 export const getCosJobsDue = () => request('/cos/jobs/due');
 export const getCosJobIntervals = () => request('/cos/jobs/intervals');
+export const getCosJobAllowedCommands = () => request('/cos/jobs/allowed-commands');
 export const getCosJob = (id) => request(`/cos/jobs/${id}`);
 export const createCosJob = (data) => request('/cos/jobs', {
   method: 'POST',
@@ -1381,12 +1366,19 @@ export const updateGoal = (id, data) => request(`/digital-twin/identity/goals/${
   body: JSON.stringify(data)
 });
 export const deleteGoal = (id) => request(`/digital-twin/identity/goals/${id}`, { method: 'DELETE' });
+export const getGoalsTree = () => request('/digital-twin/identity/goals/tree');
 export const addGoalMilestone = (goalId, data) => request(`/digital-twin/identity/goals/${goalId}/milestones`, {
   method: 'POST',
   body: JSON.stringify(data)
 });
 export const completeGoalMilestone = (goalId, milestoneId) =>
   request(`/digital-twin/identity/goals/${goalId}/milestones/${milestoneId}/complete`, { method: 'PUT' });
+export const linkGoalActivity = (goalId, data) => request(`/digital-twin/identity/goals/${goalId}/activities`, {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const unlinkGoalActivity = (goalId, activityName) =>
+  request(`/digital-twin/identity/goals/${goalId}/activities/${encodeURIComponent(activityName)}`, { method: 'DELETE' });
 
 // Feature Agents
 export const getFeatureAgents = () => request('/feature-agents');
@@ -1418,6 +1410,11 @@ export const updateMeatspaceConfig = (data) => request('/meatspace/config', {
 export const updateMeatspaceLifestyle = (data) => request('/meatspace/lifestyle', {
   method: 'PUT',
   body: JSON.stringify(data)
+});
+export const getMeatspaceBirthDate = () => request('/meatspace/birth-date');
+export const setMeatspaceBirthDate = (birthDate) => request('/meatspace/birth-date', {
+  method: 'PUT',
+  body: JSON.stringify({ birthDate })
 });
 export const getDeathClock = () => request('/meatspace/death-clock');
 export const getLEV = () => request('/meatspace/lev');
@@ -1506,6 +1503,63 @@ export const scorePostLlmDrill = (type, drillData, responses, timeLimitMs, provi
     method: 'POST',
     body: JSON.stringify({ type, drillData, responses, timeLimitMs, ...(providerId && { providerId }), ...(model && { model }) })
   });
+
+// MeatSpace - POST Memory Builder
+export const getMemoryItems = () => request('/meatspace/post/memory-items');
+export const getMemoryItem = (id) => request(`/meatspace/post/memory-items/${id}`);
+export const createMemoryItem = (data) => request('/meatspace/post/memory-items', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const updateMemoryItem = (id, data) => request(`/meatspace/post/memory-items/${id}`, {
+  method: 'PUT',
+  body: JSON.stringify(data)
+});
+export const deleteMemoryItem = (id) => request(`/meatspace/post/memory-items/${id}`, {
+  method: 'DELETE'
+});
+export const submitMemoryPractice = (id, data) => request(`/meatspace/post/memory-items/${id}/practice`, {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const getMemoryMastery = (id) => request(`/meatspace/post/memory-items/${id}/mastery`);
+export const getChunkMastery = (id) => request(`/meatspace/post/memory-items/${id}/chunk-mastery`);
+export const generateMemoryDrill = (data) => request('/meatspace/post/memory-drill', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+
+// MeatSpace - POST Training Log
+export const submitTrainingEntry = (data) => request('/meatspace/post/training', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const getTrainingStats = (days) => request(`/meatspace/post/training/stats${days != null ? `?days=${days}` : ''}`);
+export const getTrainingEntries = (limit) => request(`/meatspace/post/training/entries${limit ? `?limit=${limit}` : ''}`);
+
+// Life Calendar
+export const getLifeCalendar = () => request('/meatspace/calendar');
+export const getActivities = () => request('/meatspace/activities');
+export const addActivity = (data) => request('/meatspace/activities', {
+  method: 'POST', body: JSON.stringify(data)
+});
+export const updateActivity = (index, data) => request(`/meatspace/activities/${index}`, {
+  method: 'PUT', body: JSON.stringify(data)
+});
+export const removeActivity = (index) => request(`/meatspace/activities/${index}`, { method: 'DELETE' });
+
+// Life Events
+export const getLifeEvents = () => request('/meatspace/life-events');
+export const addLifeEvent = (data) => request('/meatspace/life-events', {
+  method: 'POST', body: JSON.stringify(data)
+});
+export const updateLifeEvent = (id, data) => request(`/meatspace/life-events/${id}`, {
+  method: 'PUT', body: JSON.stringify(data)
+});
+export const removeLifeEvent = (id) => request(`/meatspace/life-events/${id}`, { method: 'DELETE' });
+
+// DataDog
+export const getDatadogInstances = () => request('/datadog/instances');
 
 // JIRA
 export const getJiraInstances = () => request('/jira/instances');
@@ -1609,6 +1663,67 @@ export const setGitHubSecret = (name, value) =>
   request(`/github/secrets/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify({ value }) });
 export const syncGitHubSecret = (name) =>
   request(`/github/secrets/${encodeURIComponent(name)}/sync`, { method: 'POST' });
+
+// Messages
+export const getMessageAccounts = () => request('/messages/accounts');
+export const createMessageAccount = (data) => request('/messages/accounts', { method: 'POST', body: JSON.stringify(data) });
+export const updateMessageAccount = (id, data) => request(`/messages/accounts/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const deleteMessageAccount = (id) => request(`/messages/accounts/${id}`, { method: 'DELETE' });
+export const syncMessageAccount = (accountId, mode = 'unread') => request(`/messages/sync/${accountId}`, { method: 'POST', body: JSON.stringify({ mode }) });
+export const getMessageSyncStatus = (accountId) => request(`/messages/sync/${accountId}/status`);
+export const evaluateMessages = (data = {}) => request('/messages/evaluate', { method: 'POST', body: JSON.stringify(data) });
+export const getMessageInbox = (params = {}) => {
+  const qs = new URLSearchParams();
+  if (params.accountId) qs.set('accountId', params.accountId);
+  if (params.search) qs.set('search', params.search);
+  if (params.limit) qs.set('limit', params.limit);
+  if (params.offset) qs.set('offset', params.offset);
+  const str = qs.toString();
+  return request(`/messages/inbox${str ? `?${str}` : ''}`);
+};
+export const getMessageDetail = (accountId, messageId) => request(`/messages/${accountId}/${messageId}`);
+export const getMessageThread = (accountId, threadId) => request(`/messages/thread/${accountId}/${threadId}`);
+export const getMessageDrafts = (params = {}) => {
+  const qs = new URLSearchParams();
+  if (params.accountId) qs.set('accountId', params.accountId);
+  if (params.status) qs.set('status', params.status);
+  const str = qs.toString();
+  return request(`/messages/drafts${str ? `?${str}` : ''}`);
+};
+export const createMessageDraft = (data) => request('/messages/drafts', { method: 'POST', body: JSON.stringify(data) });
+export const generateMessageDraft = (data) => request('/messages/drafts/generate', { method: 'POST', body: JSON.stringify(data) });
+export const updateMessageDraft = (id, data) => request(`/messages/drafts/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const approveMessageDraft = (id) => request(`/messages/drafts/${id}/approve`, { method: 'POST' });
+export const sendMessageDraft = (id) => request(`/messages/drafts/${id}/send`, { method: 'POST' });
+export const deleteMessageDraft = (id) => request(`/messages/drafts/${id}`, { method: 'DELETE' });
+export const getMessageSelectors = () => request('/messages/selectors');
+export const updateMessageSelectors = (provider, selectors) => request(`/messages/selectors/${provider}`, { method: 'PUT', body: JSON.stringify({ selectors }) });
+export const testMessageSelectors = (provider) => request(`/messages/selectors/${provider}/test`, { method: 'POST' });
+export const launchMessageBrowser = (accountId) => request(`/messages/launch/${accountId}`, { method: 'POST' });
+export const refreshMessage = (accountId, messageId) =>
+  request(`/messages/${accountId}/${messageId}/refresh`, { method: 'POST' });
+export const fetchFullContent = (accountId, { force } = {}) =>
+  request(`/messages/fetch-full/${accountId}`, { method: 'POST', body: force ? JSON.stringify({ force: true }) : undefined });
+export const executeMessageAction = (accountId, messageId, action) =>
+  request(`/messages/${accountId}/${messageId}/action`, { method: 'POST', body: JSON.stringify({ action }), silent: true });
+export const clearMessageCache = (accountId) =>
+  request(`/messages/accounts/${accountId}/cache/clear`, { method: 'POST' });
+
+// Calendar
+export const getCalendarAccounts = () => request('/calendar/accounts');
+export const createCalendarAccount = (data) => request('/calendar/accounts', { method: 'POST', body: JSON.stringify(data) });
+export const updateCalendarAccount = (id, data) => request(`/calendar/accounts/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const deleteCalendarAccount = (id) => request(`/calendar/accounts/${id}`, { method: 'DELETE' });
+export const syncCalendarAccount = (accountId) => request(`/calendar/sync/${accountId}`, { method: 'POST' });
+export const getCalendarSyncStatus = (accountId) => request(`/calendar/sync/${accountId}/status`);
+export const getCalendarEvents = (params = {}) => {
+  const str = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null)).toString();
+  return request(`/calendar/events${str ? `?${str}` : ''}`);
+};
+export const getCalendarEvent = (accountId, eventId) => request(`/calendar/events/${accountId}/${eventId}`);
+export const getCalendarTokenStatus = () => request('/calendar/debug/token-status');
+export const testCalendarToken = (provider) => request('/calendar/debug/test-token', { method: 'POST', body: JSON.stringify({ provider }) });
+export const clearCalendarToken = (provider) => request('/calendar/debug/clear-token', { method: 'POST', body: JSON.stringify({ provider }) });
 
 // Default export for simplified imports
 export default {

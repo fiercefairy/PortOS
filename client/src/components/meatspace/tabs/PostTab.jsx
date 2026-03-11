@@ -7,6 +7,8 @@ import PostLlmDrillRunner from '../post/PostLlmDrillRunner';
 import PostSessionResults from '../post/PostSessionResults';
 import PostHistory from '../post/PostHistory';
 import PostDrillConfig from '../post/PostDrillConfig';
+import MemoryBuilder from '../post/MemoryBuilder';
+import DrillTransition from '../post/DrillTransition';
 import { LLM_DRILL_TYPES } from '../post/constants';
 
 export default function PostTab() {
@@ -29,9 +31,9 @@ export default function PostTab() {
     setRecentSessions(sessions || []);
   }
 
-  async function handleStart(drillConfigs, tags) {
+  async function handleStart(drillConfigs, tags, training = false) {
     setSessionTags(tags || {});
-    const started = await session.startSession(drillConfigs);
+    const started = await session.startSession(drillConfigs, training);
     if (started) setView('running');
   }
 
@@ -53,6 +55,10 @@ export default function PostTab() {
     setView('config');
   }
 
+  function handleViewMemory() {
+    setView('memory');
+  }
+
   function handleConfigSaved(newConfig) {
     setConfig(newConfig);
     setView('launcher');
@@ -71,18 +77,31 @@ export default function PostTab() {
     }
   }, [session.state, view]);
 
-  // When between drills, auto-advance
-  useEffect(() => {
-    if (session.state === 'between-drills') {
-      session.nextDrill();
-    }
-  }, [session.state, session.nextDrill]);
+  // When between drills, show transition (handled in switch/case below)
 
   const isLlmDrill = session.currentDrill && LLM_DRILL_TYPES.includes(session.currentDrill.type);
+
+  // Show transition between drills
+  if (session.state === 'between-drills' && view === 'running') {
+    const nextIndex = session.currentDrillIndex + 1;
+    const nextDrill = session.drills[nextIndex];
+    if (nextDrill) {
+      return (
+        <DrillTransition
+          nextDrillType={nextDrill.type}
+          drillIndex={nextIndex}
+          drillCount={session.drillCount}
+          completedResults={session.drillResults}
+          onContinue={session.nextDrill}
+        />
+      );
+    }
+  }
 
   switch (view) {
     case 'running':
       if (isLlmDrill) {
+        const drillConfig = session.drills[session.currentDrillIndex];
         return (
           <PostLlmDrillRunner
             drill={session.currentDrill}
@@ -90,6 +109,9 @@ export default function PostTab() {
             drillIndex={session.currentDrillIndex}
             drillCount={session.drillCount}
             onComplete={session.completeLlmDrill}
+            isTraining={session.isTraining}
+            providerId={drillConfig?.providerId}
+            model={drillConfig?.model}
           />
         );
       }
@@ -121,6 +143,12 @@ export default function PostTab() {
           onBack={() => setView('launcher')}
         />
       );
+    case 'memory':
+      return (
+        <MemoryBuilder
+          onBack={() => setView('launcher')}
+        />
+      );
     default:
       return (
         <PostSessionLauncher
@@ -129,6 +157,7 @@ export default function PostTab() {
           onStart={handleStart}
           onViewHistory={handleViewHistory}
           onViewConfig={handleViewConfig}
+          onViewMemory={handleViewMemory}
         />
       );
   }

@@ -114,7 +114,7 @@ export default function ActionableInsightsBanner({ onTaskUnblocked }) {
             ...insight,
             tasks: remaining,
             count: remaining.length,
-            title: `${remaining.length} blocked task${remaining.length !== 1 ? 's' : ''} need attention`,
+            title: `${remaining.length} blocked task${remaining.length !== 1 ? 's' : ''} need${remaining.length === 1 ? 's' : ''} attention`,
             description: firstTask?.description || insight.description
           };
         }).filter(Boolean)

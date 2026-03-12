@@ -73,6 +73,12 @@ function pickScheduleSettings(body) {
   for (const key of SCHEDULE_FIELDS) {
     if (body[key] !== undefined) settings[key] = body[key];
   }
+  if (settings.enabled !== undefined && typeof settings.enabled !== 'boolean') {
+    throw new ServerError('enabled must be a boolean', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+  if (settings.intervalMs !== undefined && (typeof settings.intervalMs !== 'number' || settings.intervalMs < 0)) {
+    throw new ServerError('intervalMs must be a non-negative number', { status: 400, code: 'VALIDATION_ERROR' });
+  }
   if (settings.taskMetadata !== undefined && settings.taskMetadata !== null) {
     if (typeof settings.taskMetadata !== 'object' || Array.isArray(settings.taskMetadata)) {
       throw new ServerError('taskMetadata must be an object or null', { status: 400, code: 'VALIDATION_ERROR' });

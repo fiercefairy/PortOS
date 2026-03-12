@@ -258,6 +258,9 @@ router.get('/:id/task-types', loadApp, asyncHandler(async (req, res) => {
 // PUT /api/apps/:id/task-types/:taskType - Update a task type override for an app
 router.put('/:id/task-types/:taskType', asyncHandler(async (req, res) => {
   const { enabled, interval, taskMetadata } = req.body;
+  if (enabled !== undefined && typeof enabled !== 'boolean') {
+    throw new ServerError('enabled must be a boolean', { status: 400, code: 'VALIDATION_ERROR' });
+  }
   if (typeof enabled !== 'boolean' && interval === undefined && taskMetadata === undefined) {
     throw new ServerError('enabled (boolean), interval (string|null), or taskMetadata (object|null) required', { status: 400, code: 'VALIDATION_ERROR' });
   }

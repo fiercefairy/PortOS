@@ -802,6 +802,7 @@ export async function loadSchedule() {
         } else {
           // Prompt differs from all known defaults — treat as user-customized
           config.promptCustomized = true;
+          config.promptVersion = PROMPT_VERSIONS[taskType] || 1;
           needsSave = true;
         }
       }
@@ -848,6 +849,10 @@ export async function updateTaskInterval(taskType, settings) {
     schedule.tasks[taskType] = { type: INTERVAL_TYPES.ROTATION, enabled: false, providerId: null, model: null };
   }
 
+  // Normalize empty/whitespace prompts to null (treated as "use default")
+  if ('prompt' in settings && typeof settings.prompt === 'string' && !settings.prompt.trim()) {
+    settings.prompt = null;
+  }
   // If user is setting a custom prompt, mark it so auto-upgrade won't overwrite it.
   // If user clears the prompt (null), remove the customized flag to resume defaults.
   if ('prompt' in settings) {

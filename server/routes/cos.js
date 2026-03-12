@@ -847,11 +847,16 @@ router.get('/jobs/allowed-commands', (req, res) => {
 // GET /api/cos/jobs/gates - Get all registered LLM gates
 router.get('/jobs/gates', asyncHandler(async (req, res) => {
   const gateIds = getRegisteredGates();
-  const results = await Promise.all(
+  const settled = await Promise.allSettled(
     gateIds.map(async (id) => {
       const result = await checkJobGate(id);
       return { jobId: id, ...result };
     })
+  );
+  const results = settled.map((s, i) =>
+    s.status === 'fulfilled'
+      ? s.value
+      : { jobId: gateIds[i], shouldRun: false, reason: `Gate error: ${s.reason?.message || s.reason}`, error: true }
   );
   res.json({ gates: results });
 }));

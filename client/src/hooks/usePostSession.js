@@ -142,13 +142,13 @@ export function usePostSession() {
       answered = value;
       correct = value !== null && String(value).toLowerCase().trim() === String(q.expected).toLowerCase().trim();
     } else if (currentDrill.type === 'estimation') {
-      const num = value === null ? null : Number(value);
-      answered = (num !== null && isNaN(num)) ? null : num;
+      const raw = (value === null || String(value).trim() === '') ? null : Number(value);
+      answered = (raw !== null && isNaN(raw)) ? null : raw;
       const tolerance = (currentDrill.config?.tolerancePct || 10) / 100;
       correct = answered !== null && Math.abs(answered - q.expected) <= Math.abs(q.expected * tolerance);
     } else {
-      const num = value === null ? null : Number(value);
-      answered = (num !== null && isNaN(num)) ? null : num;
+      const raw = (value === null || String(value).trim() === '') ? null : Number(value);
+      answered = (raw !== null && isNaN(raw)) ? null : raw;
       correct = answered === q.expected;
     }
 

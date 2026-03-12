@@ -332,13 +332,15 @@ export default function ChiefOfStaff() {
         const unblocked = blockedTask
           ? { ...blockedTask, status: 'pending', metadata: { ...blockedTask.metadata, blocker: undefined } }
           : null;
+        const currentPending = slice.grouped?.pending || [];
+        const alreadyPending = currentPending.some(t => t.id === taskId);
         return {
           ...slice,
           tasks: slice.tasks?.map(t => t.id === taskId ? { ...t, status: 'pending', metadata: { ...t.metadata, blocker: undefined } } : t),
           grouped: {
             ...slice.grouped,
             blocked: slice.grouped?.blocked?.filter(t => t.id !== taskId) || [],
-            pending: [...(slice.grouped?.pending || []), ...(unblocked ? [unblocked] : [])]
+            pending: alreadyPending ? currentPending : [...currentPending, ...(unblocked ? [unblocked] : [])]
           }
         };
       };

@@ -947,17 +947,23 @@ export default function CalendarTab() {
   if (error || data?.error) {
     const isBirthDateMissing = (error || data?.error || '').includes('Birth date not set');
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-12 max-w-md mx-auto">
         <Calendar size={48} className="text-gray-600 mx-auto mb-4" />
         <p className="text-gray-400 mb-2">Life calendar unavailable</p>
         <p className="text-sm text-gray-500 mb-4">{error || data.error}</p>
         {isBirthDateMissing && (
-          <Link
-            to="/meatspace/age"
-            className="inline-block px-4 py-2 rounded bg-port-accent/20 text-port-accent hover:bg-port-accent/30 text-sm"
-          >
-            Set Birth Date
-          </Link>
+          <div className="space-y-3">
+            <Link
+              to="/meatspace/age"
+              className="inline-block px-4 py-2 rounded bg-port-accent/20 text-port-accent hover:bg-port-accent/30 text-sm"
+            >
+              Set Birth Date
+            </Link>
+            <p className="text-xs text-gray-600">
+              Your birth date is required to calculate your life timeline.
+              Set it in <Link to="/meatspace/age" className="text-port-accent hover:underline">MeatSpace &gt; Age</Link>.
+            </p>
+          </div>
         )}
       </div>
     );
@@ -1011,6 +1017,35 @@ export default function CalendarTab() {
           </div>
         </div>
       </div>
+
+      {/* Setup tips for improving accuracy */}
+      <details className="text-xs text-gray-600">
+        <summary className="cursor-pointer text-gray-500 hover:text-gray-400">
+          Improve your timeline accuracy
+        </summary>
+        <div className="mt-2 p-3 bg-port-card border border-port-border rounded-lg space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-port-accent shrink-0" />
+            <span><Link to="/meatspace/age" className="text-port-accent hover:underline">Birth date</Link> — required for all calculations</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-port-accent shrink-0" />
+            <span><Link to="/meatspace/genome" className="text-port-accent hover:underline">Genome</Link> — upload 23andMe data for genetic longevity markers</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-port-accent shrink-0" />
+            <span><Link to="/digital-twin/identity" className="text-port-accent hover:underline">Longevity profile</Link> — derives life expectancy from genome + cardiovascular markers</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-port-accent shrink-0" />
+            <span><Link to="/meatspace/lifestyle" className="text-port-accent hover:underline">Lifestyle questionnaire</Link> — smoking, exercise, diet, sleep adjustments</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-port-accent shrink-0" />
+            <span><Link to="/meatspace/health" className="text-port-accent hover:underline">Health tracking</Link> — ongoing health data for refined estimates</span>
+          </div>
+        </div>
+      </details>
 
       {/* Dashboard grid: Life Grid (main) + Time Stats (sidebar) */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">

@@ -1024,26 +1024,18 @@ export default function CalendarTab() {
           Improve your timeline accuracy
         </summary>
         <div className="mt-2 p-3 bg-port-card border border-port-border rounded-lg space-y-1.5">
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-port-accent shrink-0" />
-            <span><Link to="/meatspace/age" className="text-port-accent hover:underline">Birth date</Link> — required for all calculations</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-port-accent shrink-0" />
-            <span><Link to="/meatspace/genome" className="text-port-accent hover:underline">Genome</Link> — upload 23andMe data for genetic longevity markers</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-port-accent shrink-0" />
-            <span><Link to="/digital-twin/identity" className="text-port-accent hover:underline">Longevity profile</Link> — derives life expectancy from genome + cardiovascular markers</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-port-accent shrink-0" />
-            <span><Link to="/meatspace/lifestyle" className="text-port-accent hover:underline">Lifestyle questionnaire</Link> — smoking, exercise, diet, sleep adjustments</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-port-accent shrink-0" />
-            <span><Link to="/meatspace/health" className="text-port-accent hover:underline">Health tracking</Link> — ongoing health data for refined estimates</span>
-          </div>
+          {[
+            { to: '/meatspace/age', label: 'Birth date', desc: 'required for all calculations' },
+            { to: '/meatspace/genome', label: 'Genome', desc: 'upload 23andMe data for genetic longevity markers' },
+            { to: '/digital-twin/identity', label: 'Longevity profile', desc: 'derives life expectancy from genome + cardiovascular markers' },
+            { to: '/meatspace/lifestyle', label: 'Lifestyle questionnaire', desc: 'smoking, exercise, diet, sleep adjustments' },
+            { to: '/meatspace/health', label: 'Health tracking', desc: 'ongoing health data for refined estimates' },
+          ].map(tip => (
+            <div key={tip.to} className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-port-accent shrink-0" />
+              <span><Link to={tip.to} className="text-port-accent hover:underline">{tip.label}</Link> — {tip.desc}</span>
+            </div>
+          ))}
         </div>
       </details>
 

@@ -53,7 +53,12 @@ export async function saveCache(accountId, cache) {
 }
 
 function filterDeclinedAndCancelled(events) {
-  return events.filter(e => e.myStatus !== 'declined' && !e.isCancelled);
+  return events.filter(e =>
+    e.myStatus !== 'declined' &&
+    !e.isCancelled &&
+    !e.title?.startsWith('Declined: ') &&
+    !e.title?.startsWith('Canceled: ')
+  );
 }
 
 function filterByEnabledSubcalendars(events, account) {

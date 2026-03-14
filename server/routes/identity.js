@@ -13,8 +13,11 @@ import {
   linkCalendarInputSchema,
   addTodoInputSchema,
   updateTodoInputSchema,
-  updateProgressSchema
+  updateProgressSchema,
+  generatePhasesInputSchema,
+  acceptPhasesInputSchema
 } from '../lib/identityValidation.js';
+import * as goalCalendarScheduler from '../services/goalCalendarScheduler.js';
 
 const router = Router();
 
@@ -235,6 +238,38 @@ router.delete('/goals/:id/todos/:todoId', asyncHandler(async (req, res) => {
   if (!result) {
     throw new ServerError('Goal or todo not found', { status: 404, code: 'NOT_FOUND' });
   }
+  res.json(result);
+}));
+
+// POST /api/digital-twin/identity/goals/:id/generate-phases — AI-generate phases
+router.post('/goals/:id/generate-phases', asyncHandler(async (req, res) => {
+  const data = validateRequest(generatePhasesInputSchema, req.body);
+  const phases = await identityService.generateGoalPhases(req.params.id, data);
+  res.json(phases);
+}));
+
+// POST /api/digital-twin/identity/goals/:id/accept-phases — Persist phases as milestones
+router.post('/goals/:id/accept-phases', asyncHandler(async (req, res) => {
+  const data = validateRequest(acceptPhasesInputSchema, req.body);
+  const goal = await identityService.acceptGoalPhases(req.params.id, data.phases);
+  res.json(goal);
+}));
+
+// POST /api/digital-twin/identity/goals/:id/schedule — Create time blocks
+router.post('/goals/:id/schedule', asyncHandler(async (req, res) => {
+  const result = await goalCalendarScheduler.scheduleTimeBlocks(req.params.id);
+  res.json(result);
+}));
+
+// DELETE /api/digital-twin/identity/goals/:id/schedule — Remove scheduled events
+router.delete('/goals/:id/schedule', asyncHandler(async (req, res) => {
+  const result = await goalCalendarScheduler.removeScheduledEvents(req.params.id);
+  res.json(result);
+}));
+
+// POST /api/digital-twin/identity/goals/:id/reschedule — Rebuild schedule
+router.post('/goals/:id/reschedule', asyncHandler(async (req, res) => {
+  const result = await goalCalendarScheduler.rescheduleTimeBlocks(req.params.id);
   res.json(result);
 }));
 

@@ -51,8 +51,19 @@ async function brainReviewGate() {
  * Registry of gate functions keyed by job ID.
  * Jobs without a gate entry always run (no precondition).
  */
+async function goalCheckInGate() {
+  const { getGoals } = await import('./identity.js');
+  const data = await getGoals();
+  const activeWithTarget = (data.goals || []).filter(g => g.status === 'active' && g.targetDate);
+  if (activeWithTarget.length > 0) {
+    return { shouldRun: true, reason: `${activeWithTarget.length} active goal(s) with target dates`, context: { count: activeWithTarget.length } };
+  }
+  return { shouldRun: false, reason: 'No active goals with target dates' };
+}
+
 const GATES = Object.assign(Object.create(null), {
-  'job-brain-review': brainReviewGate
+  'job-brain-review': brainReviewGate,
+  'job-goal-check-in': goalCheckInGate
 });
 
 /**

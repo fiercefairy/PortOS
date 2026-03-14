@@ -24,6 +24,7 @@ import { cosEvents } from './cosEvents.js'
 import { DAY, ensureDir, HOUR, PATHS, readJSONFile } from '../lib/fileUtils.js'
 import { createMutex } from '../lib/asyncMutex.js'
 import { checkAndPrompt as autobiographyCheckAndPrompt } from './autobiography.js'
+import { runGoalCheckIn } from './goalCheckIn.js'
 import { validateCommand, redactOutput, ALLOWED_COMMANDS_SORTED } from '../lib/commandSecurity.js'
 
 /**
@@ -105,7 +106,8 @@ async function agentDataCleanup() {
 const SCRIPT_HANDLERS = {
   'autobiography-prompt': autobiographyCheckAndPrompt,
   'moltworld-exploration': runMoltworldExploration,
-  'agent-data-cleanup': agentDataCleanup
+  'agent-data-cleanup': agentDataCleanup,
+  'goal-check-in': runGoalCheckIn
 }
 
 const __filename = fileURLToPath(import.meta.url)
@@ -385,6 +387,23 @@ Phase 4 — Report:
     priority: 'LOW',
     type: 'script',
     scriptHandler: 'agent-data-cleanup',
+    lastRun: null,
+    runCount: 0,
+    createdAt: null,
+    updatedAt: null
+  },
+  {
+    id: 'job-goal-check-in',
+    name: 'Goal Check-in',
+    description: 'Weekly check-in on active goals with target dates. Computes progress, determines status, and sends assessment via Telegram.',
+    category: 'goal-check-in',
+    interval: 'weekly',
+    intervalMs: WEEK,
+    scheduledTime: '09:00',
+    enabled: false,
+    priority: 'MEDIUM',
+    type: 'script',
+    scriptHandler: 'goal-check-in',
     lastRun: null,
     runCount: 0,
     createdAt: null,

@@ -61,57 +61,22 @@ See [GOALS.md](./GOALS.md) for project goals and direction.
 - [x] **M55**: POST Enhancement — Memory builder, imagination drills, training mode, 5-min balanced sessions. See [POST](./docs/features/post.md)
 - [x] **M54**: MeatSpace Life Calendar — "4000 Weeks" mortality-aware time mapping with responsive grid, goal-activity linking, and time feasibility analysis
 - [x] **M45**: Data Backup & Recovery - Rsync-based incremental backup with SHA-256 manifests, PostgreSQL pg_dump, configurable cron schedule, restore with dry-run preview and selective subdirectory restore, Dashboard widget with health status
+- [x] **M48 P1-P10**: Google Calendar Integration - MCP push sync, direct Google API via OAuth2, subcalendar management, goal-calendar linking, daily review, auto-configure via CDP, color-coded events, 15-min Day/Week views, Life Calendar consolidated under Calendar > Lifetime
+- [x] **M49 P1**: Life Goals — Enhanced goal model with todos, progress percentage, velocity tracking, projected completion, time tracking aggregates
+- [x] **M50 P1-P7**: Email Management - Outlook API+Playwright sync, AI triage with security hardening, draft generation, thread capture, per-action models, full Messages UI, Gmail API sync+send
+- [x] **M52**: Update Detection - GitHub release polling with semver comparison, auto-check every 30 min, Socket.IO real-time notifications, Update tab UI with progress tracking, update executor with health polling
+- [x] **M56**: Telegram Bot Integration - External notification channel via Telegram bot with conversational commands, goal check-in persistence. Replaces M47.
 
 ### Planned
 
-- [x] **M50 P1-P6**: Email Management - Outlook API+Playwright sync, AI triage with security hardening, draft generation, thread capture, per-action models, full Messages UI (Inbox/Drafts/Sync/Config)
-- [x] **M50 P7**: Email Management - Gmail API sync (same OAuth as Calendar), full body extraction, thread grouping, send via Gmail API
-- [ ] **M50 P8-P9**: Email Management - Digital Twin voice drafting, CoS automation & rules, auto-send with AI review gate
+- [ ] **M50 P8-P10**: Email Management - Digital Twin voice drafting, CoS automation & rules, auto-send with AI review gate
+- [x] **M49 P2-P4**: Life Goals — AI phase planning, calendar time-blocking, automated weekly check-ins with status tracking
 - [ ] **M34 P5-P7**: Digital Twin - Multi-modal capture, advanced testing, personas
 - [ ] **M42 P5**: Unified Digital Twin Identity System - Cross-Insights Engine. See [Identity System](./docs/features/identity-system.md)
-- [x] **M56**: Telegram Bot Integration - External notification channel via Telegram bot. ChatId allowlisting, notification forwarding with rate limiting and type filtering, conversational commands (/status, /goals, /agents, /checkin, /help), goal check-in persistence. Replaces M47.
-- [x] **M48 P1-P5**: Google Calendar Integration - MCP push sync, subcalendar management, goal-calendar linking, daily review with auto-progress-logging, dormancy support
-- [x] **M48 P6**: Calendar Consolidation - Moved Life Calendar from MeatSpace to Calendar > Lifetime tab with accuracy improvement tips
-- [x] **M48 P7**: UI-Triggered Google Calendar Sync - "Sync Google" button in Sync tab + "Discover Calendars" in Config tab
-- [x] **M48 P8**: Direct Google Calendar API Sync - `googleapis` npm with OAuth2, sync method selector, token auto-refresh
-- [x] **M48 P9**: Auto-Configure Google OAuth via CDP - one-click browser setup with Playwright-derived selectors
-- [x] **M48 P10**: Calendar UI Polish - subcalendar color coding in Day/Week/Month views with configurable colors, 15-min blocks in Week view, side-by-side overlap layout, declined/cancelled event filtering
-- [x] **M49 P1**: Life Goals — Enhanced goal model with todos, progress percentage, velocity tracking, projected completion, time tracking aggregates
-- [ ] **M49 P2-P4**: Life Goals — Calendar time-blocking, AI-powered periodic check-ins, mortality-aware progress dashboard
-- [ ] **M52**: Update Detection - Poll GitHub releases for new version tags, compare against local `package.json` version, surface update availability in dashboard and settings
 
 ---
 
 ## Planned Feature Details
-
-### M47: Push Notifications
-
-External notification delivery for critical events when not actively viewing the dashboard.
-
-**Notification Channels**
-- Discord webhook (post to a private channel)
-- Telegram bot (send to chat ID)
-- Generic webhook (POST JSON to any URL)
-- Configurable per-channel: which event types to send
-
-**Events**
-- Agent task completed (with success/failure status and summary)
-- Critical errors (PM2 crash, autofixer triggered)
-- Goal milestone reached
-- CoS health alert (agent stuck, high failure rate)
-- Backup completed or failed (M45)
-
-**Configuration**
-- Settings page section for notification channels
-- Per-channel event type toggles
-- Test button to verify delivery
-- Rate limiting to prevent notification spam (max N per hour per channel)
-
-*Touches: new server/services/pushNotify.js, server/routes/settings.js, Settings UI, cosEvents.js, errorRecovery.js*
-
-### M48: Google Calendar Integration (Complete)
-
-**All phases complete (P1-P10).** Full Google Calendar integration with two sync methods (Claude MCP zero-config + direct Google API via OAuth2), subcalendar management, goal-calendar linking, daily review, auto-configure via CDP browser, color-coded events, 15-min Day/Week views with overlap layout, declined/cancelled event filtering, and Life Calendar consolidated under Calendar > Lifetime.
 
 ### M49: Life Goals & Todo Planning
 
@@ -120,9 +85,9 @@ Extends the existing goal system in `server/services/identity.js` and `data/digi
 **Phases:**
 
 - **P1: Enhanced Goal Model & Todos** *(Complete)* — Added `progress` (0-100), `progressHistory[]`, `todos[]` with priority/estimate/status to goal schema. Velocity (percent/month + trend) and projected completion computed at query time. Time tracking aggregated from progressLog. Progress bars in list view, todo CRUD in detail panel.
-- **P2: Calendar Time-Blocking** (depends on M48 P2) — Schedule recurring goal work sessions on calendar, link calendar events to goals/todos via IDs, track actual time spent from calendar event durations, per-goal calendar config (preferred days, time slot preference, session duration)
-- **P3: Check-in & Evaluation** — Periodic check-in prompts (weekly/monthly configurable per goal), AI evaluator uses Digital Twin + progress data to assess trajectory, timeline adjustment recommendations when behind schedule, CoS autonomous job `job-goal-check-in` for weekly evaluations, check-in history with mood/notes
-- **P4: Dashboard & Visualization** — Goal progress dashboard widget with urgency badges, burn-down / progress timeline charts, integration with existing mortality-aware urgency scoring (M42 P3), "on track" / "behind" / "at risk" status indicators
+- **P2: Calendar Time-Blocking** *(Complete)* — Schedule time blocks on Google Calendar based on phase milestones and time block config (preferred days, time slot, session duration). Google Calendar OAuth upgraded from readonly to read-write scope with upgrade detection. Calendar event CRUD via googleapis.
+- **P3: Check-in & Evaluation** *(Complete)* — Automated weekly goal check-ins via `job-goal-check-in` autonomous job with gate. Computes expected vs actual progress, determines on-track/behind/at-risk status, generates AI assessment and recommendations via LLM, sends Telegram notification. Check-in history displayed in goal detail panel.
+- **P4: AI Phase Planning** *(Complete)* — AI-powered phase generation (3-7 milestones with target dates) via LLM. Editable proposed phases with reorder, add/remove. Accept to persist as milestones with description and order fields.
 
 **Data:** Extended `data/digital-twin/goals.json` with `todos[]`, `progressHistory[]`, `velocity{}`, `checkIns[]`, `calendarConfig{}`, `timeTracking{}` per goal. `checkInSchedule{}` at root level.
 
@@ -138,45 +103,19 @@ Multi-provider email integration — Gmail via Google API (shared OAuth with Cal
 
 Always review before send — AI-generated drafts go to an outbox queue. The user reviews, edits, and approves each response before it's sent. No auto-send.
 
-**Completed:** P1-P7 (Email sync, AI triage, reply generation, thread capture, config, per-action models, prompt injection hardening, per-message re-fetch, Gmail API sync+send). See git history for details.
+**Completed:** P1-P7 (Email sync, AI triage, reply generation, thread capture, config, per-action models, prompt injection hardening, per-message re-fetch, Gmail API sync+send).
 
 **Remaining:**
 
 - [ ] **P8: Digital Twin voice drafting** — Draft responses using Digital Twin voice/style (reads COMMUNICATION.md, PERSONALITY.md, VALUES.md + recent thread context)
 - [ ] **P9: CoS Automation & Rules** — Automated classification on new emails via CoS job, rule-based pre-filtering, email-to-task pipeline, priority email notifications
-- [ ] **P10: Auto-Send with AI Review Gate** — Remove human-in-the-loop for trusted accounts. Before auto-sending, a second LLM call reviews the draft against the original email for: prompt injection artifacts, off-topic content, tone/identity drift, leaked system instructions. Configurable per-account trust level (manual → review-assisted → auto-send). See [Messages Security](./docs/features/messages-security.md) for threat model.
+- [ ] **P10: Auto-Send with AI Review Gate** — Configurable per-account trust level (manual → review-assisted → auto-send). Second LLM reviews drafts for prompt injection, tone drift, leaked instructions. See [Messages Security](./docs/features/messages-security.md)
 
 **Data:** `data/messages/accounts.json`, `data/messages/cache/{accountId}.json`, `data/messages/selectors.json`, `settings.json` (messages key for AI config + templates)
 
 **Routes:** `GET /api/messages/inbox`, `GET /api/messages/:accountId/:messageId`, `GET /api/messages/thread/:accountId/:threadId`, `POST /api/messages/sync/:accountId`, `POST /api/messages/:accountId/:messageId/refresh`, `POST /api/messages/fetch-full/:accountId`, `POST /api/messages/accounts/:id/cache/clear`, `POST /api/messages/evaluate`, `POST /api/messages/drafts/generate`, CRUD for accounts/drafts/selectors
 
 **Nav:** Collapsible "Messages" sidebar section with Drafts, Inbox, Sync, Config sub-pages
-
-### M52: Update Detection
-
-Check for new PortOS releases on GitHub and notify the user when an update is available.
-
-**Version Check**
-- Scheduled service polls `GET https://api.github.com/repos/atomantic/PortOS/releases/latest` (or tags endpoint) on a configurable interval (default: daily)
-- Compare remote latest tag against local version from `package.json`
-- Semver comparison — only flag when remote is newer (ignore pre-release tags unless opted in)
-- Cache last-checked timestamp and latest remote version in `data/settings.json` or `data/update-check.json`
-
-**UI Notifications**
-- Dashboard widget: subtle banner when update available showing current vs. latest version
-- Settings page: "Check for Updates" button with last-checked timestamp, auto-check toggle, and interval config
-- Sidebar badge or indicator on Settings nav item when update is pending
-
-**Update Action**
-- Display release notes summary (fetched from GitHub release body)
-- "View Release" link opens GitHub release page
-- Optional: show one-liner shell command to pull the update (`git pull && npm run install:all && pm2 restart ecosystem.config.cjs`)
-
-**Routes:** `GET /api/system/update-check` (returns current version, latest version, update available boolean, release notes), `POST /api/system/update-check` (trigger manual check)
-
-**Nav:** No new nav item — surfaces in Dashboard widget and Settings page
-
-*Touches: new server/services/updateCheck.js, server/routes/system.js, Dashboard.jsx (update banner widget), Settings page (update check section), data/update-check.json*
 
 ### Tier 1: Identity Integration (aligns with M42 direction)
 
@@ -301,9 +240,6 @@ Three audit passes identified remaining items across architecture, bugs, code qu
 
 ## Next Actions
 
-1. **M49 P1**: Life Goals — Enhanced goal model with todos, calendar time-blocking, progress tracking
+1. **M50 P8**: Messages — Digital Twin voice drafting for email responses
 2. **M42 P5**: Cross-Insights Engine — connect genome + taste + personality + goals into derived insights
-3. **M50 P7-P9**: Messages — Digital Twin voice drafting, CoS automation, auto-send with AI review gate
 4. **M34 P5-P7**: Digital Twin — Multi-modal capture, advanced testing, personas
-5. **M47**: Push Notifications — Discord/Telegram alerts for agent completions and errors
-6. **M52**: Update Detection — GitHub release polling and update notification

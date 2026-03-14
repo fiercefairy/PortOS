@@ -48,13 +48,25 @@ export const goalCategoryEnum = z.enum([
 
 export const goalStatusEnum = z.enum(['active', 'completed', 'abandoned']);
 
+const timeBlockConfigSchema = z.object({
+  preferredDays: z.array(z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])).min(1).max(7),
+  timeSlot: z.union([
+    z.enum(['morning', 'afternoon', 'evening']),
+    z.string().regex(hhmmRegex, 'Must be HH:MM format')
+  ]),
+  sessionDurationMinutes: z.number().int().min(15).max(480),
+  subcalendarId: z.string().min(1).optional()
+});
+
 export const createGoalInputSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().max(2000).optional(),
   horizon: goalHorizonEnum.optional().default('5-year'),
   category: goalCategoryEnum.optional().default('mastery'),
   parentId: z.string().min(1).nullable().optional().default(null),
-  tags: z.array(z.string().min(1).max(50)).max(20).optional().default([])
+  tags: z.array(z.string().min(1).max(50)).max(20).optional().default([]),
+  targetDate: validCalendarDate.optional(),
+  timeBlockConfig: timeBlockConfigSchema.optional()
 });
 
 export const updateGoalInputSchema = z.object({
@@ -64,12 +76,28 @@ export const updateGoalInputSchema = z.object({
   category: goalCategoryEnum.optional(),
   status: goalStatusEnum.optional(),
   parentId: z.string().min(1).nullable().optional(),
-  tags: z.array(z.string().min(1).max(50)).max(20).optional()
+  tags: z.array(z.string().min(1).max(50)).max(20).optional(),
+  targetDate: validCalendarDate.nullable().optional(),
+  timeBlockConfig: timeBlockConfigSchema.nullable().optional()
 });
 
 export const addMilestoneInputSchema = z.object({
   title: z.string().min(1).max(200),
   targetDate: validCalendarDate.optional()
+});
+
+export const generatePhasesInputSchema = z.object({
+  providerId: z.string().min(1).optional(),
+  model: z.string().min(1).optional()
+});
+
+export const acceptPhasesInputSchema = z.object({
+  phases: z.array(z.object({
+    title: z.string().min(1).max(200),
+    description: z.string().max(2000).optional().default(''),
+    targetDate: validCalendarDate,
+    order: z.number().int().min(0)
+  })).min(1).max(20)
 });
 
 // --- Goal Progress Log Schemas ---

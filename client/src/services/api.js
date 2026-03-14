@@ -1780,6 +1780,13 @@ export const addGoalTodo = (goalId, data) => request(`/digital-twin/identity/goa
 export const updateGoalTodo = (goalId, todoId, data) => request(`/digital-twin/identity/goals/${goalId}/todos/${todoId}`, { method: 'PUT', body: JSON.stringify(data) });
 export const deleteGoalTodo = (goalId, todoId) => request(`/digital-twin/identity/goals/${goalId}/todos/${todoId}`, { method: 'DELETE' });
 
+// Goal AI Planning & Scheduling
+export const generateGoalPhases = (goalId, options = {}) => request(`/digital-twin/identity/goals/${goalId}/generate-phases`, { method: 'POST', body: JSON.stringify(options) });
+export const acceptGoalPhases = (goalId, phases) => request(`/digital-twin/identity/goals/${goalId}/accept-phases`, { method: 'POST', body: JSON.stringify({ phases }) });
+export const scheduleGoalTimeBlocks = (goalId) => request(`/digital-twin/identity/goals/${goalId}/schedule`, { method: 'POST' });
+export const removeGoalSchedule = (goalId) => request(`/digital-twin/identity/goals/${goalId}/schedule`, { method: 'DELETE' });
+export const rescheduleGoalTimeBlocks = (goalId) => request(`/digital-twin/identity/goals/${goalId}/reschedule`, { method: 'POST' });
+
 // Default export for simplified imports
 export default {
   get: (endpoint, options) => request(endpoint, { method: 'GET', ...options }),

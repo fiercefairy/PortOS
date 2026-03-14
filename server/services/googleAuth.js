@@ -7,7 +7,7 @@ const AUTH_DIR = join(PATHS.calendar, 'google-auth');
 const CREDENTIALS_FILE = join(AUTH_DIR, 'credentials.json');
 const TOKENS_FILE = join(AUTH_DIR, 'tokens.json');
 const SCOPES = [
-  'https://www.googleapis.com/auth/calendar.readonly',
+  'https://www.googleapis.com/auth/calendar',
   'https://www.googleapis.com/auth/gmail.modify'
 ];
 export const OAUTH_REDIRECT_URI = `http://localhost:${process.env.PORT || 5555}/api/calendar/google/oauth/callback`;
@@ -118,12 +118,21 @@ export async function getAuthenticatedClient() {
   return oAuth2Client;
 }
 
+export function needsScopeUpgrade(tokens) {
+  if (!tokens?.scope) return true;
+  const scopes = tokens.scope.split(' ');
+  // Has readonly but not full calendar scope
+  return scopes.includes('https://www.googleapis.com/auth/calendar.readonly') &&
+    !scopes.includes('https://www.googleapis.com/auth/calendar');
+}
+
 export async function getAuthStatus() {
   const credentials = await getCredentials();
   const tokens = await getTokens();
   return {
     hasCredentials: !!credentials?.clientId,
     hasTokens: !!tokens?.access_token,
-    expiryDate: tokens?.expiry_date ? new Date(tokens.expiry_date).toISOString() : null
+    expiryDate: tokens?.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
+    needsCalendarScopeUpgrade: needsScopeUpgrade(tokens)
   };
 }

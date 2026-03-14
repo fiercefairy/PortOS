@@ -6,6 +6,7 @@ import { ServerError } from '../lib/errorHandler.js';
 import { getGenomeSummary } from './genome.js';
 import { getTasteProfile } from './taste-questionnaire.js';
 import { getActivities } from './meatspaceCalendar.js';
+import { callProviderAISimple, parseLLMJSON } from '../lib/aiProvider.js';
 
 const IDENTITY_DIR = PATHS.digitalTwin;
 const IDENTITY_FILE = join(IDENTITY_DIR, 'identity.json');
@@ -700,6 +701,15 @@ export async function getGoals() {
     if (goal.progress === undefined) { goal.progress = 0; needsSave = true; }
     if (!Array.isArray(goal.progressHistory)) { goal.progressHistory = []; needsSave = true; }
     if (!Array.isArray(goal.todos)) { goal.todos = []; needsSave = true; }
+    if (goal.targetDate === undefined) { goal.targetDate = null; needsSave = true; }
+    if (goal.timeBlockConfig === undefined) { goal.timeBlockConfig = null; needsSave = true; }
+    if (!Array.isArray(goal.scheduledEvents)) { goal.scheduledEvents = []; needsSave = true; }
+    if (!Array.isArray(goal.checkIns)) { goal.checkIns = []; needsSave = true; }
+    // Lazy-migrate milestones with description and order
+    for (const ms of (goal.milestones || [])) {
+      if (ms.description === undefined) { ms.description = ''; needsSave = true; }
+      if (ms.order === undefined) { ms.order = 0; needsSave = true; }
+    }
   }
   if (needsSave) await saveJSON(GOALS_FILE, data);
   return data;
@@ -733,7 +743,7 @@ export async function setBirthDate(birthDate) {
   return goals;
 }
 
-export async function createGoal({ title, description, horizon, category, parentId, tags }) {
+export async function createGoal({ title, description, horizon, category, parentId, tags, targetDate, timeBlockConfig }) {
   const goals = await getGoals();
   const longevity = await loadJSON(LONGEVITY_FILE, DEFAULT_LONGEVITY);
 
@@ -752,6 +762,11 @@ export async function createGoal({ title, description, horizon, category, parent
     parentId: parentId || null,
     tags: [...new Set((tags || []).map(t => t.trim()).filter(Boolean))],
     linkedActivities: [],
+    linkedCalendars: [],
+    targetDate: targetDate || null,
+    timeBlockConfig: timeBlockConfig || null,
+    scheduledEvents: [],
+    checkIns: [],
     urgency: null,
     status: 'active',
     milestones: [],
@@ -805,7 +820,7 @@ export async function updateGoal(goalId, updates) {
     }
   }
 
-  const allowed = ['title', 'description', 'horizon', 'category', 'status', 'parentId', 'tags'];
+  const allowed = ['title', 'description', 'horizon', 'category', 'status', 'parentId', 'tags', 'targetDate', 'timeBlockConfig'];
   for (const key of allowed) {
     if (updates[key] !== undefined) goal[key] = updates[key];
   }
@@ -1074,6 +1089,78 @@ export async function getGoalCalendarEvents(goalId, startDate, endDate) {
     if (!pattern) return true;
     return e.title?.toLowerCase().includes(pattern.toLowerCase());
   });
+}
+
+// =============================================================================
+// AI Phase Planning
+// =============================================================================
+
+export async function generateGoalPhases(goalId, { providerId, model } = {}) {
+  const { getActiveProvider, getProviderById } = await import('./providers.js');
+  const goals = await loadJSON(GOALS_FILE, DEFAULT_GOALS);
+  const goal = goals.goals.find(g => g.id === goalId);
+  if (!goal) throw new ServerError('Goal not found', { status: 404, code: 'NOT_FOUND' });
+  if (!goal.targetDate) throw new ServerError('Goal must have a target date to generate phases', { status: 400, code: 'MISSING_TARGET_DATE' });
+
+  const provider = providerId ? await getProviderById(providerId) : await getActiveProvider();
+  if (!provider) throw new ServerError('No AI provider available', { status: 503, code: 'NO_PROVIDER' });
+  const selectedModel = model ?? provider.defaultModel;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const prompt = `You are a goal planning assistant. Given a goal with a target completion date, generate 3-7 ordered phases that break this goal into achievable milestones.
+
+Goal title: ${goal.title}
+Goal description: ${goal.description || 'No description provided'}
+Today's date: ${today}
+Target completion date: ${goal.targetDate}
+
+Generate phases that:
+- Are ordered chronologically with evenly distributed target dates between now and the target date
+- Have clear, actionable titles
+- Include brief descriptions of what each phase involves
+- The last phase's target date should match or be near the goal's target date
+
+Respond with a JSON array only (no markdown fences, no explanation). Each element must have:
+- "title": string (phase name)
+- "description": string (1-2 sentences)
+- "targetDate": string (YYYY-MM-DD format)
+- "order": number (0-based index)`;
+
+  const result = await callProviderAISimple(provider, selectedModel, prompt, { max_tokens: 2000 });
+  if (result.error) throw new ServerError(`AI generation failed: ${result.error}`, { status: 502, code: 'AI_ERROR' });
+
+  let parsed;
+  try {
+    parsed = parseLLMJSON(result.text);
+  } catch (e) {
+    throw new ServerError(`AI returned invalid phase data: ${e.message}`, { status: 502, code: 'AI_PARSE_ERROR' });
+  }
+  if (!Array.isArray(parsed)) throw new ServerError('AI returned invalid phase data', { status: 502, code: 'AI_PARSE_ERROR' });
+
+  console.log(`🎯 Generated ${parsed.length} phases for goal "${goal.title}"`);
+  return parsed;
+}
+
+export async function acceptGoalPhases(goalId, phases) {
+  const goals = await loadJSON(GOALS_FILE, DEFAULT_GOALS);
+  const goal = goals.goals.find(g => g.id === goalId);
+  if (!goal) throw new ServerError('Goal not found', { status: 404, code: 'NOT_FOUND' });
+
+  goal.milestones = phases.map((phase, idx) => ({
+    id: `ms-${uuidv4()}`,
+    title: phase.title,
+    description: phase.description || '',
+    targetDate: phase.targetDate || null,
+    order: phase.order ?? idx,
+    completedAt: null,
+    createdAt: new Date().toISOString()
+  }));
+
+  goal.updatedAt = new Date().toISOString();
+  goals.updatedAt = new Date().toISOString();
+  await saveJSON(GOALS_FILE, goals);
+  console.log(`🎯 Accepted ${phases.length} phases for goal "${goal.title}"`);
+  return goal;
 }
 
 // =============================================================================

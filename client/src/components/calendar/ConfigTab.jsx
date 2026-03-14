@@ -79,9 +79,9 @@ export default function ConfigTab({ accounts, setAccounts }) {
     const googleAccount = accounts.find(a => a.type === 'google-calendar');
     const email = googleAccount?.email || '';
     const result = await api.runGoogleAutoConfig(email).catch(() => null);
-    if (!result || result.status === 'error') {
+    if (!result || result.error) {
       setAutoConfigStep('login');
-      return toast.error(result?.errors?.[0] || 'Automated setup failed. Try manual setup instead.');
+      return toast.error(result?.error || 'Automated setup failed. Try manual setup instead.');
     }
     if (result.status === 'partial') {
       toast('Setup partially completed. Some steps may need manual attention.', { icon: '⚠️' });

@@ -81,6 +81,14 @@ export async function handleCallback(code) {
   await saveTokens(tokens);
   oAuth2Client = client;
   oAuth2Client.setCredentials(tokens);
+
+  // Attach refresh listener so refreshed tokens are persisted
+  oAuth2Client.on('tokens', async (newTokens) => {
+    const existing = (await getTokens()) || {};
+    await saveTokens({ ...existing, ...newTokens });
+    console.log('📅 Google OAuth tokens refreshed');
+  });
+
   console.log('📅 Google OAuth callback processed, tokens stored');
   return { success: true };
 }
@@ -98,7 +106,7 @@ export async function getAuthenticatedClient() {
 
     // Listen for token refresh
     oAuth2Client.on('tokens', async (newTokens) => {
-      const existing = await getTokens();
+      const existing = (await getTokens()) || {};
       await saveTokens({ ...existing, ...newTokens });
       console.log('📅 Google OAuth tokens refreshed');
     });

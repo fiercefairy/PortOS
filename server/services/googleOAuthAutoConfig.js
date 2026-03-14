@@ -17,7 +17,7 @@
  */
 import { findOrOpenPage, evaluateOnPage, getPages } from './messagePlaywrightSync.js';
 import { navigateToUrl } from './browserService.js';
-import { saveCredentials, getAuthUrl, OAUTH_OAUTH_REDIRECT_URI } from './googleAuth.js';
+import { saveCredentials, getAuthUrl, OAUTH_REDIRECT_URI } from './googleAuth.js';
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));

@@ -102,7 +102,17 @@ function layoutEvents(events) {
   return layout;
 }
 
-export default function WeekView() {
+function buildSubcalendarColorMap(accounts) {
+  const map = new Map();
+  for (const account of (accounts || [])) {
+    for (const sc of (account.subcalendars || [])) {
+      if (sc.color) map.set(sc.calendarId, sc.color);
+    }
+  }
+  return map;
+}
+
+export default function WeekView({ accounts }) {
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -141,6 +151,8 @@ export default function WeekView() {
     setWeekStart(getWeekStart(new Date()));
     setLoading(true);
   };
+
+  const colorMap = useMemo(() => buildSubcalendarColorMap(accounts), [accounts]);
 
   // Group events by day
   const eventsByDay = weekDays.map(day => {
@@ -215,15 +227,22 @@ export default function WeekView() {
               <div className="w-14 shrink-0 text-[10px] text-gray-500 text-right pr-1 pt-1">All day</div>
               {allDayByDay.map((dayEvents, i) => (
                 <div key={i} className="flex-1 border-l border-port-border p-0.5 min-h-[28px]">
-                  {dayEvents.map(event => (
-                    <button
-                      key={eventKey(event)}
-                      onClick={() => setSelectedEvent(event)}
-                      className="w-full text-left px-1 py-0.5 bg-port-accent/15 text-port-accent rounded text-[10px] truncate hover:bg-port-accent/25 transition-colors"
-                    >
-                      {event.title}
-                    </button>
-                  ))}
+                  {dayEvents.map(event => {
+                    const adColor = colorMap.get(event.subcalendarId) || null;
+                    return (
+                      <button
+                        key={eventKey(event)}
+                        onClick={() => setSelectedEvent(event)}
+                        className="w-full text-left px-1 py-0.5 rounded text-[10px] truncate transition-colors hover:brightness-125"
+                        style={{
+                          backgroundColor: adColor ? `${adColor}20` : 'rgb(59 130 246 / 0.15)',
+                          color: adColor || 'var(--port-accent, #3b82f6)'
+                        }}
+                      >
+                        {event.title}
+                      </button>
+                    );
+                  })}
                 </div>
               ))}
             </div>
@@ -263,17 +282,20 @@ export default function WeekView() {
                       const { column, totalColumns } = layout.get(key) || { column: 0, totalColumns: 1 };
                       const widthPercent = 100 / totalColumns;
                       const leftPercent = column * widthPercent;
+                      const evColor = colorMap.get(event.subcalendarId) || null;
                       return (
                         <button
                           key={key}
                           onClick={() => setSelectedEvent(event)}
-                          className="absolute px-0.5 py-0.5 bg-port-accent/20 border-l-2 border-port-accent rounded text-left overflow-hidden hover:bg-port-accent/30 transition-colors"
+                          className={`absolute px-0.5 py-0.5 border-l-2 rounded text-left overflow-hidden transition-colors ${evColor ? 'hover:brightness-125' : 'hover:bg-port-accent/30'}`}
                           style={{
                             top,
                             height,
                             minHeight: PX_PER_15MIN,
                             left: `calc(${leftPercent}% + 1px)`,
-                            width: `calc(${widthPercent}% - 2px)`
+                            width: `calc(${widthPercent}% - 2px)`,
+                            borderLeftColor: evColor || 'var(--port-accent, #3b82f6)',
+                            backgroundColor: evColor ? `${evColor}25` : 'rgb(59 130 246 / 0.2)'
                           }}
                         >
                           <div className="text-[10px] leading-tight font-medium text-white truncate">{event.title}</div>

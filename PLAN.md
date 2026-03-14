@@ -69,10 +69,11 @@ See [GOALS.md](./GOALS.md) for project goals and direction.
 - [ ] **M45**: Data Backup & Recovery - Scheduled backup of `./data/` to external drive or NAS. All persistence is JSON files with zero redundancy — one bad write or disk failure loses brain, identity, health, and memory data. Incremental backup with restore verification.
 - [ ] **M47**: Push Notifications - Webhook-based alerts when agents complete tasks, critical errors occur, or goals stall. Discord/Telegram integration for mobile awareness without needing the dashboard open.
 - [x] **M48 P1-P5**: Google Calendar Integration - MCP push sync, subcalendar management, goal-calendar linking, daily review with auto-progress-logging, dormancy support
-- [x] **M48 P6**: Calendar Consolidation - Moved Life Calendar from MeatSpace to Calendar > Lifetime tab
-- [x] **M48 P7**: UI-Triggered Google Calendar Sync - "Sync Google" button in Sync tab + "Discover Calendars" in Config tab, both spawn headless Claude CLI with MCP to fetch events/calendar list. Works as zero-config fallback using user's existing Claude MCP auth.
-- [x] **M48 P8**: Direct Google Calendar API Sync - `googleapis` npm with OAuth2 setup in Config tab, sync method selector (Claude MCP vs Google API), tokens cached in `data/calendar/google-auth/` with auto-refresh
-- [x] **M48 P9**: Auto-Configure Google OAuth via CDP - "Setup with PortOS Browser" button opens Google Cloud Console, user logs in + selects project, clicks "Continue" to automate: enable Calendar API, configure Auth Platform wizard, add test user, create OAuth credentials, extract client ID + secret
+- [x] **M48 P6**: Calendar Consolidation - Moved Life Calendar from MeatSpace to Calendar > Lifetime tab with accuracy improvement tips
+- [x] **M48 P7**: UI-Triggered Google Calendar Sync - "Sync Google" button in Sync tab + "Discover Calendars" in Config tab
+- [x] **M48 P8**: Direct Google Calendar API Sync - `googleapis` npm with OAuth2, sync method selector, token auto-refresh
+- [x] **M48 P9**: Auto-Configure Google OAuth via CDP - one-click browser setup with Playwright-derived selectors
+- [x] **M48 P10**: Calendar UI Polish - subcalendar color coding in Day/Week/Month views with configurable colors, 15-min blocks in Week view, side-by-side overlap layout, declined/cancelled event filtering
 - [ ] **M49 P1-P4**: Life Goals & Todo Planning - Enhanced goal model with todos and milestones, calendar time-blocking, AI-powered periodic check-ins, mortality-aware progress dashboard
 - [ ] **M52**: Update Detection - Poll GitHub releases for new version tags, compare against local `package.json` version, surface update availability in dashboard and settings
 
@@ -128,13 +129,9 @@ External notification delivery for critical events when not actively viewing the
 
 *Touches: new server/services/pushNotify.js, server/routes/settings.js, Settings UI, cosEvents.js, errorRecovery.js*
 
-### M48: Google Calendar Integration
+### M48: Google Calendar Integration (Complete)
 
-**Completed (P1-P5):** MCP push sync architecture — instead of OAuth2 complexity, Google Calendar events are synced via Claude Code MCP tools pushing to PortOS endpoints. Subcalendar management with enable/disable/dormant states, goal-calendar linking with match patterns, daily review UI for confirming events and auto-logging progress, dormancy support for inactive calendars.
-
-**Remaining:**
-
-- **P6: Calendar Consolidation** — MeatSpace > Calendar ("4000 Weeks" Life Calendar) and top-level Calendar are confusing dual navigation. Move the Life Calendar view under top-level Calendar as a "Lifetime" sub-tab. Remove the MeatSpace > Calendar nav entry. Ensure route `/calendar/lifetime` renders the existing Life Calendar component. Update Layout.jsx nav items accordingly.
+**All phases complete (P1-P10).** Full Google Calendar integration with two sync methods (Claude MCP zero-config + direct Google API via OAuth2), subcalendar management, goal-calendar linking, daily review, auto-configure via CDP browser, color-coded events, 15-min Day/Week views with overlap layout, declined/cancelled event filtering, and Life Calendar consolidated under Calendar > Lifetime.
 
 ### M49: Life Goals & Todo Planning
 
@@ -324,11 +321,10 @@ Three audit passes identified remaining items across architecture, bugs, code qu
 
 ## Next Actions
 
-1. **M42 P5**: Cross-Insights Engine — connect genome + taste + personality + goals into derived insights
-2. **M45**: Data Backup & Recovery — protect `./data/` from data loss
-3. **M50 P7-P9**: Messages — Digital Twin voice drafting, CoS automation, auto-send with AI review gate
-4. **M34 P5-P7**: Digital Twin — Multi-modal capture, advanced testing, personas
-5. **M48 P6**: Calendar Consolidation — Move MeatSpace Life Calendar under top-level Calendar as "Lifetime" tab
-6. **M49 P1**: Life Goals — Enhanced goal model with todos and progress tracking
-7. **M47**: Push Notifications — Discord/Telegram alerts for agent completions and errors
-8. **M52**: Update Detection — GitHub release polling and update notification
+1. **M45**: Data Backup & Recovery — protect `./data/` from data loss (highest safety priority)
+2. **M49 P1**: Life Goals — Enhanced goal model with todos, calendar time-blocking, progress tracking
+3. **M42 P5**: Cross-Insights Engine — connect genome + taste + personality + goals into derived insights
+4. **M50 P7-P9**: Messages — Digital Twin voice drafting, CoS automation, auto-send with AI review gate
+5. **M34 P5-P7**: Digital Twin — Multi-modal capture, advanced testing, personas
+6. **M47**: Push Notifications — Discord/Telegram alerts for agent completions and errors
+7. **M52**: Update Detection — GitHub release polling and update notification

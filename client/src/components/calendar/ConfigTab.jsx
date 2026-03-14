@@ -132,16 +132,28 @@ export default function ConfigTab({ accounts, setAccounts }) {
     setExpandedAccounts(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  // Update subcalendar field locally only (no API call) — used for color picker dragging
+  const handleSubcalendarLocal = (account, calendarId, field, value) => {
+    const subcalendars = (account.subcalendars || []).map(sc =>
+      sc.calendarId === calendarId ? { ...sc, [field]: value } : sc
+    );
+    setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, subcalendars } : a));
+  };
+
+  // Update subcalendar field and persist to server
   const handleSubcalendarToggle = async (account, calendarId, field, value) => {
     const subcalendars = (account.subcalendars || []).map(sc =>
       sc.calendarId === calendarId ? { ...sc, [field]: value } : sc
     );
-    // Update local state immediately for visual feedback
     setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, subcalendars } : a));
     setSavingSubcals(account.id);
     const result = await api.updateSubcalendars(account.id, { subcalendars }).catch(() => null);
     setSavingSubcals(null);
-    if (!result) return toast.error('Failed to update subcalendars');
+    if (!result) {
+      // Rollback on failure
+      setAccounts(prev => prev.map(a => a.id === account.id ? account : a));
+      return toast.error('Failed to update subcalendars');
+    }
   };
 
   const handleDiscoverCalendars = async (account) => {
@@ -498,6 +510,7 @@ export default function ConfigTab({ accounts, setAccounts }) {
                               <input
                                 type="color"
                                 value={sc.color || '#3b82f6'}
+                                onInput={(e) => handleSubcalendarLocal(account, sc.calendarId, 'color', e.target.value)}
                                 onChange={(e) => handleSubcalendarToggle(account, sc.calendarId, 'color', e.target.value)}
                                 className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
                               />

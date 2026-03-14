@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import * as api from '../../services/api';
 import socket from '../../services/socket';
 import EventDetail from './EventDetail';
+import { buildSubcalendarColorMap } from './calendarUtils';
 
 function getMonthGrid(year, month) {
   const firstDay = new Date(year, month, 1);
@@ -29,16 +30,6 @@ function getMonthGrid(year, month) {
 }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-function buildSubcalendarColorMap(accounts) {
-  const map = new Map();
-  for (const account of (accounts || [])) {
-    for (const sc of (account.subcalendars || [])) {
-      if (sc.color) map.set(sc.calendarId, sc.color);
-    }
-  }
-  return map;
-}
 
 export default function MonthView({ accounts }) {
   const now = new Date();

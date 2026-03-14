@@ -140,11 +140,7 @@ export async function syncOutlookCalendarApi(account, _cache, io, options = {}) 
     io.emit('calendar:sync:event', { accountId: account.id, events });
   }
 
-  // Filter out declined events (user configured Outlook to retain declined invites)
-  const filtered = events.filter(e => e.myStatus !== 'declined');
-  const declined = events.length - filtered.length;
-  if (declined > 0) console.log(`📅 Filtered ${declined} declined events`);
-
-  console.log(`📅 Calendar API sync complete: ${filtered.length} events (${declined} declined skipped) in ${page} page(s)`);
-  return { events: filtered, status: 'success', syncMethod: 'api' };
+  // Declined/cancelled filtering handled universally by calendarSync.filterDeclinedAndCancelled at read time
+  console.log(`📅 Calendar API sync complete: ${events.length} events in ${page} page(s)`);
+  return { events, status: 'success', syncMethod: 'api' };
 }

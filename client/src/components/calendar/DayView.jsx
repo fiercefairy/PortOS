@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, RefreshCw, MapPin } from 'lucide-react';
 import * as api from '../../services/api';
 import socket from '../../services/socket';
 import EventDetail from './EventDetail';
+import { buildSubcalendarColorMap } from './calendarUtils';
 
 const START_HOUR = 6;
 const END_HOUR = 23;
@@ -95,16 +96,6 @@ function eventKey(e) {
 
 function formatDate(date) {
   return date.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-}
-
-function buildSubcalendarColorMap(accounts) {
-  const map = new Map();
-  for (const account of (accounts || [])) {
-    for (const sc of (account.subcalendars || [])) {
-      if (sc.color) map.set(sc.calendarId, sc.color);
-    }
-  }
-  return map;
 }
 
 export default function DayView({ accounts }) {

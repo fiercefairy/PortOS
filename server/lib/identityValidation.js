@@ -87,3 +87,11 @@ export const linkActivityInputSchema = z.object({
   requiredFrequency: z.number().positive().optional(),
   note: z.string().max(500).optional().default('')
 });
+
+// --- Goal-Calendar Link Schemas ---
+
+export const linkCalendarInputSchema = z.object({
+  subcalendarId: z.string().min(1),
+  subcalendarName: z.string().min(1),
+  matchPattern: z.string().max(200).optional().default('')
+});

@@ -125,6 +125,9 @@ export async function syncAccount(accountId, io, options = {}) {
     if (account.type === 'outlook-calendar') {
       const { syncOutlookCalendarApi } = await import('./calendarApiSync.js');
       providerResult = await syncOutlookCalendarApi(account, cache, io, options);
+    } else if (account.type === 'google-calendar') {
+      // Google Calendar uses push sync — syncAccount is a no-op
+      return { newEvents: 0, pruned: 0, total: cache.events.length, status: 'push-only' };
     } else {
       throw new Error(`Unsupported calendar account type: ${account.type}`);
     }

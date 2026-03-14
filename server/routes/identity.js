@@ -9,7 +9,8 @@ import {
   updateGoalInputSchema,
   addMilestoneInputSchema,
   addProgressEntrySchema,
-  linkActivityInputSchema
+  linkActivityInputSchema,
+  linkCalendarInputSchema
 } from '../lib/identityValidation.js';
 
 const router = Router();
@@ -167,6 +168,32 @@ router.delete('/goals/:id/activities/:activityName', asyncHandler(async (req, re
     throw new ServerError('Goal not found', { status: 404, code: 'NOT_FOUND' });
   }
   res.json(goal);
+}));
+
+// POST /api/digital-twin/identity/goals/:id/calendars — Link calendar to goal
+router.post('/goals/:id/calendars', asyncHandler(async (req, res) => {
+  const data = validateRequest(linkCalendarInputSchema, req.body);
+  const goal = await identityService.linkCalendarToGoal(req.params.id, data);
+  if (!goal) {
+    throw new ServerError('Goal not found', { status: 404, code: 'NOT_FOUND' });
+  }
+  res.json(goal);
+}));
+
+// DELETE /api/digital-twin/identity/goals/:id/calendars/:subcalendarId — Unlink calendar from goal
+router.delete('/goals/:id/calendars/:subcalendarId', asyncHandler(async (req, res) => {
+  const goal = await identityService.unlinkCalendarFromGoal(req.params.id, decodeURIComponent(req.params.subcalendarId));
+  if (!goal) {
+    throw new ServerError('Goal not found', { status: 404, code: 'NOT_FOUND' });
+  }
+  res.json(goal);
+}));
+
+// GET /api/digital-twin/identity/goals/:id/calendar-events — Get matching events
+router.get('/goals/:id/calendar-events', asyncHandler(async (req, res) => {
+  const { startDate, endDate } = req.query;
+  const events = await identityService.getGoalCalendarEvents(req.params.id, startDate, endDate);
+  res.json(events);
 }));
 
 export default router;

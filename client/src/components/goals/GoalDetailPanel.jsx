@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  Target, X, Check, Trash2, Milestone, Calendar, Clock,
+  Target, X, Check, Trash2, Milestone, Calendar, CalendarDays, Clock,
   Heart, DollarSign, Lightbulb, Users, Flame, AlertTriangle, Tag,
   Link2, Unlink, Activity, Plus, NotebookPen
 } from 'lucide-react';
@@ -39,9 +39,26 @@ export default function GoalDetailPanel({ goal, allGoals, onClose, onRefresh }) 
   const [showProgressForm, setShowProgressForm] = useState(false);
   const todayISO = new Date().toISOString().slice(0, 10);
   const [progressForm, setProgressForm] = useState({ date: todayISO, note: '', durationMinutes: '' });
+  const [subcalendars, setSubcalendars] = useState([]);
+  const [selectedCalendar, setSelectedCalendar] = useState('');
+  const [calendarMatchPattern, setCalendarMatchPattern] = useState('');
 
   useEffect(() => {
     api.getActivities().then(setActivities).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    api.getCalendarAccounts().then(accounts => {
+      const scs = [];
+      for (const account of (accounts || [])) {
+        for (const sc of (account.subcalendars || [])) {
+          if (sc.enabled && !sc.dormant) {
+            scs.push({ ...sc, accountName: account.name });
+          }
+        }
+      }
+      setSubcalendars(scs);
+    }).catch(() => {});
   }, []);
 
   if (!goal) return null;
@@ -129,6 +146,25 @@ export default function GoalDetailPanel({ goal, allGoals, onClose, onRefresh }) 
 
   const handleUnlinkActivity = async (activityName) => {
     await api.unlinkGoalActivity(goal.id, activityName);
+    onRefresh();
+  };
+
+  const handleLinkCalendar = async () => {
+    if (!selectedCalendar) return;
+    const sc = subcalendars.find(s => s.calendarId === selectedCalendar);
+    if (!sc) return;
+    await api.linkGoalCalendar(goal.id, {
+      subcalendarId: sc.calendarId,
+      subcalendarName: sc.name,
+      matchPattern: calendarMatchPattern
+    });
+    setSelectedCalendar('');
+    setCalendarMatchPattern('');
+    onRefresh();
+  };
+
+  const handleUnlinkCalendar = async (subcalendarId) => {
+    await api.unlinkGoalCalendar(goal.id, subcalendarId);
     onRefresh();
   };
 
@@ -539,6 +575,69 @@ export default function GoalDetailPanel({ goal, allGoals, onClose, onRefresh }) 
                 >
                   Link
                 </button>
+              </div>
+            )}
+          </div>
+
+          {/* Linked Calendars */}
+          <div>
+            <div className="flex items-center gap-1 mb-2">
+              <CalendarDays className="w-3.5 h-3.5 text-gray-500" />
+              <span className="text-xs font-medium text-gray-400">
+                Calendars ({goal.linkedCalendars?.length || 0})
+              </span>
+            </div>
+            {goal.linkedCalendars?.length > 0 && (
+              <div className="space-y-1 mb-2">
+                {goal.linkedCalendars.map(lc => (
+                  <div key={lc.subcalendarId} className="flex items-center gap-2 text-xs">
+                    <span className="text-gray-300 flex-1 truncate">{lc.subcalendarName}</span>
+                    {lc.matchPattern && (
+                      <span className="text-gray-600 truncate max-w-[80px]" title={`Pattern: ${lc.matchPattern}`}>
+                        /{lc.matchPattern}/
+                      </span>
+                    )}
+                    <button
+                      onClick={() => handleUnlinkCalendar(lc.subcalendarId)}
+                      className="p-0.5 text-gray-600 hover:text-red-400"
+                      title="Unlink"
+                    >
+                      <Unlink className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {subcalendars.length > 0 && (
+              <div className="space-y-1">
+                <div className="flex gap-1">
+                  <select
+                    value={selectedCalendar}
+                    onChange={e => setSelectedCalendar(e.target.value)}
+                    className="flex-1 bg-port-bg border border-port-border rounded px-2 py-1 text-xs text-white"
+                  >
+                    <option value="">Link calendar...</option>
+                    {subcalendars
+                      .filter(sc => !goal.linkedCalendars?.some(lc => lc.subcalendarId === sc.calendarId))
+                      .map(sc => <option key={sc.calendarId} value={sc.calendarId}>{sc.name}</option>)}
+                  </select>
+                  <button
+                    onClick={handleLinkCalendar}
+                    disabled={!selectedCalendar}
+                    className="px-2 py-1 text-xs rounded bg-port-accent/20 text-port-accent disabled:opacity-50"
+                  >
+                    Link
+                  </button>
+                </div>
+                {selectedCalendar && (
+                  <input
+                    type="text"
+                    value={calendarMatchPattern}
+                    onChange={e => setCalendarMatchPattern(e.target.value)}
+                    placeholder="Match pattern (optional)"
+                    className="w-full bg-port-bg border border-port-border rounded px-2 py-1 text-xs text-white"
+                  />
+                )}
               </div>
             )}
           </div>

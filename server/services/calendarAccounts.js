@@ -44,6 +44,19 @@ export async function createAccount(data) {
     lastSyncStatus: null,
     createdAt: new Date().toISOString()
   };
+  // For google-calendar, initialize subcalendars
+  if (data.type === 'google-calendar') {
+    accounts[id].subcalendars = (data.subcalendars || []).map(sc => ({
+      calendarId: sc.calendarId,
+      name: sc.name,
+      color: sc.color || '',
+      enabled: sc.enabled !== false,
+      dormant: sc.dormant || false,
+      goalIds: sc.goalIds || [],
+      addedAt: sc.addedAt || new Date().toISOString()
+    }));
+    accounts[id].syncMethod = 'claude-mcp'; // default, user can switch to 'google-api'
+  }
   await saveAccounts(accounts);
   console.log(`📅 Calendar account created: ${data.name} (${data.type})`);
   return accounts[id];
@@ -57,6 +70,7 @@ export async function updateAccount(id, updates) {
   if (email !== undefined) accounts[id].email = email;
   if (enabled !== undefined) accounts[id].enabled = enabled;
   if (syncConfig) accounts[id].syncConfig = { ...accounts[id].syncConfig, ...syncConfig };
+  if (updates.syncMethod !== undefined) accounts[id].syncMethod = updates.syncMethod;
   accounts[id].updatedAt = new Date().toISOString();
   await saveAccounts(accounts);
   return accounts[id];
@@ -69,6 +83,24 @@ export async function deleteAccount(id) {
   await saveAccounts(accounts);
   console.log(`🗑️ Calendar account deleted: ${id}`);
   return true;
+}
+
+export async function updateSubcalendars(id, subcalendars) {
+  const accounts = await loadAccounts();
+  if (!accounts[id]) return null;
+  accounts[id].subcalendars = subcalendars.map(sc => ({
+    calendarId: sc.calendarId,
+    name: sc.name,
+    color: sc.color || '',
+    enabled: sc.enabled !== false,
+    dormant: sc.dormant || false,
+    goalIds: sc.goalIds || [],
+    addedAt: sc.addedAt || new Date().toISOString()
+  }));
+  accounts[id].updatedAt = new Date().toISOString();
+  await saveAccounts(accounts);
+  console.log(`📅 Updated subcalendars for account ${accounts[id].name}: ${subcalendars.length} calendars`);
+  return accounts[id];
 }
 
 export async function updateSyncStatus(id, status) {

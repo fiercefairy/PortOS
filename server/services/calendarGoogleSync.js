@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { createHash } from 'crypto';
 import { spawn } from 'child_process';
-import { getAccount, updateSyncStatus, mergeDiscoveredSubcalendars } from './calendarAccounts.js';
+import { getAccount, updateSyncStatus, updateSubcalendars, mergeDiscoveredSubcalendars } from './calendarAccounts.js';
 import { loadCache, saveCache } from './calendarSync.js';
 
 function md5(str) {
@@ -235,8 +235,6 @@ Output NOTHING else — just the JSON array.`;
   // Merge with existing subcalendars (preserve enabled/dormant state)
   const merged = mergeDiscoveredSubcalendars(account.subcalendars, calendars);
 
-  // Save merged subcalendars
-  const { updateSubcalendars } = await import('./calendarAccounts.js');
   await updateSubcalendars(accountId, merged);
 
   console.log(`📅 Discovered ${calendars.length} calendars for ${account.name}`);

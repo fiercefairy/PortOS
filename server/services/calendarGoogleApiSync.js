@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
 import { getAuthenticatedClient } from './googleAuth.js';
-import { getAccount, mergeDiscoveredSubcalendars } from './calendarAccounts.js';
+import { getAccount, updateSubcalendars, mergeDiscoveredSubcalendars } from './calendarAccounts.js';
 import { pushSyncEvents, getSyncDateRange } from './calendarGoogleSync.js';
 
 export async function apiSyncAccount(accountId, io) {
@@ -94,7 +94,6 @@ export async function apiDiscoverCalendars(accountId) {
   }));
   const merged = mergeDiscoveredSubcalendars(account.subcalendars, discovered);
 
-  const { updateSubcalendars } = await import('./calendarAccounts.js');
   await updateSubcalendars(accountId, merged);
 
   console.log(`📅 Discovered ${allCalendars.length} calendars via Google API for ${account.name}`);

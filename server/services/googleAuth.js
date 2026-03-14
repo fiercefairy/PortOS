@@ -7,6 +7,7 @@ const AUTH_DIR = join(PATHS.calendar, 'google-auth');
 const CREDENTIALS_FILE = join(AUTH_DIR, 'credentials.json');
 const TOKENS_FILE = join(AUTH_DIR, 'tokens.json');
 const SCOPES = ['https://www.googleapis.com/auth/calendar.readonly'];
+export const OAUTH_REDIRECT_URI = `http://localhost:${process.env.PORT || 5555}/api/calendar/google/oauth/callback`;
 
 let oAuth2Client = null;
 
@@ -23,7 +24,7 @@ export async function getCredentials() {
 
 export async function saveCredentials({ clientId, clientSecret }) {
   await ensureAuthDir();
-  const credentials = { clientId, clientSecret, redirectUri: 'http://localhost:5555/api/calendar/google/oauth/callback' };
+  const credentials = { clientId, clientSecret, redirectUri: OAUTH_REDIRECT_URI };
   await writeFile(CREDENTIALS_FILE, JSON.stringify(credentials, null, 2));
   oAuth2Client = null; // Reset client
   console.log('📅 Google OAuth credentials saved');
@@ -54,7 +55,7 @@ function createOAuth2Client(credentials) {
   return new google.auth.OAuth2(
     credentials.clientId,
     credentials.clientSecret,
-    credentials.redirectUri || 'http://localhost:5555/api/calendar/google/oauth/callback'
+    credentials.redirectUri || OAUTH_REDIRECT_URI
   );
 }
 

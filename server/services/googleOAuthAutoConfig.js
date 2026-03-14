@@ -17,9 +17,7 @@
  */
 import { findOrOpenPage, evaluateOnPage, getPages } from './messagePlaywrightSync.js';
 import { navigateToUrl } from './browserService.js';
-import { saveCredentials, getAuthUrl } from './googleAuth.js';
-
-const REDIRECT_URI = 'http://localhost:5555/api/calendar/google/oauth/callback';
+import { saveCredentials, getAuthUrl, OAUTH_OAUTH_REDIRECT_URI } from './googleAuth.js';
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -356,8 +354,8 @@ export async function runAutomatedSetup(userEmail, io) {
         if (!empty) return false;
         empty.focus();
         const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-        if (setter) setter.call(empty, '${REDIRECT_URI}');
-        else empty.value = '${REDIRECT_URI}';
+        if (setter) setter.call(empty, '${OAUTH_REDIRECT_URI}');
+        else empty.value = '${OAUTH_REDIRECT_URI}';
         empty.dispatchEvent(new Event('input', { bubbles: true }));
         empty.dispatchEvent(new Event('change', { bubbles: true }));
         return true;

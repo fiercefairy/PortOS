@@ -182,7 +182,7 @@ export default function ReviewTab() {
         </div>
       ) : (
         <div className="space-y-2">
-          {review.events
+          {[...review.events]
             .sort((a, b) => {
               if (a.isAllDay && !b.isAllDay) return -1;
               if (!a.isAllDay && b.isAllDay) return 1;

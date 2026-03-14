@@ -309,6 +309,26 @@ export async function runAutomatedSetup(userEmail, io) {
     await clickByText(page, ['Web application']);
     await sleep(2000);
 
+    // Rename from "Web client 1" to "PortOS Web"
+    await evaluateOnPage(page, `
+      (function() {
+        const nameInput = document.querySelector('input[aria-label="Name"], input[formcontrolname="displayName"]')
+          || [...document.querySelectorAll('input')].find(i => i.value === 'Web client 1');
+        if (nameInput) {
+          nameInput.focus();
+          nameInput.select();
+          const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+          if (setter) setter.call(nameInput, 'PortOS Web');
+          else nameInput.value = 'PortOS Web';
+          nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+          nameInput.dispatchEvent(new Event('change', { bubbles: true }));
+          return true;
+        }
+        return false;
+      })()
+    `);
+    await sleep(500);
+
     // Add redirect URI — click "Add URI" in the redirect URIs section
     await evaluateOnPage(page, `
       (function() {
@@ -367,12 +387,12 @@ export async function runAutomatedSetup(userEmail, io) {
     // Find and click the client in the list
     page = await getGcpPage();
     if (page) {
-      // Click on the client link
+      // Click on the client link (matches "PortOS Web" or "Web client")
       await evaluateOnPage(page, `
         (function() {
           const links = document.querySelectorAll('a');
           for (const link of links) {
-            if (link.href?.includes('/auth/clients/') && link.textContent.includes('Web client')) {
+            if (link.href?.includes('/auth/clients/') && (link.textContent.includes('PortOS Web') || link.textContent.includes('Web client'))) {
               link.click();
               return true;
             }

@@ -8,6 +8,7 @@ import * as calendarGoogleSync from '../services/calendarGoogleSync.js';
 import * as dailyReview from '../services/dailyReview.js';
 import * as googleAuth from '../services/googleAuth.js';
 import * as calendarGoogleApiSync from '../services/calendarGoogleApiSync.js';
+import * as googleOAuthAutoConfig from '../services/googleOAuthAutoConfig.js';
 import { getToken, getTokenStatus, clearTokenCache } from '../services/messageTokenExtractor.js';
 
 const router = express.Router();
@@ -254,6 +255,30 @@ router.get('/google/oauth/callback', asyncHandler(async (req, res) => {
 router.post('/google/auth/clear', asyncHandler(async (req, res) => {
   await googleAuth.clearAuth();
   res.json({ cleared: true });
+}));
+
+// === Google OAuth Auto-Configure via CDP Browser ===
+router.post('/google/auto-configure/start', asyncHandler(async (req, res) => {
+  const io = req.app.get('io');
+  const result = await googleOAuthAutoConfig.startAutoConfig(io);
+  if (result.error) return res.status(result.status || 500).json({ error: result.error });
+  res.json(result);
+}));
+
+router.post('/google/auto-configure/navigate', asyncHandler(async (req, res) => {
+  const { step } = req.body;
+  if (!step) throw new ServerError('Step is required', { status: 400, code: 'VALIDATION_ERROR' });
+  const io = req.app.get('io');
+  const result = await googleOAuthAutoConfig.navigateToStep(step, io);
+  if (result.error) return res.status(result.status || 500).json({ error: result.error });
+  res.json(result);
+}));
+
+router.post('/google/auto-configure/capture', asyncHandler(async (req, res) => {
+  const io = req.app.get('io');
+  const result = await googleOAuthAutoConfig.captureCredentials(io);
+  if (result.error) return res.status(result.status || 500).json({ error: result.error });
+  res.json(result);
 }));
 
 // === Google API Sync Routes ===

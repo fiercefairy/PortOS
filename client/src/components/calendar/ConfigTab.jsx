@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, RefreshCw, Globe, Calendar, Eye, EyeOff, ChevronDown, ChevronRight, Search, Key, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, Globe, Calendar, Eye, EyeOff, ChevronDown, ChevronRight, Search, Key, ExternalLink, Wand2, Monitor } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as api from '../../services/api';
 
@@ -18,6 +18,8 @@ export default function ConfigTab({ accounts, setAccounts }) {
   const [showOAuthSetup, setShowOAuthSetup] = useState(null);
   const [oauthForm, setOauthForm] = useState({ clientId: '', clientSecret: '' });
   const [savingOAuth, setSavingOAuth] = useState(false);
+  const [autoConfigStep, setAutoConfigStep] = useState(null); // null | 'launching' | 'login' | 'project' | 'api' | 'consent' | 'credentials' | 'capturing' | 'done'
+  const [autoConfigBusy, setAutoConfigBusy] = useState(false);
 
   const fetchGoogleAuth = async () => {
     const status = await api.getGoogleAuthStatus().catch(() => null);
@@ -62,6 +64,41 @@ export default function ConfigTab({ accounts, setAccounts }) {
     if (!result) return toast.error('Failed to update sync method');
     setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, syncMethod: method } : a));
     toast.success(`Sync method set to ${method === 'google-api' ? 'Google API' : 'Claude MCP'}`);
+  };
+
+  const handleAutoConfigStart = async () => {
+    setAutoConfigBusy(true);
+    const result = await api.startGoogleAutoConfig().catch(() => null);
+    setAutoConfigBusy(false);
+    if (!result || result.error) {
+      return toast.error(result?.error || 'Failed to open browser');
+    }
+    setAutoConfigStep('login');
+    toast.success('Google Cloud Console opened in PortOS browser');
+  };
+
+  const handleAutoConfigNavigate = async (step) => {
+    setAutoConfigBusy(true);
+    await api.navigateGoogleAutoConfig(step).catch(() => null);
+    setAutoConfigBusy(false);
+    setAutoConfigStep(step === 'enable-api' ? 'api' : step === 'credentials' ? 'consent' : 'credentials');
+  };
+
+  const handleAutoConfigCapture = async () => {
+    setAutoConfigBusy(true);
+    const result = await api.captureGoogleCredentials().catch(() => null);
+    setAutoConfigBusy(false);
+    if (!result || result.error) {
+      return toast.error(result?.error || 'Could not capture credentials');
+    }
+    toast.success('OAuth credentials captured!');
+    setAutoConfigStep('done');
+    fetchGoogleAuth();
+    // Open auth URL if available
+    if (result.authUrl) {
+      window.open(result.authUrl, '_blank');
+      toast.success('Complete Google authorization in the opened tab');
+    }
   };
 
   const handleCreate = async () => {
@@ -328,73 +365,120 @@ export default function ConfigTab({ accounts, setAccounts }) {
                               </button>
                             </div>
                           ) : (
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                               <div className="text-xs text-gray-500">
                                 Connect directly to Google Calendar API for fast, reliable syncing without Claude.
                               </div>
-                              <details className="text-xs text-gray-600" open>
-                                <summary className="cursor-pointer text-gray-400 hover:text-white font-medium">How to set up Google OAuth</summary>
-                                <div className="mt-2 space-y-2 pl-1">
-                                  <div className="font-medium text-gray-400">Step 1: Create a Google Cloud Project</div>
-                                  <ol className="space-y-0.5 pl-4 list-decimal text-gray-600">
-                                    <li>Go to <span className="text-gray-400">console.cloud.google.com</span></li>
-                                    <li>Click the project dropdown at the top → <span className="text-gray-400">New Project</span></li>
-                                    <li>Name it anything (e.g. "PortOS Calendar") → <span className="text-gray-400">Create</span></li>
-                                  </ol>
 
-                                  <div className="font-medium text-gray-400">Step 2: Enable the Calendar API</div>
-                                  <ol className="space-y-0.5 pl-4 list-decimal text-gray-600">
-                                    <li>In your project, go to <span className="text-gray-400">APIs & Services → Library</span></li>
-                                    <li>Search for <span className="text-gray-400">Google Calendar API</span> → click it → <span className="text-gray-400">Enable</span></li>
-                                  </ol>
+                              {/* Auto-Configure with Browser */}
+                              {!autoConfigStep ? (
+                                <button
+                                  onClick={handleAutoConfigStart}
+                                  disabled={autoConfigBusy}
+                                  className="flex items-center gap-1.5 w-full px-3 py-2 text-xs rounded bg-port-accent/10 text-port-accent hover:bg-port-accent/20 border border-port-accent/20 disabled:opacity-50"
+                                >
+                                  {autoConfigBusy ? <RefreshCw size={14} className="animate-spin" /> : <Monitor size={14} />}
+                                  Setup with PortOS Browser (guided)
+                                </button>
+                              ) : autoConfigStep !== 'done' && (
+                                <div className="space-y-2 p-2.5 bg-port-bg/80 rounded border border-port-border">
+                                  <div className="flex items-center gap-1.5 text-xs font-medium text-port-accent">
+                                    <Wand2 size={12} />
+                                    Guided Setup via PortOS Browser
+                                  </div>
+                                  <div className="space-y-1.5 text-xs">
+                                    <div className={`flex items-center gap-2 ${autoConfigStep === 'login' ? 'text-white' : 'text-gray-600'}`}>
+                                      <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] shrink-0 ${autoConfigStep === 'login' ? 'bg-port-accent text-white' : 'bg-gray-700 text-gray-500'}`}>1</span>
+                                      Log in to Google Cloud Console in the browser window
+                                    </div>
+                                    <div className={`flex items-center gap-2 ${autoConfigStep === 'project' ? 'text-white' : 'text-gray-600'}`}>
+                                      <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] shrink-0 ${autoConfigStep === 'project' ? 'bg-port-accent text-white' : 'bg-gray-700 text-gray-500'}`}>2</span>
+                                      Create a project (or select existing)
+                                    </div>
+                                    <div className={`flex items-center gap-2 ${autoConfigStep === 'api' ? 'text-white' : 'text-gray-600'}`}>
+                                      <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] shrink-0 ${autoConfigStep === 'api' ? 'bg-port-accent text-white' : 'bg-gray-700 text-gray-500'}`}>3</span>
+                                      Enable the Google Calendar API
+                                    </div>
+                                    <div className={`flex items-center gap-2 ${autoConfigStep === 'consent' ? 'text-white' : 'text-gray-600'}`}>
+                                      <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] shrink-0 ${autoConfigStep === 'consent' ? 'bg-port-accent text-white' : 'bg-gray-700 text-gray-500'}`}>4</span>
+                                      Configure OAuth consent screen (External, add yourself as test user)
+                                    </div>
+                                    <div className={`flex items-center gap-2 ${autoConfigStep === 'credentials' ? 'text-white' : 'text-gray-600'}`}>
+                                      <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] shrink-0 ${autoConfigStep === 'credentials' ? 'bg-port-accent text-white' : 'bg-gray-700 text-gray-500'}`}>5</span>
+                                      Create OAuth client ID (Web app) with redirect URI:
+                                    </div>
+                                    <code className="block px-2 py-1 bg-port-bg rounded text-gray-400 select-all text-[10px] ml-6">
+                                      http://localhost:5555/api/calendar/google/oauth/callback
+                                    </code>
+                                  </div>
 
-                                  <div className="font-medium text-gray-400">Step 3: Configure OAuth Consent Screen</div>
-                                  <ol className="space-y-0.5 pl-4 list-decimal text-gray-600">
-                                    <li>Go to <span className="text-gray-400">APIs & Services → OAuth consent screen</span></li>
-                                    <li>Select <span className="text-gray-400">External</span> → Create</li>
-                                    <li>Fill in app name (e.g. "PortOS"), your email for support/developer contact</li>
-                                    <li>Skip scopes, add your Google email as a <span className="text-gray-400">Test user</span></li>
-                                    <li>Save and continue through the remaining steps</li>
-                                  </ol>
+                                  <div className="flex flex-wrap gap-1.5 pt-1">
+                                    <button
+                                      onClick={() => { setAutoConfigStep('project'); handleAutoConfigNavigate('enable-api'); }}
+                                      disabled={autoConfigBusy}
+                                      className="px-2 py-1 text-[10px] rounded bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50"
+                                    >
+                                      Open Calendar API
+                                    </button>
+                                    <button
+                                      onClick={() => handleAutoConfigNavigate('credentials')}
+                                      disabled={autoConfigBusy}
+                                      className="px-2 py-1 text-[10px] rounded bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50"
+                                    >
+                                      Open Credentials
+                                    </button>
+                                    <button
+                                      onClick={() => handleAutoConfigNavigate('create-client')}
+                                      disabled={autoConfigBusy}
+                                      className="px-2 py-1 text-[10px] rounded bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50"
+                                    >
+                                      Create OAuth Client
+                                    </button>
+                                    <button
+                                      onClick={handleAutoConfigCapture}
+                                      disabled={autoConfigBusy}
+                                      className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-port-success/20 text-port-success hover:bg-port-success/30 disabled:opacity-50"
+                                    >
+                                      {autoConfigBusy ? <RefreshCw size={10} className="animate-spin" /> : <Wand2 size={10} />}
+                                      Capture Credentials
+                                    </button>
+                                  </div>
+                                  <button
+                                    onClick={() => setAutoConfigStep(null)}
+                                    className="text-[10px] text-gray-600 hover:text-gray-400"
+                                  >
+                                    Cancel guided setup
+                                  </button>
+                                </div>
+                              )}
 
-                                  <div className="font-medium text-gray-400">Step 4: Create OAuth Credentials</div>
-                                  <ol className="space-y-0.5 pl-4 list-decimal text-gray-600">
-                                    <li>Go to <span className="text-gray-400">APIs & Services → Credentials</span></li>
-                                    <li>Click <span className="text-gray-400">+ Create Credentials → OAuth client ID</span></li>
-                                    <li>Application type: <span className="text-gray-400">Web application</span></li>
-                                    <li>Under <span className="text-gray-400">Authorized redirect URIs</span>, add:</li>
-                                  </ol>
-                                  <code className="block px-2 py-1 bg-port-bg rounded text-gray-400 select-all">
-                                    http://localhost:5555/api/calendar/google/oauth/callback
-                                  </code>
-                                  <ol className="space-y-0.5 pl-4 list-decimal text-gray-600" start={5}>
-                                    <li>Click <span className="text-gray-400">Create</span>, then copy the Client ID and Client Secret below</li>
-                                  </ol>
+                              {/* Manual setup (always available as fallback) */}
+                              <details className="text-xs text-gray-600">
+                                <summary className="cursor-pointer text-gray-400 hover:text-white font-medium">Manual setup (paste credentials)</summary>
+                                <div className="mt-2 space-y-1.5">
+                                  <input
+                                    type="text"
+                                    value={oauthForm.clientId}
+                                    onChange={e => setOauthForm(f => ({ ...f, clientId: e.target.value }))}
+                                    placeholder="Client ID (e.g. 123456789-abc.apps.googleusercontent.com)"
+                                    className="w-full bg-port-bg border border-port-border rounded px-2 py-1 text-xs text-white placeholder-gray-600"
+                                  />
+                                  <input
+                                    type="password"
+                                    value={oauthForm.clientSecret}
+                                    onChange={e => setOauthForm(f => ({ ...f, clientSecret: e.target.value }))}
+                                    placeholder="Client Secret (e.g. GOCSPX-...)"
+                                    className="w-full bg-port-bg border border-port-border rounded px-2 py-1 text-xs text-white placeholder-gray-600"
+                                  />
+                                  <button
+                                    onClick={handleSaveOAuthCredentials}
+                                    disabled={savingOAuth || !oauthForm.clientId || !oauthForm.clientSecret}
+                                    className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-port-accent text-white hover:bg-port-accent/80 disabled:opacity-50"
+                                  >
+                                    {savingOAuth ? 'Saving...' : 'Save & Authorize'}
+                                  </button>
                                 </div>
                               </details>
-                              <div className="space-y-1.5 pt-1">
-                                <input
-                                  type="text"
-                                  value={oauthForm.clientId}
-                                  onChange={e => setOauthForm(f => ({ ...f, clientId: e.target.value }))}
-                                  placeholder="Client ID (e.g. 123456789-abc.apps.googleusercontent.com)"
-                                  className="w-full bg-port-bg border border-port-border rounded px-2 py-1 text-xs text-white placeholder-gray-600"
-                                />
-                                <input
-                                  type="password"
-                                  value={oauthForm.clientSecret}
-                                  onChange={e => setOauthForm(f => ({ ...f, clientSecret: e.target.value }))}
-                                  placeholder="Client Secret (e.g. GOCSPX-...)"
-                                  className="w-full bg-port-bg border border-port-border rounded px-2 py-1 text-xs text-white placeholder-gray-600"
-                                />
-                                <button
-                                  onClick={handleSaveOAuthCredentials}
-                                  disabled={savingOAuth || !oauthForm.clientId || !oauthForm.clientSecret}
-                                  className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-port-accent text-white hover:bg-port-accent/80 disabled:opacity-50"
-                                >
-                                  {savingOAuth ? 'Saving...' : 'Save & Authorize'}
-                                </button>
-                              </div>
                             </div>
                           )}
                         </div>

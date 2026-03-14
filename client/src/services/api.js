@@ -1730,6 +1730,7 @@ export const executeMessageAction = (accountId, messageId, action) =>
   request(`/messages/${accountId}/${messageId}/action`, { method: 'POST', body: JSON.stringify({ action }), silent: true });
 export const clearMessageCache = (accountId) =>
   request(`/messages/accounts/${accountId}/cache/clear`, { method: 'POST' });
+export const enableGmailApi = () => request('/messages/gmail/enable-api', { method: 'POST' });
 
 // Calendar
 export const getCalendarAccounts = () => request('/calendar/accounts');

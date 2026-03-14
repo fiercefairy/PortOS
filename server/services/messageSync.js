@@ -125,7 +125,7 @@ export async function syncAccount(accountId, io, options = {}) {
     let providerResult;
     if (account.type === 'gmail') {
       const { syncGmail } = await import('./messageGmailSync.js');
-      providerResult = await syncGmail(account, cache, io);
+      providerResult = await syncGmail(account, cache, io, { mode });
     } else if (account.type === 'outlook') {
       // Try API sync first (fast), fall back to Playwright (slow)
       const { syncOutlookApi } = await import('./messageApiSync.js');

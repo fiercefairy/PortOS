@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, RefreshCw, Mail, Globe, MessageSquare, Save } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, Mail, Globe, MessageSquare, Save, AlertTriangle, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as api from '../../services/api';
 import ProviderModelSelector from '../ProviderModelSelector';
 import useProviderModels from '../../hooks/useProviderModels';
 
 const TYPE_ICONS = { gmail: Mail, outlook: Globe, teams: MessageSquare };
-const TYPE_LABELS = { gmail: 'Gmail (MCP)', outlook: 'Outlook (Playwright)', teams: 'Teams (Playwright)' };
+const TYPE_LABELS = { gmail: 'Gmail (API)', outlook: 'Outlook (Playwright)', teams: 'Teams (Playwright)' };
 
 const DEFAULT_REPLY_TEMPLATE = `You are a professional email assistant. Draft a reply to the following email.
 
@@ -42,6 +42,10 @@ export default function ConfigTab({ accounts, setAccounts }) {
   const [clearingCache, setClearingCache] = useState(null);
   const [confirmClear, setConfirmClear] = useState(null);
 
+  // Google OAuth status for Gmail accounts
+  const [googleAuth, setGoogleAuth] = useState(null);
+  const [reauthorizing, setReauthorizing] = useState(false);
+
   // AI config
   const [config, setConfig] = useState(null);
   const [configLoading, setConfigLoading] = useState(true);
@@ -73,6 +77,28 @@ export default function ConfigTab({ accounts, setAccounts }) {
   }, [triage.setSelectedProviderId, triage.setSelectedModel, reply.setSelectedProviderId, reply.setSelectedModel]);
 
   useEffect(() => { loadConfig(); }, [loadConfig]);
+
+  // Check Google OAuth status when Gmail accounts exist
+  const hasGmailAccount = accounts.some(a => a.type === 'gmail');
+  useEffect(() => {
+    if (hasGmailAccount) {
+      api.getGoogleAuthStatus().then(setGoogleAuth).catch(() => {});
+    }
+  }, [hasGmailAccount]);
+
+  const handleReauthorize = () => {
+    setReauthorizing(true);
+    api.getGoogleAuthUrl()
+      .then(({ url }) => { window.open(url, '_blank'); })
+      .catch(() => toast.error('Failed to get auth URL'))
+      .finally(() => setReauthorizing(false));
+  };
+
+  const handleEnableGmailApi = () => {
+    api.enableGmailApi()
+      .then(r => toast.success(r.message))
+      .catch(() => toast.error('Failed to open Gmail API page'));
+  };
 
   const handleSaveConfig = async () => {
     const patch = {
@@ -165,69 +191,6 @@ export default function ConfigTab({ accounts, setAccounts }) {
 
   return (
     <div className="space-y-8">
-      {/* AI Provider & Model */}
-      <section>
-        <h2 className="text-lg font-semibold text-white mb-3">AI Provider & Model</h2>
-        <p className="text-sm text-gray-500 mb-3">
-          Configure separate AI providers for email triage (classification) and reply generation.
-        </p>
-        <div className="space-y-3">
-          {renderProviderSection(
-            'Triage',
-            'Classifies emails as reply/archive/delete/review with priority. A fast, cheap model works well here.',
-            triage
-          )}
-          {renderProviderSection(
-            'Reply Generation',
-            'Generates draft email replies. A more capable model produces better responses.',
-            reply
-          )}
-        </div>
-      </section>
-
-      {/* Prompt Templates */}
-      <section>
-        <h2 className="text-lg font-semibold text-white mb-3">Prompt Templates</h2>
-        <p className="text-sm text-gray-500 mb-3">
-          Templates used when generating AI draft replies. Use {'{{variable}}'} syntax for substitution.
-          Available: {'{{from}}'}, {'{{subject}}'}, {'{{body}}'}, {'{{instructions}}'}.
-        </p>
-        {configLoading ? (
-          <RefreshCw size={16} className="text-port-accent animate-spin" />
-        ) : (
-          <div className="space-y-4">
-            <div className="p-4 bg-port-card rounded-lg border border-port-border">
-              <label className="block text-sm font-medium text-gray-300 mb-2">Reply Template</label>
-              <textarea
-                value={config.replyTemplate}
-                onChange={(e) => updateTemplate('replyTemplate', e.target.value)}
-                rows={8}
-                className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-sm text-white font-mono placeholder-gray-500 focus:outline-none focus:border-port-accent resize-y"
-              />
-            </div>
-            <div className="p-4 bg-port-card rounded-lg border border-port-border">
-              <label className="block text-sm font-medium text-gray-300 mb-2">Forward Template</label>
-              <textarea
-                value={config.forwardTemplate}
-                onChange={(e) => updateTemplate('forwardTemplate', e.target.value)}
-                rows={6}
-                className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-sm text-white font-mono placeholder-gray-500 focus:outline-none focus:border-port-accent resize-y"
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleSaveConfig}
-                disabled={!configDirty}
-                className="flex items-center gap-2 px-4 py-2 bg-port-accent text-white rounded-lg text-sm hover:bg-port-accent/80 transition-colors disabled:opacity-50"
-              >
-                <Save size={14} /> Save Config
-              </button>
-              {configDirty && <span className="text-xs text-port-warning">Unsaved changes</span>}
-            </div>
-          </div>
-        )}
-      </section>
-
       {/* Accounts */}
       <section>
         <div className="flex items-center justify-between mb-3">
@@ -240,6 +203,57 @@ export default function ConfigTab({ accounts, setAccounts }) {
             Add Account
           </button>
         </div>
+
+        {hasGmailAccount && (
+          <div className="p-4 mb-4 bg-port-card border border-port-border rounded-lg space-y-3">
+            <h3 className="text-sm font-medium text-white">Gmail Setup</h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className={`w-2 h-2 rounded-full ${googleAuth?.hasTokens ? 'bg-port-success' : 'bg-port-error'}`} />
+                  <span className="text-gray-300">Google OAuth</span>
+                </div>
+                {googleAuth?.hasTokens ? (
+                  <button
+                    onClick={handleReauthorize}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-400 hover:text-white transition-colors"
+                    title="Re-authorize to update permissions"
+                  >
+                    <RefreshCw size={12} />
+                    Re-authorize
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleReauthorize}
+                    disabled={reauthorizing}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-port-warning/20 text-port-warning text-xs rounded-lg hover:bg-port-warning/30 transition-colors disabled:opacity-50"
+                  >
+                    <ExternalLink size={14} />
+                    Authorize
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="w-2 h-2 rounded-full bg-gray-500" />
+                  <span className="text-gray-300">Gmail API enabled</span>
+                </div>
+                <button
+                  onClick={handleEnableGmailApi}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-400 hover:text-white transition-colors"
+                  title="Open Google Cloud Console to enable Gmail API"
+                >
+                  <ExternalLink size={12} />
+                  Enable in Console
+                </button>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500">
+              Gmail requires: 1) Gmail API enabled in Google Cloud Console, 2) Google OAuth authorized with Gmail scopes.
+              If sync fails with "API not enabled", click "Enable in Console" above.
+            </p>
+          </div>
+        )}
 
         {showForm && (
           <div className="p-4 bg-port-card rounded-lg border border-port-border space-y-3 mb-4">
@@ -260,7 +274,7 @@ export default function ConfigTab({ accounts, setAccounts }) {
                 onChange={(e) => setForm(f => ({ ...f, type: e.target.value }))}
                 className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-sm text-white focus:outline-none focus:border-port-accent"
               >
-                <option value="gmail">Gmail (MCP)</option>
+                <option value="gmail">Gmail (API)</option>
                 <option value="outlook">Outlook (Playwright)</option>
                 <option value="teams">Teams (Playwright)</option>
               </select>
@@ -364,6 +378,69 @@ export default function ConfigTab({ accounts, setAccounts }) {
             );
           })}
         </div>
+      </section>
+
+      {/* AI Provider & Model */}
+      <section>
+        <h2 className="text-lg font-semibold text-white mb-3">AI Provider & Model</h2>
+        <p className="text-sm text-gray-500 mb-3">
+          Configure separate AI providers for email triage (classification) and reply generation.
+        </p>
+        <div className="space-y-3">
+          {renderProviderSection(
+            'Triage',
+            'Classifies emails as reply/archive/delete/review with priority. A fast, cheap model works well here.',
+            triage
+          )}
+          {renderProviderSection(
+            'Reply Generation',
+            'Generates draft email replies. A more capable model produces better responses.',
+            reply
+          )}
+        </div>
+      </section>
+
+      {/* Prompt Templates */}
+      <section>
+        <h2 className="text-lg font-semibold text-white mb-3">Prompt Templates</h2>
+        <p className="text-sm text-gray-500 mb-3">
+          Templates used when generating AI draft replies. Use {'{{variable}}'} syntax for substitution.
+          Available: {'{{from}}'}, {'{{subject}}'}, {'{{body}}'}, {'{{instructions}}'}.
+        </p>
+        {configLoading ? (
+          <RefreshCw size={16} className="text-port-accent animate-spin" />
+        ) : (
+          <div className="space-y-4">
+            <div className="p-4 bg-port-card rounded-lg border border-port-border">
+              <label className="block text-sm font-medium text-gray-300 mb-2">Reply Template</label>
+              <textarea
+                value={config.replyTemplate}
+                onChange={(e) => updateTemplate('replyTemplate', e.target.value)}
+                rows={8}
+                className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-sm text-white font-mono placeholder-gray-500 focus:outline-none focus:border-port-accent resize-y"
+              />
+            </div>
+            <div className="p-4 bg-port-card rounded-lg border border-port-border">
+              <label className="block text-sm font-medium text-gray-300 mb-2">Forward Template</label>
+              <textarea
+                value={config.forwardTemplate}
+                onChange={(e) => updateTemplate('forwardTemplate', e.target.value)}
+                rows={6}
+                className="w-full px-3 py-2 bg-port-bg border border-port-border rounded-lg text-sm text-white font-mono placeholder-gray-500 focus:outline-none focus:border-port-accent resize-y"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSaveConfig}
+                disabled={!configDirty}
+                className="flex items-center gap-2 px-4 py-2 bg-port-accent text-white rounded-lg text-sm hover:bg-port-accent/80 transition-colors disabled:opacity-50"
+              >
+                <Save size={14} /> Save Config
+              </button>
+              {configDirty && <span className="text-xs text-port-warning">Unsaved changes</span>}
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );

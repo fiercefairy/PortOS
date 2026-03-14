@@ -64,7 +64,9 @@ See [GOALS.md](./GOALS.md) for project goals and direction.
 
 ### Planned
 
-- [ ] **M50 P1-P4**: Email Management - Gmail + Outlook integration, AI categorization and priority extraction, Digital Twin voice drafting, review-before-send outbox, Brain knowledge capture
+- [x] **M50 P1-P6**: Email Management - Outlook API+Playwright sync, AI triage with security hardening, draft generation, thread capture, per-action models, full Messages UI (Inbox/Drafts/Sync/Config)
+- [x] **M50 P7**: Email Management - Gmail API sync (same OAuth as Calendar), full body extraction, thread grouping, send via Gmail API
+- [ ] **M50 P8-P9**: Email Management - Digital Twin voice drafting, CoS automation & rules, auto-send with AI review gate
 - [ ] **M34 P5-P7**: Digital Twin - Multi-modal capture, advanced testing, personas
 - [ ] **M42 P5**: Unified Digital Twin Identity System - Cross-Insights Engine. See [Identity System](./docs/features/identity-system.md)
 - [x] **M56**: Telegram Bot Integration - External notification channel via Telegram bot. ChatId allowlisting, notification forwarding with rate limiting and type filtering, conversational commands (/status, /goals, /agents, /checkin, /help), goal check-in persistence. Replaces M47.
@@ -132,17 +134,17 @@ Extends the existing goal system in `server/services/identity.js` and `data/digi
 
 ### M50: Messages (Email Management)
 
-Multi-provider email integration — Gmail via MCP, Outlook/Teams via CDP browser automation (Playwright). Unified Messages page with Inbox, Drafts, Sync, and Config sub-pages.
+Multi-provider email integration — Gmail via Google API (shared OAuth with Calendar), Outlook/Teams via CDP browser automation (Playwright). Unified Messages page with Inbox, Drafts, Sync, and Config sub-pages.
 
 Always review before send — AI-generated drafts go to an outbox queue. The user reviews, edits, and approves each response before it's sent. No auto-send.
 
-**Completed:** P1-P6.5 (Email sync, AI triage, reply generation, thread capture, config, per-action models, prompt injection hardening, per-message re-fetch). See git history for details.
+**Completed:** P1-P7 (Email sync, AI triage, reply generation, thread capture, config, per-action models, prompt injection hardening, per-message re-fetch, Gmail API sync+send). See git history for details.
 
 **Remaining:**
 
-- [ ] **P7: Digital Twin voice drafting** — Draft responses using Digital Twin voice/style (reads COMMUNICATION.md, PERSONALITY.md, VALUES.md + recent thread context)
-- [ ] **P8: CoS Automation & Rules** — Automated classification on new emails via CoS job, rule-based pre-filtering, email-to-task pipeline, priority email notifications
-- [ ] **P9: Auto-Send with AI Review Gate** — Remove human-in-the-loop for trusted accounts. Before auto-sending, a second LLM call reviews the draft against the original email for: prompt injection artifacts, off-topic content, tone/identity drift, leaked system instructions. Configurable per-account trust level (manual → review-assisted → auto-send). See [Messages Security](./docs/features/messages-security.md) for threat model.
+- [ ] **P8: Digital Twin voice drafting** — Draft responses using Digital Twin voice/style (reads COMMUNICATION.md, PERSONALITY.md, VALUES.md + recent thread context)
+- [ ] **P9: CoS Automation & Rules** — Automated classification on new emails via CoS job, rule-based pre-filtering, email-to-task pipeline, priority email notifications
+- [ ] **P10: Auto-Send with AI Review Gate** — Remove human-in-the-loop for trusted accounts. Before auto-sending, a second LLM call reviews the draft against the original email for: prompt injection artifacts, off-topic content, tone/identity drift, leaked system instructions. Configurable per-account trust level (manual → review-assisted → auto-send). See [Messages Security](./docs/features/messages-security.md) for threat model.
 
 **Data:** `data/messages/accounts.json`, `data/messages/cache/{accountId}.json`, `data/messages/selectors.json`, `settings.json` (messages key for AI config + templates)
 

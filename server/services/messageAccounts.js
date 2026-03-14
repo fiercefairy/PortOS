@@ -35,7 +35,7 @@ export async function createAccount(data) {
     id,
     name: data.name,
     type: data.type, // gmail, outlook, teams
-    provider: data.type === 'gmail' ? 'mcp' : 'playwright',
+    provider: data.type === 'gmail' ? 'api' : 'playwright',
     email: data.email || '',
     enabled: true,
     syncConfig: {

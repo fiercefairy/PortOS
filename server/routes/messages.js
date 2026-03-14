@@ -46,7 +46,7 @@ const createDraftSchema = z.object({
   subject: z.string().optional().default(''),
   body: z.string().optional().default(''),
   generatedBy: z.enum(['ai', 'manual']).optional().default('manual'),
-  sendVia: z.enum(['mcp', 'playwright']).optional()
+  sendVia: z.enum(['api', 'playwright']).optional()
 });
 
 const updateDraftSchema = z.object({
@@ -199,7 +199,7 @@ router.post('/drafts', asyncHandler(async (req, res) => {
   const data = validateRequest(createDraftSchema, req.body);
   const account = await messageAccounts.getAccount(data.accountId);
   if (!account) return res.status(404).json({ error: 'Account not found' });
-  const derivedSendVia = account.type === 'gmail' ? 'mcp' : 'playwright';
+  const derivedSendVia = account.type === 'gmail' ? 'api' : 'playwright';
   if (data.sendVia && data.sendVia !== derivedSendVia) {
     return res.status(400).json({ error: `sendVia "${data.sendVia}" conflicts with account type "${account.type}" (expected "${derivedSendVia}")` });
   }
@@ -237,7 +237,7 @@ router.post('/drafts/generate', asyncHandler(async (req, res) => {
     subject: '',
     body: replyBody,
     generatedBy: 'ai',
-    sendVia: account.provider || (account.type === 'gmail' ? 'mcp' : 'playwright')
+    sendVia: account.type === 'gmail' ? 'api' : 'playwright'
   });
   req.app.get('io')?.emit('messages:draft:created', { draftId: draft.id });
   res.status(201).json(draft);
@@ -290,10 +290,35 @@ router.post('/launch/:accountId', asyncHandler(async (req, res) => {
   }
   const account = await messageAccounts.getAccount(req.params.accountId);
   if (!account) return res.status(404).json({ error: 'Account not found' });
-  if (account.type === 'gmail') return res.status(400).json({ error: 'Gmail uses MCP, not browser automation' });
+  if (account.type === 'gmail') return res.status(400).json({ error: 'Gmail uses the Google API, not browser automation' });
   const result = await launchProvider(account.type);
   if (!result.success) return res.status(503).json({ error: result.error });
   res.json(result);
+}));
+
+// === Gmail API Enable Route ===
+router.post('/gmail/enable-api', asyncHandler(async (req, res) => {
+  const { getCredentials } = await import('../services/googleAuth.js');
+  const credentials = await getCredentials();
+
+  // Try to detect the project ID from the stored client ID
+  const clientId = credentials?.clientId || '';
+  const projectMatch = clientId.match(/^(\d+)-/);
+  const projectId = projectMatch ? projectMatch[1] : '';
+  const projectParam = projectId ? `?project=${projectId}` : '';
+  const enableUrl = `https://console.cloud.google.com/apis/library/gmail.googleapis.com${projectParam}`;
+
+  // Try to open in browser
+  const { navigateToUrl } = await import('../services/browserService.js');
+  const opened = await navigateToUrl(enableUrl).catch(() => null);
+
+  res.json({
+    success: !!opened,
+    url: enableUrl,
+    message: opened
+      ? 'Opened Gmail API page in browser. Click "Enable" if not already enabled.'
+      : 'Could not open browser. Visit the URL manually to enable the Gmail API.'
+  });
 }));
 
 // === Selector Routes ===

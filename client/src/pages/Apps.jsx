@@ -195,7 +195,7 @@ export default function Apps() {
       ) : (
         <div className="space-y-4">
           {displayedApps.map(app => {
-            const isNonPm2 = isNonPm2;
+            const isNonPm2 = NON_PM2_TYPES.has(app.type);
             return (
             <div
               key={app.id}

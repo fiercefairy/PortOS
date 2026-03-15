@@ -1,7 +1,10 @@
 import { Zap } from 'lucide-react';
+import { useParams } from 'react-router-dom';
 import PostTab from '../components/meatspace/tabs/PostTab';
 
 export default function Post() {
+  const { tab, subtab } = useParams();
+
   return (
     <div className="flex flex-col h-full">
       <div className="shrink-0 px-6 pt-6 pb-4 border-b border-port-border">
@@ -12,7 +15,7 @@ export default function Post() {
         </div>
       </div>
       <div className="flex-1 overflow-auto p-6">
-        <PostTab />
+        <PostTab tab={tab} subtab={subtab} />
       </div>
     </div>
   );

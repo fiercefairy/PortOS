@@ -117,7 +117,9 @@ export default function App() {
           <Route path="instances" element={<Instances />} />
           <Route path="meatspace" element={<Navigate to="/meatspace/overview" replace />} />
           <Route path="meatspace/:tab" element={<MeatSpace />} />
-          <Route path="post" element={<Post />} />
+          <Route path="post" element={<Navigate to="/post/launcher" replace />} />
+          <Route path="post/:tab" element={<Post />} />
+          <Route path="post/:tab/:subtab" element={<Post />} />
           <Route path="review" element={<Review />} />
           <Route path="messages" element={<Navigate to="/messages/inbox" replace />} />
           <Route path="messages/:tab" element={<Messages />} />

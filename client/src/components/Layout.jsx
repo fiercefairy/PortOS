@@ -200,7 +200,16 @@ const navItems = [
       { to: '/messages/sync', label: 'Sync', icon: RefreshCw }
     ]
   },
-  { to: '/post', label: 'POST', icon: Zap, single: true },
+  {
+    label: 'POST',
+    icon: Zap,
+    children: [
+      { to: '/post/config', label: 'Config', icon: Settings },
+      { to: '/post/history', label: 'History', icon: History },
+      { to: '/post/launcher', label: 'Launcher', icon: Play },
+      { to: '/post/memory', label: 'Memory', icon: Brain },
+    ]
+  },
   { to: '/review', label: 'Review Hub', icon: ClipboardList, single: true },
   { to: '/security', label: 'Security', icon: Camera, single: true },
   { to: '/settings', label: 'Settings', icon: Settings, single: true },
@@ -638,7 +647,7 @@ export default function Layout() {
             location.pathname.startsWith('/insights') ||
             location.pathname.startsWith('/meatspace') ||
             location.pathname.startsWith('/messages') ||
-            location.pathname === '/post' ||
+            location.pathname.startsWith('/post') ||
             location.pathname === '/review' ||
             location.pathname.startsWith('/agents') ||
             location.pathname === '/shell' ||

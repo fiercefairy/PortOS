@@ -12,7 +12,7 @@ const ITEM_TYPES = [
   { id: 'text', label: 'Text' },
 ];
 
-export default function MemoryBuilder({ onBack }) {
+export default function MemoryBuilder({ onBack, onNavigateElements }) {
   const [items, setItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [view, setView] = useState('list'); // list, practice, elements, create
@@ -34,6 +34,10 @@ export default function MemoryBuilder({ onBack }) {
   }
 
   function handleSelect(item) {
+    if (item.id === 'elements-song' && onNavigateElements) {
+      onNavigateElements(item);
+      return;
+    }
     setSelectedItem(item);
     if (item.id === 'elements-song') {
       setView('elements');

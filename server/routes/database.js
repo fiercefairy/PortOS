@@ -391,7 +391,34 @@ router.post('/setup-native', asyncHandler(async (req, res) => {
 }));
 
 // POST /api/database/export — export database to SQL dump
+// Optional body.backend: 'docker' | 'native' to export from a specific backend
+// Default: exports from the active backend
 router.post('/export', asyncHandler(async (req, res) => {
+  const { backend } = req.body || {};
+  const label = `backup-${Date.now()}`;
+
+  if (backend && ['docker', 'native'].includes(backend)) {
+    // Export from a specific backend by connecting directly to its port
+    const port = backend === 'docker' ? DOCKER_PORT : NATIVE_PORT;
+    const readyResult = await runCmd('bash', ['-c',
+      `PGPASSWORD=${pgPassword} pg_isready -h localhost -p ${port} -U ${pgUser}`
+    ], 5_000);
+    if (readyResult.exitCode !== 0) {
+      return res.status(400).json({ error: `${backend} database not running on port ${port}` });
+    }
+    const dumpDir = join(rootDir, 'data', 'db-dumps');
+    await runCmd('mkdir', ['-p', dumpDir], 5_000);
+    const dumpFile = join(dumpDir, `portos-${backend}-${label}.sql`);
+    const result = await runCmd('bash', ['-c',
+      `PGPASSWORD=${pgPassword} pg_dump -h localhost -p ${port} -U ${pgUser} -d ${pgDb} --no-owner --no-privileges --if-exists --clean > "${dumpFile}"`
+    ], 120_000);
+    if (result.exitCode !== 0) {
+      return res.status(500).json({ error: 'Export failed', details: result.stderr || result.stdout });
+    }
+    return res.json({ success: true, dumpFile });
+  }
+
+  // Default: export from active backend via db.sh
   const result = await runDbScript(['export']);
   if (result.exitCode !== 0) {
     return res.status(500).json({

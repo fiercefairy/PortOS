@@ -11,7 +11,7 @@
 
 - **Review Briefing Fullscreen** — Daily Briefing section in Review Hub now has a fullscreen toggle button and increased default content height for better readability
 
-- **Database Management UI** — Switch between Docker and native PostgreSQL from Settings > Database. Shows live status of both backends with connection health, memory count, database size, and table count. Migrate data between backends with one click. Export database, install/setup native PostgreSQL, and fix stale PID files — all from the UI with real-time progress via WebSocket
+- **Database Management UI** — Switch between Docker and native PostgreSQL from Settings > Database. Shows live status of both backends with connection health, memory count, database size, and table count. Migrate data between backends with one click. Per-backend Backup buttons export SQL dumps from either Docker or native independently. Install/setup native PostgreSQL and fix stale PID files — all from the UI with real-time progress via WebSocket
 
 - **Settings Sub-Tabs** — Settings page split into routed tabs: Backup (`/settings/backup`), Database (`/settings/database`), Telegram (`/settings/telegram`). Sidebar nav now shows Settings as a collapsible section with sub-pages
 

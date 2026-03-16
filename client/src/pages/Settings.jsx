@@ -148,7 +148,7 @@ function BackupTab() {
   );
 }
 
-function BackendCard({ label, icon: Icon, backend, isActive, dbStatus, runAction, setConfirmAction, actionInProgress, busy }) {
+function BackendCard({ label, icon: Icon, backend, isActive, dbStatus, runAction, setConfirmAction, actionInProgress, busy, exportDatabase }) {
   const data = dbStatus?.[backend];
   const isRunning = backend === 'docker' ? data?.containerRunning : data?.running;
   const canStart = backend === 'docker'
@@ -219,6 +219,19 @@ function BackendCard({ label, icon: Icon, backend, isActive, dbStatus, runAction
           >
             {actionInProgress === `start-${backend}` ? <BrailleSpinner /> : <Play size={12} />}
             Start
+          </button>
+        )}
+
+        {/* Export/Backup from this backend */}
+        {isRunning && (
+          <button
+            onClick={() => runAction(`export-${backend}`, () => exportDatabase(backend), (r) => `Backed up to ${r.dumpFile}`)}
+            disabled={busy}
+            className={`${btnClass} bg-port-border hover:bg-port-border/70 text-white`}
+            title={`Export ${displayLabel} database to SQL dump`}
+          >
+            {actionInProgress === `export-${backend}` ? <BrailleSpinner /> : <Download size={12} />}
+            Backup
           </button>
         )}
 
@@ -391,12 +404,14 @@ function DatabaseTab() {
                 isActive={dbStatus.mode === 'docker'} dbStatus={dbStatus}
                 runAction={runAction} setConfirmAction={setConfirmAction}
                 actionInProgress={actionInProgress} busy={busy}
+                exportDatabase={exportDatabase}
               />
               <BackendCard
                 label="Native" icon={HardDrive} backend="native"
                 isActive={dbStatus.mode === 'native'} dbStatus={dbStatus}
                 runAction={runAction} setConfirmAction={setConfirmAction}
                 actionInProgress={actionInProgress} busy={busy}
+                exportDatabase={exportDatabase}
               />
             </div>
 
@@ -441,18 +456,8 @@ function DatabaseTab() {
             )}
 
             {/* Global actions */}
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => runAction('export', exportDatabase, (r) => `Exported to ${r.dumpFile}`)}
-                disabled={busy || !dbStatus.connected}
-                className="flex items-center gap-2 px-3 py-1.5 bg-port-border hover:bg-port-border/70 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
-                title="Export database to SQL dump"
-              >
-                {actionInProgress === 'export' ? <BrailleSpinner /> : <Download size={14} />}
-                Export
-              </button>
-
-              {!dbStatus.connected && (
+            {!dbStatus.connected && (
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => runAction('fix', fixDatabase, 'Database fixed')}
                   disabled={busy}
@@ -462,8 +467,8 @@ function DatabaseTab() {
                   {actionInProgress === 'fix' ? <BrailleSpinner /> : <Wrench size={14} />}
                   Fix
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </>
         ) : (
           <p className="text-sm text-gray-500">Unable to load database status</p>

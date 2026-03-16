@@ -61,8 +61,8 @@ const CACHE_TTL_MS = 2000;
 const DEFAULT_META = {
   version: 1,
   confidenceThreshold: 0.6,
-  dailyDigestTime: '09:00',
-  weeklyReviewTime: '16:00',
+  dailyDigestTime: '00:00',
+  weeklyReviewTime: '00:00',
   weeklyReviewDay: 'sunday',
   defaultProvider: 'lmstudio',
   defaultModel: 'gptoss-20b',

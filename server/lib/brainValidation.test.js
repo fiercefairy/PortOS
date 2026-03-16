@@ -359,7 +359,7 @@ describe('brainValidation.js', () => {
       expect(result.success).toBe(true);
       expect(result.data.version).toBe(1);
       expect(result.data.confidenceThreshold).toBe(0.6);
-      expect(result.data.dailyDigestTime).toBe('09:00');
+      expect(result.data.dailyDigestTime).toBe('00:00');
       expect(result.data.weeklyReviewDay).toBe('sunday');
     });
 

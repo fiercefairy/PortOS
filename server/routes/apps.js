@@ -211,6 +211,13 @@ router.get('/:id/icon', loadApp, asyncHandler(async (req, res) => {
 // POST /api/apps - Create new app
 router.post('/', asyncHandler(async (req, res, next) => {
   const data = validateRequest(appSchema, req.body);
+
+  // Detect app icon before creation to avoid a double write
+  if (data.repoPath) {
+    const detectedIcon = await detectAppIcon(data.repoPath, data.type);
+    if (detectedIcon) data.appIconPath = detectedIcon;
+  }
+
   const app = await appsService.createApp(data);
   res.status(201).json(app);
 }));

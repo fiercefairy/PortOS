@@ -31,7 +31,7 @@
 
 ## Fixed
 
-- **Database sync/migrate failures** — Fixed `start_native` in db.sh crashing when native PostgreSQL was already running (pg_ctl "another server might be running" error). Rewrote sync route to use a temporary port (5562) for the target backend so the active database never goes down during sync — eliminates pool errors and connection drops
+- **Database sync/migrate failures** — Fixed `start_native` in db.sh crashing when native PostgreSQL was already running (pg_ctl "another server might be running" error). Rewrote sync route to use a temporary port (5562) for the target backend so the active database never goes down during sync — eliminates pool errors and connection drops. Fixed pg17 dump compatibility (strip `\restrict`/`\unrestrict` and `transaction_timeout`). Prefer Docker's pg17 psql for imports to avoid version mismatch. Homebrew pg17 path detection now works on both arm64 and Intel Macs. Native setup grants SUPERUSER for extension management. Sync route auto-creates portos role/database on native target.
 
 - **Self-build crash** — Fixed PortOS build button killing the server mid-build. `npm install` in `server/` triggered PM2's file watcher restart (SIGINT) which killed the build child process. Self-builds now skip server install (already running) and use `shell: true` for proper PATH resolution. Build error messages now include exit code, signal, and stdout/stderr output.
 

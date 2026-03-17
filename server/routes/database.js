@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { execFile } from 'child_process';
+import { execFile, execFileSync } from 'child_process';
+import { existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { asyncHandler } from '../lib/errorHandler.js';
@@ -257,12 +258,23 @@ const pgPassword = process.env.PGPASSWORD || 'portos';
 const NATIVE_PORT = '5432';
 const DOCKER_PORT = '5561';
 
+// Prefer Homebrew postgresql@17 binaries over system pg (avoids version mismatch)
+// Check both arm64 (/opt/homebrew) and Intel (/usr/local) prefixes
+const pg17Bin = (() => {
+  for (const prefix of ['/opt/homebrew/opt/postgresql@17', '/usr/local/opt/postgresql@17']) {
+    const bin = `${prefix}/bin`;
+    if (existsSync(`${bin}/psql`)) return bin;
+  }
+  return null;
+})();
+
 /**
  * Build env object with PGPASSWORD for passing to child processes.
  * Avoids interpolating password into shell strings (shell metacharacter safety).
  */
 const pgEnv = (port) => ({
   ...process.env,
+  ...(pg17Bin ? { PATH: `${pg17Bin}:${process.env.PATH}` } : {}),
   PGPASSWORD: pgPassword,
   PGHOST: 'localhost',
   PGPORT: String(port),
@@ -293,20 +305,45 @@ router.post('/sync', asyncHandler(async (req, res) => {
   const dumpFile = exportLines[exportLines.length - 1]?.trim();
   console.log(`🗄️ Sync: exported to ${dumpFile}`);
 
-  // Step 2: Ensure target is running
+  // Step 2: Ensure target is running and configured
   emit('start', { message: `Checking ${targetMode} is running...` });
   const readyResult = await runCmd('pg_isready', [
-    '-h', 'localhost', '-p', targetPort, '-U', pgUser
+    '-h', 'localhost', '-p', targetPort
   ], 5_000, pgEnv(targetPort));
   if (readyResult.exitCode !== 0) {
     emit('error', { message: `${targetMode} database not running on port ${targetPort}. Start it first.` });
     return res.status(400).json({ error: `${targetMode} database not running on port ${targetPort}. Start it first.` });
   }
 
+  // Ensure target has the portos role and database (native pg may lack the role)
+  if (targetMode === 'native') {
+    emit('start', { message: 'Ensuring native database role and schema exist...' });
+    const sysUser = process.env.USER || 'postgres';
+    const sysEnv = pgEnv(targetPort);
+    // Create role if missing (connect as system superuser)
+    await runCmd('psql', ['-h', 'localhost', '-p', targetPort, '-U', sysUser, '-d', 'postgres',
+      '-c', `DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='${pgUser}') THEN CREATE ROLE ${pgUser} WITH LOGIN PASSWORD '${pgPassword}' CREATEDB SUPERUSER; END IF; END $$;`
+    ], 10_000, sysEnv);
+    // Create database if missing
+    const dbCheck = await runCmd('psql', ['-h', 'localhost', '-p', targetPort, '-U', sysUser, '-d', 'postgres',
+      '-tAc', `SELECT 1 FROM pg_database WHERE datname='${pgDb}'`
+    ], 5_000, sysEnv);
+    if (!dbCheck.stdout.trim().includes('1')) {
+      await runCmd('psql', ['-h', 'localhost', '-p', targetPort, '-U', sysUser, '-d', 'postgres',
+        '-c', `CREATE DATABASE ${pgDb} OWNER ${pgUser};`
+      ], 10_000, sysEnv);
+    }
+    // Best-effort extensions (non-fatal — dump may handle schema, and pgvector may not be installed)
+    await runCmd('psql', ['-h', 'localhost', '-p', targetPort, '-U', sysUser, '-d', pgDb,
+      '-c', 'CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS pgcrypto;'
+    ], 10_000, sysEnv);
+  }
+
   // Step 3: Import into target (active backend untouched — different port)
+  // Strip pg17-only features for compat with older psql: \restrict/\unrestrict, transaction_timeout
   emit('start', { message: `Importing into ${targetMode} (port ${targetPort})...` });
   const importResult = await runCmd('bash', ['-c',
-    `psql -h localhost -p ${targetPort} -U ${pgUser} -d ${pgDb} -v ON_ERROR_STOP=1 --single-transaction < "${dumpFile}"`
+    `sed -e '/^\\\\restrict /d' -e '/^\\\\unrestrict /d' -e '/^SET transaction_timeout/d' "${dumpFile}" | psql -h localhost -p ${targetPort} -U ${pgUser} -d ${pgDb} -v ON_ERROR_STOP=1 --single-transaction`
   ], 120_000, pgEnv(targetPort));
 
   if (importResult.exitCode !== 0) {

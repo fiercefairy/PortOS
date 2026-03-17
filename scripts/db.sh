@@ -122,12 +122,15 @@ native_running() {
   PGPASSWORD="$PGPASSWORD" pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" >/dev/null 2>&1
 }
 
-# Auto-detect Homebrew PostgreSQL on macOS and add to PATH
-if [ "$(uname)" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
-  _pg_bin="$(brew --prefix postgresql@17 2>/dev/null)/bin"
-  if [ -d "$_pg_bin" ]; then
-    export PATH="$_pg_bin:$PATH"
-  fi
+# Auto-detect Homebrew PostgreSQL 17 on macOS and add to PATH
+# Check both arm64 (/opt/homebrew) and Intel (/usr/local) prefixes
+if [ "$(uname)" = "Darwin" ]; then
+  for _prefix in /opt/homebrew/opt/postgresql@17 /usr/local/opt/postgresql@17; do
+    if [ -x "$_prefix/bin/psql" ]; then
+      export PATH="$_prefix/bin:$PATH"
+      break
+    fi
+  done
 fi
 
 # Check if native PostgreSQL is installed
@@ -475,13 +478,13 @@ cmd_setup_native() {
   if ! psql -h "$PGHOST" -p "$PGPORT" -U "$sys_user" -d postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='$PGUSER'" 2>/dev/null | grep -q 1; then
     info "Creating database user: $PGUSER"
     psql -h "$PGHOST" -p "$PGPORT" -U "$sys_user" -d postgres \
-      -v pw="$PGPASSWORD" -v user="$PGUSER" -c "CREATE ROLE :\"user\" WITH LOGIN PASSWORD :'pw' CREATEDB;"
+      -c "CREATE ROLE $PGUSER WITH LOGIN PASSWORD '$PGPASSWORD' CREATEDB SUPERUSER;"
     log "User $PGUSER created"
   else
     log "User $PGUSER already exists"
-    # Ensure password is set correctly
+    # Ensure password and superuser are set correctly (superuser needed for extension management)
     psql -h "$PGHOST" -p "$PGPORT" -U "$sys_user" -d postgres \
-      -v pw="$PGPASSWORD" -v user="$PGUSER" -c "ALTER USER :\"user\" WITH PASSWORD :'pw';" 2>/dev/null || true
+      -c "ALTER USER $PGUSER WITH PASSWORD '$PGPASSWORD' SUPERUSER;" 2>/dev/null || true
   fi
 
   # Step 4: Create portos database if it doesn't exist
@@ -525,14 +528,14 @@ run_psql() {
   fi
 }
 
-# Run pg_dump, using Docker exec in Docker mode if host pg_dump is unavailable
+# Run pg_dump, preferring Docker exec in Docker mode to avoid version mismatch
 run_pg_dump() {
   local mode
   mode=$(get_mode)
-  if command -v pg_dump >/dev/null 2>&1; then
-    PGPASSWORD="$PGPASSWORD" pg_dump -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" "$@"
-  elif [ "$mode" = "docker" ] && docker_running; then
+  if [ "$mode" = "docker" ] && docker_running; then
     docker exec -e PGPASSWORD="$PGPASSWORD" portos-db pg_dump -U "$PGUSER" -d "$PGDATABASE" "$@"
+  elif command -v pg_dump >/dev/null 2>&1; then
+    PGPASSWORD="$PGPASSWORD" pg_dump -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" "$@"
   else
     err "pg_dump not found on host and Docker DB is not running"
     exit 1
@@ -575,10 +578,33 @@ cmd_import() {
 
   info "Importing $dumpfile..."
 
-  # Use stdin redirection so the dump is accessible even in Docker exec mode
-  run_psql -v ON_ERROR_STOP=1 --single-transaction < "$dumpfile"
+  # Strip pg17-only features for compatibility with older psql versions:
+  # - \restrict/\unrestrict (pg17 dump security tokens)
+  # - SET transaction_timeout (pg17 config parameter)
+  sed -e '/^\\restrict /d' -e '/^\\unrestrict /d' -e '/^SET transaction_timeout/d' "$dumpfile" | run_psql -v ON_ERROR_STOP=1 --single-transaction
 
   log "Import complete"
+}
+
+# Import a dump into a specific target using Docker's pg17 psql when available.
+# This avoids version-mismatch issues when the host psql is older than the dump format.
+import_to_target() {
+  local dumpfile="$1"
+  local target_port="$2"
+
+  # Strip pg17-only features for compat with older psql
+  local filtered
+  filtered="$(sed -e '/^\\restrict /d' -e '/^\\unrestrict /d' -e '/^SET transaction_timeout/d' "$dumpfile")"
+
+  # Prefer Docker's pg17 psql to avoid version mismatch with host psql
+  if docker_running; then
+    echo "$filtered" | docker exec -i -e PGPASSWORD="$PGPASSWORD" portos-db \
+      psql -h host.docker.internal -p "$target_port" -U "$PGUSER" -d "$PGDATABASE" \
+      -v ON_ERROR_STOP=1 --single-transaction
+  else
+    echo "$filtered" | PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -p "$target_port" -U "$PGUSER" -d "$PGDATABASE" \
+      -v ON_ERROR_STOP=1 --single-transaction
+  fi
 }
 
 # Migrate data between Docker and native
@@ -611,31 +637,53 @@ cmd_migrate() {
   local dumpfile
   dumpfile=$(cmd_export "migrate-$(date +%Y%m%d-%H%M%S)")
 
-  # Stop source
-  info "Stopping $current_mode..."
-  cmd_stop
+  # Determine target port
+  local target_port
+  target_port=$([ "$target_mode" = "native" ] && echo "5432" || echo "5561")
 
-  # Switch mode and start target — restore mode on failure or interruption
-  set_mode "$target_mode"
-  # Recalculate port for the new mode
-  PGPORT=$(get_port)
+  # Ensure target is running (keep source running too — they use different ports)
+  if [ "$target_mode" = "native" ]; then
+    # Ensure native pg is up (don't stop Docker — we need its pg17 psql)
+    if ! pg_isready -h "$PGHOST" -p "$target_port" >/dev/null 2>&1; then
+      start_native
+    fi
+  else
+    # Start Docker if not running
+    if ! docker_running; then
+      require_docker_compose
+      cd "$ROOT_DIR"
+      docker compose up -d db
+      info "Waiting for Docker PostgreSQL..."
+      for i in $(seq 1 30); do
+        if docker compose exec -T db pg_isready -U "$PGUSER" >/dev/null 2>&1; then break; fi
+        sleep 1
+      done
+    fi
+  fi
+
+  # Restore mode on failure or interruption
   _migrate_cleanup() {
     warn "Migration aborted — restoring mode to $current_mode"
     set_mode "$current_mode"
   }
   trap '_migrate_cleanup' ERR INT TERM
 
-  if [ "$target_mode" = "native" ]; then
-    start_native
-  else
-    start_docker
-  fi
-
   # Import into target
-  cmd_import "$dumpfile"
+  info "Importing into $target_mode (port $target_port)..."
+  import_to_target "$dumpfile" "$target_port"
+
+  # Switch mode to target
+  set_mode "$target_mode"
+  PGPORT=$(get_port)
 
   # Clear traps after successful import
   trap - ERR INT TERM
+
+  # Stop the old source if desired (both can coexist, but stop to save resources)
+  if [ "$current_mode" = "docker" ]; then
+    info "Stopping Docker..."
+    stop_docker
+  fi
 
   # Verify
   local new_count

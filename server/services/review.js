@@ -5,7 +5,7 @@
  * Aggregates items requiring user attention into a single hub.
  */
 
-import { writeFile, rename, readFile } from 'fs/promises';
+import { writeFile, rename, readFile, readdir } from 'fs/promises';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { EventEmitter } from 'events';
@@ -186,30 +186,43 @@ export async function deleteItem(id) {
 }
 
 /**
- * Get daily briefing content from CoS briefing or PLAN.md
+ * Get latest daily briefing content from the CoS reports directory
  */
 export async function getBriefing() {
-  // Try CoS briefing first
-  const briefingFile = join(PATHS.cos, 'briefing.json');
-  const briefing = await readJSONFile(briefingFile, null);
-  if (briefing?.content) {
-    return { source: 'cos', content: briefing.content, generatedAt: briefing.generatedAt };
-  }
+  const reportsDir = PATHS.reports;
 
-  // Fall back to PLAN.md
-  const planFile = join(PATHS.root, 'PLAN.md');
-  let planContent = null;
+  let files = [];
   try {
-    planContent = await readFile(planFile, 'utf-8');
+    files = await readdir(reportsDir);
   } catch {
-    // No PLAN.md
+    return {
+      source: 'none',
+      content: 'No CoS daily briefing found yet.',
+      generatedAt: new Date().toISOString()
+    };
   }
 
-  if (planContent) {
-    return { source: 'plan', content: planContent, generatedAt: new Date().toISOString() };
+  const latestBriefingFile = files
+    .filter(file => file.endsWith('-briefing.md'))
+    .sort()
+    .reverse()[0];
+
+  if (!latestBriefingFile) {
+    return {
+      source: 'none',
+      content: 'No CoS daily briefing found yet.',
+      generatedAt: new Date().toISOString()
+    };
   }
 
-  return { source: 'none', content: 'No briefing or plan available.', generatedAt: new Date().toISOString() };
+  const content = await readFile(join(reportsDir, latestBriefingFile), 'utf-8');
+  const date = latestBriefingFile.replace('-briefing.md', '');
+
+  return {
+    source: 'cos',
+    content,
+    generatedAt: date
+  };
 }
 
 /**

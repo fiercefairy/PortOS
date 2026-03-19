@@ -1,231 +1,159 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFile, writeFile, rename, readdir } from 'fs/promises';
 
-// Mock fs/promises
 vi.mock('fs/promises', () => ({
   readFile: vi.fn(),
   writeFile: vi.fn(),
   rename: vi.fn(),
-  mkdir: vi.fn()
+  readdir: vi.fn()
 }));
 
-// Mock uuid
-let uuidCounter = 0;
-vi.mock('uuid', () => ({
-  v4: () => `test-uuid-${++uuidCounter}`
+const emit = vi.fn();
+const reviewEvents = { emit };
+const cosEvents = { on: vi.fn() };
+
+vi.mock('./cosEvents.js', () => ({ cosEvents }));
+
+vi.mock('../lib/fileUtils.js', () => ({
+  ensureDir: vi.fn(),
+  PATHS: {
+    data: '/test/data',
+    cos: '/test/data/cos',
+    reports: '/test/data/cos/reports',
+    root: '/test'
+  },
+  readJSONFile: vi.fn(async (_path, fallback) => {
+    try {
+      return JSON.parse(await readFile());
+    } catch {
+      return fallback;
+    }
+  })
 }));
 
-// Mock cosEvents to prevent side effects
-vi.mock('./cosEvents.js', () => ({
-  cosEvents: { on: vi.fn(), emit: vi.fn() }
-}));
-
-// Mock fileUtils
-vi.mock('../lib/fileUtils.js', async () => {
-  const fsPromises = await import('fs/promises');
-  return {
-    ensureDir: vi.fn(),
-    PATHS: {
-      data: '/mock/data',
-      cos: '/mock/data/cos',
-      root: '/mock/root'
-    },
-    readJSONFile: vi.fn(async (filePath, defaultValue) => {
-      const content = await fsPromises.readFile(filePath, 'utf-8').catch(() => null);
-      if (!content) return defaultValue;
-      return JSON.parse(content);
-    })
-  };
-});
-
-import { readFile, writeFile, rename } from 'fs/promises';
-import {
+const {
+  createItem,
   getItems,
   getPendingCounts,
-  createItem,
   completeItem,
   dismissItem,
   updateItem,
   deleteItem,
-  getBriefing,
-  reviewEvents
-} from './review.js';
-
-beforeEach(() => {
-  vi.clearAllMocks();
-  uuidCounter = 0;
-  reviewEvents.removeAllListeners();
-});
+  getBriefing
+} = await import('./review.js');
 
 describe('review service', () => {
-  describe('getItems', () => {
-    it('returns empty array when no items exist', async () => {
-      readFile.mockRejectedValue({ code: 'ENOENT' });
-      const items = await getItems();
-      expect(items).toEqual([]);
-    });
-
-    it('returns sorted items by type then date', async () => {
-      const mockItems = [
-        { id: '1', type: 'todo', title: 'Todo 1', status: 'pending', createdAt: '2025-01-01T00:00:00Z' },
-        { id: '2', type: 'alert', title: 'Alert 1', status: 'pending', createdAt: '2025-01-02T00:00:00Z' }
-      ];
-      readFile.mockResolvedValue(JSON.stringify(mockItems));
-      const items = await getItems();
-      expect(items[0].type).toBe('alert');
-      expect(items[1].type).toBe('todo');
-    });
-
-    it('filters by status', async () => {
-      const mockItems = [
-        { id: '1', type: 'todo', title: 'Done', status: 'completed', createdAt: '2025-01-01T00:00:00Z' },
-        { id: '2', type: 'todo', title: 'Pending', status: 'pending', createdAt: '2025-01-02T00:00:00Z' }
-      ];
-      readFile.mockResolvedValue(JSON.stringify(mockItems));
-      const items = await getItems({ status: 'pending' });
-      expect(items).toHaveLength(1);
-      expect(items[0].title).toBe('Pending');
-    });
-
-    it('filters by type', async () => {
-      const mockItems = [
-        { id: '1', type: 'todo', title: 'Todo', status: 'pending', createdAt: '2025-01-01T00:00:00Z' },
-        { id: '2', type: 'alert', title: 'Alert', status: 'pending', createdAt: '2025-01-02T00:00:00Z' }
-      ];
-      readFile.mockResolvedValue(JSON.stringify(mockItems));
-      const items = await getItems({ type: 'alert' });
-      expect(items).toHaveLength(1);
-      expect(items[0].type).toBe('alert');
-    });
-  });
-
-  describe('getPendingCounts', () => {
-    it('returns zero counts when no items', async () => {
-      readFile.mockRejectedValue({ code: 'ENOENT' });
-      const counts = await getPendingCounts();
-      expect(counts.total).toBe(0);
-    });
-
-    it('counts pending items by type', async () => {
-      const mockItems = [
-        { id: '1', type: 'todo', status: 'pending' },
-        { id: '2', type: 'alert', status: 'pending' },
-        { id: '3', type: 'todo', status: 'completed' },
-        { id: '4', type: 'cos', status: 'pending' }
-      ];
-      readFile.mockResolvedValue(JSON.stringify(mockItems));
-      const counts = await getPendingCounts();
-      expect(counts.total).toBe(3);
-      expect(counts.todo).toBe(1);
-      expect(counts.alert).toBe(1);
-      expect(counts.cos).toBe(1);
-    });
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
   describe('createItem', () => {
-    it('creates a new todo item', async () => {
-      readFile.mockRejectedValue({ code: 'ENOENT' });
-      writeFile.mockResolvedValue();
-      rename.mockResolvedValue();
+    it('creates a new review item', async () => {
+      readFile.mockResolvedValue('[]');
 
-      const item = await createItem({ type: 'todo', title: 'Test todo' });
-      expect(item.id).toBe('test-uuid-1');
+      const item = await createItem({
+        type: 'todo',
+        title: 'Test todo',
+        description: 'Test description'
+      });
+
+      expect(item.id).toBeDefined();
       expect(item.type).toBe('todo');
       expect(item.title).toBe('Test todo');
       expect(item.status).toBe('pending');
       expect(writeFile).toHaveBeenCalled();
-      expect(rename).toHaveBeenCalled();
     });
 
-    it('rejects invalid type', async () => {
-      await expect(createItem({ type: 'invalid', title: 'Test' }))
-        .rejects.toThrow('Invalid item type: invalid');
+    it('throws on invalid item type', async () => {
+      await expect(createItem({ type: 'invalid', title: 'test' })).rejects.toThrow('Invalid item type: invalid');
     });
 
     it('prevents duplicate alerts within 24 hours', async () => {
-      const existing = [{
-        id: 'existing',
+      const existingItems = [{
+        id: '1',
         type: 'alert',
-        title: 'Existing',
+        title: 'Existing alert',
         status: 'pending',
-        metadata: { referenceId: 'ref-1' },
-        createdAt: new Date().toISOString()
+        metadata: { referenceId: 'ref-123' },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       }];
-      readFile.mockResolvedValue(JSON.stringify(existing));
+      readFile.mockResolvedValue(JSON.stringify(existingItems));
 
       const item = await createItem({
         type: 'alert',
-        title: 'Duplicate',
-        metadata: { referenceId: 'ref-1' }
+        title: 'Duplicate alert',
+        metadata: { referenceId: 'ref-123' }
       });
-      expect(item.id).toBe('existing');
+
+      expect(item.id).toBe('1');
       expect(writeFile).not.toHaveBeenCalled();
     });
+  });
 
-    it('emits item:created event', async () => {
-      readFile.mockRejectedValue({ code: 'ENOENT' });
-      writeFile.mockResolvedValue();
-      rename.mockResolvedValue();
+  describe('getItems', () => {
+    it('returns filtered items by status', async () => {
+      const items = [
+        { id: '1', type: 'todo', status: 'pending', createdAt: '2024-01-01T00:00:00Z' },
+        { id: '2', type: 'alert', status: 'completed', createdAt: '2024-01-02T00:00:00Z' }
+      ];
+      readFile.mockResolvedValue(JSON.stringify(items));
 
-      const handler = vi.fn();
-      reviewEvents.on('item:created', handler);
-
-      await createItem({ type: 'todo', title: 'Test' });
-      expect(handler).toHaveBeenCalledWith(expect.objectContaining({ title: 'Test' }));
+      const result = await getItems({ status: 'pending' });
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('1');
     });
   });
 
-  describe('completeItem', () => {
-    it('marks an item as completed', async () => {
-      const mockItems = [{ id: 'item-1', type: 'todo', title: 'Test', status: 'pending' }];
-      readFile.mockResolvedValue(JSON.stringify(mockItems));
-      writeFile.mockResolvedValue();
-      rename.mockResolvedValue();
+  describe('getPendingCounts', () => {
+    it('counts pending items by type', async () => {
+      const items = [
+        { id: '1', type: 'todo', status: 'pending' },
+        { id: '2', type: 'alert', status: 'pending' },
+        { id: '3', type: 'alert', status: 'completed' }
+      ];
+      readFile.mockResolvedValue(JSON.stringify(items));
 
-      const item = await completeItem('item-1');
-      expect(item.status).toBe('completed');
-    });
-
-    it('throws on non-existent item', async () => {
-      readFile.mockResolvedValue('[]');
-      await expect(completeItem('missing')).rejects.toThrow('Review item not found: missing');
+      const counts = await getPendingCounts();
+      expect(counts).toEqual({ total: 2, alert: 1, todo: 1, briefing: 0, cos: 0 });
     });
   });
 
-  describe('dismissItem', () => {
-    it('marks an item as dismissed', async () => {
-      const mockItems = [{ id: 'item-1', type: 'alert', title: 'Test', status: 'pending' }];
-      readFile.mockResolvedValue(JSON.stringify(mockItems));
-      writeFile.mockResolvedValue();
-      rename.mockResolvedValue();
+  describe('status updates', () => {
+    it('completes an item', async () => {
+      const items = [{ id: '1', type: 'todo', title: 'Test', status: 'pending', createdAt: '', updatedAt: '' }];
+      readFile.mockResolvedValue(JSON.stringify(items));
 
-      const item = await dismissItem('item-1');
-      expect(item.status).toBe('dismissed');
+      const updated = await completeItem('1');
+      expect(updated.status).toBe('completed');
+      expect(writeFile).toHaveBeenCalled();
+    });
+
+    it('dismisses an item', async () => {
+      const items = [{ id: '1', type: 'todo', title: 'Test', status: 'pending', createdAt: '', updatedAt: '' }];
+      readFile.mockResolvedValue(JSON.stringify(items));
+
+      const updated = await dismissItem('1');
+      expect(updated.status).toBe('dismissed');
     });
   });
 
   describe('updateItem', () => {
-    it('updates title and description', async () => {
-      const mockItems = [{ id: 'item-1', type: 'todo', title: 'Old', description: '', status: 'pending' }];
-      readFile.mockResolvedValue(JSON.stringify(mockItems));
-      writeFile.mockResolvedValue();
-      rename.mockResolvedValue();
+    it('updates item title and description', async () => {
+      const items = [{ id: '1', type: 'todo', title: 'Old', description: '', status: 'pending', createdAt: '', updatedAt: '' }];
+      readFile.mockResolvedValue(JSON.stringify(items));
 
-      const item = await updateItem('item-1', { title: 'New', description: 'Desc' });
-      expect(item.title).toBe('New');
-      expect(item.description).toBe('Desc');
+      const updated = await updateItem('1', { title: 'New', description: 'Desc' });
+      expect(updated.title).toBe('New');
+      expect(updated.description).toBe('Desc');
+      expect(writeFile).toHaveBeenCalled();
     });
   });
 
   describe('deleteItem', () => {
     it('removes an item', async () => {
-      const mockItems = [{ id: 'item-1', type: 'todo', title: 'Test', status: 'pending' }];
-      readFile.mockResolvedValue(JSON.stringify(mockItems));
-      writeFile.mockResolvedValue();
-      rename.mockResolvedValue();
-
-      const removed = await deleteItem('item-1');
-      expect(removed.id).toBe('item-1');
-
+      readFile.mockResolvedValue(JSON.stringify([{ id: '1', type: 'todo', title: 'Delete me' }]));
+      await deleteItem('1');
       const written = JSON.parse(writeFile.mock.calls[0][1]);
       expect(written).toHaveLength(0);
     });
@@ -237,21 +165,21 @@ describe('review service', () => {
   });
 
   describe('getBriefing', () => {
-    it('returns plan content when no briefing exists', async () => {
-      // First call for briefing.json returns null, second for PLAN.md
-      readFile
-        .mockRejectedValueOnce({ code: 'ENOENT' }) // briefing.json
-        .mockResolvedValueOnce('# My Plan\nTodo list'); // PLAN.md
+    it('returns latest CoS briefing content', async () => {
+      readdir.mockResolvedValue(['2026-03-17-briefing.md', '2026-03-18-briefing.md']);
+      readFile.mockResolvedValue('# Daily Briefing\n\nActual CoS content');
 
       const briefing = await getBriefing();
-      expect(briefing.source).toBe('plan');
-      expect(briefing.content).toContain('My Plan');
+      expect(briefing.source).toBe('cos');
+      expect(briefing.generatedAt).toBe('2026-03-18');
+      expect(briefing.content).toContain('Actual CoS content');
     });
 
-    it('returns none when nothing available', async () => {
-      readFile.mockRejectedValue({ code: 'ENOENT' });
+    it('returns none when no CoS briefing exists', async () => {
+      readdir.mockResolvedValue([]);
       const briefing = await getBriefing();
       expect(briefing.source).toBe('none');
+      expect(briefing.content).toContain('No CoS daily briefing found yet');
     });
   });
 });

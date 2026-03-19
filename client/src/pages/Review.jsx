@@ -12,7 +12,10 @@ import {
   Check,
   XCircle,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Eye,
+  Clock3,
+  BellRing
 } from 'lucide-react';
 import BrailleSpinner from '../components/BrailleSpinner';
 import MarkdownOutput from '../components/cos/MarkdownOutput';
@@ -25,6 +28,16 @@ const TYPE_CONFIG = {
   todo: { label: 'Todos', icon: ClipboardList, color: 'text-port-success' },
   briefing: { label: 'Briefing', icon: FileText, color: 'text-gray-400' }
 };
+
+const TYPE_PRIORITY = { alert: 0, cos: 1, todo: 2, briefing: 3 };
+
+function isActionableItem(item) {
+  if (item.type === 'alert' || item.type === 'todo') return true;
+  if (item.type === 'cos') {
+    return item.metadata?.requiresAction === true || item.metadata?.approvalRequired === true;
+  }
+  return false;
+}
 
 export default function Review() {
   const [items, setItems] = useState([]);
@@ -52,7 +65,6 @@ export default function Review() {
     fetchBriefing();
   }, [fetchItems, fetchBriefing]);
 
-  // Real-time updates via socket — only for externally-triggered changes (CoS events, other tabs)
   useEffect(() => {
     const handleCreated = (item) => {
       setItems(prev => {
@@ -107,7 +119,6 @@ export default function Review() {
     await Promise.all(pendingItems.map(i => api.dismissReviewItem(i.id).catch(() => null)));
   };
 
-  // Group items by type
   const grouped = items.reduce((acc, item) => {
     if (!acc[item.type]) acc[item.type] = [];
     acc[item.type].push(item);
@@ -122,23 +133,38 @@ export default function Review() {
     );
   }
 
-  const pendingCount = items.filter(i => i.status === 'pending').length;
+  const pendingItems = items.filter(i => i.status === 'pending');
+  const pendingCount = pendingItems.length;
+  const pendingAlerts = pendingItems.filter(i => i.type === 'alert');
+  const pendingCos = pendingItems.filter(i => i.type === 'cos');
+  const pendingTodos = pendingItems.filter(i => i.type === 'todo');
+
+  const actionableItems = pendingItems
+    .filter(isActionableItem)
+    .sort((a, b) => {
+      const priority = TYPE_PRIORITY[a.type] - TYPE_PRIORITY[b.type];
+      if (priority !== 0) return priority;
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+
+  const topActionItems = actionableItems.slice(0, 8);
+  const remainingActionCount = Math.max(0, actionableItems.length - topActionItems.length);
 
   return (
     <div className="h-full overflow-auto p-4 md:p-6">
-      <div className="max-w-5xl mx-auto space-y-6">
+      <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-white flex items-center gap-2">
               <ClipboardList size={24} />
               Review Hub
             </h2>
-            <p className="text-gray-500 text-sm">
-              {pendingCount} pending item{pendingCount !== 1 ? 's' : ''}
+            <p className="text-gray-500 text-sm mt-1 max-w-2xl">
+              Your agent inbox: triage alerts, review CoS requests, and keep the next actions above the fold.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
@@ -160,51 +186,150 @@ export default function Review() {
           </div>
         </div>
 
-        {/* Daily Briefing */}
-        {briefing && briefing.source !== 'none' && (
-          <section className={`bg-port-card border border-port-border rounded-lg p-4 ${briefingFullscreen ? 'fixed inset-0 z-50 overflow-y-auto m-0 rounded-none' : ''}`}>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <FileText size={18} className="text-gray-400" />
-                Daily Briefing
-              </h3>
-              <button
-                onClick={() => setBriefingFullscreen(prev => !prev)}
-                className="p-1.5 text-gray-500 hover:text-white transition-colors rounded-md hover:bg-white/5"
-                title={briefingFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-              >
-                {briefingFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-              </button>
-            </div>
-            <div className={`text-gray-400 text-sm overflow-y-auto ${briefingFullscreen ? '' : 'max-h-96'}`}>
-              <MarkdownOutput content={briefing.content} />
-            </div>
-            <p className="text-gray-600 text-xs mt-2">
-              Source: {briefing.source} &middot; {new Date(briefing.generatedAt).toLocaleString()}
-            </p>
-          </section>
-        )}
-
-        {/* Quick Add Todo */}
-        <form onSubmit={handleCreateTodo} className="flex gap-2">
-          <input
-            type="text"
-            value={newTodo}
-            onChange={(e) => setNewTodo(e.target.value)}
-            placeholder="Add a new todo..."
-            className="flex-1 bg-port-card border border-port-border rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-port-accent"
+        {/* Triage summary */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+          <SummaryCard
+            icon={BellRing}
+            label="Needs attention"
+            value={pendingCount}
+            tone="text-white"
+            detail={pendingCount === 0 ? 'Inbox is clear' : 'Pending review items'}
           />
-          <button
-            type="submit"
-            disabled={!newTodo.trim()}
-            className="px-4 py-2.5 bg-port-accent hover:bg-port-accent/80 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-white text-sm font-medium transition-colors flex items-center gap-1.5"
-          >
-            <Plus size={16} />
-            Add
-          </button>
-        </form>
+          <SummaryCard
+            icon={AlertTriangle}
+            label="Alerts"
+            value={pendingAlerts.length}
+            tone="text-port-warning"
+            detail={pendingAlerts.length > 0 ? 'Handle these first' : 'No active alerts'}
+            urgent={pendingAlerts.length > 0}
+          />
+          <SummaryCard
+            icon={Crown}
+            label="CoS Actions"
+            value={pendingCos.length}
+            tone="text-port-accent"
+            detail={pendingCos.length > 0 ? 'Requests waiting on you' : 'No pending CoS asks'}
+          />
+          <SummaryCard
+            icon={ClipboardList}
+            label="Todos"
+            value={pendingTodos.length}
+            tone="text-port-success"
+            detail={pendingTodos.length > 0 ? 'Open personal tasks' : 'No pending todos'}
+          />
+        </section>
 
-        {/* Sections by type */}
+        {/* Action queue + quick add */}
+        <section className="grid grid-cols-1 xl:grid-cols-[1.65fr,1fr] gap-6 items-start">
+          <div className="bg-port-card border border-port-border rounded-xl p-4 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <Eye size={18} className="text-port-warning" />
+                  Action Queue
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Sorted by urgency so the page starts with what agents need you to see.
+                </p>
+              </div>
+              {actionableItems.length > 0 && (
+                <span className="text-xs rounded-full px-2.5 py-1 bg-port-warning/10 text-port-warning border border-port-warning/20">
+                  {actionableItems.length} actionable
+                </span>
+              )}
+            </div>
+
+            {topActionItems.length > 0 ? (
+              <div className="space-y-2">
+                {topActionItems.map(item => (
+                  <ReviewItem
+                    key={item.id}
+                    item={item}
+                    config={TYPE_CONFIG[item.type]}
+                    isEditing={editingId === item.id}
+                    onComplete={handleComplete}
+                    onDismiss={handleDismiss}
+                    onDelete={handleDelete}
+                    onStartEdit={() => setEditingId(item.id)}
+                    onSaveEdit={handleSaveEdit}
+                    onCancelEdit={() => setEditingId(null)}
+                    compact={false}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-port-border p-6 text-center text-gray-500">
+                <CheckCircle2 size={28} className="mx-auto mb-2 opacity-50 text-port-success" />
+                <p className="text-white">No actionable items right now</p>
+                <p className="text-sm mt-1">When agents surface alerts or requests, they’ll land here first.</p>
+              </div>
+            )}
+
+            {remainingActionCount > 0 && (
+              <p className="text-xs text-gray-500">
+                {remainingActionCount} more actionable item{remainingActionCount !== 1 ? 's' : ''} below in the detailed sections.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <form onSubmit={handleCreateTodo} className="bg-port-card border border-port-border rounded-xl p-4 space-y-3">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Quick Add</h3>
+                <p className="text-sm text-gray-500 mt-1">Capture a task without leaving the review flow.</p>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newTodo}
+                  onChange={(e) => setNewTodo(e.target.value)}
+                  placeholder="Add a new todo..."
+                  className="flex-1 bg-port-bg border border-port-border rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-port-accent"
+                />
+                <button
+                  type="submit"
+                  disabled={!newTodo.trim()}
+                  className="px-4 py-2.5 bg-port-accent hover:bg-port-accent/80 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-white text-sm font-medium transition-colors flex items-center gap-1.5"
+                >
+                  <Plus size={16} />
+                  Add
+                </button>
+              </div>
+            </form>
+
+            {/* Daily Briefing */}
+            {briefing && briefing.source !== 'none' && (
+              <section className={`bg-port-card border border-port-border rounded-xl p-4 ${briefingFullscreen ? 'fixed inset-0 z-50 overflow-y-auto m-0 rounded-none' : ''}`}>
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                      <FileText size={18} className="text-gray-400" />
+                      Daily Briefing
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Context and narrative, kept secondary to urgent review items.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setBriefingFullscreen(prev => !prev)}
+                    className="p-1.5 text-gray-500 hover:text-white transition-colors rounded-md hover:bg-white/5"
+                    title={briefingFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+                  >
+                    {briefingFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                  </button>
+                </div>
+                <div className={`text-gray-400 text-sm overflow-y-auto ${briefingFullscreen ? '' : 'max-h-[28rem]'}`}>
+                  <MarkdownOutput content={briefing.content} />
+                </div>
+                <p className="text-gray-600 text-xs mt-2">
+                  Source: {briefing.source} &middot; {new Date(briefing.generatedAt).toLocaleString()}
+                </p>
+              </section>
+            )}
+          </div>
+        </section>
+
+        {/* Detailed sections */}
         {['alert', 'cos', 'todo', 'briefing'].map(type => {
           const typeItems = grouped[type];
           if (!typeItems?.length) return null;
@@ -231,6 +356,7 @@ export default function Review() {
                     onStartEdit={() => setEditingId(item.id)}
                     onSaveEdit={handleSaveEdit}
                     onCancelEdit={() => setEditingId(null)}
+                    compact={topActionItems.some(topItem => topItem.id === item.id)}
                   />
                 ))}
               </div>
@@ -238,12 +364,11 @@ export default function Review() {
           );
         })}
 
-        {/* Empty state */}
         {items.length === 0 && (
           <div className="text-center py-12 text-gray-500">
             <ClipboardList size={48} className="mx-auto mb-3 opacity-30" />
-            <p className="text-lg">No pending actions</p>
-            <p className="text-sm mt-1">All caught up! Add a todo or wait for system alerts.</p>
+            <p className="text-lg">No review items yet</p>
+            <p className="text-sm mt-1">This hub will fill up as agents surface alerts, actions, and briefing context.</p>
           </div>
         )}
       </div>
@@ -251,12 +376,26 @@ export default function Review() {
   );
 }
 
-function ReviewItem({ item, config, isEditing, onComplete, onDismiss, onDelete, onStartEdit, onSaveEdit, onCancelEdit }) {
+function SummaryCard({ icon: Icon, label, value, detail, tone = 'text-white', urgent = false }) {
+  return (
+    <div className={`rounded-xl border p-4 bg-port-card ${urgent ? 'border-port-warning/40' : 'border-port-border'}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
+          <p className={`text-2xl font-bold mt-1 ${tone}`}>{value}</p>
+          <p className="text-sm text-gray-500 mt-1">{detail}</p>
+        </div>
+        <Icon size={18} className={urgent ? 'text-port-warning' : tone} />
+      </div>
+    </div>
+  );
+}
+
+function ReviewItem({ item, config, isEditing, onComplete, onDismiss, onDelete, onStartEdit, onSaveEdit, onCancelEdit, compact = false }) {
   const [editTitle, setEditTitle] = useState(item.title);
   const [editDescription, setEditDescription] = useState(item.description || '');
   const isPending = item.status === 'pending';
 
-  // Reset edit fields when entering edit mode
   useEffect(() => {
     if (isEditing) {
       setEditTitle(item.title);
@@ -265,10 +404,9 @@ function ReviewItem({ item, config, isEditing, onComplete, onDismiss, onDelete, 
   }, [isEditing, item.title, item.description]);
 
   return (
-    <div className={`flex items-start gap-3 p-3 rounded-lg border border-port-border ${
+    <div className={`flex items-start gap-3 p-3 rounded-lg border ${compact ? 'border-port-border/60 bg-port-card/40 opacity-70' : 'border-port-border'} ${
       isPending ? 'bg-port-card' : 'bg-port-card/50 opacity-60'
     }`}>
-      {/* Status indicator */}
       <div className={`mt-0.5 shrink-0 ${config.color}`}>
         {item.status === 'completed' ? (
           <CheckCircle2 size={18} className="text-port-success" />
@@ -279,7 +417,6 @@ function ReviewItem({ item, config, isEditing, onComplete, onDismiss, onDelete, 
         )}
       </div>
 
-      {/* Content */}
       <div className="flex-1 min-w-0">
         {isEditing ? (
           <div className="space-y-2">
@@ -308,22 +445,31 @@ function ReviewItem({ item, config, isEditing, onComplete, onDismiss, onDelete, 
           </div>
         ) : (
           <>
-            <p className={`text-sm font-medium ${isPending ? 'text-white' : 'text-gray-400 line-through'}`}>
-              {item.title}
-            </p>
-            {item.description && (
-              <div className="text-xs text-gray-500 mt-0.5 line-clamp-2">
-                <MarkdownOutput content={item.description} />
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className={`text-sm font-medium ${isPending ? 'text-white' : 'text-gray-400 line-through'}`}>
+                  {item.title}
+                </p>
+                {item.description && (
+                  <div className="text-xs text-gray-500 mt-0.5 line-clamp-3">
+                    <MarkdownOutput content={item.description} />
+                  </div>
+                )}
               </div>
-            )}
-            <p className="text-xs text-gray-600 mt-1">
+              {isPending && (
+                <span className={`text-[10px] uppercase tracking-wide px-2 py-1 rounded-full border border-current/20 ${config.color}`}>
+                  {config.label}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-600 mt-2 flex items-center gap-1">
+              <Clock3 size={12} />
               {new Date(item.createdAt).toLocaleString()}
             </p>
           </>
         )}
       </div>
 
-      {/* Actions */}
       {isPending && !isEditing && (
         <div className="flex items-center gap-1 shrink-0">
           {item.type === 'todo' && (

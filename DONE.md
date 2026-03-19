@@ -4,6 +4,14 @@ Archive of completed work. For active roadmap, see [PLAN.md](./PLAN.md). For pro
 
 ---
 
+## 2026-03-18
+
+- Fixed PromptManager.jsx fetch calls — response.ok checks now present on all endpoints
+- Fixed memory.js sort comparison — now type-safe with NaN/Date.parse validation
+- Fixed silent catch in useTheme.js — now has console logging instead of swallowing errors
+
+---
+
 ## Milestones
 
 - [x] **M0-M3**: Bootstrap, app registry, PM2 integration, log viewer — Core infrastructure

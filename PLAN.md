@@ -10,56 +10,32 @@ For project goals, see [GOALS.md](./GOALS.md). For completed work, see [DONE.md]
 2. **M42 P5**: Cross-Insights Engine — connect genome + taste + personality + goals into derived insights. See [Identity System](./docs/features/identity-system.md)
 3. **M34 P5-P7**: Digital Twin — Multi-modal capture, advanced testing, personas
 
-## Planned Details
+## Backlog
 
-### M50 P8-P10: Email Management (Remaining)
-
-- [ ] **P8: Digital Twin voice drafting** — Draft responses using Digital Twin voice/style
-- [ ] **P9: CoS Automation & Rules** — Automated classification on new emails via CoS job, rule-based pre-filtering, email-to-task pipeline, priority email notifications
-- [ ] **P10: Auto-Send with AI Review Gate** — Configurable per-account trust level (manual > review-assisted > auto-send). Second LLM reviews drafts for prompt injection, tone drift, leaked instructions. See [Messages Security](./docs/features/messages-security.md)
-
-### M42 P5: Cross-Insights Engine
-
-- [ ] Connect genome markers, taste profiles, personality traits, and goal progress into cross-domain derived insights
-
-### M34 P5-P7: Digital Twin Enhancement
-
-- [ ] **P5**: Multi-modal capture (voice, video, image-based identity modeling)
-- [ ] **P6**: Advanced testing (deeper behavioral profiling)
-- [ ] **P7**: Personas (context-specific identity modes)
-
----
+- [ ] **God file decomposition** — Split cos.js (3,952 lines), subAgentSpawner.js (3,307 lines), digital-twin.js (2,823 lines), routes/scaffold.js (1,668 lines), routes/cos.js (1,355 lines), client/api.js (1,853 lines) into focused modules. Resolve cos.js ↔ subAgentSpawner.js circular dependency
+- [ ] **Fix unsafe data access** — Guard `rows[0]` in memorySync.js/db.js, fix 56 empty `.catch(() => {})` handlers in client code
+- [ ] **M50 P9**: CoS Automation & Rules — Automated email classification, rule-based pre-filtering, email-to-task pipeline, priority notifications
+- [ ] **M50 P10**: Auto-Send with AI Review Gate — Configurable per-account trust level, second LLM reviews drafts for prompt injection/tone drift. See [Messages Security](./docs/features/messages-security.md)
 
 ## Outstanding Audit Findings (2026-03-05)
 
 **Known low-severity:** pm2 ReDoS (GHSA-x5gf-qvw8-r2rm) — no upstream fix, not exploitable via PortOS routes.
 
-### Architecture (still present)
-- [ ] `server/services/cos.js` (~3950 lines, 53 exports) — God file, needs decomposition
-- [ ] `server/services/subAgentSpawner.js` (~3300 lines) — Mega service
-- [ ] Circular dependency: `cos.js` <> `subAgentSpawner.js` via dynamic imports
-- [ ] `client/src/services/api.js` (~1850 lines) — Monolithic API client
-- [ ] `server/services/digital-twin.js` (~2800 lines) — Mixed concerns
-- [ ] `server/routes/cos.js` (~1350 lines) — Business logic in route handlers
-- [ ] `server/routes/scaffold.js` (~1670 lines) — God route file
-- [ ] Inconsistent pagination patterns and error response envelope
-
 ### Bugs & Code Quality (still present)
 - [ ] `server/services/agentActionExecutor.js:137` — Complex array fallback logic
-- [ ] `client/src/pages/PromptManager.jsx` — Fetch calls missing response.ok check
-- [ ] `server/services/memory.js` — Sort comparison not type-safe for dates
 - [ ] `server/services/memorySync.js` + `server/lib/db.js` — Unsafe `rows[0]` access without bounds check
 - [ ] Hardcoded localhost in `lmStudioManager.js`, `memoryClassifier.js`
 - [ ] Empty `.catch(() => {})` in several client files
-- [ ] Silent catch blocks in `useTheme.js`, `runner.js`, `db.js`, `Settings.jsx`
+- [ ] Silent catch blocks in `runner.js`, `Settings.jsx`
 
 ### DRY (still present)
-- [ ] Duplicate DATA_DIR/path constants in 29 files
-- [ ] 65 instances of `mkdir({recursive:true})` vs centralized `ensureDir()`
+- [ ] Duplicate DATA_DIR/path constants in ~84 files
+- [ ] ~100 instances of `mkdir({recursive:true})` vs centralized `ensureDir()`
 
 ### Test Coverage
 - ~29% service coverage, ~12% route coverage
-- Critical gaps: `cos.js`, `cosRunnerClient.js`, `agentActionExecutor.js`, `memorySync.js`
+- Critical gaps: `cos.js`, `cosRunnerClient.js`, `agentActionExecutor.js`
+- Inconsistent pagination patterns and error response envelope
 
 ---
 
@@ -67,7 +43,7 @@ For project goals, see [GOALS.md](./GOALS.md). For completed work, see [DONE.md]
 
 ### Tier 1: Identity Integration
 - **Chronotype-Aware Scheduling** — Use genome sleep markers for peak-focus task scheduling
-- **Identity Context Injection** — Per-task-type toggle for digital twin preamble injection (basic injection exists, needs granular control)
+- **Identity Context Injection** — Per-task-type toggle for digital twin preamble injection
 
 ### Tier 2: Deeper Autonomy
 - **Agent Confidence & Autonomy Levels** — Graduate from static presets to dynamic tiers based on success rates
@@ -76,8 +52,8 @@ For project goals, see [GOALS.md](./GOALS.md). For completed work, see [DONE.md]
 - **Goal Decomposition Engine** — Auto-decompose goals into task sequences with dependencies
 
 ### Tier 3: Knowledge & Legacy
-- **Knowledge Graph Visualization** — Extend existing BrainGraph 3D view to full knowledge graph (goals, agent outputs, memories)
-- **Time Capsule Snapshots** — Periodic versioned archives of digital twin state with "Then vs. Now" comparison
+- **Knowledge Graph Visualization** — Extend existing BrainGraph 3D view to full knowledge graph
+- **Time Capsule Snapshots** — Periodic versioned archives of digital twin state
 - **Autobiography Prompt Chains** — LLM-generated follow-ups building on prior autobiography answers
 - **Legacy Export Format** — Compile identity into portable Markdown/PDF document
 
@@ -85,6 +61,7 @@ For project goals, see [GOALS.md](./GOALS.md). For completed work, see [DONE.md]
 - **Dashboard Customization** — Drag-and-drop widget reordering, show/hide toggles, named layouts
 - **Workspace Contexts** — Active project context syncing across shell, git, tasks, browser
 - **Inline Code Review Annotations** — Surface self-improvement findings as inline annotations with one-click fix
+- **Major Dependency Upgrades** — React 19, Zod 4, PM2 6, Vite 8
 
 ### Tier 5: Multi-Modal & Future
 - **Voice Capture for Brain** — Microphone + Web Speech API transcription to brain pipeline

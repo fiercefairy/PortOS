@@ -29,8 +29,15 @@ const TYPE_CONFIG = {
   briefing: { label: 'Briefing', icon: FileText, color: 'text-gray-400' }
 };
 
-const ACTIONABLE_TYPES = ['alert', 'cos', 'todo'];
 const TYPE_PRIORITY = { alert: 0, cos: 1, todo: 2, briefing: 3 };
+
+function isActionableItem(item) {
+  if (item.type === 'alert' || item.type === 'todo') return true;
+  if (item.type === 'cos') {
+    return item.metadata?.requiresAction === true || item.metadata?.approvalRequired === true;
+  }
+  return false;
+}
 
 export default function Review() {
   const [items, setItems] = useState([]);

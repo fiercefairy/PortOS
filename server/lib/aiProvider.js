@@ -17,17 +17,23 @@ export async function callProviderAISimple(provider, model, prompt, { temperatur
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
 
-    const response = await fetch(`${provider.endpoint}/chat/completions`, {
-      method: 'POST',
-      headers,
-      signal: controller.signal,
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature,
-        max_tokens
-      })
-    });
+    let response;
+    try {
+      response = await fetch(`${provider.endpoint}/chat/completions`, {
+        method: 'POST',
+        headers,
+        signal: controller.signal,
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature,
+          max_tokens
+        })
+      });
+    } catch (err) {
+      clearTimeout(timer);
+      return { error: `Provider request failed: ${err.message}` };
+    }
 
     clearTimeout(timer);
 

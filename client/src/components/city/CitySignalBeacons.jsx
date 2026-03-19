@@ -95,7 +95,7 @@ export default function CitySignalBeacons({ positions, reviewCounts, instances }
     const pending = reviewCounts?.total || 0;
     const alerts = reviewCounts?.alert || 0;
     const peers = instances?.peers || [];
-    const onlinePeers = peers.filter(peer => peer.online).length;
+    const onlinePeers = peers.filter(peer => peer.status === 'online').length;
     const totalNodes = 1 + peers.length;
 
     return [

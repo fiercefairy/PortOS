@@ -120,7 +120,7 @@ export async function runGoalCheckIn() {
   const summary = results.map(r => `${statusEmoji[r.status] || '⚪'} ${r.title}: ${r.status} (${r.checkIn.actualProgress}%/${r.checkIn.expectedProgress}%)`).join('\n');
 
   await addNotification({
-    type: NOTIFICATION_TYPES.SYSTEM,
+    type: NOTIFICATION_TYPES.HEALTH_ISSUE,
     title: 'Goal Check-in',
     message: `Weekly check-in for ${results.length} goal(s):\n${summary}`,
     priority: results.some(r => r.status === 'at-risk') ? 'high' : 'medium'

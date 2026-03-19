@@ -147,7 +147,7 @@ export async function dismissItem(id) {
 }
 
 /**
- * Update a todo item's title and/or description
+ * Update an item's title and/or description
  */
 export async function updateItem(id, { title, description }) {
   const items = await loadItems();

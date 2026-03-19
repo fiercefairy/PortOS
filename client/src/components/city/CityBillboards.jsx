@@ -209,7 +209,7 @@ export default function CityBillboards({ positions, apps, cosStatus, reviewCount
     const pendingReview = reviewCounts?.total || 0;
     const alertCount = reviewCounts?.alert || 0;
     const peers = instances?.peers || [];
-    const onlinePeers = peers.filter(peer => peer.online).length;
+    const onlinePeers = peers.filter(peer => peer.status === 'online').length;
     const nodeCount = 1 + peers.length;
 
     // Find downtown bounding box for billboard placement

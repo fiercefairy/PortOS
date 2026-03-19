@@ -9,7 +9,7 @@ import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { getStageTemplate } from './promptService.js';
-import { safeJSONParse, PATHS } from '../lib/fileUtils.js';
+import { ensureDir, safeJSONParse, PATHS } from '../lib/fileUtils.js';
 
 const MEMORY_CONFIG_FILE = join(PATHS.data, 'memory-classifier-config.json');
 

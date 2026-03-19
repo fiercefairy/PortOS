@@ -15,7 +15,7 @@ export default function HealthCategorySection({ category, from, to, expanded, on
   const rangeKey = `${from}|${to}`;
 
   useEffect(() => {
-    if (!expanded || !from || !to) return;
+    if (!expanded || !from || !to || activeMetrics.length === 0) return;
     if (lastRangeRef.current === rangeKey && Object.keys(metricData).length > 0) return;
 
     let cancelled = false;
@@ -50,6 +50,8 @@ export default function HealthCategorySection({ category, from, to, expanded, on
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expanded, rangeKey]);
+
+  if (activeMetrics.length === 0) return null;
 
   return (
     <div className="border border-port-border rounded-xl overflow-hidden">

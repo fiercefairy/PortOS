@@ -38,7 +38,8 @@ export default function MemoryPractice({ item, onBack, onComplete: _onComplete }
       blankSet.add(Math.floor(Math.random() * fillBlankWords.length));
     }
     return blankSet;
-  }, [mode, fillBlankWords.length]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, currentIdx, fillBlankWords.length]);
 
   useEffect(() => {
     if (mode && inputRef.current) inputRef.current.focus();

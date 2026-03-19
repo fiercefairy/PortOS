@@ -28,18 +28,19 @@ export default function MemoryPractice({ item, onBack }) {
   const lines = item.content?.lines || [];
   const chunks = item.content?.chunks || [];
   const fillBlankLine = lines[currentIdx] || null;
-  const fillBlankWords = fillBlankLine?.text.split(/\s+/) || [];
-  // Blank out ~40% of words — recompute when line changes
+  const fillBlankText = fillBlankLine?.text || '';
+  const fillBlankWords = fillBlankText.split(/\s+/).filter(Boolean);
+  // Blank out ~40% of words — recompute when line text changes
   const blanks = useMemo(() => {
-    if (mode !== 'fill-blank' || !fillBlankWords.length) return new Set();
+    if (mode !== 'fill-blank' || !fillBlankText) return new Set();
+    const words = fillBlankText.split(/\s+/).filter(Boolean);
     const blankSet = new Set();
-    const count = Math.max(1, Math.floor(fillBlankWords.length * 0.4));
-    while (blankSet.size < count && blankSet.size < fillBlankWords.length) {
-      blankSet.add(Math.floor(Math.random() * fillBlankWords.length));
+    const count = Math.max(1, Math.floor(words.length * 0.4));
+    while (blankSet.size < count && blankSet.size < words.length) {
+      blankSet.add(Math.floor(Math.random() * words.length));
     }
     return blankSet;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, currentIdx, fillBlankWords.length]);
+  }, [mode, fillBlankText]);
 
   useEffect(() => {
     if (mode && inputRef.current) inputRef.current.focus();

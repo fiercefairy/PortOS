@@ -42,11 +42,10 @@ export default function useCityAudio(settings) {
     if (!isAudioReady || musicEnabled == null) return;
     if (musicEnabled) {
       startMusic();
-      setMusicVolume(musicVolume);
     } else {
       stopMusic();
     }
-  }, [isAudioReady, musicEnabled, musicVolume]);
+  }, [isAudioReady, musicEnabled]);
 
   // Update music volume
   useEffect(() => {

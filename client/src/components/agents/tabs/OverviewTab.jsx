@@ -57,12 +57,15 @@ export default function OverviewTab({ agentId, agent, onAgentUpdate }) {
     });
   }, [agent]);
 
-  // Sync text fields
+  // Sync text fields — only when personality arrays change, not on every formData update
+  const topicsKey = JSON.stringify(formData?.personality?.topics);
+  const quirksKey = JSON.stringify(formData?.personality?.quirks);
   useEffect(() => {
     if (!formData) return;
     setTopicsText(formData.personality.topics.join(', '));
     setQuirksText(formData.personality.quirks.join(', '));
-  }, [formData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on serialized arrays to avoid clobbering in-progress text edits
+  }, [topicsKey, quirksKey]);
 
   const fetchAccounts = useCallback(async () => {
     const data = await api.getPlatformAccounts(agentId);

@@ -136,11 +136,16 @@ export default function EnrichTab({ onRefresh }) {
 
   const loadQuestion = useCallback(async (categoryId, skipList = []) => {
     setLoadingQuestion(true);
-    const question = await api.getSoulEnrichQuestion(categoryId, undefined, undefined, skipList.length ? skipList : undefined);
-    setCurrentQuestion(question);
-    setAnswer('');
-    setScaleValue(null);
-    setLoadingQuestion(false);
+    try {
+      const question = await api.getSoulEnrichQuestion(categoryId, undefined, undefined, skipList.length ? skipList : undefined);
+      setCurrentQuestion(question);
+      setAnswer('');
+      setScaleValue(null);
+    } catch {
+      setCurrentQuestion(null);
+    } finally {
+      setLoadingQuestion(false);
+    }
   }, []);
 
   const startCategory = useCallback(async (categoryId) => {

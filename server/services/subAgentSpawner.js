@@ -972,7 +972,7 @@ Review the error, fix the configuration or code issue, and retry the original ta
   return investigationTask;
 }
 
-// Error categories where the LLM API itself is unavailable — spawning an
+// Error categories where LLM API access is blocked or denied — spawning an
 // investigation agent would fail for the same reason, so skip it.
 const API_ACCESS_ERROR_CATEGORIES = new Set([
   'auth-error',
@@ -981,7 +981,10 @@ const API_ACCESS_ERROR_CATEGORIES = new Set([
 ]);
 
 async function maybeCreateInvestigationTask(agentId, task, analysis) {
-  if (API_ACCESS_ERROR_CATEGORIES.has(analysis?.category)) return;
+  if (API_ACCESS_ERROR_CATEGORIES.has(analysis?.category)) {
+    emitLog('debug', `⏭️ Skipping investigation task for ${task.id}: API access error (${analysis.category})`, { agentId, taskId: task.id, category: analysis.category });
+    return;
+  }
   await createInvestigationTask(agentId, task, analysis).catch(err => {
     emitLog('warn', `Failed to create investigation task: ${err.message}`, { agentId });
   });

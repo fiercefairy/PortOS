@@ -654,4 +654,49 @@ describe('Task Failure Retry Logic', () => {
       expect(result.status).toBe('blocked');
     });
   });
+
+  describe('API access error categories skip investigation', () => {
+    const API_ACCESS_ERROR_CATEGORIES = new Set([
+      'auth-error',
+      'forbidden',
+      'usage-limit',
+    ]);
+
+    function shouldSkipInvestigation(analysis) {
+      return API_ACCESS_ERROR_CATEGORIES.has(analysis?.category);
+    }
+
+    it('should skip investigation for auth-error category', () => {
+      const analysis = { actionable: true, category: 'auth-error', message: 'Auth failed' };
+      expect(shouldSkipInvestigation(analysis)).toBe(true);
+    });
+
+    it('should skip investigation for forbidden category', () => {
+      const analysis = { actionable: true, category: 'forbidden', message: 'Forbidden' };
+      expect(shouldSkipInvestigation(analysis)).toBe(true);
+    });
+
+    it('should skip investigation for usage-limit category', () => {
+      const analysis = { actionable: true, category: 'usage-limit', message: 'Limit reached' };
+      expect(shouldSkipInvestigation(analysis)).toBe(true);
+    });
+
+    it('should NOT skip investigation for other actionable categories', () => {
+      const analysis = { actionable: true, category: 'model-not-found', message: 'Model not found' };
+      expect(shouldSkipInvestigation(analysis)).toBe(false);
+    });
+
+    it('should NOT skip investigation for non-actionable categories', () => {
+      const analysis = { actionable: false, category: 'rate-limit', message: 'Rate limited' };
+      expect(shouldSkipInvestigation(analysis)).toBe(false);
+    });
+
+    it('should NOT skip investigation for null analysis', () => {
+      expect(shouldSkipInvestigation(null)).toBe(false);
+    });
+
+    it('should NOT skip investigation for analysis without category', () => {
+      expect(shouldSkipInvestigation({ actionable: true })).toBe(false);
+    });
+  });
 });

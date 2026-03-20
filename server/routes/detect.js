@@ -144,6 +144,9 @@ router.post('/port', asyncHandler(async (req, res) => {
 
   // Use lsof on macOS/Linux to find process
   const safePort = parseInt(port, 10);
+  if (!Number.isInteger(safePort) || safePort < 1 || safePort > 65535) {
+    return res.status(400).json({ error: `Invalid port number: ${port}` });
+  }
   const command = process.platform === 'darwin'
     ? `lsof -i :${safePort} -P -n | grep LISTEN`
     : `ss -lntp | grep :${safePort}`;

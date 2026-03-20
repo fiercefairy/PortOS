@@ -160,7 +160,7 @@ export default function CityHud({ cosStatus, cosAgents, agentMap, eventLogs, con
   const alertCount = reviewCounts?.alert || 0;
   const peers = instances?.peers || [];
   const onlinePeers = peers.filter(peer => peer.status === 'online').length;
-  const totalNodes = 1 + peers.length;
+  const totalNodes = peers.length;
 
   const activeAgentCount = (cosAgents || []).filter(a =>
     a.status === 'running' || a.state === 'coding' || a.state === 'thinking' || a.state === 'investigating'

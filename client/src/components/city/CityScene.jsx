@@ -19,6 +19,7 @@ import CityNeonSigns from './CityNeonSigns';
 import CityEmbers from './CityEmbers';
 import CityEffects from './CityEffects';
 import CityClouds from './CityClouds';
+import CitySignalBeacons from './CitySignalBeacons';
 import CitySky from './CitySky';
 import PlayerController from './PlayerController';
 import CameraTransition from './CameraTransition';

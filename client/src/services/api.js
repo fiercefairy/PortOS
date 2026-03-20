@@ -1657,6 +1657,11 @@ export const updateTelegramForwardTypes = (forwardTypes) => request('/telegram/f
   method: 'PUT',
   body: JSON.stringify({ forwardTypes })
 });
+export const updateTelegramMethod = (method) => request('/telegram/method', {
+  method: 'PUT',
+  body: JSON.stringify({ method })
+});
+export const reloadTelegramBridge = () => request('/telegram/bridge/reload', { method: 'POST' });
 
 // Insights
 export const getGenomeHealthCorrelations = () => request('/insights/genome-health');

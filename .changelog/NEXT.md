@@ -7,6 +7,9 @@
 - Server-side nicotine service with daily log persistence, custom product management, and caching
 - Date editing on alcohol and nicotine history entries (move items between dates)
 - Nicotine sub-nav link in MeatSpace sidebar
+- Telegram MCP Bridge mode: uses Claude Code's Telegram plugin for outbound notifications via direct Bot API HTTP calls, with inbound messages handled by Claude Code's natural language processing instead of rigid bot commands
+- Settings toggle to switch between Manual Bot and Claude MCP Bridge integration methods
+- Interactive storage backend chooser during setup: Docker PostgreSQL, Native PostgreSQL, or file-based JSON (deprecated) when Docker is unavailable
 
 ## Changed
 - Extracted shared `dayOfWeek` utility and `DAY_LABELS` constant to meatspace constants (deduplicated from AlcoholTab)

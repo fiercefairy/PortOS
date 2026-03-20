@@ -75,6 +75,8 @@ import * as automationScheduler from './services/automationScheduler.js';
 import * as agentActionExecutor from './services/agentActionExecutor.js';
 import { startBackupScheduler } from './services/backupScheduler.js';
 import * as telegram from './services/telegram.js';
+import * as telegramBridge from './services/telegramBridge.js';
+import { getSettings as getInitSettings } from './services/settings.js';
 import { startUpdateScheduler, recordUpdateResult, clearStaleUpdateInProgress, getCurrentVersion } from './services/updateChecker.js';
 import { startBrainScheduler } from './services/brainScheduler.js';
 import { recoverStuckClassifications } from './services/brain.js';
@@ -265,8 +267,14 @@ startBrainScheduler();
 initBrainMemoryBridge();
 // Initialize backup scheduler for daily data backups
 startBackupScheduler().catch(err => console.error(`❌ Backup scheduler init failed: ${err.message}`));
-// Initialize Telegram bot (if configured)
-telegram.init().catch(err => console.error(`❌ Telegram init failed: ${err.message}`));
+// Initialize Telegram (manual bot or MCP bridge based on settings)
+getInitSettings().then(s => {
+  if (s.telegram?.method === 'mcp-bridge') {
+    telegramBridge.init().catch(err => console.error(`❌ TG Bridge init failed: ${err.message}`));
+  } else {
+    telegram.init().catch(err => console.error(`❌ Telegram init failed: ${err.message}`));
+  }
+}).catch(err => console.error(`❌ Telegram settings read failed: ${err.message}`));
 // Check for update completion marker from a previous update cycle
 const updateMarkerPath = join(PATHS.data, 'update-complete.json');
 const removeMarker = () => unlink(updateMarkerPath).catch(e => {

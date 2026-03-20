@@ -1455,6 +1455,36 @@ export const updateCustomDrink = (index, data) => request(`/meatspace/alcohol/cu
 export const removeCustomDrink = (index) => request(`/meatspace/alcohol/custom-drinks/${index}`, {
   method: 'DELETE'
 });
+export const getNicotineSummary = () => request('/meatspace/nicotine');
+export const getDailyNicotine = (from, to) => {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  return request(`/meatspace/nicotine/daily?${params}`);
+};
+export const logNicotine = (data) => request('/meatspace/nicotine/log', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const updateNicotineEntry = (date, index, data) => request(`/meatspace/nicotine/log/${date}/${index}`, {
+  method: 'PUT',
+  body: JSON.stringify(data)
+});
+export const removeNicotineEntry = (date, index) => request(`/meatspace/nicotine/log/${date}/${index}`, {
+  method: 'DELETE'
+});
+export const getCustomNicotineProducts = () => request('/meatspace/nicotine/custom-products');
+export const addCustomNicotineProduct = (data) => request('/meatspace/nicotine/custom-products', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const updateCustomNicotineProduct = (index, data) => request(`/meatspace/nicotine/custom-products/${index}`, {
+  method: 'PUT',
+  body: JSON.stringify(data)
+});
+export const removeCustomNicotineProduct = (index) => request(`/meatspace/nicotine/custom-products/${index}`, {
+  method: 'DELETE'
+});
 export const getBloodTests = () => request('/meatspace/blood');
 export const addBloodTest = (data) => request('/meatspace/blood', {
   method: 'POST',

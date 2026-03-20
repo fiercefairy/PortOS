@@ -1,5 +1,6 @@
 import {
   Beer,
+  Cigarette,
   Clock,
   Dna,
   HeartPulse,
@@ -20,6 +21,7 @@ export const TABS = [
   { id: 'health', label: 'Health', icon: Stethoscope },
   { id: 'import', label: 'Import', icon: Upload },
   { id: 'lifestyle', label: 'Lifestyle', icon: ClipboardList },
+  { id: 'nicotine', label: 'Nicotine', icon: Cigarette },
 ];
 
 // Lifestyle adjustment table for death clock
@@ -104,6 +106,14 @@ export const STATUS_COLORS = {
   high: 'text-port-error',
   unknown: 'text-gray-500'
 };
+
+// Shared day-of-week helpers (used by AlcoholTab, NicotineTab, etc.)
+export const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+export function dayOfWeek(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return DAY_LABELS[new Date(y, m - 1, d).getDay()];
+}
 
 // LEV 2045 constants
 export const LEV_TARGET_YEAR = 2045;

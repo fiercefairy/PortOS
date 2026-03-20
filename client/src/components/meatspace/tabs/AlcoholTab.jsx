@@ -6,6 +6,7 @@ import BrailleSpinner from '../../BrailleSpinner';
 import AlcoholChart from '../AlcoholChart';
 import AlcoholHrvCorrelation from '../AlcoholHrvCorrelation';
 import StandardDrinkCalculator from '../StandardDrinkCalculator';
+import { dayOfWeek } from '../constants';
 
 const ML_PER_OZ = 29.5735;
 
@@ -32,12 +33,6 @@ const RISK_BG = {
 };
 
 const DAYS_PER_PAGE = 50;
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-function dayOfWeek(dateStr) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  return DAY_LABELS[new Date(y, m - 1, d).getDay()];
-}
 
 function computeStdDrinks(oz, abv, count) {
   const pureOz = (oz || 0) * (count || 1) * ((abv || 0) / 100);

@@ -15,10 +15,14 @@
 - Extracted `recalcAlcoholTotal()` helper and reuse across logDrink, updateDrink, removeDrink
 - AlcoholTab correlation date range wrapped in useMemo to prevent unnecessary API refetches
 - Nicotine mg/unit form field uses placeholder instead of default value
+- Nicotine page redesigned: compact stat bar, merged quick-add/custom entry card, collapsible custom form, table-based history, side-by-side charts
+- Alcohol page summary compressed into a single compact stat bar row to maximize above-the-fold content
 
 ## Fixed
 - Stokes Pick default nicotine amount corrected from 3mg to 5mg
 - UTC timezone shift showing tomorrow's date in alcohol/nicotine forms — replaced `toISOString()` with local `localDateStr()` utility
+- Server-side rolling averages and summary use local dates instead of UTC — fixes today showing 0mg despite logged entries
+- Chart date range comparison uses local date strings instead of UTC Date objects — fixes today/yesterday missing from 7-day chart
 - Empty entry objects no longer accumulate in daily-log.json after moving the last item from a date
 
 ## Removed

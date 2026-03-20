@@ -309,7 +309,7 @@ export const DAY = 24 * HOUR;
  * @returns {string} ISO date string (e.g., "2026-03-05")
  */
 export function getDateString(date = new Date()) {
-  return date.toISOString().split('T')[0];
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 /**

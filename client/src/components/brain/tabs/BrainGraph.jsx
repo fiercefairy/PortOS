@@ -155,6 +155,7 @@ export default function BrainGraph() {
     const g = buildGraph(filteredData.nodes, filteredData.edges);
     graphRef.current = g;
     return g;
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- layoutKey intentionally triggers rebuild on re-layout
   }, [filteredData, layoutKey]);
 
   const adjacentIds = useMemo(() => {
@@ -190,7 +191,7 @@ export default function BrainGraph() {
       if (!cancelled) setFullRecord(null);
     });
     return () => { cancelled = true; };
-  }, [selectedNode?.id, selectedNode?.brainType]);
+  }, [selectedNode]);
 
   const handleSelect = useCallback((node) => {
     setSelectedNode(prev => prev?.id === node.id ? null : node);

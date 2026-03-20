@@ -131,6 +131,7 @@ export default function MemoryGraph() {
     const g = buildGraph(graphData.nodes, graphData.edges);
     graphRef.current = g;
     return g;
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- layoutKey intentionally triggers rebuild on re-layout
   }, [graphData, layoutKey]);
 
   const adjacentIds = useMemo(() => {
@@ -164,7 +165,7 @@ export default function MemoryGraph() {
       if (!cancelled) setFullMemory(null);
     });
     return () => { cancelled = true; };
-  }, [selectedNode?.id]);
+  }, [selectedNode]);
 
   const handleSelect = useCallback((node) => {
     setSelectedNode(prev => prev?.id === node.id ? null : node);

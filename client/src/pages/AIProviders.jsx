@@ -27,6 +27,11 @@ export default function AIProviders() {
     loadData();
   }, []);
 
+  const loadRuns = useCallback(async () => {
+    const runsData = await api.getRuns(20).catch(() => ({ runs: [] }));
+    setRuns(runsData.runs || []);
+  }, []);
+
   useEffect(() => {
     if (!activeRun) return;
 
@@ -34,7 +39,7 @@ export default function AIProviders() {
       setRunOutput(prev => prev + data);
     };
 
-    const handleComplete = (metadata) => {
+    const handleComplete = (_metadata) => {
       setActiveRun(null);
       loadRuns();
     };
@@ -46,7 +51,7 @@ export default function AIProviders() {
       socket.off(`run:${activeRun}:data`, handleData);
       socket.off(`run:${activeRun}:complete`, handleComplete);
     };
-  }, [activeRun]);
+  }, [activeRun, loadRuns]);
 
   const loadData = async () => {
     setLoading(true);
@@ -61,11 +66,6 @@ export default function AIProviders() {
     setRuns(runsData.runs || []);
     setLoading(false);
   };
-
-  const loadRuns = useCallback(async () => {
-    const runsData = await api.getRuns(20).catch(() => ({ runs: [] }));
-    setRuns(runsData.runs || []);
-  }, []);
 
   const handleSetActive = async (id) => {
     if (!id) return;

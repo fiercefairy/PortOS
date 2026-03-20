@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import * as api from '../../services/api';
 import MetricCard from './MetricCard';
@@ -10,24 +10,32 @@ export default function HealthCategorySection({ category, from, to, expanded, on
   const [loading, setLoading] = useState(false);
   const lastRangeRef = useRef(null);
 
-  // Filter to only metrics that have data
-  const activeMetrics = category.metrics.filter(m => availableMetrics.has(m.key));
-  if (activeMetrics.length === 0) return null;
-
+  // Filter to only metrics that have data — stabilize the key list for deps
+  const activeMetricKeys = useMemo(
+    () => category.metrics.filter(m => availableMetrics.has(m.key)).map(m => m.key).join(','),
+    [category.metrics, availableMetrics]
+  );
+  const activeMetrics = useMemo(
+    () => category.metrics.filter(m => availableMetrics.has(m.key)),
+    [category.metrics, availableMetrics]
+  );
   const rangeKey = `${from}|${to}`;
 
-  useEffect(() => {
-    if (!expanded || !from || !to) return;
-    if (lastRangeRef.current === rangeKey && Object.keys(metricData).length > 0) return;
+  const cacheKey = `${rangeKey}|${activeMetricKeys}`;
 
+  useEffect(() => {
+    if (!expanded || !from || !to || !activeMetricKeys) return;
+    if (lastRangeRef.current === cacheKey) return;
+
+    const keys = activeMetricKeys.split(',');
     let cancelled = false;
     setLoading(true);
 
     Promise.all(
-      activeMetrics.map(m =>
-        api.getAppleHealthMetrics(m.key, from, to)
-          .then(data => ({ key: m.key, data: Array.isArray(data) ? data : [] }))
-          .catch(() => ({ key: m.key, data: [] }))
+      keys.map(key =>
+        api.getAppleHealthMetrics(key, from, to)
+          .then(data => ({ key, data: Array.isArray(data) ? data : [] }))
+          .catch(() => ({ key, data: [] }))
       )
     ).then(results => {
       if (cancelled) return;
@@ -38,7 +46,7 @@ export default function HealthCategorySection({ category, from, to, expanded, on
         if (r.data.length === 0) emptyMetrics.push(r.key);
       }
       setMetricData(dataMap);
-      lastRangeRef.current = rangeKey;
+      lastRangeRef.current = cacheKey;
       setLoading(false);
 
       // Fetch latest values for metrics with no data in this range
@@ -50,7 +58,9 @@ export default function HealthCategorySection({ category, from, to, expanded, on
     });
 
     return () => { cancelled = true; };
-  }, [expanded, rangeKey]);
+  }, [activeMetricKeys, cacheKey, expanded, from, to]);
+
+  if (activeMetrics.length === 0) return null;
 
   return (
     <div className="border border-port-border rounded-xl overflow-hidden">

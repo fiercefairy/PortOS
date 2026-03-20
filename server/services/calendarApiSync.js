@@ -140,6 +140,7 @@ export async function syncOutlookCalendarApi(account, _cache, io, options = {}) 
     io.emit('calendar:sync:event', { accountId: account.id, events });
   }
 
-  console.log(`📅 Calendar API sync complete: ${events.length} events fetched in ${page} page(s)`);
+  // Declined/cancelled filtering handled universally by calendarSync.filterDeclinedAndCancelled at read time
+  console.log(`📅 Calendar API sync complete: ${events.length} events in ${page} page(s)`);
   return { events, status: 'success', syncMethod: 'api' };
 }

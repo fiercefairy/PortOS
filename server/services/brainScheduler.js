@@ -2,8 +2,8 @@
  * Brain Scheduler Service
  *
  * Manages scheduled jobs for the Brain feature:
- * - Daily digest generation (default 9:00 AM)
- * - Weekly review generation (default Sunday 4:00 PM)
+ * - Daily digest generation (default midnight)
+ * - Weekly review generation (default Sunday midnight)
  *
  * Handles catch-up logic for missed runs (max 1 per type)
  */

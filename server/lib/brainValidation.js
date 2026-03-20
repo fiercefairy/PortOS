@@ -132,8 +132,8 @@ export const memoryRecordSchema = z.object({
 export const brainSettingsSchema = z.object({
   version: z.number().int().positive().default(1),
   confidenceThreshold: z.number().min(0).max(1).default(0.6),
-  dailyDigestTime: z.string().regex(/^\d{2}:\d{2}$/).default('09:00'),
-  weeklyReviewTime: z.string().regex(/^\d{2}:\d{2}$/).default('16:00'),
+  dailyDigestTime: z.string().regex(/^\d{2}:\d{2}$/).default('00:00'),
+  weeklyReviewTime: z.string().regex(/^\d{2}:\d{2}$/).default('00:00'),
   weeklyReviewDay: z.enum(['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']).default('sunday'),
   defaultProvider: z.string().default('lmstudio'),
   defaultModel: z.string().default('gptoss-20b'),

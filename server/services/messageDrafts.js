@@ -43,7 +43,7 @@ export async function createDraft(data) {
     body: data.body || '',
     status: 'draft',
     generatedBy: data.generatedBy || 'manual',
-    sendVia: data.sendVia || 'mcp',
+    sendVia: data.sendVia || 'api',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };

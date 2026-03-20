@@ -7,9 +7,8 @@
  */
 
 import { spawn, execSync } from 'child_process';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { writeFile, mkdir, readFile, readdir, rm, stat } from 'fs/promises';
+import { join } from 'path';
+import { writeFile, mkdir, readFile, readdir, rm, stat } from 'fs/promises'; // mkdir kept for non-recursive use
 import { existsSync } from 'fs';
 import { homedir } from 'os';
 import { v4 as uuidv4 } from 'uuid';
@@ -25,7 +24,7 @@ import { getMemorySection } from './memoryRetriever.js';
 import { extractAndStoreMemories } from './memoryExtractor.js';
 import { getDigitalTwinForPrompt } from './digital-twin.js';
 import { suggestModelTier } from './taskLearning.js';
-import { readJSONFile, PATHS } from '../lib/fileUtils.js';
+import { ensureDir, readJSONFile, PATHS } from '../lib/fileUtils.js';
 import { getAppById } from './apps.js';
 import { createToolExecution, startExecution, updateExecution, completeExecution, errorExecution, getExecution, getStats as getToolStats } from './toolStateMachine.js';
 import { resolveThinkingLevel, getModelForLevel, isLocalPreferred } from './thinkingLevels.js';
@@ -36,11 +35,9 @@ import * as jiraService from './jira.js';
 import * as git from './git.js';
 import { executeApiRun, executeCliRun, createRun } from './runner.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const ROOT_DIR = join(__dirname, '../../');
-const AGENTS_DIR = join(__dirname, '../../data/cos/agents');
-const RUNS_DIR = join(__dirname, '../../data/runs');
+const ROOT_DIR = PATHS.root;
+const AGENTS_DIR = PATHS.cosAgents;
+const RUNS_DIR = PATHS.runs;
 
 /**
  * Extract task type key for learning lookup
@@ -263,7 +260,7 @@ async function createAgentRun(agentId, task, model, provider, workspacePath, app
   const runDir = join(RUNS_DIR, runId);
 
   if (!existsSync(RUNS_DIR)) {
-    await mkdir(RUNS_DIR, { recursive: true });
+    await ensureDir(RUNS_DIR);
   }
   await mkdir(runDir);
 
@@ -972,6 +969,24 @@ Review the error, fix the configuration or code issue, and retry the original ta
   return investigationTask;
 }
 
+// Error categories where LLM API access is blocked or denied — spawning an
+// investigation agent would fail for the same reason, so skip it.
+const API_ACCESS_ERROR_CATEGORIES = new Set([
+  'auth-error',
+  'forbidden',
+  'usage-limit',
+]);
+
+async function maybeCreateInvestigationTask(agentId, task, analysis) {
+  if (API_ACCESS_ERROR_CATEGORIES.has(analysis?.category)) {
+    emitLog('debug', `⏭️ Skipping investigation task for ${task.id}: API access error (${analysis.category})`, { agentId, taskId: task.id, category: analysis.category });
+    return;
+  }
+  await createInvestigationTask(agentId, task, analysis).catch(err => {
+    emitLog('warn', `Failed to create investigation task: ${err.message}`, { agentId, taskId: task.id, category: analysis?.category });
+  });
+}
+
 /**
  * Handle task status update after agent failure.
  * Tracks retry count and blocks the task after MAX_TASK_RETRIES,
@@ -980,14 +995,12 @@ Review the error, fix the configuration or code issue, and retry the original ta
  * Returns { status, metadata } to apply to the task.
  */
 async function resolveFailedTaskUpdate(task, errorAnalysis, agentId) {
-  // Actionable errors get blocked immediately with investigation
+  // Actionable errors get blocked immediately (investigation task created unless API access is denied)
   if (errorAnalysis?.actionable) {
     emitLog('warn', `🚫 Task ${task.id} blocked: ${errorAnalysis.message} (${errorAnalysis.category})`, {
       taskId: task.id, category: errorAnalysis.category
     });
-    await createInvestigationTask(agentId, task, errorAnalysis).catch(err => {
-      emitLog('warn', `Failed to create investigation task: ${err.message}`, { agentId });
-    });
+    await maybeCreateInvestigationTask(agentId, task, errorAnalysis);
     return {
       status: 'blocked',
       metadata: {
@@ -1013,9 +1026,7 @@ async function resolveFailedTaskUpdate(task, errorAnalysis, agentId) {
       suggestedFix: `Task has failed ${failureCount} consecutive times with ${lastErrorCategory} errors. ${errorAnalysis?.suggestedFix || 'Investigate agent output logs.'}`,
       category: lastErrorCategory
     };
-    await createInvestigationTask(agentId, task, blockedAnalysis).catch(err => {
-      emitLog('warn', `Failed to create investigation task: ${err.message}`, { agentId });
-    });
+    await maybeCreateInvestigationTask(agentId, task, blockedAnalysis);
     return {
       status: 'blocked',
       metadata: {
@@ -1554,7 +1565,7 @@ export async function spawnAgentForTask(task) {
   // Create agent directory
   const agentDir = join(AGENTS_DIR, agentId);
   if (!existsSync(agentDir)) {
-    await mkdir(agentDir, { recursive: true });
+    await ensureDir(agentDir);
   }
 
   // Save prompt to file
@@ -1828,6 +1839,10 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
   // Process memory extraction and app cooldown
   await processAgentCompletion(agentId, task, success, outputBuffer);
 
+  // Fetch agent state once for JIRA and plan-question blocks
+  const { getAgent: getAgentState } = await import('./cos.js');
+  const agentState = await getAgentState(agentId).catch(() => null);
+
   // JIRA integration: push branch, create PR, comment on ticket
   const jiraTicketId = agent.task?.metadata?.jiraTicketId;
   const jiraBranch = agent.task?.metadata?.jiraBranch;
@@ -1835,9 +1850,6 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
   const jiraCreatePR = agent.task?.metadata?.jiraCreatePR;
 
   if (jiraTicketId && jiraBranch && success) {
-    // Get workspace from registered agent state (runnerAgents doesn't store it)
-    const { getAgent: getAgentState } = await import('./cos.js');
-    const agentState = await getAgentState(agentId).catch(() => null);
     const workspace = agentState?.metadata?.workspacePath || ROOT_DIR;
 
     // Resolve JIRA ticket URL for linking in PR description
@@ -1895,6 +1907,34 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
     await git.checkout(workspace, returnBranch).catch(err => {
       emitLog('warn', `Failed to checkout back to ${returnBranch}: ${err.message}`, { agentId });
     });
+  }
+
+  // Check for plan questions marker file (feature-ideas task needing user input)
+  if (task?.metadata?.analysisType === 'feature-ideas') {
+    const planWorkspace = agentState?.metadata?.workspacePath || task?.metadata?.repoPath || ROOT_DIR;
+    const markerPath = join(planWorkspace, '.plan-questions.md');
+
+    const markerContent = await readFile(markerPath, 'utf8').catch(() => null);
+    if (markerContent) {
+      const titleMatch = markerContent.match(/^#\s+Plan Question:\s*(.+)/m);
+      const title = titleMatch?.[1]?.trim() || 'PLAN.md item needs your input';
+      const appId = task.metadata?.app;
+
+      const { addNotification, NOTIFICATION_TYPES, PRIORITY_LEVELS } = await import('./notifications.js');
+      await addNotification({
+        type: NOTIFICATION_TYPES.PLAN_QUESTION,
+        title,
+        message: markerContent,
+        priority: PRIORITY_LEVELS.MEDIUM,
+        link: appId ? `/apps/${appId}/documents` : undefined,
+        metadata: { appId, agentId, taskType: 'feature-ideas' }
+      }).catch(err => {
+        emitLog('warn', `Failed to create plan_question notification: ${err.message}`, { agentId });
+      });
+
+      await rm(markerPath).catch(() => {});
+      emitLog('info', `📋 Plan question notification created: ${title}`, { agentId, appId });
+    }
   }
 
   // Clean up worktree if agent was using one (skip merge when JIRA branch — PR handles merge)
@@ -2677,12 +2717,12 @@ ${skillSection ? `## Task-Type Skill Guidelines\n\n${skillSection}\n` : ''}${pla
 - Do not make unrelated changes
 - If blocked, explain clearly why
 - Never update the PortOS changelog (\`.changelog/\`) for work on managed apps — the PortOS changelog tracks PortOS core changes only
-${task.metadata?.app ? `- **When done, create a pull request to the repo's default branch** (main/master) instead of committing directly to dev. Use the /pr skill or gh CLI to open the PR.` : `- Commit code after each feature or bug fix using the git tools or /cam skill`}
+${task.metadata?.app && worktreeInfo ? `- **When done, create a pull request to the repo's default branch** (main/master) instead of committing directly to dev. Use the /pr skill or gh CLI to open the PR.` : `- Commit code after each feature or bug fix using the git tools or /cam skill`}
 
 ## Git Hygiene (CRITICAL)
 - **Before starting work**, run \`git status\` to verify a clean working tree. If there are uncommitted changes from a previous agent or manual work, **stash or discard them** before proceeding — do NOT commit someone else's changes.
 - **Only commit files YOU changed** for this task. Never use \`git add -A\` or \`git add .\` — always stage specific files by name.
-- **Your PR should contain only your task's commits.** If you see unrelated commits in your branch history, something is wrong — do not open a PR with other agents' work.
+${worktreeInfo ? `- **Your PR should contain only your task's commits.** If you see unrelated commits in your branch history, something is wrong — do not open a PR with other agents' work.` : `- **Commit directly to the current branch.** Do NOT create feature branches or PRs unless explicitly instructed.`}
 - If the working tree is dirty with changes unrelated to your task, run \`git stash\` to set them aside before starting.
 
 ## Working Directory

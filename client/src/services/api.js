@@ -157,6 +157,7 @@ export const bulkUpdateAppTaskTypeOverride = (taskType, { enabled }) => request(
   method: 'PUT',
   body: JSON.stringify({ enabled })
 });
+export const detectAppIcons = () => request('/apps/detect-icons', { method: 'POST' });
 export const getAppLogs = (id, lines = 100, processName) => {
   const params = new URLSearchParams({ lines: String(lines) });
   if (processName) params.set('process', processName);
@@ -1454,6 +1455,36 @@ export const updateCustomDrink = (index, data) => request(`/meatspace/alcohol/cu
 export const removeCustomDrink = (index) => request(`/meatspace/alcohol/custom-drinks/${index}`, {
   method: 'DELETE'
 });
+export const getNicotineSummary = () => request('/meatspace/nicotine');
+export const getDailyNicotine = (from, to) => {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  return request(`/meatspace/nicotine/daily?${params}`);
+};
+export const logNicotine = (data) => request('/meatspace/nicotine/log', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const updateNicotineEntry = (date, index, data) => request(`/meatspace/nicotine/log/${date}/${index}`, {
+  method: 'PUT',
+  body: JSON.stringify(data)
+});
+export const removeNicotineEntry = (date, index) => request(`/meatspace/nicotine/log/${date}/${index}`, {
+  method: 'DELETE'
+});
+export const getCustomNicotineProducts = () => request('/meatspace/nicotine/custom-products');
+export const addCustomNicotineProduct = (data) => request('/meatspace/nicotine/custom-products', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const updateCustomNicotineProduct = (index, data) => request(`/meatspace/nicotine/custom-products/${index}`, {
+  method: 'PUT',
+  body: JSON.stringify(data)
+});
+export const removeCustomNicotineProduct = (index) => request(`/meatspace/nicotine/custom-products/${index}`, {
+  method: 'DELETE'
+});
 export const getBloodTests = () => request('/meatspace/blood');
 export const addBloodTest = (data) => request('/meatspace/blood', {
   method: 'POST',
@@ -1611,6 +1642,22 @@ export const updateSettings = (data) => request('/settings', {
   body: JSON.stringify(data)
 });
 
+// Telegram
+export const getTelegramStatus = () => request('/telegram/status');
+export const updateTelegramConfig = (data) => request('/telegram/config', {
+  method: 'PUT',
+  body: JSON.stringify(data)
+});
+export const deleteTelegramConfig = () => request('/telegram/config', { method: 'DELETE' });
+export const testTelegram = (message) => request('/telegram/test', {
+  method: 'POST',
+  body: JSON.stringify({ message })
+});
+export const updateTelegramForwardTypes = (forwardTypes) => request('/telegram/forward-types', {
+  method: 'PUT',
+  body: JSON.stringify({ forwardTypes })
+});
+
 // Insights
 export const getGenomeHealthCorrelations = () => request('/insights/genome-health');
 export const getInsightThemes = () => request('/insights/themes');
@@ -1714,6 +1761,7 @@ export const executeMessageAction = (accountId, messageId, action) =>
   request(`/messages/${accountId}/${messageId}/action`, { method: 'POST', body: JSON.stringify({ action }), silent: true });
 export const clearMessageCache = (accountId) =>
   request(`/messages/accounts/${accountId}/cache/clear`, { method: 'POST' });
+export const enableGmailApi = () => request('/messages/gmail/enable-api', { method: 'POST' });
 
 // Calendar
 export const getCalendarAccounts = () => request('/calendar/accounts');
@@ -1757,6 +1805,41 @@ export const getGoalCalendarEvents = (goalId, params = {}) => {
   return request(`/digital-twin/identity/goals/${goalId}/calendar-events${str ? `?${str}` : ''}`);
 };
 
+// Goal Progress & Todos
+export const updateGoalProgress = (goalId, value) => request(`/digital-twin/identity/goals/${goalId}/progress`, { method: 'PUT', body: JSON.stringify({ value }) });
+export const addGoalTodo = (goalId, data) => request(`/digital-twin/identity/goals/${goalId}/todos`, { method: 'POST', body: JSON.stringify(data) });
+export const updateGoalTodo = (goalId, todoId, data) => request(`/digital-twin/identity/goals/${goalId}/todos/${todoId}`, { method: 'PUT', body: JSON.stringify(data) });
+export const deleteGoalTodo = (goalId, todoId) => request(`/digital-twin/identity/goals/${goalId}/todos/${todoId}`, { method: 'DELETE' });
+
+// Goal AI Planning & Scheduling
+export const generateGoalPhases = (goalId, options = {}) => request(`/digital-twin/identity/goals/${goalId}/generate-phases`, { method: 'POST', body: JSON.stringify(options) });
+export const acceptGoalPhases = (goalId, phases) => request(`/digital-twin/identity/goals/${goalId}/accept-phases`, { method: 'POST', body: JSON.stringify({ phases }) });
+export const scheduleGoalTimeBlocks = (goalId) => request(`/digital-twin/identity/goals/${goalId}/schedule`, { method: 'POST' });
+export const removeGoalSchedule = (goalId) => request(`/digital-twin/identity/goals/${goalId}/schedule`, { method: 'DELETE' });
+export const rescheduleGoalTimeBlocks = (goalId) => request(`/digital-twin/identity/goals/${goalId}/reschedule`, { method: 'POST' });
+
+// Review Hub
+export const getReviewItems = (params) => {
+  const qs = new URLSearchParams();
+  if (params?.status) qs.set('status', params.status);
+  if (params?.type) qs.set('type', params.type);
+  const query = qs.toString();
+  return request(`/review/items${query ? `?${query}` : ''}`);
+};
+export const getReviewCounts = () => request('/review/counts');
+export const getReviewBriefing = () => request('/review/briefing');
+export const createReviewTodo = (data) => request('/review/todo', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+export const updateReviewItem = (id, data) => request(`/review/items/${id}`, {
+  method: 'PATCH',
+  body: JSON.stringify(data)
+});
+export const completeReviewItem = (id) => request(`/review/items/${id}/complete`, { method: 'POST' });
+export const dismissReviewItem = (id) => request(`/review/items/${id}/dismiss`, { method: 'POST' });
+export const deleteReviewItem = (id) => request(`/review/items/${id}`, { method: 'DELETE' });
+
 // Default export for simplified imports
 export default {
   get: (endpoint, options) => request(endpoint, { method: 'GET', ...options }),
@@ -1772,3 +1855,29 @@ export default {
   }),
   delete: (endpoint, options) => request(endpoint, { method: 'DELETE', ...options })
 };
+
+// Database
+export const getDatabaseStatus = () => request('/database/status');
+export const switchDatabase = (target, migrate = false) => request('/database/switch', {
+  method: 'POST',
+  body: JSON.stringify({ target, migrate })
+});
+export const setupNativeDatabase = () => request('/database/setup-native', { method: 'POST' });
+export const exportDatabase = (backend) => request('/database/export', {
+  method: 'POST',
+  ...(backend ? { body: JSON.stringify({ backend }) } : {})
+});
+export const fixDatabase = () => request('/database/fix', { method: 'POST' });
+export const syncDatabase = () => request('/database/sync', { method: 'POST' });
+export const startDatabase = (backend) => request('/database/start', {
+  method: 'POST',
+  body: JSON.stringify({ backend })
+});
+export const stopDatabase = (backend) => request('/database/stop', {
+  method: 'POST',
+  body: JSON.stringify({ backend })
+});
+export const destroyDatabase = (backend) => request('/database/destroy', {
+  method: 'POST',
+  body: JSON.stringify({ backend })
+});

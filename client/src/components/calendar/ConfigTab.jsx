@@ -79,9 +79,9 @@ export default function ConfigTab({ accounts, setAccounts }) {
     const googleAccount = accounts.find(a => a.type === 'google-calendar');
     const email = googleAccount?.email || '';
     const result = await api.runGoogleAutoConfig(email).catch(() => null);
-    if (!result || result.status === 'error') {
+    if (!result || result.error) {
       setAutoConfigStep('login');
-      return toast.error(result?.errors?.[0] || 'Automated setup failed. Try manual setup instead.');
+      return toast.error(result?.error || 'Automated setup failed. Try manual setup instead.');
     }
     if (result.status === 'partial') {
       toast('Setup partially completed. Some steps may need manual attention.', { icon: '⚠️' });
@@ -132,15 +132,28 @@ export default function ConfigTab({ accounts, setAccounts }) {
     setExpandedAccounts(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  // Update subcalendar field locally only (no API call) — used for color picker dragging
+  const handleSubcalendarLocal = (account, calendarId, field, value) => {
+    const subcalendars = (account.subcalendars || []).map(sc =>
+      sc.calendarId === calendarId ? { ...sc, [field]: value } : sc
+    );
+    setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, subcalendars } : a));
+  };
+
+  // Update subcalendar field and persist to server
   const handleSubcalendarToggle = async (account, calendarId, field, value) => {
     const subcalendars = (account.subcalendars || []).map(sc =>
       sc.calendarId === calendarId ? { ...sc, [field]: value } : sc
     );
+    setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, subcalendars } : a));
     setSavingSubcals(account.id);
     const result = await api.updateSubcalendars(account.id, { subcalendars }).catch(() => null);
     setSavingSubcals(null);
-    if (!result) return toast.error('Failed to update subcalendars');
-    setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, subcalendars } : a));
+    if (!result) {
+      // Rollback on failure
+      setAccounts(prev => prev.map(a => a.id === account.id ? account : a));
+      return toast.error('Failed to update subcalendars');
+    }
   };
 
   const handleDiscoverCalendars = async (account) => {
@@ -492,9 +505,16 @@ export default function ConfigTab({ accounts, setAccounts }) {
                           }`}
                         >
                           <div className="flex items-center gap-2 min-w-0">
-                            {sc.color && (
-                              <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: sc.color }} />
-                            )}
+                            <label className="relative w-4 h-4 shrink-0 cursor-pointer" title="Change color">
+                              <div className="w-4 h-4 rounded-full border border-port-border" style={{ backgroundColor: sc.color || '#3b82f6' }} />
+                              <input
+                                type="color"
+                                value={sc.color || '#3b82f6'}
+                                onInput={(e) => handleSubcalendarLocal(account, sc.calendarId, 'color', e.target.value)}
+                                onChange={(e) => handleSubcalendarToggle(account, sc.calendarId, 'color', e.target.value)}
+                                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                              />
+                            </label>
                             <div className="min-w-0">
                               <div className={`text-xs font-medium truncate ${sc.dormant ? 'text-gray-500' : 'text-gray-300'}`}>
                                 {sc.name}

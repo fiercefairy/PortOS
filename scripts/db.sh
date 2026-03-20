@@ -2,8 +2,9 @@
 #
 # PortOS Database Manager
 #
-# Manage PostgreSQL via Docker or native Homebrew installation.
-# Supports switching between modes and migrating data safely.
+# Manage PostgreSQL via Docker or native (system) installation.
+# Native mode reuses an existing system PostgreSQL (e.g., Homebrew) on port 5432
+# rather than running a separate instance. Docker mode runs a container on port 5561.
 #
 # Usage:
 #   scripts/db.sh <command>
@@ -25,8 +26,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-# Note: In Docker mode, PGPORT must match the published port in docker-compose.yml (default 5561)
-PGPORT="${PGPORT:-5561}"
 PGUSER="${PGUSER:-portos}"
 PGDATABASE="${PGDATABASE:-portos}"
 PGPASSWORD="${PGPASSWORD:-portos}"
@@ -67,6 +66,19 @@ get_mode() {
   fi
 }
 
+# Derive port from mode: native=5432 (system pg), docker=5561 (container)
+get_port() {
+  if [ -n "${PGPORT:-}" ]; then
+    echo "$PGPORT"
+  elif [ "$(get_mode)" = "native" ]; then
+    echo "5432"
+  else
+    echo "5561"
+  fi
+}
+
+PGPORT=$(get_port)
+
 # Set mode in .env
 set_mode() {
   local mode="$1"
@@ -79,7 +91,9 @@ set_mode() {
   else
     echo "PGMODE=$mode" > "$ENV_FILE"
   fi
-  log "Mode set to: $mode"
+  # Update PGPORT to match mode
+  PGPORT=$([ "$mode" = "native" ] && echo "5432" || echo "5561")
+  log "Mode set to: $mode (port $PGPORT)"
 }
 
 # Check if Docker PostgreSQL is running
@@ -103,27 +117,53 @@ require_docker_compose() {
   fi
 }
 
-# Check if native PostgreSQL is running on our port
+# Check if native PostgreSQL is accepting connections on the expected port
 native_running() {
   PGPASSWORD="$PGPASSWORD" pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" >/dev/null 2>&1
 }
 
-# Get native PostgreSQL data directory
-native_data_dir() {
-  echo "$ROOT_DIR/data/pgdata"
-}
-
-# Auto-detect Homebrew PostgreSQL on macOS and add to PATH
-if [ "$(uname)" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
-  _pg_bin="$(brew --prefix postgresql@17 2>/dev/null)/bin"
-  if [ -d "$_pg_bin" ]; then
-    export PATH="$_pg_bin:$PATH"
-  fi
+# Auto-detect Homebrew PostgreSQL 17 on macOS and add to PATH
+# Check both arm64 (/opt/homebrew) and Intel (/usr/local) prefixes
+if [ "$(uname)" = "Darwin" ]; then
+  for _prefix in /opt/homebrew/opt/postgresql@17 /usr/local/opt/postgresql@17; do
+    if [ -x "$_prefix/bin/psql" ]; then
+      export PATH="$_prefix/bin:$PATH"
+      break
+    fi
+  done
 fi
 
 # Check if native PostgreSQL is installed
 has_native_pg() {
-  command -v pg_ctl >/dev/null 2>&1
+  command -v psql >/dev/null 2>&1
+}
+
+# Detect an already-running system PostgreSQL and its port
+detect_system_pg() {
+  # Check standard port 5432 first
+  if pg_isready -h localhost -p 5432 >/dev/null 2>&1; then
+    echo "5432"
+    return 0
+  fi
+  # Check if pg_ctl reports a running server
+  if command -v pg_ctl >/dev/null 2>&1; then
+    local datadir=""
+    # Try Homebrew default data dir
+    if [ "$(uname)" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
+      datadir="$(brew --prefix)/var/postgresql@17"
+      if [ ! -d "$datadir" ]; then
+        datadir="$(brew --prefix)/var/postgres"
+      fi
+    fi
+    if [ -n "$datadir" ] && [ -d "$datadir" ] && pg_ctl -D "$datadir" status >/dev/null 2>&1; then
+      # Parse port from postgresql.conf
+      local port
+      port=$(grep -E '^port\s*=' "$datadir/postgresql.conf" 2>/dev/null | sed 's/.*=\s*//' | tr -d '[:space:]' || echo "5432")
+      echo "${port:-5432}"
+      return 0
+    fi
+  fi
+  return 1
 }
 
 # Status command
@@ -148,14 +188,17 @@ cmd_status() {
   echo ""
   echo "Native:"
   if has_native_pg; then
-    local datadir
-    datadir=$(native_data_dir)
-    if [ -f "$datadir/postmaster.pid" ] && PGPASSWORD="$PGPASSWORD" pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" >/dev/null 2>&1; then
-      log "  Native PostgreSQL is running (data: $datadir)"
-    elif [ -d "$datadir" ]; then
-      warn "  Native PostgreSQL configured but not running (data: $datadir)"
+    local sys_port
+    if sys_port=$(detect_system_pg); then
+      log "  System PostgreSQL is running on port $sys_port"
+      # Check if portos database exists
+      if PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -p "$sys_port" -U "$PGUSER" -d "$PGDATABASE" -c "SELECT 1" >/dev/null 2>&1; then
+        log "  PortOS database exists"
+      else
+        warn "  PortOS database/user not configured (run: scripts/db.sh setup-native)"
+      fi
     else
-      warn "  Native PostgreSQL installed but not configured for PortOS"
+      warn "  Native PostgreSQL installed but not running"
     fi
   else
     warn "  Native PostgreSQL not installed"
@@ -229,34 +272,49 @@ start_native() {
     exit 1
   fi
 
-  local datadir
-  datadir=$(native_data_dir)
-
-  if [ ! -d "$datadir" ] || [ ! -f "$datadir/PG_VERSION" ]; then
-    err "Database not initialized. Run: scripts/db.sh setup-native"
-    exit 1
+  # Check if system PostgreSQL is already running and accepting connections
+  if PGPASSWORD="$PGPASSWORD" pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" >/dev/null 2>&1; then
+    log "Native PostgreSQL already running on port $PGPORT"
+    return
   fi
 
-  # Clean stale pid if needed — use credential-free pg_ctl status to avoid
-  # false negatives from SCRAM auth when the server is actually running
-  if [ -f "$datadir/postmaster.pid" ]; then
-    if ! pg_ctl -D "$datadir" status >/dev/null 2>&1; then
-      warn "Removing stale postmaster.pid..."
-      rm -f "$datadir/postmaster.pid"
+  # Try to start via Homebrew services (macOS)
+  if [ "$(uname)" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
+    if brew services list 2>/dev/null | grep -q "postgresql@17"; then
+      info "Starting PostgreSQL via Homebrew services..."
+      brew services start postgresql@17 2>/dev/null || true
+      for i in $(seq 1 15); do
+        if pg_isready -h "$PGHOST" -p "$PGPORT" >/dev/null 2>&1; then
+          log "Native PostgreSQL ready on port $PGPORT"
+          return
+        fi
+        sleep 1
+      done
     fi
   fi
 
-  pg_ctl -D "$datadir" -l "$datadir/server.log" -o "-p $PGPORT" start
-
-  for i in $(seq 1 15); do
-    if PGPASSWORD="$PGPASSWORD" pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" >/dev/null 2>&1; then
-      log "Native PostgreSQL ready on port $PGPORT"
-      return
+  # Try pg_ctl with Homebrew data directory
+  if command -v pg_ctl >/dev/null 2>&1; then
+    local datadir=""
+    if [ "$(uname)" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
+      datadir="$(brew --prefix)/var/postgresql@17"
+      if [ ! -d "$datadir" ]; then
+        datadir="$(brew --prefix)/var/postgres"
+      fi
     fi
-    sleep 1
-  done
+    if [ -n "$datadir" ] && [ -d "$datadir" ]; then
+      pg_ctl -D "$datadir" -l "$datadir/server.log" start 2>/dev/null || true
+      for i in $(seq 1 15); do
+        if pg_isready -h "$PGHOST" -p "$PGPORT" >/dev/null 2>&1; then
+          log "Native PostgreSQL ready on port $PGPORT"
+          return
+        fi
+        sleep 1
+      done
+    fi
+  fi
 
-  err "PostgreSQL did not start in 15s. Check: $datadir/server.log"
+  err "Could not start PostgreSQL. Try: brew services start postgresql@17"
   exit 1
 }
 
@@ -281,16 +339,23 @@ stop_docker() {
 }
 
 stop_native() {
-  local datadir
-  datadir=$(native_data_dir)
-
-  if [ ! -d "$datadir" ]; then
-    warn "No native database found"
+  info "Stopping native PostgreSQL..."
+  # Stop via Homebrew services (macOS)
+  if [ "$(uname)" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
+    brew services stop postgresql@17 2>/dev/null || true
+    log "Stopped"
     return
   fi
-
-  info "Stopping native PostgreSQL..."
-  pg_ctl -D "$datadir" stop -m fast 2>/dev/null || true
+  # Fallback: pg_ctl
+  if command -v pg_ctl >/dev/null 2>&1; then
+    local datadir=""
+    if [ "$(uname)" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
+      datadir="$(brew --prefix)/var/postgresql@17"
+    fi
+    if [ -n "$datadir" ] && [ -d "$datadir" ]; then
+      pg_ctl -D "$datadir" stop -m fast 2>/dev/null || true
+    fi
+  fi
   log "Stopped"
 }
 
@@ -337,34 +402,21 @@ fix_docker() {
 }
 
 fix_native() {
-  local datadir
-  datadir=$(native_data_dir)
-
-  if [ ! -d "$datadir" ]; then
-    warn "No native database found"
+  info "Fixing native PostgreSQL..."
+  # Restart via Homebrew services
+  if [ "$(uname)" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
+    brew services restart postgresql@17 2>/dev/null || true
+    log "PostgreSQL restarted via Homebrew"
     return
   fi
-
-  info "Fixing native PostgreSQL..."
-
-  # Try graceful shutdown first
-  pg_ctl -D "$datadir" stop -m fast 2>/dev/null || true
-
-  # Remove stale pid
-  rm -f "$datadir/postmaster.pid"
-
-  log "Stale lock files cleaned"
-  info "Run 'scripts/db.sh start' to restart"
+  warn "Manual fix may be needed — check PostgreSQL logs"
 }
 
-# Setup native PostgreSQL
+# Setup native PostgreSQL — detects and reuses existing system installation
 cmd_setup_native() {
-  info "Setting up native PostgreSQL + pgvector..."
+  info "Setting up native PostgreSQL for PortOS..."
 
-  local datadir
-  datadir=$(native_data_dir)
-
-  # Install PostgreSQL 17 and pgvector via Homebrew
+  # Step 1: Ensure PostgreSQL is installed
   if [ "$(uname)" = "Darwin" ]; then
     if ! command -v brew >/dev/null 2>&1; then
       err "Homebrew not installed. Install from https://brew.sh"
@@ -389,76 +441,76 @@ cmd_setup_native() {
     PG_BIN="$(brew --prefix postgresql@17)/bin"
     export PATH="$PG_BIN:$PATH"
     info "Using PostgreSQL from: $PG_BIN"
-    if ! echo "$PATH" | tr ':' '\n' | grep -qx "$PG_BIN"; then
-      warn "PostgreSQL bin dir is not on your default PATH"
-      echo "  Add this to your shell profile (~/.zshrc or ~/.bashrc):"
-      echo "    export PATH=\"$PG_BIN:\\\$PATH\""
-      echo "  Then restart your terminal or run: source ~/.zshrc"
-    fi
   else
-    if ! command -v pg_ctl >/dev/null 2>&1; then
+    if ! command -v psql >/dev/null 2>&1; then
       err "Please install PostgreSQL 17 and pgvector for your platform"
       exit 1
     fi
   fi
 
-  # Initialize the data directory
-  if [ -d "$datadir" ]; then
-    warn "Data directory already exists: $datadir"
-    echo "  To reinitialize, remove it first: rm -rf $datadir"
+  # Step 2: Ensure PostgreSQL is running
+  local pg_port=""
+  if pg_port=$(detect_system_pg); then
+    log "System PostgreSQL already running on port $pg_port"
   else
-    info "Initializing database cluster..."
-    mkdir -p "$datadir"
-    local pwfile
-    pwfile="$(mktemp)"
-    chmod 600 "$pwfile"
-    printf '%s\n' "$PGPASSWORD" > "$pwfile"
-    # Ensure the temp password file is cleared and removed on any exit/error path
-    trap 'if [ -n "${pwfile-}" ] && [ -f "$pwfile" ]; then : > "$pwfile"; rm -f "$pwfile"; fi' RETURN ERR
-    initdb -D "$datadir" --username="$PGUSER" --auth=scram-sha-256 --pwfile="$pwfile" --no-locale --encoding=UTF8
-    : > "$pwfile"
-    rm -f "$pwfile"
-    log "Database cluster initialized"
-
-    # Configure to use our port
-    echo "port = $PGPORT" >> "$datadir/postgresql.conf"
-    echo "listen_addresses = 'localhost'" >> "$datadir/postgresql.conf"
-    info "Configured to listen on port $PGPORT"
-  fi
-
-  # Start the server
-  start_native
-
-  # Create the database and run init SQL
-  if ! PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -lqt 2>/dev/null | cut -d\| -f1 | grep -qw "$PGDATABASE"; then
-    info "Creating database: $PGDATABASE"
-    PGPASSWORD="$PGPASSWORD" createdb -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" "$PGDATABASE"
-  fi
-
-  # Set user password (using psql variables to avoid shell injection)
-  PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" \
-    -v pw="$PGPASSWORD" -v user="$PGUSER" -c "ALTER USER :\"user\" WITH PASSWORD :'pw';" 2>/dev/null
-
-  # Run init SQL
-  info "Applying schema..."
-  PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 --single-transaction -f "$ROOT_DIR/server/scripts/init-db.sql"
-  log "Schema applied"
-
-  # Switch mode
-  set_mode native
-
-  # Update PGPORT in .env if not already correct
-  if [ -f "$ENV_FILE" ] && ! grep -q "^PGPORT=$PGPORT" "$ENV_FILE"; then
-    if grep -q "^PGPORT=" "$ENV_FILE"; then
-      inplace_sed "s/^PGPORT=.*/PGPORT=$PGPORT/" "$ENV_FILE"
+    info "Starting PostgreSQL..."
+    if [ "$(uname)" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
+      brew services start postgresql@17
+      sleep 2
+      if pg_port=$(detect_system_pg); then
+        log "PostgreSQL started on port $pg_port"
+      else
+        err "PostgreSQL failed to start. Check: brew services list"
+        exit 1
+      fi
     else
-      printf '\nPGPORT=%s\n' "$PGPORT" >> "$ENV_FILE"
+      err "PostgreSQL is not running. Start it and try again."
+      exit 1
     fi
   fi
 
+  PGPORT="$pg_port"
+
+  # Step 3: Create portos user if it doesn't exist
+  # Connect as the current system user (default Homebrew superuser) to create the role
+  local sys_user
+  sys_user="$(whoami)"
+  if ! psql -h "$PGHOST" -p "$PGPORT" -U "$sys_user" -d postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='$PGUSER'" 2>/dev/null | grep -q 1; then
+    info "Creating database user: $PGUSER"
+    psql -h "$PGHOST" -p "$PGPORT" -U "$sys_user" -d postgres \
+      -c "CREATE ROLE $PGUSER WITH LOGIN PASSWORD '$PGPASSWORD' CREATEDB SUPERUSER;"
+    log "User $PGUSER created"
+  else
+    log "User $PGUSER already exists"
+    # Ensure password and superuser are set correctly (superuser needed for extension management)
+    psql -h "$PGHOST" -p "$PGPORT" -U "$sys_user" -d postgres \
+      -c "ALTER USER $PGUSER WITH PASSWORD '$PGPASSWORD' SUPERUSER;" 2>/dev/null || true
+  fi
+
+  # Step 4: Create portos database if it doesn't exist
+  if ! psql -h "$PGHOST" -p "$PGPORT" -U "$sys_user" -d postgres -lqt 2>/dev/null | cut -d\| -f1 | grep -qw "$PGDATABASE"; then
+    info "Creating database: $PGDATABASE"
+    psql -h "$PGHOST" -p "$PGPORT" -U "$sys_user" -d postgres -c "CREATE DATABASE $PGDATABASE OWNER $PGUSER;"
+    log "Database $PGDATABASE created"
+  else
+    log "Database $PGDATABASE already exists"
+  fi
+
+  # Step 5: Enable pgvector extension and apply schema
+  info "Applying schema..."
+  # pgvector extension requires superuser — create as system user, then run schema as portos
+  psql -h "$PGHOST" -p "$PGPORT" -U "$sys_user" -d "$PGDATABASE" -c "CREATE EXTENSION IF NOT EXISTS vector;" 2>/dev/null || true
+  psql -h "$PGHOST" -p "$PGPORT" -U "$sys_user" -d "$PGDATABASE" -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" 2>/dev/null || true
+  PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 --single-transaction -f "$ROOT_DIR/server/scripts/init-db.sql"
+  log "Schema applied"
+
+  # Step 6: Switch mode to native
+  set_mode native
+
   echo ""
   log "Native PostgreSQL is ready!"
-  info "Data directory: $datadir"
+  info "Using system PostgreSQL on port $PGPORT"
+  info "Database: $PGDATABASE (user: $PGUSER)"
   info "To migrate data from Docker: scripts/db.sh migrate"
 }
 
@@ -476,14 +528,14 @@ run_psql() {
   fi
 }
 
-# Run pg_dump, using Docker exec in Docker mode if host pg_dump is unavailable
+# Run pg_dump, preferring Docker exec in Docker mode to avoid version mismatch
 run_pg_dump() {
   local mode
   mode=$(get_mode)
-  if command -v pg_dump >/dev/null 2>&1; then
-    PGPASSWORD="$PGPASSWORD" pg_dump -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" "$@"
-  elif [ "$mode" = "docker" ] && docker_running; then
+  if [ "$mode" = "docker" ] && docker_running; then
     docker exec -e PGPASSWORD="$PGPASSWORD" portos-db pg_dump -U "$PGUSER" -d "$PGDATABASE" "$@"
+  elif command -v pg_dump >/dev/null 2>&1; then
+    PGPASSWORD="$PGPASSWORD" pg_dump -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" "$@"
   else
     err "pg_dump not found on host and Docker DB is not running"
     exit 1
@@ -526,10 +578,33 @@ cmd_import() {
 
   info "Importing $dumpfile..."
 
-  # Use stdin redirection so the dump is accessible even in Docker exec mode
-  run_psql -v ON_ERROR_STOP=1 --single-transaction < "$dumpfile"
+  # Strip pg17-only features for compatibility with older psql versions:
+  # - \restrict/\unrestrict (pg17 dump security tokens)
+  # - SET transaction_timeout (pg17 config parameter)
+  sed -e '/^\\restrict /d' -e '/^\\unrestrict /d' -e '/^SET transaction_timeout/d' "$dumpfile" | run_psql -v ON_ERROR_STOP=1 --single-transaction
 
   log "Import complete"
+}
+
+# Import a dump into a specific target using Docker's pg17 psql when available.
+# This avoids version-mismatch issues when the host psql is older than the dump format.
+import_to_target() {
+  local dumpfile="$1"
+  local target_port="$2"
+
+  # Strip pg17-only features for compat with older psql
+  local filtered
+  filtered="$(sed -e '/^\\restrict /d' -e '/^\\unrestrict /d' -e '/^SET transaction_timeout/d' "$dumpfile")"
+
+  # Prefer Docker's pg17 psql to avoid version mismatch with host psql
+  if docker_running; then
+    echo "$filtered" | docker exec -i -e PGPASSWORD="$PGPASSWORD" portos-db \
+      psql -h host.docker.internal -p "$target_port" -U "$PGUSER" -d "$PGDATABASE" \
+      -v ON_ERROR_STOP=1 --single-transaction
+  else
+    echo "$filtered" | PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -p "$target_port" -U "$PGUSER" -d "$PGDATABASE" \
+      -v ON_ERROR_STOP=1 --single-transaction
+  fi
 }
 
 # Migrate data between Docker and native
@@ -562,35 +637,53 @@ cmd_migrate() {
   local dumpfile
   dumpfile=$(cmd_export "migrate-$(date +%Y%m%d-%H%M%S)")
 
-  # Stop source
-  info "Stopping $current_mode..."
-  cmd_stop
+  # Determine target port
+  local target_port
+  target_port=$([ "$target_mode" = "native" ] && echo "5432" || echo "5561")
 
-  # Switch mode and start target — restore mode on failure or interruption
-  set_mode "$target_mode"
+  # Ensure target is running (keep source running too — they use different ports)
+  if [ "$target_mode" = "native" ]; then
+    # Ensure native pg is up (don't stop Docker — we need its pg17 psql)
+    if ! pg_isready -h "$PGHOST" -p "$target_port" >/dev/null 2>&1; then
+      start_native
+    fi
+  else
+    # Start Docker if not running
+    if ! docker_running; then
+      require_docker_compose
+      cd "$ROOT_DIR"
+      docker compose up -d db
+      info "Waiting for Docker PostgreSQL..."
+      for i in $(seq 1 30); do
+        if docker compose exec -T db pg_isready -U "$PGUSER" >/dev/null 2>&1; then break; fi
+        sleep 1
+      done
+    fi
+  fi
+
+  # Restore mode on failure or interruption
   _migrate_cleanup() {
     warn "Migration aborted — restoring mode to $current_mode"
     set_mode "$current_mode"
   }
   trap '_migrate_cleanup' ERR INT TERM
 
-  if [ "$target_mode" = "native" ]; then
-    if [ ! -d "$(native_data_dir)" ]; then
-      err "Native PostgreSQL not set up. Run: scripts/db.sh setup-native"
-      set_mode "$current_mode"
-      trap - ERR
-      exit 1
-    fi
-    start_native
-  else
-    start_docker
-  fi
-
   # Import into target
-  cmd_import "$dumpfile"
+  info "Importing into $target_mode (port $target_port)..."
+  import_to_target "$dumpfile" "$target_port"
+
+  # Switch mode to target
+  set_mode "$target_mode"
+  PGPORT=$(get_port)
 
   # Clear traps after successful import
   trap - ERR INT TERM
+
+  # Stop the old source if desired (both can coexist, but stop to save resources)
+  if [ "$current_mode" = "docker" ]; then
+    info "Stopping Docker..."
+    stop_docker
+  fi
 
   # Verify
   local new_count
@@ -605,9 +698,8 @@ cmd_migrate() {
 
 # Use Docker mode
 cmd_use_docker() {
-  stop_native 2>/dev/null || true
   set_mode docker
-  info "Switched to Docker mode. Run 'scripts/db.sh start' to start."
+  info "Switched to Docker mode (port 5561). Run 'scripts/db.sh start' to start."
 }
 
 # Use native mode
@@ -616,11 +708,12 @@ cmd_use_native() {
     err "Native PostgreSQL not installed. Run: scripts/db.sh setup-native"
     exit 1
   fi
-  if [ ! -d "$(native_data_dir)" ]; then
-    err "Native database not initialized. Run: scripts/db.sh setup-native"
-    exit 1
+  # Verify system pg is reachable
+  if ! pg_isready -h "$PGHOST" -p 5432 >/dev/null 2>&1; then
+    warn "System PostgreSQL not running on port 5432"
+    echo "  Start it: brew services start postgresql@17"
   fi
-  # Best-effort stop of Docker DB container without requiring Docker to be installed/running
+  # Best-effort stop of Docker DB container
   if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
     (
       cd "$ROOT_DIR"
@@ -628,7 +721,7 @@ cmd_use_native() {
     )
   fi
   set_mode native
-  info "Switched to native mode. Run 'scripts/db.sh start' to start."
+  info "Switched to native mode (port 5432). Run 'scripts/db.sh start' to start."
 }
 
 # Show logs
@@ -641,12 +734,15 @@ cmd_logs() {
     cd "$ROOT_DIR"
     docker compose logs -f db
   else
-    local datadir
-    datadir=$(native_data_dir)
-    if [ -f "$datadir/server.log" ]; then
-      tail -f "$datadir/server.log"
+    # Homebrew pg logs
+    local logfile=""
+    if [ "$(uname)" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
+      logfile="$(brew --prefix)/var/log/postgresql@17.log"
+    fi
+    if [ -n "$logfile" ] && [ -f "$logfile" ]; then
+      tail -f "$logfile"
     else
-      warn "No log file found at $datadir/server.log"
+      warn "No log file found. Check: brew services info postgresql@17"
     fi
   fi
 }
@@ -665,9 +761,9 @@ Commands:
   fix            Fix stale postmaster.pid and other issues
   logs           Tail database logs
 
-  setup-native   Install PostgreSQL 17 + pgvector via Homebrew
-  use-docker     Switch to Docker mode
-  use-native     Switch to native mode
+  setup-native   Detect/install PostgreSQL, create portos database
+  use-docker     Switch to Docker mode (port 5561)
+  use-native     Switch to native/system mode (port 5432)
 
   migrate        Export from current mode, import to the other
   export [label] Export database to data/db-dumps/
@@ -675,7 +771,7 @@ Commands:
 
 Environment:
   PGMODE=docker|native   Set in .env to control default mode
-  PGPORT=5561            PostgreSQL port (default: 5561)
+  PGPORT=5432            PostgreSQL port (native=5432, docker=5561)
   PGPASSWORD=portos      Database password
 HELP
 }

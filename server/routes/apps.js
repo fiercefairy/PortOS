@@ -14,7 +14,8 @@ import { validateRequest, appSchema, appUpdateSchema, sanitizeTaskMetadata } fro
 import * as git from '../services/git.js';
 import { asyncHandler, ServerError } from '../lib/errorHandler.js';
 import { safeJSONParse } from '../lib/fileUtils.js';
-import { parseEcosystemFromPath } from '../services/streamingDetect.js';
+import { parseEcosystemFromPath, usesPm2 } from '../services/streamingDetect.js';
+import { detectAppIcon, getIconContentType } from '../services/appIconDetect.js';
 
 const router = Router();
 
@@ -66,6 +67,11 @@ router.get('/', asyncHandler(async (req, res) => {
 
   // Enrich with PM2 status and auto-populate processes if needed
   const enriched = await Promise.all(apps.map(async (app) => {
+    // Non-PM2 apps skip PM2 enrichment entirely
+    if (!usesPm2(app.type)) {
+      return { ...app, pm2Status: {}, overallStatus: 'n/a' };
+    }
+
     const pm2Home = app.pm2Home || null;
     const pm2Map = pm2Maps.get(pm2Home) || new Map();
 
@@ -127,22 +133,27 @@ router.get('/', asyncHandler(async (req, res) => {
 router.get('/:id', loadApp, asyncHandler(async (req, res) => {
   const app = req.loadedApp;
 
-  // Get PM2 status for each process (using app's custom PM2_HOME if set)
-  const statuses = {};
-  for (const processName of app.pm2ProcessNames || []) {
-    const status = await pm2Service.getAppStatus(processName, app.pm2Home).catch(() => ({ status: 'unknown' }));
-    statuses[processName] = status;
-  }
+  // Non-PM2 apps skip PM2 status
+  let statuses = {};
+  let overallStatus = 'n/a';
 
-  // Compute overall status (same logic as list endpoint)
-  const statusValues = Object.values(statuses);
-  let overallStatus = 'unknown';
-  if (statusValues.some(s => s.status === 'online')) {
-    overallStatus = 'online';
-  } else if (statusValues.some(s => s.status === 'stopped')) {
-    overallStatus = 'stopped';
-  } else if (statusValues.every(s => s.status === 'not_found')) {
-    overallStatus = 'not_started';
+  if (usesPm2(app.type)) {
+    // Get PM2 status for each process (using app's custom PM2_HOME if set)
+    for (const processName of app.pm2ProcessNames || []) {
+      const status = await pm2Service.getAppStatus(processName, app.pm2Home).catch(() => ({ status: 'unknown' }));
+      statuses[processName] = status;
+    }
+
+    // Compute overall status (same logic as list endpoint)
+    const statusValues = Object.values(statuses);
+    overallStatus = 'unknown';
+    if (statusValues.some(s => s.status === 'online')) {
+      overallStatus = 'online';
+    } else if (statusValues.some(s => s.status === 'stopped')) {
+      overallStatus = 'stopped';
+    } else if (statusValues.every(s => s.status === 'not_found')) {
+      overallStatus = 'not_started';
+    }
   }
 
   // Auto-derive uiPort/apiPort/devUiPort from processes when not explicitly set
@@ -172,9 +183,41 @@ router.get('/:id', loadApp, asyncHandler(async (req, res) => {
   res.json({ ...app, uiPort, devUiPort, apiPort, overallStatus, pm2Status: statuses, appVersion });
 }));
 
+// GET /api/apps/:id/icon - Serve the app's detected icon image
+router.get('/:id/icon', loadApp, asyncHandler(async (req, res) => {
+  const app = req.loadedApp;
+
+  // Use stored appIconPath, or detect on-the-fly
+  let iconPath = app.appIconPath;
+  if (!iconPath || !existsSync(iconPath)) {
+    iconPath = await detectAppIcon(app.repoPath, app.type);
+    // Persist the detected path for future requests
+    if (iconPath && iconPath !== app.appIconPath) {
+      await appsService.updateApp(app.id, { appIconPath: iconPath });
+    }
+  }
+
+  if (!iconPath || !existsSync(iconPath)) {
+    return res.status(404).json({ error: 'No app icon found' });
+  }
+
+  const contentType = getIconContentType(iconPath);
+  const iconData = await readFile(iconPath);
+  res.set('Content-Type', contentType);
+  res.set('Cache-Control', 'public, max-age=3600');
+  res.send(iconData);
+}));
+
 // POST /api/apps - Create new app
 router.post('/', asyncHandler(async (req, res, next) => {
   const data = validateRequest(appSchema, req.body);
+
+  // Detect app icon before creation to avoid a double write
+  if (data.repoPath) {
+    const detectedIcon = await detectAppIcon(data.repoPath, data.type);
+    if (detectedIcon) data.appIconPath = detectedIcon;
+  }
+
   const app = await appsService.createApp(data);
   res.status(201).json(app);
 }));
@@ -248,6 +291,29 @@ router.put('/bulk-task-type/:taskType', asyncHandler(async (req, res) => {
   res.json({ success: true, taskType: req.params.taskType, enabled, appsUpdated: result.count });
 }));
 
+// POST /api/apps/detect-icons - Detect and persist app icons for all apps
+router.post('/detect-icons', asyncHandler(async (req, res) => {
+  const apps = await appsService.getAllApps();
+  let detected = 0;
+
+  for (const app of apps) {
+    if (!app.repoPath || !existsSync(app.repoPath)) continue;
+    // Skip apps that already have a valid icon path
+    if (app.appIconPath && existsSync(app.appIconPath)) continue;
+
+    const iconPath = await detectAppIcon(app.repoPath, app.type);
+    if (iconPath) {
+      await appsService.updateApp(app.id, { appIconPath: iconPath });
+      detected++;
+      console.log(`🎨 Detected icon for ${app.name}: ${iconPath.split('/').pop()}`);
+    }
+  }
+
+  if (detected > 0) notifyAppsChanged('detect-icons');
+  console.log(`🎨 Icon detection complete: ${detected}/${apps.length} apps`);
+  res.json({ success: true, detected, total: apps.length });
+}));
+
 // GET /api/apps/:id/task-types - Get per-app task type overrides
 router.get('/:id/task-types', loadApp, asyncHandler(async (req, res) => {
   const app = req.loadedApp;
@@ -303,6 +369,10 @@ router.put('/:id/task-types/:taskType', asyncHandler(async (req, res) => {
 router.post('/:id/start', loadApp, asyncHandler(async (req, res) => {
   const app = req.loadedApp;
 
+  if (!usesPm2(app.type)) {
+    throw new ServerError(`${app.type} apps cannot be started via PM2`, { status: 400, code: 'NOT_PM2_APP' });
+  }
+
   const processNames = app.pm2ProcessNames || [app.name.toLowerCase().replace(/\s+/g, '-')];
 
   // Check if ecosystem config exists - prefer using it for proper env var handling
@@ -342,6 +412,11 @@ router.post('/:id/start', loadApp, asyncHandler(async (req, res) => {
 // POST /api/apps/:id/stop - Stop app
 router.post('/:id/stop', loadApp, asyncHandler(async (req, res) => {
   const app = req.loadedApp;
+
+  if (!usesPm2(app.type)) {
+    throw new ServerError(`${app.type} apps cannot be stopped via PM2`, { status: 400, code: 'NOT_PM2_APP' });
+  }
+
   const results = {};
 
   for (const name of app.pm2ProcessNames || []) {
@@ -360,6 +435,10 @@ router.post('/:id/stop', loadApp, asyncHandler(async (req, res) => {
 // POST /api/apps/:id/restart - Restart app
 router.post('/:id/restart', loadApp, asyncHandler(async (req, res) => {
   const app = req.loadedApp;
+
+  if (!usesPm2(app.type)) {
+    throw new ServerError(`${app.type} apps cannot be restarted via PM2`, { status: 400, code: 'NOT_PM2_APP' });
+  }
 
   // Self-restart: respond first, then restart after a delay so the response reaches the client
   if (app.id === PORTOS_APP_ID) {
@@ -425,41 +504,48 @@ router.post('/:id/build', loadApp, asyncHandler(async (req, res) => {
   const buildCommand = app.buildCommand || 'npm run build';
   const [cmd, ...args] = buildCommand.split(/\s+/);
 
-  // Only allow npm/npx as build commands
-  if (!['npm', 'npx'].includes(cmd)) {
-    throw new ServerError('Build command must start with npm or npx', { status: 400, code: 'INVALID_BUILD_COMMAND' });
+  if (!ALLOWED_BUILD_CMDS.has(cmd)) {
+    throw new ServerError(`Build command '${cmd}' is not allowed. Allowed: ${[...ALLOWED_BUILD_CMDS].join(', ')}`, { status: 400, code: 'INVALID_BUILD_COMMAND' });
   }
 
   console.log(`🔨 Building ${app.name}: ${buildCommand}`);
 
-  // Install dependencies before building (root + common subdirs)
-  for (const sub of ['', 'client', 'server', 'admin']) {
+  // Install dependencies before building (root + common subdirs) - skip for non-Node apps
+  // For self-builds, skip server/ install to avoid triggering PM2 watch restart
+  const isNodeApp = ['npm', 'npx'].includes(cmd);
+  const isSelfBuild = app.id === 'portos-default';
+  const installDirs = isNodeApp ? ['', 'client', ...(isSelfBuild ? [] : ['server']), 'admin'] : [];
+  for (const sub of installDirs) {
     const subDir = sub ? join(app.repoPath, sub) : app.repoPath;
     if (existsSync(join(subDir, 'package.json'))) {
       const label = sub || 'root';
       console.log(`📦 Installing ${label} dependencies for ${app.name}`);
       const INSTALL_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
       const installResult = await new Promise((resolve) => {
-        const child = spawn('npm', ['install'], { cwd: subDir, shell: false, windowsHide: true });
+        const child = spawn('npm', ['install'], { cwd: subDir, shell: true, windowsHide: true });
+        let stdout = '';
         let stderr = '';
         let settled = false;
+        const MAX = 16 * 1024;
         const timer = setTimeout(() => {
-          if (!settled) { settled = true; child.kill('SIGTERM'); resolve({ success: false, stderr: `npm install timed out after ${INSTALL_TIMEOUT_MS / 1000}s` }); }
+          if (!settled) { settled = true; child.kill('SIGTERM'); resolve({ success: false, exitCode: -1, output: `npm install timed out after ${INSTALL_TIMEOUT_MS / 1000}s` }); }
         }, INSTALL_TIMEOUT_MS);
-        child.stderr.on('data', d => { stderr += d; });
-        child.on('close', code => { if (!settled) { settled = true; clearTimeout(timer); resolve({ success: code === 0, stderr: stderr.trim() }); } });
-        child.on('error', err => { if (!settled) { settled = true; clearTimeout(timer); resolve({ success: false, stderr: err.message }); } });
+        child.stdout.on('data', d => { if (stdout.length < MAX) stdout += d; });
+        child.stderr.on('data', d => { if (stderr.length < MAX) stderr += d; });
+        child.on('close', exitCode => { if (!settled) { settled = true; clearTimeout(timer); resolve({ success: exitCode === 0, exitCode, output: (stderr.trim() || stdout.trim()).slice(0, 1024) }); } });
+        child.on('error', err => { if (!settled) { settled = true; clearTimeout(timer); resolve({ success: false, exitCode: -1, output: err.message }); } });
       });
       if (!installResult.success) {
+        console.log(`❌ npm install (${label}) exit=${installResult.exitCode}: ${installResult.output.slice(0, 300)}`);
         await logAction('build', app.id, app.name, { buildCommand, step: `npm install (${label})` }, false);
-        throw new ServerError(`npm install failed (${label}): ${installResult.stderr}`, { status: 500, code: 'INSTALL_FAILED' });
+        throw new ServerError(`npm install failed (${label}) exit=${installResult.exitCode}: ${installResult.output}`, { status: 500, code: 'INSTALL_FAILED' });
       }
     }
   }
 
   const BUILD_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
   const result = await new Promise((resolve) => {
-    const child = spawn(cmd, args, { cwd: app.repoPath, shell: false, windowsHide: true });
+    const child = spawn(cmd, args, { cwd: app.repoPath, shell: true, windowsHide: true });
     let stdout = '';
     let stderr = '';
     let settled = false;
@@ -479,18 +565,19 @@ router.post('/:id/build', loadApp, asyncHandler(async (req, res) => {
       stderr += d;
       if (stderr.length > MAX) stderr = stderr.slice(-MAX);
     });
-    child.on('close', code => {
+    child.on('close', (code, signal) => {
       if (!settled) {
         settled = true;
         clearTimeout(timer);
-        resolve({ success: code === 0, stdout: stdout.trim(), stderr: stderr.trim(), code });
+        const output = (stderr.trim() || stdout.trim()).slice(0, 1024);
+        resolve({ success: code === 0, stdout: stdout.trim(), stderr: stderr.trim(), code, signal, output });
       }
     });
     child.on('error', err => {
       if (!settled) {
         settled = true;
         clearTimeout(timer);
-        resolve({ success: false, stderr: err.message, code: -1 });
+        resolve({ success: false, stderr: err.message, code: -1, signal: null, output: err.message });
       }
     });
   });
@@ -499,7 +586,8 @@ router.post('/:id/build', loadApp, asyncHandler(async (req, res) => {
   console.log(`${result.success ? '✅' : '❌'} Build ${result.success ? 'complete' : 'failed'} for ${app.name}`);
 
   if (!result.success) {
-    throw new ServerError(`Build failed: ${result.stderr || `exit code ${result.code}`}`, { status: 500, code: 'BUILD_FAILED' });
+    const detail = result.signal ? `killed by ${result.signal}` : result.output || `exit code ${result.code}`;
+    throw new ServerError(`Build failed: ${detail}`, { status: 500, code: 'BUILD_FAILED' });
   }
 
   res.json({ success: true, output: result.stdout });
@@ -508,6 +596,11 @@ router.post('/:id/build', loadApp, asyncHandler(async (req, res) => {
 // GET /api/apps/:id/status - Get PM2 status
 router.get('/:id/status', loadApp, asyncHandler(async (req, res) => {
   const app = req.loadedApp;
+
+  if (!usesPm2(app.type)) {
+    return res.json({});
+  }
+
   const statuses = {};
 
   for (const name of app.pm2ProcessNames || []) {
@@ -534,6 +627,16 @@ router.get('/:id/logs', loadApp, asyncHandler(async (req, res) => {
 
   res.json({ processName, lines, logs });
 }));
+
+// Allowlist of safe build commands
+const ALLOWED_BUILD_CMDS = new Set([
+  'npm',        // Node.js
+  'npx',        // Node.js
+  'xcodebuild', // Xcode
+  'swift',      // Swift Package Manager
+  'make',       // Make
+  'cargo'       // Rust
+]);
 
 // Allowlist of safe editor commands
 // Security: Only allow known-safe editor commands to prevent arbitrary code execution
@@ -661,6 +764,10 @@ router.post('/:id/open-folder', loadApp, asyncHandler(async (req, res) => {
 router.post('/:id/refresh-config', loadApp, asyncHandler(async (req, res) => {
   const app = req.loadedApp;
 
+  if (!usesPm2(app.type)) {
+    return res.json({ success: true, updated: false, app, processes: [] });
+  }
+
   if (!existsSync(app.repoPath)) {
     throw new ServerError('App path does not exist', { status: 400, code: 'PATH_NOT_FOUND' });
   }
@@ -701,6 +808,12 @@ router.post('/:id/refresh-config', loadApp, asyncHandler(async (req, res) => {
     if (devUiProc) updates.devUiPort = devUiProc.ports.devUi;
 
     updates.uiPort = deriveUiPort(updates.uiPort, updates.apiPort, updates.devUiPort || app.devUiPort);
+  }
+
+  // Detect app icon if not already set
+  if (!app.appIconPath || !existsSync(app.appIconPath)) {
+    const detectedIcon = await detectAppIcon(app.repoPath, app.type);
+    if (detectedIcon) updates.appIconPath = detectedIcon;
   }
 
   // Only update if we have changes

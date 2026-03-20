@@ -125,7 +125,7 @@ export async function syncAccount(accountId, io, options = {}) {
     let providerResult;
     if (account.type === 'gmail') {
       const { syncGmail } = await import('./messageGmailSync.js');
-      providerResult = await syncGmail(account, cache, io);
+      providerResult = await syncGmail(account, cache, io, { mode });
     } else if (account.type === 'outlook') {
       // Try API sync first (fast), fall back to Playwright (slow)
       const { syncOutlookApi } = await import('./messageApiSync.js');
@@ -169,6 +169,7 @@ export async function syncAccount(accountId, io, options = {}) {
         if (msg.bodyFull && msg.bodyText) {
           existing.bodyText = msg.bodyText;
           existing.bodyFull = true;
+          if (msg.bodyHtml) existing.bodyHtml = msg.bodyHtml;
         }
         // Set threadId if newly available
         if (msg.threadId && !existing.threadId) existing.threadId = msg.threadId;

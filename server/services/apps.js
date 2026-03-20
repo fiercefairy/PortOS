@@ -196,6 +196,7 @@ export async function createApp(appData) {
     pm2ProcessNames: appData.pm2ProcessNames || [appData.name.toLowerCase().replace(/\s+/g, '-')],
     envFile: appData.envFile || '.env',
     icon: appData.icon || null,
+    appIconPath: appData.appIconPath || null,
     editorCommand: appData.editorCommand || 'code .',
     archived: false,
     jira: appData.jira || null,

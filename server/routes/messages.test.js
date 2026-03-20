@@ -320,7 +320,7 @@ describe('Messages Routes', () => {
   describe('POST /api/messages/drafts', () => {
     it('should create a draft', async () => {
       const draftData = { accountId: VALID_UUID, subject: 'Test', body: 'Hello' };
-      const account = { id: VALID_UUID, type: 'gmail', provider: 'mcp' };
+      const account = { id: VALID_UUID, type: 'gmail', provider: 'api' };
       const created = { id: DRAFT_UUID, ...draftData, status: 'draft' };
 
       messageAccounts.getAccount.mockResolvedValue(account);
@@ -333,7 +333,7 @@ describe('Messages Routes', () => {
       expect(response.status).toBe(201);
       expect(response.body.id).toBe(DRAFT_UUID);
       expect(messageDrafts.createDraft).toHaveBeenCalledWith(
-        expect.objectContaining({ accountId: VALID_UUID, sendVia: 'mcp' })
+        expect.objectContaining({ accountId: VALID_UUID, sendVia: 'api' })
       );
     });
 
@@ -569,7 +569,7 @@ describe('Messages Routes', () => {
       const response = await request(app).post(`/api/messages/launch/${VALID_UUID}`);
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toBe('Gmail uses MCP, not browser automation');
+      expect(response.body.error).toBe('Gmail uses the Google API, not browser automation');
     });
 
     it('should return 503 if launch fails', async () => {

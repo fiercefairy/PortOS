@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import {
   Target, X, Check, Trash2, Milestone, Calendar, CalendarDays, Clock,
   Heart, DollarSign, Lightbulb, Users, Flame, AlertTriangle, Tag,
-  Link2, Unlink, Activity, Plus, NotebookPen
+  Link2, Unlink, Activity, Plus, NotebookPen, ListTodo, TrendingUp,
+  TrendingDown, Minus, CircleDot, Wand2, ArrowUp, ArrowDown, CalendarPlus,
+  CalendarX, RefreshCw, ChevronDown, ChevronRight, ClipboardCheck
 } from 'lucide-react';
 import * as api from '../../services/api';
 
@@ -29,6 +31,65 @@ const MAX_TAG_LENGTH = 50;
 
 export { CATEGORY_CONFIG, HORIZON_OPTIONS };
 
+function ProgressSlider({ goal, onCommit }) {
+  const [draft, setDraft] = useState(goal.progress ?? 0);
+  const [dragging, setDragging] = useState(false);
+
+  // Sync draft when goal changes externally (not during drag)
+  useEffect(() => {
+    if (!dragging) setDraft(goal.progress ?? 0);
+  }, [goal.progress, dragging]);
+
+  const commit = () => {
+    setDragging(false);
+    if (draft !== (goal.progress ?? 0)) onCommit(draft);
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs font-medium text-gray-400">Progress</span>
+        <span className="text-xs text-gray-300 font-mono">{draft}%</span>
+      </div>
+      <input
+        type="range"
+        min="0"
+        max="100"
+        value={draft}
+        onChange={e => { setDragging(true); setDraft(parseInt(e.target.value, 10)); }}
+        onMouseUp={commit}
+        onTouchEnd={commit}
+        className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-port-border accent-port-accent"
+      />
+      {goal.velocity && (
+        <div className="flex items-center gap-2 mt-1.5 text-xs text-gray-500">
+          <div className="flex items-center gap-1">
+            {goal.velocity.trend === 'increasing' && <TrendingUp className="w-3 h-3 text-green-400" />}
+            {goal.velocity.trend === 'decreasing' && <TrendingDown className="w-3 h-3 text-red-400" />}
+            {goal.velocity.trend === 'stable' && <Minus className="w-3 h-3 text-gray-400" />}
+            <span>{goal.velocity.percentPerMonth}%/mo</span>
+          </div>
+          {goal.velocity.projectedCompletion && (
+            <span className="text-gray-600">
+              ETA {new Date(goal.velocity.projectedCompletion + 'T00:00:00').toLocaleDateString()}
+            </span>
+          )}
+        </div>
+      )}
+      {goal.timeTracking?.totalMinutes > 0 && (
+        <div className="flex items-center gap-1 mt-1 text-xs text-gray-600">
+          <Clock className="w-3 h-3" />
+          {goal.timeTracking.totalMinutes >= 60
+            ? `${Math.floor(goal.timeTracking.totalMinutes / 60)}h${goal.timeTracking.totalMinutes % 60 ? ` ${goal.timeTracking.totalMinutes % 60}m` : ''}`
+            : `${goal.timeTracking.totalMinutes}m`}
+          {' total'}
+          {goal.timeTracking.weeklyAverage > 0 && ` · ${goal.timeTracking.weeklyAverage}m/wk`}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function GoalDetailPanel({ goal, allGoals, onClose, onRefresh }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
@@ -42,6 +103,15 @@ export default function GoalDetailPanel({ goal, allGoals, onClose, onRefresh }) 
   const [subcalendars, setSubcalendars] = useState([]);
   const [selectedCalendar, setSelectedCalendar] = useState('');
   const [calendarMatchPattern, setCalendarMatchPattern] = useState('');
+  const [newTodoTitle, setNewTodoTitle] = useState('');
+  const [newTodoPriority, setNewTodoPriority] = useState('medium');
+  const [newTodoEstimate, setNewTodoEstimate] = useState('');
+  // Plan & scheduling state
+  const [planOpen, setPlanOpen] = useState(false);
+  const [generatingPhases, setGeneratingPhases] = useState(false);
+  const [proposedPhases, setProposedPhases] = useState(null);
+  const [schedulingBusy, setSchedulingBusy] = useState(false);
+  const [checkInsOpen, setCheckInsOpen] = useState(false);
 
   useEffect(() => {
     api.getActivities().then(setActivities).catch(() => {});
@@ -75,7 +145,9 @@ export default function GoalDetailPanel({ goal, allGoals, onClose, onRefresh }) 
       horizon: goal.horizon,
       category: goal.category,
       parentId: goal.parentId || '',
-      tags: [...(goal.tags || [])]
+      tags: [...(goal.tags || [])],
+      targetDate: goal.targetDate || '',
+      timeBlockConfig: goal.timeBlockConfig || null
     });
     setEditing(true);
   };
@@ -83,9 +155,46 @@ export default function GoalDetailPanel({ goal, allGoals, onClose, onRefresh }) 
   const saveEdit = async () => {
     await api.updateGoal(goal.id, {
       ...form,
-      parentId: form.parentId || null
+      parentId: form.parentId || null,
+      targetDate: form.targetDate || null,
+      timeBlockConfig: form.timeBlockConfig || null
     });
     setEditing(false);
+    onRefresh();
+  };
+
+  const handleGeneratePhases = async () => {
+    setGeneratingPhases(true);
+    const phases = await api.generateGoalPhases(goal.id).catch(() => null);
+    setGeneratingPhases(false);
+    if (phases) setProposedPhases(phases);
+  };
+
+  const handleAcceptPhases = async () => {
+    if (!proposedPhases?.length) return;
+    await api.acceptGoalPhases(goal.id, proposedPhases);
+    setProposedPhases(null);
+    onRefresh();
+  };
+
+  const handleSchedule = async () => {
+    setSchedulingBusy(true);
+    await api.scheduleGoalTimeBlocks(goal.id);
+    setSchedulingBusy(false);
+    onRefresh();
+  };
+
+  const handleRemoveSchedule = async () => {
+    setSchedulingBusy(true);
+    await api.removeGoalSchedule(goal.id);
+    setSchedulingBusy(false);
+    onRefresh();
+  };
+
+  const handleReschedule = async () => {
+    setSchedulingBusy(true);
+    await api.rescheduleGoalTimeBlocks(goal.id);
+    setSchedulingBusy(false);
     onRefresh();
   };
 
@@ -165,6 +274,35 @@ export default function GoalDetailPanel({ goal, allGoals, onClose, onRefresh }) 
 
   const handleUnlinkCalendar = async (subcalendarId) => {
     await api.unlinkGoalCalendar(goal.id, subcalendarId);
+    onRefresh();
+  };
+
+  const handleProgressChange = async (value) => {
+    await api.updateGoalProgress(goal.id, value);
+    onRefresh();
+  };
+
+  const handleAddTodo = async () => {
+    if (!newTodoTitle.trim()) return;
+    await api.addGoalTodo(goal.id, {
+      title: newTodoTitle,
+      priority: newTodoPriority,
+      ...(newTodoEstimate ? { estimateMinutes: parseInt(newTodoEstimate, 10) } : {})
+    });
+    setNewTodoTitle('');
+    setNewTodoPriority('medium');
+    setNewTodoEstimate('');
+    onRefresh();
+  };
+
+  const handleToggleTodo = async (todo) => {
+    const nextStatus = todo.status === 'done' ? 'pending' : 'done';
+    await api.updateGoalTodo(goal.id, todo.id, { status: nextStatus });
+    onRefresh();
+  };
+
+  const handleDeleteTodo = async (todoId) => {
+    await api.deleteGoalTodo(goal.id, todoId);
     onRefresh();
   };
 
@@ -270,6 +408,77 @@ export default function GoalDetailPanel({ goal, allGoals, onClose, onRefresh }) 
             </select>
           </div>
           <div>
+            <label className="text-xs text-gray-500">Target Date</label>
+            <input
+              type="date"
+              value={form.targetDate || ''}
+              onChange={e => setForm({ ...form, targetDate: e.target.value })}
+              className="w-full bg-port-bg border border-port-border rounded px-3 py-1.5 text-sm text-white mt-1"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">Time Block Config</label>
+            <div className="mt-1 space-y-2">
+              <div>
+                <span className="text-[10px] text-gray-600">Preferred days</span>
+                <div className="flex flex-wrap gap-1 mt-0.5">
+                  {['mon','tue','wed','thu','fri','sat','sun'].map(d => {
+                    const days = form.timeBlockConfig?.preferredDays || [];
+                    const active = days.includes(d);
+                    return (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => {
+                          const next = active ? days.filter(x => x !== d) : [...days, d];
+                          setForm({ ...form, timeBlockConfig: { ...(form.timeBlockConfig || { timeSlot: 'morning', sessionDurationMinutes: 60 }), preferredDays: next } });
+                        }}
+                        className={`px-1.5 py-0.5 text-[10px] rounded ${active ? 'bg-port-accent text-white' : 'bg-port-bg border border-port-border text-gray-400'}`}
+                      >
+                        {d}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <span className="text-[10px] text-gray-600">Time slot</span>
+                  <select
+                    value={form.timeBlockConfig?.timeSlot || 'morning'}
+                    onChange={e => setForm({ ...form, timeBlockConfig: { ...(form.timeBlockConfig || { preferredDays: ['mon','wed','fri'], sessionDurationMinutes: 60 }), timeSlot: e.target.value } })}
+                    className="w-full bg-port-bg border border-port-border rounded px-2 py-1 text-xs text-white mt-0.5"
+                  >
+                    <option value="morning">Morning</option>
+                    <option value="afternoon">Afternoon</option>
+                    <option value="evening">Evening</option>
+                  </select>
+                </div>
+                <div className="w-20">
+                  <span className="text-[10px] text-gray-600">Duration</span>
+                  <input
+                    type="number"
+                    min="15"
+                    max="480"
+                    value={form.timeBlockConfig?.sessionDurationMinutes || 60}
+                    onChange={e => setForm({ ...form, timeBlockConfig: { ...(form.timeBlockConfig || { preferredDays: ['mon','wed','fri'], timeSlot: 'morning' }), sessionDurationMinutes: parseInt(e.target.value, 10) || 60 } })}
+                    className="w-full bg-port-bg border border-port-border rounded px-2 py-1 text-xs text-white mt-0.5"
+                  />
+                  <span className="text-[10px] text-gray-600">min</span>
+                </div>
+              </div>
+              {form.timeBlockConfig?.preferredDays?.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, timeBlockConfig: null })}
+                  className="text-[10px] text-red-400 hover:text-red-300"
+                >
+                  Clear config
+                </button>
+              )}
+            </div>
+          </div>
+          <div>
             <label className="text-xs text-gray-500">Tags</label>
             <div className="flex flex-wrap gap-1 mt-1 mb-2">
               {form.tags.map(tag => (
@@ -329,6 +538,100 @@ export default function GoalDetailPanel({ goal, allGoals, onClose, onRefresh }) 
             <span className="px-2 py-0.5 rounded bg-gray-700 text-gray-400">
               {goal.status}
             </span>
+          </div>
+
+          {/* Progress Bar */}
+          <ProgressSlider goal={goal} onCommit={handleProgressChange} />
+
+          {/* Todos */}
+          <div>
+            <div className="flex items-center gap-1 mb-2">
+              <ListTodo className="w-3.5 h-3.5 text-gray-500" />
+              <span className="text-xs font-medium text-gray-400">
+                Todos ({goal.todos?.filter(t => t.status === 'done').length || 0}/{goal.todos?.length || 0})
+              </span>
+            </div>
+            {goal.todos?.length > 0 && (
+              <div className="space-y-1 mb-2">
+                {goal.todos.map(todo => (
+                  <div key={todo.id} className="flex items-center gap-2 text-xs group">
+                    <button
+                      onClick={() => handleToggleTodo(todo)}
+                      className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                        todo.status === 'done'
+                          ? 'bg-green-500/20 border-green-500 text-green-400'
+                          : todo.status === 'in-progress'
+                            ? 'bg-port-accent/20 border-port-accent text-port-accent'
+                            : 'border-gray-600 hover:border-port-accent'
+                      }`}
+                    >
+                      {todo.status === 'done' && <Check className="w-3 h-3" />}
+                      {todo.status === 'in-progress' && <CircleDot className="w-2.5 h-2.5" />}
+                    </button>
+                    <span className={`flex-1 ${todo.status === 'done' ? 'text-gray-500 line-through' : 'text-gray-300'}`}>
+                      {todo.title}
+                    </span>
+                    <span className={`shrink-0 px-1 py-0.5 rounded text-[10px] ${
+                      todo.priority === 'high' ? 'bg-red-500/20 text-red-400' :
+                      todo.priority === 'low' ? 'bg-gray-700 text-gray-500' :
+                      'bg-yellow-500/20 text-yellow-400'
+                    }`}>
+                      {todo.priority}
+                    </span>
+                    {todo.estimateMinutes && (
+                      <span className="shrink-0 text-gray-600">{todo.estimateMinutes}m</span>
+                    )}
+                    <button
+                      onClick={() => handleDeleteTodo(todo.id)}
+                      className="p-0.5 text-gray-700 hover:text-red-400 opacity-0 group-hover:opacity-100 shrink-0"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="space-y-1">
+              <div className="flex gap-1">
+                <input
+                  type="text"
+                  value={newTodoTitle}
+                  onChange={e => setNewTodoTitle(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleAddTodo()}
+                  placeholder="Add todo..."
+                  className="flex-1 bg-port-bg border border-port-border rounded px-2 py-1 text-xs text-white"
+                />
+                <button
+                  onClick={handleAddTodo}
+                  disabled={!newTodoTitle.trim()}
+                  className="px-2 py-1 text-xs rounded bg-port-accent/20 text-port-accent disabled:opacity-50"
+                >
+                  Add
+                </button>
+              </div>
+              {newTodoTitle.trim() && (
+                <div className="flex gap-1">
+                  <select
+                    value={newTodoPriority}
+                    onChange={e => setNewTodoPriority(e.target.value)}
+                    className="bg-port-bg border border-port-border rounded px-1.5 py-0.5 text-xs text-white"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                  <input
+                    type="number"
+                    value={newTodoEstimate}
+                    onChange={e => setNewTodoEstimate(e.target.value)}
+                    placeholder="Est. min"
+                    min="1"
+                    className="w-20 bg-port-bg border border-port-border rounded px-1.5 py-0.5 text-xs text-white"
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Feasibility */}
@@ -433,6 +736,231 @@ export default function GoalDetailPanel({ goal, allGoals, onClose, onRefresh }) 
               </button>
             </div>
           </div>
+
+          {/* Target Date */}
+          {goal.targetDate && (
+            <div className="flex items-center gap-1.5 text-xs text-gray-400">
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Target: {new Date(goal.targetDate + 'T00:00:00').toLocaleDateString()}</span>
+            </div>
+          )}
+
+          {/* Plan Section */}
+          <div>
+            <button
+              onClick={() => setPlanOpen(!planOpen)}
+              className="flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-white w-full"
+            >
+              {planOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+              <Wand2 className="w-3.5 h-3.5" />
+              <span>Plan</span>
+            </button>
+            {planOpen && (
+              <div className="mt-2 space-y-2">
+                <button
+                  onClick={handleGeneratePhases}
+                  disabled={!goal.targetDate || generatingPhases}
+                  className="w-full px-3 py-1.5 text-xs rounded bg-port-accent/20 text-port-accent disabled:opacity-50 flex items-center justify-center gap-1"
+                >
+                  <Wand2 className="w-3 h-3" />
+                  {generatingPhases ? 'Generating...' : 'Generate Plan'}
+                </button>
+                {!goal.targetDate && (
+                  <p className="text-[10px] text-gray-600">Set a target date first to generate phases</p>
+                )}
+                {proposedPhases && (
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] text-gray-500">{proposedPhases.length} phases proposed</p>
+                    {proposedPhases.map((phase, idx) => (
+                      <div key={idx} className="p-2 rounded bg-port-bg border border-port-border space-y-1">
+                        <div className="flex items-center gap-2">
+                          <div className="flex flex-col gap-0.5">
+                            <button
+                              onClick={() => {
+                                if (idx === 0) return;
+                                const next = [...proposedPhases];
+                                [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+                                next.forEach((p, i) => { p.order = i; });
+                                setProposedPhases(next);
+                              }}
+                              disabled={idx === 0}
+                              className="text-gray-600 hover:text-white disabled:opacity-30"
+                            >
+                              <ArrowUp className="w-2.5 h-2.5" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (idx === proposedPhases.length - 1) return;
+                                const next = [...proposedPhases];
+                                [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+                                next.forEach((p, i) => { p.order = i; });
+                                setProposedPhases(next);
+                              }}
+                              disabled={idx === proposedPhases.length - 1}
+                              className="text-gray-600 hover:text-white disabled:opacity-30"
+                            >
+                              <ArrowDown className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <input
+                              type="text"
+                              value={phase.title}
+                              onChange={e => {
+                                const next = [...proposedPhases];
+                                next[idx] = { ...next[idx], title: e.target.value };
+                                setProposedPhases(next);
+                              }}
+                              className="w-full bg-port-card border border-port-border rounded px-2 py-0.5 text-xs text-white"
+                            />
+                            <input
+                              type="text"
+                              value={phase.description || ''}
+                              onChange={e => {
+                                const next = [...proposedPhases];
+                                next[idx] = { ...next[idx], description: e.target.value };
+                                setProposedPhases(next);
+                              }}
+                              placeholder="Description..."
+                              className="w-full bg-port-card border border-port-border rounded px-2 py-0.5 text-xs text-gray-400 mt-0.5"
+                            />
+                          </div>
+                          <div className="flex flex-col items-end gap-0.5">
+                            <input
+                              type="date"
+                              value={phase.targetDate}
+                              onChange={e => {
+                                const next = [...proposedPhases];
+                                next[idx] = { ...next[idx], targetDate: e.target.value };
+                                setProposedPhases(next);
+                              }}
+                              className="bg-port-card border border-port-border rounded px-1 py-0.5 text-[10px] text-white"
+                            />
+                            <button
+                              onClick={() => setProposedPhases(proposedPhases.filter((_, i) => i !== idx).map((p, i) => ({ ...p, order: i })))}
+                              className="text-gray-600 hover:text-red-400"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => setProposedPhases([...proposedPhases, { title: '', description: '', targetDate: goal.targetDate, order: proposedPhases.length }])}
+                      className="text-xs text-port-accent hover:text-blue-300 flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" /> Add phase
+                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleAcceptPhases}
+                        className="px-3 py-1.5 text-xs rounded bg-port-accent text-white hover:bg-blue-600"
+                      >
+                        Accept Plan
+                      </button>
+                      <button
+                        onClick={() => setProposedPhases(null)}
+                        className="px-3 py-1.5 text-xs rounded bg-port-border text-gray-300"
+                      >
+                        Discard
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Schedule Controls */}
+                {goal.milestones?.length > 0 && goal.timeBlockConfig && (
+                  <div className="pt-2 border-t border-port-border space-y-2">
+                    <div className="text-[10px] text-gray-500">
+                      <CalendarPlus className="w-3 h-3 inline mr-1" />
+                      {goal.scheduledEvents?.length
+                        ? `${goal.scheduledEvents.length} events scheduled`
+                        : 'No events scheduled'}
+                    </div>
+                    {!goal.scheduledEvents?.length ? (
+                      <button
+                        onClick={handleSchedule}
+                        disabled={schedulingBusy}
+                        className="w-full px-3 py-1.5 text-xs rounded bg-green-500/20 text-green-400 disabled:opacity-50 flex items-center justify-center gap-1"
+                      >
+                        <CalendarPlus className="w-3 h-3" />
+                        {schedulingBusy ? 'Scheduling...' : 'Schedule Time Blocks'}
+                      </button>
+                    ) : (
+                      <div className="flex gap-1">
+                        <button
+                          onClick={handleReschedule}
+                          disabled={schedulingBusy}
+                          className="flex-1 px-2 py-1 text-xs rounded bg-port-accent/20 text-port-accent disabled:opacity-50 flex items-center justify-center gap-1"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          Reschedule
+                        </button>
+                        <button
+                          onClick={handleRemoveSchedule}
+                          disabled={schedulingBusy}
+                          className="px-2 py-1 text-xs rounded bg-red-500/20 text-red-400 disabled:opacity-50 flex items-center justify-center gap-1"
+                        >
+                          <CalendarX className="w-3 h-3" />
+                          Remove
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Check-ins */}
+          {goal.checkIns?.length > 0 && (
+            <div>
+              <button
+                onClick={() => setCheckInsOpen(!checkInsOpen)}
+                className="flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-white w-full"
+              >
+                {checkInsOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                <ClipboardCheck className="w-3.5 h-3.5" />
+                <span>Check-ins ({goal.checkIns.length})</span>
+                {goal.checkIns.length > 0 && (() => {
+                  const latest = goal.checkIns[goal.checkIns.length - 1];
+                  const statusColors = { 'on-track': 'bg-green-500', 'behind': 'bg-yellow-500', 'at-risk': 'bg-red-500' };
+                  return <span className={`ml-auto w-2 h-2 rounded-full ${statusColors[latest.status] || 'bg-gray-500'}`} />;
+                })()}
+              </button>
+              {checkInsOpen && (
+                <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
+                  {[...goal.checkIns].reverse().map(ci => {
+                    const statusConfig = {
+                      'on-track': { color: 'text-green-400', bg: 'bg-green-500/20', label: 'On Track' },
+                      'behind': { color: 'text-yellow-400', bg: 'bg-yellow-500/20', label: 'Behind' },
+                      'at-risk': { color: 'text-red-400', bg: 'bg-red-500/20', label: 'At Risk' }
+                    };
+                    const sc = statusConfig[ci.status] || statusConfig['behind'];
+                    return (
+                      <div key={ci.id} className="p-2 rounded bg-port-bg border border-port-border space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-gray-500">{new Date(ci.date + 'T00:00:00').toLocaleDateString()}</span>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] ${sc.bg} ${sc.color}`}>{sc.label}</span>
+                        </div>
+                        <div className="text-[10px] text-gray-500">
+                          Progress: {ci.actualProgress}% / {ci.expectedProgress}% expected
+                          {ci.attendanceRate != null && ` · ${ci.attendanceRate}% activity`}
+                        </div>
+                        {ci.assessment && <p className="text-xs text-gray-300">{ci.assessment}</p>}
+                        {ci.recommendations?.length > 0 && (
+                          <ul className="text-[10px] text-gray-400 list-disc pl-3 space-y-0.5">
+                            {ci.recommendations.map((r, i) => <li key={i}>{r}</li>)}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Progress Log */}
           <div>

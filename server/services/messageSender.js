@@ -2,7 +2,7 @@ import { getDraft, updateDraft } from './messageDrafts.js';
 import { getAccount } from './messageAccounts.js';
 
 const ACCOUNT_TYPE_TO_SEND_VIA = {
-  gmail: 'mcp',
+  gmail: 'api',
   outlook: 'playwright',
   teams: 'playwright'
 };
@@ -24,7 +24,7 @@ export async function sendDraft(draftId, io) {
   console.log(`📧 Sending draft "${draft.subject}" via ${draft.sendVia}`);
 
   const dispatch = async () => {
-    if (draft.sendVia === 'mcp') {
+    if (draft.sendVia === 'api') {
       const { sendGmail } = await import('./messageGmailSync.js');
       return sendGmail(account, draft);
     }

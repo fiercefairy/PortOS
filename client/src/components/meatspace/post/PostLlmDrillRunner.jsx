@@ -1,19 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { CheckCircle, XCircle, Loader } from 'lucide-react';
 import { scorePostLlmDrill } from '../../../services/api';
-
-const DRILL_LABELS = {
-  'word-association': 'Word Association',
-  'story-recall': 'Story Recall',
-  'verbal-fluency': 'Verbal Fluency',
-  'wit-comeback': 'Wit & Comeback',
-  'pun-wordplay': 'Pun & Wordplay',
-  'what-if': 'What If?',
-  'alternative-uses': 'Alternative Uses',
-  'story-prompt': 'Story Prompt',
-  'invention-pitch': 'Invention Pitch',
-  'reframe': 'Reframe',
-};
+import { DRILL_LABELS } from './constants';
+import { CompoundChainUI, BridgeWordUI, DoubleMeaningUI, IdiomTwistUI } from './WordplayDrillUI';
 
 export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, drillCount, onComplete, isTraining, providerId, model }) {
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -37,6 +26,31 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
   const prompts = getPrompts(drill);
   const totalPrompts = prompts.length;
   const currentPrompt = prompts[questionIndex];
+
+  const finishDrill = useCallback((finalResponses) => {
+    clearInterval(timerRef.current);
+    const totalMs = Date.now() - drillStartRef.current;
+    onComplete({
+      module: 'llm-drills',
+      type: drillType,
+      config: drill.config,
+      drillData: drill,
+      responses: finalResponses,
+      totalMs
+    });
+  }, [drill, drillType, onComplete]);
+
+  const handleTimeExpired = useCallback(() => {
+    // Submit whatever we have so far (use refs to avoid stale closures in interval callback)
+    const currentResponses = responsesRef.current;
+    const currentIndex = questionIndexRef.current;
+    const remaining = prompts.slice(currentIndex).map(() => ({
+      response: '',
+      responseMs: 0
+    }));
+    const finalResponses = [...currentResponses, ...remaining];
+    finishDrill(finalResponses);
+  }, [finishDrill, prompts]);
 
   useEffect(() => {
     drillStartRef.current = Date.now();
@@ -64,7 +78,7 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
     }, 100);
 
     return () => clearInterval(timerRef.current);
-  }, [drill, isTraining]);
+  }, [drill, drillType, handleTimeExpired, isTraining, timeLimitMs]);
 
   // Keep refs in sync with state for use in interval callbacks
   useEffect(() => { responsesRef.current = responses; }, [responses]);
@@ -76,31 +90,6 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
     inputRef.current?.focus();
   }, [questionIndex, phase]);
 
-  function handleTimeExpired() {
-    // Submit whatever we have so far (use refs to avoid stale closures in interval callback)
-    const currentResponses = responsesRef.current;
-    const currentIndex = questionIndexRef.current;
-    const remaining = prompts.slice(currentIndex).map(() => ({
-      response: '',
-      responseMs: 0
-    }));
-    const finalResponses = [...currentResponses, ...remaining];
-    finishDrill(finalResponses);
-  }
-
-  function finishDrill(finalResponses) {
-    clearInterval(timerRef.current);
-    const totalMs = Date.now() - drillStartRef.current;
-    onComplete({
-      module: 'llm-drills',
-      type: drillType,
-      config: drill.config,
-      drillData: drill,
-      responses: finalResponses,
-      totalMs
-    });
-  }
-
   const handleSubmit = useCallback(async (e) => {
     e?.preventDefault();
     const responseMs = Date.now() - questionStartRef.current;
@@ -111,14 +100,14 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
         answers: items.length > 0 ? items : [inputValue.trim()],
         responseMs
       };
-    } else if (drillType === 'verbal-fluency') {
+    } else if (drillType === 'verbal-fluency' || drillType === 'compound-chain' || drillType === 'alternative-uses') {
       responseObj = {
         items: items,
         responseMs
       };
     } else {
       responseObj = {
-        prompt: currentPrompt?.prompt || currentPrompt?.setup || currentPrompt?.category || '',
+        prompt: currentPrompt?.prompt || currentPrompt?.setup || currentPrompt?.category || currentPrompt?.rootWord || currentPrompt?.word || currentPrompt?.idiom || '',
         response: inputValue.trim(),
         responseMs
       };
@@ -152,7 +141,7 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
         setItems([]);
       }
     }
-  }, [inputValue, items, responses, questionIndex, totalPrompts, drillType, currentPrompt, isTraining, drill, timeLimitMs, providerId, model]);
+  }, [drill, drillType, currentPrompt, finishDrill, inputValue, isTraining, items, model, providerId, questionIndex, responses, timeLimitMs, totalPrompts]);
 
   // Training mode: advance after acknowledging feedback
   const acknowledgeTrainingFeedback = useCallback(() => {
@@ -167,7 +156,7 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
         setItems([]);
       }
     }
-  }, [questionIndex, totalPrompts, responses, drillType]);
+  }, [drillType, finishDrill, questionIndex, responses, totalPrompts]);
 
   // Story recall: transition from reading to answering
   function handleStartRecall() {
@@ -351,6 +340,59 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
         />
       )}
 
+      {drillType === 'compound-chain' && (
+        <CompoundChainUI
+          challenge={currentPrompt}
+          items={items}
+          inputValue={inputValue}
+          setInputValue={setInputValue}
+          onAddItem={handleAddItem}
+          onRemoveItem={handleRemoveItem}
+          onSubmit={handleSubmit}
+          inputRef={inputRef}
+          questionIndex={questionIndex}
+          totalPrompts={totalPrompts}
+        />
+      )}
+
+      {drillType === 'bridge-word' && (
+        <BridgeWordUI
+          puzzle={currentPrompt}
+          inputValue={inputValue}
+          setInputValue={setInputValue}
+          onSubmit={handleSubmit}
+          inputRef={inputRef}
+          questionIndex={questionIndex}
+          totalPrompts={totalPrompts}
+        />
+      )}
+
+      {drillType === 'double-meaning' && (
+        <DoubleMeaningUI
+          challenge={currentPrompt}
+          inputValue={inputValue}
+          setInputValue={setInputValue}
+          onSubmit={handleSubmit}
+          inputRef={inputRef}
+          questionIndex={questionIndex}
+          totalPrompts={totalPrompts}
+          TextInput={TextInput}
+        />
+      )}
+
+      {drillType === 'idiom-twist' && (
+        <IdiomTwistUI
+          challenge={currentPrompt}
+          inputValue={inputValue}
+          setInputValue={setInputValue}
+          onSubmit={handleSubmit}
+          inputRef={inputRef}
+          questionIndex={questionIndex}
+          totalPrompts={totalPrompts}
+          TextInput={TextInput}
+        />
+      )}
+
       {drillType === 'what-if' && (
         <ImaginationUI
           label="Imagine this scenario"
@@ -440,6 +482,10 @@ function getPrompts(drill) {
     case 'verbal-fluency': return drill.categories || [];
     case 'wit-comeback': return drill.scenarios || [];
     case 'pun-wordplay': return drill.challenges || [];
+    case 'compound-chain': return drill.challenges || [];
+    case 'bridge-word': return drill.puzzles || [];
+    case 'double-meaning': return drill.challenges || [];
+    case 'idiom-twist': return drill.challenges || [];
     case 'what-if': return drill.scenarios || [];
     case 'alternative-uses': return drill.objects || [];
     case 'story-prompt': return drill.prompts || [];

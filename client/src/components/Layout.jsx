@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Outlet, NavLink, useLocation } from 'react-router-dom';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home,
   Package,
@@ -45,6 +45,7 @@ import {
   Ticket,
   Network,
   Flame,
+  Cigarette,
   Skull,
   HeartPulse,
   ClipboardList,
@@ -62,7 +63,8 @@ import {
   Inbox,
   RefreshCw,
   Dog,
-  FilePen
+  FilePen,
+  MessageCircle
 } from 'lucide-react';
 /* global __APP_VERSION__ */
 import Logo from './Logo';
@@ -109,6 +111,7 @@ const navItems = [
       { to: '/calendar/agenda', label: 'Agenda', icon: CalendarDays },
       { to: '/calendar/config', label: 'Config', icon: Settings },
       { to: '/calendar/day', label: 'Day', icon: Calendar },
+      { to: '/calendar/lifetime', label: 'Lifetime', icon: Clock },
       { to: '/calendar/month', label: 'Month', icon: CalendarDays },
       { to: '/calendar/review', label: 'Review', icon: ClipboardList },
       { to: '/calendar/sync', label: 'Sync', icon: RefreshCw },
@@ -182,11 +185,11 @@ const navItems = [
       { to: '/meatspace/alcohol', label: 'Alcohol', icon: Activity },
       { to: '/meatspace/blood', label: 'Blood', icon: HeartPulse },
       { to: '/meatspace/body', label: 'Body', icon: Scale },
-      { to: '/meatspace/calendar', label: 'Calendar', icon: Calendar },
       { to: '/meatspace/genome', label: 'Genome', icon: Dna },
       { to: '/meatspace/health', label: 'Health', icon: Heart },
       { to: '/meatspace/import', label: 'Import', icon: Upload },
       { to: '/meatspace/lifestyle', label: 'Lifestyle', icon: ClipboardList },
+      { to: '/meatspace/nicotine', label: 'Nicotine', icon: Cigarette },
       { to: '/meatspace/overview', label: 'Overview', icon: Activity },
     ]
   },
@@ -200,9 +203,28 @@ const navItems = [
       { to: '/messages/sync', label: 'Sync', icon: RefreshCw }
     ]
   },
-  { to: '/post', label: 'POST', icon: Zap, single: true },
+  {
+    label: 'POST',
+    icon: Zap,
+    children: [
+      { to: '/post/config', label: 'Config', icon: Settings },
+      { to: '/post/history', label: 'History', icon: History },
+      { to: '/post/launcher', label: 'Launcher', icon: Play },
+      { to: '/post/memory', label: 'Memory', icon: Brain },
+      { to: '/post/wordplay', label: 'Wordplay', icon: MessageCircle },
+    ]
+  },
+  { to: '/review', label: 'Review Hub', icon: ClipboardList, single: true },
   { to: '/security', label: 'Security', icon: Camera, single: true },
-  { to: '/settings', label: 'Settings', icon: Settings, single: true },
+  {
+    label: 'Settings',
+    icon: Settings,
+    children: [
+      { to: '/settings/backup', label: 'Backup', icon: Download },
+      { to: '/settings/database', label: 'Database', icon: Database },
+      { to: '/settings/telegram', label: 'Telegram', icon: MessageSquare }
+    ]
+  },
   { to: '/shell', label: 'Shell', icon: SquareTerminal, single: true },
   { to: '/agents', label: 'Social Agents', icon: Users, single: true },
   { to: '/uploads', label: 'Uploads', icon: Upload, single: true }
@@ -212,6 +234,7 @@ const SIDEBAR_KEY = 'portos-sidebar-collapsed';
 
 export default function Layout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(() => {
     const saved = localStorage.getItem(SIDEBAR_KEY);
     return saved === 'true';
@@ -400,7 +423,7 @@ export default function Layout() {
             if (collapsed) {
               // When collapsed, navigate to first child
               if (item.children && item.children.length > 0) {
-                window.location.href = item.children[0].to;
+                navigate(item.children[0].to);
               }
             } else {
               toggleSection(item.label);
@@ -637,7 +660,8 @@ export default function Layout() {
             location.pathname.startsWith('/insights') ||
             location.pathname.startsWith('/meatspace') ||
             location.pathname.startsWith('/messages') ||
-            location.pathname === '/post' ||
+            location.pathname.startsWith('/post') ||
+            location.pathname === '/review' ||
             location.pathname.startsWith('/agents') ||
             location.pathname === '/shell' ||
             location.pathname.startsWith('/city') ||

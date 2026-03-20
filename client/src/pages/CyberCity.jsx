@@ -11,7 +11,7 @@ import { CitySettingsProvider, useCitySettingsContext } from '../components/city
 import CitySettingsPanel from '../components/city/CitySettingsPanel';
 
 function CyberCityInner() {
-  const { apps, cosAgents, cosStatus, eventLogs, agentMap, loading, connected } = useCityData();
+  const { apps, cosAgents, cosStatus, eventLogs, agentMap, reviewCounts, instances, loading, connected } = useCityData();
   const { settings, updateSetting } = useCitySettingsContext();
   const { playSfx } = useCityAudio(settings);
   const navigate = useNavigate();
@@ -68,6 +68,8 @@ function CyberCityInner() {
         agentMap={agentMap}
         onBuildingClick={handleBuildingClick}
         cosStatus={cosStatus}
+        reviewCounts={reviewCounts}
+        instances={instances}
         productivityData={productivityData}
         settings={settings}
         playSfx={playSfx}
@@ -80,6 +82,8 @@ function CyberCityInner() {
         eventLogs={eventLogs}
         connected={connected}
         apps={apps}
+        reviewCounts={reviewCounts}
+        instances={instances}
         productivityData={productivityData}
         onToggleExploration={handleToggleExploration}
         explorationMode={settings?.explorationMode}

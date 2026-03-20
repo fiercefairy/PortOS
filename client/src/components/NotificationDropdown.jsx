@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, X, CheckCheck, Trash2, Brain, ListTodo, AlertTriangle, Code } from 'lucide-react';
+import { Bell, X, CheckCheck, Trash2, Brain, ListTodo, AlertTriangle, Code, HelpCircle } from 'lucide-react';
 
 const NOTIFICATION_TYPE_CONFIG = {
   memory_approval: {
@@ -22,6 +22,11 @@ const NOTIFICATION_TYPE_CONFIG = {
     icon: AlertTriangle,
     color: 'text-red-400',
     bgColor: 'bg-red-500/20'
+  },
+  plan_question: {
+    icon: HelpCircle,
+    color: 'text-emerald-400',
+    bgColor: 'bg-emerald-500/20'
   }
 };
 
@@ -152,7 +157,7 @@ export default function NotificationDropdown({
                     role="menuitem"
                     tabIndex={0}
                     className={`
-                      px-4 py-3 border-b border-port-border last:border-b-0 cursor-pointer
+                      group px-4 py-3 border-b border-port-border last:border-b-0 cursor-pointer
                       hover:bg-port-border/50 transition-colors focus:outline-hidden focus:bg-port-border/50
                       ${!notification.read ? 'bg-port-border/30' : ''}
                       border-l-2 ${PRIORITY_COLORS[notification.priority] || PRIORITY_COLORS.medium}

@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ExternalLink, Play, Square, RotateCcw, FolderOpen, Terminal, Code, RefreshCw, Wrench, Archive, ArchiveRestore, ChevronDown, ChevronUp, Ticket, GitBranch, Download, Hammer } from 'lucide-react';
+import { ExternalLink, Play, Square, RotateCcw, FolderOpen, Terminal, Code, RefreshCw, Wrench, Archive, ArchiveRestore, Ticket, Download, Hammer, Smartphone, Image } from 'lucide-react';
 import toast from 'react-hot-toast';
+import AppIcon from '../components/AppIcon';
 import BrailleSpinner from '../components/BrailleSpinner';
 import KanbanBoard from '../components/KanbanBoard';
 import StatusBadge from '../components/StatusBadge';
@@ -9,6 +10,7 @@ import ActivityLog from '../components/apps/ActivityLog';
 import { useAppOperation } from '../hooks/useAppOperation';
 import * as api from '../services/api';
 import socket from '../services/socket';
+import { NON_PM2_TYPES } from '../components/apps/constants';
 
 export default function Apps() {
   const [apps, setApps] = useState([]);
@@ -125,10 +127,21 @@ export default function Apps() {
     toast.success(`${app.name} unarchived - included in COS tasks`);
   };
 
+  const [detectingIcons, setDetectingIcons] = useState(false);
+  const handleDetectIcons = async () => {
+    setDetectingIcons(true);
+    const result = await api.detectAppIcons().catch(() => null);
+    setDetectingIcons(false);
+    if (result) {
+      toast.success(`Detected icons for ${result.detected} of ${result.total} apps`);
+    }
+  };
+
   // Filter apps based on archive status
   const activeApps = apps.filter(app => !app.archived);
   const archivedApps = apps.filter(app => app.archived);
-  const displayedApps = showArchived ? archivedApps : activeApps;
+  const displayedApps = (showArchived ? archivedApps : activeApps)
+    .slice().sort((a, b) => a.name.localeCompare(b.name));
 
   if (loading) {
     return (
@@ -147,6 +160,15 @@ export default function Apps() {
           <p className="text-gray-500 text-sm sm:text-base">Manage registered applications</p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleDetectIcons}
+            disabled={detectingIcons}
+            className="px-3 py-2 rounded-lg text-sm flex items-center gap-2 bg-port-border text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+            title="Detect app icons from project directories"
+          >
+            <Image size={16} />
+            {detectingIcons ? 'Detecting...' : 'Detect Icons'}
+          </button>
           {/* Archive Toggle */}
           {archivedApps.length > 0 && (
             <button
@@ -191,7 +213,9 @@ export default function Apps() {
         </div>
       ) : (
         <div className="space-y-4">
-          {displayedApps.map(app => (
+          {displayedApps.map(app => {
+            const isNonPm2 = NON_PM2_TYPES.has(app.type);
+            return (
             <div
               key={app.id}
               className="bg-port-card border border-port-border rounded-xl overflow-hidden"
@@ -209,6 +233,11 @@ export default function Apps() {
                     >
                       <span aria-hidden="true" className={`inline-block transition-transform ${expandedId === app.id ? 'rotate-90' : ''}`}>▶</span>
                     </button>
+                    <div className={`w-8 h-8 rounded shrink-0 overflow-hidden ${
+                      app.appIconPath ? '' : `flex items-center justify-center ${app.archived ? 'bg-port-border/50 text-gray-500' : 'bg-port-border text-port-accent'}`
+                    }`}>
+                      <AppIcon icon={app.icon || 'package'} appId={app.id} hasAppIcon={!!app.appIconPath} size={18} />
+                    </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <Link to={`/apps/${app.id}`} className={`font-medium hover:underline ${app.archived ? 'text-gray-400' : 'text-white'}`}>{app.name}</Link>
@@ -217,32 +246,45 @@ export default function Apps() {
                             Archived
                           </span>
                         )}
-                        <StatusBadge status={app.overallStatus} size="sm" />
+                        {isNonPm2 ? (
+                          <span className="px-1.5 py-0.5 bg-port-accent/20 text-port-accent text-xs rounded">
+                            {app.type === 'ios-native' ? '📱 iOS' :
+                             app.type === 'macos-native' ? '🖥️ macOS' :
+                             app.type === 'swift' ? '🐦 Swift' : '🔨 Xcode'}
+                          </span>
+                        ) : (
+                          <StatusBadge status={app.overallStatus} size="sm" />
+                        )}
                       </div>
                       <div className="text-xs text-gray-500 flex flex-wrap gap-x-2 mt-1">
-                        {(app.pm2ProcessNames || []).map((procName, i) => {
-                          const procInfo = app.processes?.find(p => p.name === procName);
-                          const ports = procInfo?.ports || {};
-                          const portEntries = Object.entries(ports);
-                          const portDisplay = portEntries.length > 1
-                            ? ` (${portEntries.map(([label, port]) => `${label}:${port}`).join(', ')})`
-                            : portEntries.length === 1
-                              ? `:${portEntries[0][1]}`
-                              : '';
-                          return (
-                            <span key={i}>
-                              {procName}<span className="text-cyan-500">{portDisplay}</span>
-                              {i < (app.pm2ProcessNames?.length || 0) - 1 ? ',' : ''}
-                            </span>
-                          );
-                        })}
+                        {isNonPm2 ? (
+                          <span className="text-gray-500">{app.repoPath}</span>
+                        ) : (
+                          (app.pm2ProcessNames || []).map((procName, i) => {
+                            const procInfo = app.processes?.find(p => p.name === procName);
+                            const ports = procInfo?.ports || {};
+                            const portEntries = Object.entries(ports);
+                            const portDisplay = portEntries.length > 1
+                              ? ` (${portEntries.map(([label, port]) => `${label}:${port}`).join(', ')})`
+                              : portEntries.length === 1
+                                ? `:${portEntries[0][1]}`
+                                : '';
+                            return (
+                              <span key={i}>
+                                {procName}<span className="text-cyan-500">{portDisplay}</span>
+                                {i < (app.pm2ProcessNames?.length || 0) - 1 ? ',' : ''}
+                              </span>
+                            );
+                          })
+                        )}
                       </div>
                     </div>
                   </div>
 
                   {/* Controls */}
                   <div className="flex flex-wrap items-center gap-2">
-                    {/* Start/Stop/Restart Button Group */}
+                    {/* Start/Stop/Restart Button Group - only for PM2 apps */}
+                    {!isNonPm2 && (
                     <div className="inline-flex rounded-lg overflow-hidden border border-port-border">
                       {app.overallStatus === 'online' ? (
                         <>
@@ -280,6 +322,7 @@ export default function Apps() {
                         </button>
                       )}
                     </div>
+                    )}
 
                     {/* Launch buttons */}
                     {app.uiPort && app.overallStatus === 'online' && (
@@ -403,8 +446,8 @@ export default function Apps() {
                       </div>
                     )}
 
-                    {/* PM2 Processes Status */}
-                    {app.pm2Status && Object.keys(app.pm2Status).length > 0 && (
+                    {/* PM2 Processes Status - only for PM2 apps */}
+                    {!isNonPm2 && app.pm2Status && Object.keys(app.pm2Status).length > 0 && (
                       <div>
                         <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">PM2 Processes</div>
                         <div className="flex flex-wrap gap-2">
@@ -518,24 +561,42 @@ export default function Apps() {
                           {building[app.id] ? 'Building...' : 'Build'}
                         </button>
                       )}
-                      <button
-                        onClick={() => handleRefreshConfig(app)}
-                        disabled={refreshingConfig[app.id]}
-                        className="px-3 py-1.5 bg-port-border hover:bg-port-border/80 text-white rounded-lg text-xs flex items-center gap-1 disabled:opacity-50"
-                        aria-label="Re-scan ecosystem config for PM2 processes and ports"
-                      >
-                        <RefreshCw size={14} aria-hidden="true" className={refreshingConfig[app.id] ? 'animate-spin' : ''} />
-                        Refresh Config
-                      </button>
-                      {(!app.processes?.length || app.processes.some(p => !p.ports || Object.keys(p.ports).length === 0)) && (
+                      {/* PM2-specific actions */}
+                      {!isNonPm2 && (
+                        <>
+                          <button
+                            onClick={() => handleRefreshConfig(app)}
+                            disabled={refreshingConfig[app.id]}
+                            className="px-3 py-1.5 bg-port-border hover:bg-port-border/80 text-white rounded-lg text-xs flex items-center gap-1 disabled:opacity-50"
+                            aria-label="Re-scan ecosystem config for PM2 processes and ports"
+                          >
+                            <RefreshCw size={14} aria-hidden="true" className={refreshingConfig[app.id] ? 'animate-spin' : ''} />
+                            Refresh Config
+                          </button>
+                          {(!app.processes?.length || app.processes.some(p => !p.ports || Object.keys(p.ports).length === 0)) && (
+                            <button
+                              onClick={() => handleStandardize(app)}
+                              disabled={isOperating}
+                              className="px-3 py-1.5 bg-port-accent/20 text-port-accent hover:bg-port-accent/30 rounded-lg text-xs flex items-center gap-1 disabled:opacity-50"
+                              aria-label="Standardize PM2 config: move all ports to ecosystem.config.cjs"
+                            >
+                              <Wrench size={14} aria-hidden="true" className={operatingAppId === app.id && operationType === 'standardize' ? 'animate-spin' : ''} />
+                              {operatingAppId === app.id && operationType === 'standardize' ? 'Standardizing...' : 'Standardize PM2'}
+                            </button>
+                          )}
+                        </>
+                      )}
+                      {/* Xcode-specific actions */}
+                      {isNonPm2 && (
                         <button
-                          onClick={() => handleStandardize(app)}
-                          disabled={isOperating}
-                          className="px-3 py-1.5 bg-port-accent/20 text-port-accent hover:bg-port-accent/30 rounded-lg text-xs flex items-center gap-1 disabled:opacity-50"
-                          aria-label="Standardize PM2 config: move all ports to ecosystem.config.cjs"
+                          onClick={() => {
+                            const xcodeprojName = app.name + '.xcodeproj';
+                            window.open(`xcode://open?url=file://${app.repoPath}/${xcodeprojName}`, '_self');
+                          }}
+                          className="px-3 py-1.5 bg-port-accent/20 text-port-accent hover:bg-port-accent/30 rounded-lg text-xs flex items-center gap-1"
+                          aria-label={`Open ${app.name} in Xcode`}
                         >
-                          <Wrench size={14} aria-hidden="true" className={operatingAppId === app.id && operationType === 'standardize' ? 'animate-spin' : ''} />
-                          {operatingAppId === app.id && operationType === 'standardize' ? 'Standardizing...' : 'Standardize PM2'}
+                          <Smartphone size={14} aria-hidden="true" /> Open in Xcode
                         </button>
                       )}
                     </div>
@@ -548,7 +609,8 @@ export default function Apps() {
                 </div>
               )}
             </div>
-          ))}
+          );
+          })}
         </div>
       )}
 

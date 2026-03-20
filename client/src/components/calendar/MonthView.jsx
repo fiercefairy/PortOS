@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import * as api from '../../services/api';
 import socket from '../../services/socket';
 import EventDetail from './EventDetail';
+import { buildSubcalendarColorMap } from './calendarUtils';
 
 function getMonthGrid(year, month) {
   const firstDay = new Date(year, month, 1);
@@ -30,7 +31,7 @@ function getMonthGrid(year, month) {
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export default function MonthView() {
+export default function MonthView({ accounts }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
@@ -81,6 +82,7 @@ export default function MonthView() {
     eventsByDay[dayKey].push(event);
   }
 
+  const colorMap = useMemo(() => buildSubcalendarColorMap(accounts), [accounts]);
   const todayStr = now.toDateString();
 
   return (
@@ -137,20 +139,27 @@ export default function MonthView() {
                     {cell.date.getDate()}
                   </div>
                   <div className="space-y-0.5">
-                    {dayEvents.slice(0, 3).map(event => (
-                      <button
-                        key={`${event.accountId}-${event.id}`}
-                        onClick={() => setSelectedEvent(event)}
-                        className="w-full text-left px-1 py-0.5 bg-port-accent/15 text-port-accent rounded text-[10px] truncate hover:bg-port-accent/25 transition-colors"
-                      >
-                        {!event.isAllDay && (
-                          <span className="text-gray-500 mr-1">
-                            {new Date(event.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                          </span>
-                        )}
-                        {event.title}
-                      </button>
-                    ))}
+                    {dayEvents.slice(0, 3).map(event => {
+                      const evColor = colorMap.get(event.subcalendarId) || null;
+                      return (
+                        <button
+                          key={`${event.accountId}-${event.id}`}
+                          onClick={() => setSelectedEvent(event)}
+                          className="w-full text-left px-1 py-0.5 rounded text-[10px] truncate transition-colors hover:brightness-125"
+                          style={{
+                            backgroundColor: evColor ? `${evColor}20` : 'rgb(59 130 246 / 0.15)',
+                            color: evColor || 'var(--port-accent, #3b82f6)'
+                          }}
+                        >
+                          {!event.isAllDay && (
+                            <span className="text-gray-500 mr-1">
+                              {new Date(event.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                            </span>
+                          )}
+                          {event.title}
+                        </button>
+                      );
+                    })}
                     {dayEvents.length > 3 && (
                       <div className="text-[10px] text-gray-500 pl-1">+{dayEvents.length - 3} more</div>
                     )}

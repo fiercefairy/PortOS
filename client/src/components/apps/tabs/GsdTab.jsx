@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { RefreshCw, Compass, CheckCircle, ArrowRight, FolderSearch, FileText, Map, Play, Terminal } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -65,6 +65,10 @@ function GsdSetupGuide({ gsd, appId, repoPath, onRefresh }) {
     navigate(`/shell?cwd=${encodeURIComponent(repoPath)}&cmd=claude`);
   };
 
+  const handleOpenOpenClaw = () => {
+    navigate(`/shell?cwd=${encodeURIComponent(repoPath)}&cmd=${encodeURIComponent('openclaw tui')}`);
+  };
+
   return (
     <div className="max-w-5xl">
       <div className="bg-port-card border border-port-border rounded-lg p-6">
@@ -78,12 +82,20 @@ function GsdSetupGuide({ gsd, appId, repoPath, onRefresh }) {
           </div>
           <div className="flex items-center gap-2">
             {repoPath && (
-              <button
-                onClick={handleOpenClaude}
-                className="px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 rounded-lg text-xs flex items-center gap-1 border border-purple-600/30"
-              >
-                <Terminal size={14} /> Open Claude Code
-              </button>
+              <>
+                <button
+                  onClick={handleOpenOpenClaw}
+                  className="px-3 py-1.5 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 rounded-lg text-xs flex items-center gap-1 border border-cyan-600/30"
+                >
+                  <Terminal size={14} /> Open OpenClaw
+                </button>
+                <button
+                  onClick={handleOpenClaude}
+                  className="px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 rounded-lg text-xs flex items-center gap-1 border border-purple-600/30"
+                >
+                  <Terminal size={14} /> Open Claude Code
+                </button>
+              </>
             )}
             <button
               onClick={onRefresh}
@@ -237,7 +249,7 @@ export default function GsdTab({ appId, repoPath }) {
     }, { replace: true });
   };
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
 
     // Fetch GSD status from documents endpoint (silent, no toast)
@@ -266,11 +278,11 @@ export default function GsdTab({ appId, repoPath }) {
     }
 
     setLoading(false);
-  };
+  }, [appId]);
 
   useEffect(() => {
     fetchData();
-  }, [appId]);
+  }, [fetchData]);
 
   if (loading) {
     return <BrailleSpinner text="Loading GSD project" />;
@@ -323,3 +335,4 @@ export default function GsdTab({ appId, repoPath }) {
     </div>
   );
 }
+

@@ -6,8 +6,11 @@ import { ensureDir, PATHS } from '../lib/fileUtils.js';
 const AUTH_DIR = join(PATHS.calendar, 'google-auth');
 const CREDENTIALS_FILE = join(AUTH_DIR, 'credentials.json');
 const TOKENS_FILE = join(AUTH_DIR, 'tokens.json');
-const SCOPES = ['https://www.googleapis.com/auth/calendar.readonly'];
-export const OAUTH_REDIRECT_URI = `http://localhost:${process.env.PORT || 5555}/api/calendar/google/oauth/callback`;
+const SCOPES = [
+  'https://www.googleapis.com/auth/calendar',
+  'https://www.googleapis.com/auth/gmail.modify'
+];
+export const OAUTH_REDIRECT_URI = `http://${process.env.PUBLIC_HOST || 'localhost'}:${process.env.PORT || 5555}/api/calendar/google/oauth/callback`;
 
 let oAuth2Client = null;
 
@@ -81,6 +84,14 @@ export async function handleCallback(code) {
   await saveTokens(tokens);
   oAuth2Client = client;
   oAuth2Client.setCredentials(tokens);
+
+  // Attach refresh listener so refreshed tokens are persisted
+  oAuth2Client.on('tokens', async (newTokens) => {
+    const existing = (await getTokens()) || {};
+    await saveTokens({ ...existing, ...newTokens });
+    console.log('📅 Google OAuth tokens refreshed');
+  });
+
   console.log('📅 Google OAuth callback processed, tokens stored');
   return { success: true };
 }
@@ -98,7 +109,7 @@ export async function getAuthenticatedClient() {
 
     // Listen for token refresh
     oAuth2Client.on('tokens', async (newTokens) => {
-      const existing = await getTokens();
+      const existing = (await getTokens()) || {};
       await saveTokens({ ...existing, ...newTokens });
       console.log('📅 Google OAuth tokens refreshed');
     });
@@ -107,12 +118,20 @@ export async function getAuthenticatedClient() {
   return oAuth2Client;
 }
 
+export function needsScopeUpgrade(tokens) {
+  if (!tokens?.scope) return true;
+  const scopes = tokens.scope.split(' ');
+  // Check all required scopes are present
+  return !SCOPES.every(s => scopes.includes(s));
+}
+
 export async function getAuthStatus() {
   const credentials = await getCredentials();
   const tokens = await getTokens();
   return {
     hasCredentials: !!credentials?.clientId,
     hasTokens: !!tokens?.access_token,
-    expiryDate: tokens?.expiry_date ? new Date(tokens.expiry_date).toISOString() : null
+    expiryDate: tokens?.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
+    needsScopeUpgrade: needsScopeUpgrade(tokens)
   };
 }

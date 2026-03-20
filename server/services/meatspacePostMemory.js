@@ -51,6 +51,13 @@ const ELEMENTS_SONG = {
       { text: "And chlorine, carbon, cobalt, copper, tungsten, tin, and sodium.", elements: ["Cl", "C", "Co", "Cu", "W", "Sn", "Na"] },
       { text: "These are the only ones of which the news has come to Harvard,", elements: [] },
       { text: "And there may be many others, but they haven't been discovered.", elements: [] },
+      // Appendix: Elements discovered since Tom Lehrer's song (103-118)
+      { text: "There's lawrencium, rutherfordium, dubnium, seaborgium,", elements: ["Lr", "Rf", "Db", "Sg"] },
+      { text: "And bohrium and hassium and also meitnerium,", elements: ["Bh", "Hs", "Mt"] },
+      { text: "Darmstadtium, roentgenium, copernicium,", elements: ["Ds", "Rg", "Cn"] },
+      { text: "Nihonium, flerovium, moscovium, livermorium,", elements: ["Nh", "Fl", "Mc", "Lv"] },
+      { text: "And tennessine and oganesson complete the set—", elements: ["Ts", "Og"] },
+      { text: "These are the ones that Lehrer hadn't discovered yet.", elements: [] },
     ],
     chunks: [
       { id: "verse-1", lineRange: [0, 7], label: "Verse 1" },
@@ -59,6 +66,7 @@ const ELEMENTS_SONG = {
       { id: "verse-4", lineRange: [16, 19], label: "Verse 4" },
       { id: "verse-5", lineRange: [20, 23], label: "Verse 5" },
       { id: "coda", lineRange: [24, 25], label: "Coda" },
+      { id: "appendix", lineRange: [26, 31], label: "Appendix (Post-Lehrer)" },
     ],
     // Element symbol → { name, atomicNumber } for the periodic table visualization
     elementMap: {
@@ -112,7 +120,15 @@ const ELEMENTS_SONG = {
       Cm: { name: "Curium", atomicNumber: 96 }, Bk: { name: "Berkelium", atomicNumber: 97 },
       Cf: { name: "Californium", atomicNumber: 98 }, Es: { name: "Einsteinium", atomicNumber: 99 },
       Fm: { name: "Fermium", atomicNumber: 100 }, Md: { name: "Mendelevium", atomicNumber: 101 },
-      No: { name: "Nobelium", atomicNumber: 102 },
+      No: { name: "Nobelium", atomicNumber: 102 }, Lr: { name: "Lawrencium", atomicNumber: 103 },
+      Rf: { name: "Rutherfordium", atomicNumber: 104 }, Db: { name: "Dubnium", atomicNumber: 105 },
+      Sg: { name: "Seaborgium", atomicNumber: 106 }, Bh: { name: "Bohrium", atomicNumber: 107 },
+      Hs: { name: "Hassium", atomicNumber: 108 }, Mt: { name: "Meitnerium", atomicNumber: 109 },
+      Ds: { name: "Darmstadtium", atomicNumber: 110 }, Rg: { name: "Roentgenium", atomicNumber: 111 },
+      Cn: { name: "Copernicium", atomicNumber: 112 }, Nh: { name: "Nihonium", atomicNumber: 113 },
+      Fl: { name: "Flerovium", atomicNumber: 114 }, Mc: { name: "Moscovium", atomicNumber: 115 },
+      Lv: { name: "Livermorium", atomicNumber: 116 }, Ts: { name: "Tennessine", atomicNumber: 117 },
+      Og: { name: "Oganesson", atomicNumber: 118 },
     }
   },
   mastery: { overallPct: 0, chunks: {}, elements: {} },
@@ -128,10 +144,16 @@ async function loadMemoryItems() {
   const data = await readJSONFile(MEMORY_ITEMS_FILE, { items: [] }, { allowArray: false });
   const items = data?.items && Array.isArray(data.items) ? data.items : [];
 
-  // Ensure built-in Elements Song is always present
-  const hasElements = items.some(i => i.id === 'elements-song');
-  if (!hasElements) {
+  // Ensure built-in Elements Song is always present and content stays current
+  const existingIdx = items.findIndex(i => i.id === 'elements-song');
+  if (existingIdx === -1) {
     items.unshift(structuredClone(ELEMENTS_SONG));
+  } else {
+    const existing = items[existingIdx];
+    const fresh = structuredClone(ELEMENTS_SONG);
+    fresh.mastery = existing.mastery || fresh.mastery;
+    fresh.updatedAt = existing.updatedAt;
+    items[existingIdx] = fresh;
   }
 
   return items;

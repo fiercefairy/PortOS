@@ -9,6 +9,7 @@ import { readdir } from 'fs/promises';
 import { PATHS } from '../lib/fileUtils.js';
 import { readDayFile } from './appleHealthIngest.js';
 import { getDailyAlcohol } from './meatspaceAlcohol.js';
+import { getDailyNicotine } from './meatspaceNicotine.js';
 import { getBloodTests } from './meatspaceHealth.js';
 
 // Fallback aliases for metrics stored under old names (e.g. JSON ingest before normalization)
@@ -271,35 +272,46 @@ export async function getLatestMetricValues(metricNames) {
 // === Correlation Data ===
 
 /**
- * Get merged health + alcohol + blood data for correlation analysis.
- * Reads HRV, steps, and alcohol data by day, plus blood tests for date range.
+ * Get merged health + alcohol + nicotine + blood data for correlation analysis.
+ * Reads HRV, HR, resting HR, steps, alcohol, and nicotine data by day, plus blood tests for date range.
  *
  * @param {string} [from] - Start date YYYY-MM-DD
  * @param {string} [to] - End date YYYY-MM-DD
- * @returns {Promise<Object>} { dailyData: Array<{ date, hrv, alcoholGrams, steps }>, bloodTests }
+ * @returns {Promise<Object>} { dailyData: Array<{ date, hrv, hr, restingHr, alcoholGrams, nicotineMg, steps }>, bloodTests }
  */
 export async function getCorrelationData(from, to) {
   const range = from && to ? { from, to } : defaultDateRange();
 
-  const [hrvData, stepsData, alcoholEntries, bloodData] = await Promise.all([
+  const [hrvData, hrData, restingHrData, stepsData, alcoholEntries, nicotineEntries, bloodData] = await Promise.all([
     getDailyAggregates('heart_rate_variability_sdnn', range.from, range.to),
+    getDailyAggregates('heart_rate', range.from, range.to),
+    getDailyAggregates('resting_heart_rate', range.from, range.to),
     getDailyAggregates('step_count', range.from, range.to),
     getDailyAlcohol(range.from, range.to),
+    getDailyNicotine(range.from, range.to),
     getBloodTests()
   ]);
 
   // Build lookup maps for O(1) access
   const hrvByDate = new Map(hrvData.map(d => [d.date, d.value]));
+  const hrByDate = new Map(hrData.map(d => [d.date, d.value]));
+  const restingHrByDate = new Map(restingHrData.map(d => [d.date, d.value]));
   const stepsByDate = new Map(stepsData.map(d => [d.date, d.value]));
   const alcoholByDate = new Map(
     alcoholEntries.map(e => [e.date, e.alcohol?.standardDrinks ?? 0])
+  );
+  const nicotineByDate = new Map(
+    nicotineEntries.map(e => [e.date, e.nicotine?.totalMg ?? 0])
   );
 
   // Collect all unique dates across all sources
   const allDates = new Set([
     ...hrvByDate.keys(),
+    ...hrByDate.keys(),
+    ...restingHrByDate.keys(),
     ...stepsByDate.keys(),
-    ...alcoholByDate.keys()
+    ...alcoholByDate.keys(),
+    ...nicotineByDate.keys()
   ]);
 
   const dailyData = Array.from(allDates)
@@ -307,9 +319,12 @@ export async function getCorrelationData(from, to) {
     .map(date => ({
       date,
       hrv: hrvByDate.get(date) ?? null,
+      hr: hrByDate.get(date) != null ? Math.round(hrByDate.get(date)) : null,
+      restingHr: restingHrByDate.get(date) != null ? Math.round(restingHrByDate.get(date)) : null,
       alcoholGrams: alcoholByDate.get(date) != null
         ? Math.round(alcoholByDate.get(date) * 14 * 100) / 100  // std drinks to grams
         : null,
+      nicotineMg: nicotineByDate.get(date) ?? null,
       steps: stepsByDate.get(date) ?? null
     }));
 

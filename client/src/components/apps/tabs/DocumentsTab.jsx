@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { RefreshCw, FileText, Pencil, Save, X, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import BrailleSpinner from '../../BrailleSpinner';
@@ -10,13 +10,24 @@ export default function DocumentsTab({ appId, repoPath }) {
   const [hasPlanning, setHasPlanning] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedDoc, setSelectedDoc] = useState(null);
+  const selectedDocRef = useRef(selectedDoc);
+  selectedDocRef.current = selectedDoc;
   const [docContent, setDocContent] = useState(null);
   const [loadingDoc, setLoadingDoc] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const fetchDocuments = async () => {
+  const loadDocument = useCallback(async (filename) => {
+    setSelectedDoc(filename);
+    setEditing(false);
+    setLoadingDoc(true);
+    const data = await api.getAppDocument(appId, filename).catch(() => null);
+    setDocContent(data?.content || null);
+    setLoadingDoc(false);
+  }, [appId]);
+
+  const fetchDocuments = useCallback(async () => {
     setLoading(true);
     const data = await api.getAppDocuments(appId).catch(() => ({ documents: [], hasPlanning: false }));
     setDocuments(data.documents || []);
@@ -25,19 +36,10 @@ export default function DocumentsTab({ appId, repoPath }) {
 
     // Auto-select first existing document
     const firstExisting = (data.documents || []).find(d => d.exists);
-    if (firstExisting && !selectedDoc) {
+    if (firstExisting && !selectedDocRef.current) {
       loadDocument(firstExisting.filename);
     }
-  };
-
-  const loadDocument = async (filename) => {
-    setSelectedDoc(filename);
-    setEditing(false);
-    setLoadingDoc(true);
-    const data = await api.getAppDocument(appId, filename).catch(() => null);
-    setDocContent(data?.content || null);
-    setLoadingDoc(false);
-  };
+  }, [appId, loadDocument]);
 
   const enterEditMode = () => {
     setEditContent(docContent || '');
@@ -80,7 +82,7 @@ export default function DocumentsTab({ appId, repoPath }) {
 
   useEffect(() => {
     fetchDocuments();
-  }, [appId]);
+  }, [fetchDocuments]);
 
   if (loading) {
     return <BrailleSpinner text="Loading documents" />;

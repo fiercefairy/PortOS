@@ -9,7 +9,6 @@ import CityCelestial from './CityCelestial';
 import BuildingCluster from './BuildingCluster';
 import CityDataStreams from './CityDataStreams';
 import CityTraffic from './CityTraffic';
-
 import CityWeather from './CityWeather';
 import CityBillboards from './CityBillboards';
 import CityShootingStars from './CityShootingStars';
@@ -20,11 +19,12 @@ import CityNeonSigns from './CityNeonSigns';
 import CityEmbers from './CityEmbers';
 import CityEffects from './CityEffects';
 import CityClouds from './CityClouds';
+import CitySignalBeacons from './CitySignalBeacons';
 import CitySky from './CitySky';
 import PlayerController from './PlayerController';
 import CameraTransition from './CameraTransition';
 
-export default function CityScene({ apps, agentMap, onBuildingClick, cosStatus, productivityData, settings, playSfx, keysRef }) {
+export default function CityScene({ apps, agentMap, onBuildingClick, cosStatus, reviewCounts, instances, productivityData, settings, playSfx, keysRef }) {
   const [positions, setPositions] = useState(null);
   const [proximityApp, setProximityApp] = useState(null);
   const [transitioning, setTransitioning] = useState(false);
@@ -89,8 +89,11 @@ export default function CityScene({ apps, agentMap, onBuildingClick, cosStatus, 
         positions={positions}
         apps={apps}
         cosStatus={cosStatus}
+        reviewCounts={reviewCounts}
+        instances={instances}
         productivityData={productivityData}
       />
+      <CitySignalBeacons positions={positions} reviewCounts={reviewCounts} instances={instances} />
       <CityVolumetricLights positions={positions} />
       <CityNeonSigns positions={positions} />
       <CityWeather stoppedCount={stoppedCount} totalCount={totalCount} playSfx={playSfx} />

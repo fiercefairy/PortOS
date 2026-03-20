@@ -6,6 +6,7 @@ import { ServerError } from '../lib/errorHandler.js';
 import { getGenomeSummary } from './genome.js';
 import { getTasteProfile } from './taste-questionnaire.js';
 import { getActivities } from './meatspaceCalendar.js';
+import { callProviderAISimple, parseLLMJSON } from '../lib/aiProvider.js';
 
 const IDENTITY_DIR = PATHS.digitalTwin;
 const IDENTITY_FILE = join(IDENTITY_DIR, 'identity.json');
@@ -697,6 +698,18 @@ export async function getGoals() {
     if (!Array.isArray(goal.tags)) { goal.tags = []; needsSave = true; }
     if (!Array.isArray(goal.linkedActivities)) { goal.linkedActivities = []; needsSave = true; }
     if (!Array.isArray(goal.linkedCalendars)) { goal.linkedCalendars = []; needsSave = true; }
+    if (goal.progress === undefined) { goal.progress = 0; needsSave = true; }
+    if (!Array.isArray(goal.progressHistory)) { goal.progressHistory = []; needsSave = true; }
+    if (!Array.isArray(goal.todos)) { goal.todos = []; needsSave = true; }
+    if (goal.targetDate === undefined) { goal.targetDate = null; needsSave = true; }
+    if (goal.timeBlockConfig === undefined) { goal.timeBlockConfig = null; needsSave = true; }
+    if (!Array.isArray(goal.scheduledEvents)) { goal.scheduledEvents = []; needsSave = true; }
+    if (!Array.isArray(goal.checkIns)) { goal.checkIns = []; needsSave = true; }
+    // Lazy-migrate milestones with description and order
+    for (const ms of (goal.milestones || [])) {
+      if (ms.description === undefined) { ms.description = ''; needsSave = true; }
+      if (ms.order === undefined) { ms.order = 0; needsSave = true; }
+    }
   }
   if (needsSave) await saveJSON(GOALS_FILE, data);
   return data;
@@ -730,7 +743,7 @@ export async function setBirthDate(birthDate) {
   return goals;
 }
 
-export async function createGoal({ title, description, horizon, category, parentId, tags }) {
+export async function createGoal({ title, description, horizon, category, parentId, tags, targetDate, timeBlockConfig }) {
   const goals = await getGoals();
   const longevity = await loadJSON(LONGEVITY_FILE, DEFAULT_LONGEVITY);
 
@@ -749,9 +762,17 @@ export async function createGoal({ title, description, horizon, category, parent
     parentId: parentId || null,
     tags: [...new Set((tags || []).map(t => t.trim()).filter(Boolean))],
     linkedActivities: [],
+    linkedCalendars: [],
+    targetDate: targetDate || null,
+    timeBlockConfig: timeBlockConfig || null,
+    scheduledEvents: [],
+    checkIns: [],
     urgency: null,
     status: 'active',
     milestones: [],
+    progress: 0,
+    progressHistory: [],
+    todos: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -799,7 +820,7 @@ export async function updateGoal(goalId, updates) {
     }
   }
 
-  const allowed = ['title', 'description', 'horizon', 'category', 'status', 'parentId', 'tags'];
+  const allowed = ['title', 'description', 'horizon', 'category', 'status', 'parentId', 'tags', 'targetDate', 'timeBlockConfig'];
   for (const key of allowed) {
     if (updates[key] !== undefined) goal[key] = updates[key];
   }
@@ -846,13 +867,15 @@ export async function getGoalsTree() {
   const longevity = await loadJSON(LONGEVITY_FILE, DEFAULT_LONGEVITY);
   const activities = await getActivities();
 
-  // Enrich goals with urgency and feasibility (shallow copies to avoid mutating persisted objects)
+  // Enrich goals with urgency, feasibility, velocity, and time tracking
   const enriched = goals.goals.map(goal => {
     const enrichedGoal = { ...goal };
     if (goal.status === 'active' && longevity.timeHorizons) {
       enrichedGoal.urgency = computeGoalUrgency(goal, longevity.timeHorizons);
       enrichedGoal.feasibility = computeGoalFeasibility(goal, longevity.timeHorizons, activities);
     }
+    enrichedGoal.velocity = computeGoalVelocity(goal);
+    enrichedGoal.timeTracking = computeTimeTracking(goal);
     return enrichedGoal;
   });
 
@@ -1066,4 +1089,265 @@ export async function getGoalCalendarEvents(goalId, startDate, endDate) {
     if (!pattern) return true;
     return e.title?.toLowerCase().includes(pattern.toLowerCase());
   });
+}
+
+// =============================================================================
+// AI Phase Planning
+// =============================================================================
+
+export async function generateGoalPhases(goalId, { providerId, model } = {}) {
+  const { getActiveProvider, getProviderById } = await import('./providers.js');
+  const goals = await loadJSON(GOALS_FILE, DEFAULT_GOALS);
+  const goal = goals.goals.find(g => g.id === goalId);
+  if (!goal) throw new ServerError('Goal not found', { status: 404, code: 'NOT_FOUND' });
+  if (!goal.targetDate) throw new ServerError('Goal must have a target date to generate phases', { status: 400, code: 'MISSING_TARGET_DATE' });
+
+  const provider = providerId ? await getProviderById(providerId) : await getActiveProvider();
+  if (!provider) throw new ServerError('No AI provider available', { status: 503, code: 'NO_PROVIDER' });
+  const selectedModel = model ?? provider.defaultModel;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const prompt = `You are a goal planning assistant. Given a goal with a target completion date, generate 3-7 ordered phases that break this goal into achievable milestones.
+
+Goal title: ${goal.title}
+Goal description: ${goal.description || 'No description provided'}
+Today's date: ${today}
+Target completion date: ${goal.targetDate}
+
+Generate phases that:
+- Are ordered chronologically with evenly distributed target dates between now and the target date
+- Have clear, actionable titles
+- Include brief descriptions of what each phase involves
+- The last phase's target date should match or be near the goal's target date
+
+Respond with a JSON array only (no markdown fences, no explanation). Each element must have:
+- "title": string (phase name)
+- "description": string (1-2 sentences)
+- "targetDate": string (YYYY-MM-DD format)
+- "order": number (0-based index)`;
+
+  const result = await callProviderAISimple(provider, selectedModel, prompt, { max_tokens: 2000 });
+  if (result.error) throw new ServerError(`AI generation failed: ${result.error}`, { status: 502, code: 'AI_ERROR' });
+
+  let parsed;
+  try {
+    parsed = parseLLMJSON(result.text);
+  } catch (e) {
+    throw new ServerError(`AI returned invalid phase data: ${e.message}`, { status: 502, code: 'AI_PARSE_ERROR' });
+  }
+  if (!Array.isArray(parsed)) throw new ServerError('AI returned invalid phase data', { status: 502, code: 'AI_PARSE_ERROR' });
+
+  console.log(`🎯 Generated ${parsed.length} phases for goal "${goal.title}"`);
+  return parsed;
+}
+
+export async function acceptGoalPhases(goalId, phases) {
+  const goals = await loadJSON(GOALS_FILE, DEFAULT_GOALS);
+  const goal = goals.goals.find(g => g.id === goalId);
+  if (!goal) throw new ServerError('Goal not found', { status: 404, code: 'NOT_FOUND' });
+
+  goal.milestones = phases.map((phase, idx) => ({
+    id: `ms-${uuidv4()}`,
+    title: phase.title,
+    description: phase.description || '',
+    targetDate: phase.targetDate || null,
+    order: phase.order ?? idx,
+    completedAt: null,
+    createdAt: new Date().toISOString()
+  }));
+
+  goal.updatedAt = new Date().toISOString();
+  goals.updatedAt = new Date().toISOString();
+  await saveJSON(GOALS_FILE, goals);
+  console.log(`🎯 Accepted ${phases.length} phases for goal "${goal.title}"`);
+  return goal;
+}
+
+// =============================================================================
+// Goal Progress Percentage
+// =============================================================================
+
+export async function updateGoalProgress(goalId, value) {
+  const goals = await loadJSON(GOALS_FILE, DEFAULT_GOALS);
+  const goal = goals.goals.find(g => g.id === goalId);
+  if (!goal) return null;
+
+  const prev = goal.progress ?? 0;
+  goal.progress = value;
+  if (!goal.progressHistory) goal.progressHistory = [];
+
+  // Only log if value changed; deduplicate same-day entries to prevent bloat
+  if (prev !== value) {
+    const today = new Date().toISOString().slice(0, 10);
+    const lastEntry = goal.progressHistory[goal.progressHistory.length - 1];
+    if (lastEntry?.date === today) {
+      lastEntry.value = value;
+      lastEntry.timestamp = new Date().toISOString();
+    } else {
+      goal.progressHistory.push({ date: today, value, timestamp: new Date().toISOString() });
+    }
+  }
+
+  goal.updatedAt = new Date().toISOString();
+  goals.updatedAt = new Date().toISOString();
+  await saveJSON(GOALS_FILE, goals);
+
+  console.log(`📊 Progress for "${goal.title}": ${prev}% → ${value}%`);
+  return goal;
+}
+
+// =============================================================================
+// Goal Velocity & Projection (pure functions)
+// =============================================================================
+
+/**
+ * Compute velocity (percent/month) and trend from progressHistory.
+ * Returns { percentPerMonth, trend, projectedCompletion } or null if insufficient data.
+ */
+export function computeGoalVelocity(goal) {
+  const history = goal.progressHistory;
+  if (!history?.length || history.length < 2) return null;
+
+  // Find earliest and latest entries in O(n) instead of sorting
+  let first = history[0];
+  let last = history[0];
+  for (const entry of history) {
+    if (entry.date < first.date) first = entry;
+    if (entry.date >= last.date) last = entry;
+  }
+
+  const daysDiff = (new Date(last.date) - new Date(first.date)) / (1000 * 60 * 60 * 24);
+  if (daysDiff < 1) return null;
+
+  const monthsDiff = daysDiff / 30.44;
+  const totalChange = last.value - first.value;
+  const percentPerMonth = Math.round((totalChange / monthsDiff) * 10) / 10;
+
+  // Trend: compare recent half vs first half velocity using median date
+  let trend = 'stable';
+  if (history.length >= 4) {
+    const midDate = new Date((new Date(first.date).getTime() + new Date(last.date).getTime()) / 2);
+    // Find entry closest to midpoint
+    let midEntry = first;
+    let minDist = Infinity;
+    for (const entry of history) {
+      const dist = Math.abs(new Date(entry.date) - midDate);
+      if (dist < minDist) { minDist = dist; midEntry = entry; }
+    }
+    const firstHalfDays = (new Date(midEntry.date) - new Date(first.date)) / (1000 * 60 * 60 * 24);
+    const secondHalfDays = (new Date(last.date) - new Date(midEntry.date)) / (1000 * 60 * 60 * 24);
+    if (firstHalfDays > 0 && secondHalfDays > 0) {
+      const firstVel = (midEntry.value - first.value) / firstHalfDays;
+      const secondVel = (last.value - midEntry.value) / secondHalfDays;
+      if (secondVel > firstVel * 1.2) trend = 'increasing';
+      else if (secondVel < firstVel * 0.8) trend = 'decreasing';
+    }
+  }
+
+  // Projected completion date
+  let projectedCompletion = null;
+  const remaining = 100 - (goal.progress ?? 0);
+  if (percentPerMonth > 0 && remaining > 0) {
+    const monthsToGo = remaining / percentPerMonth;
+    const projected = new Date();
+    projected.setDate(projected.getDate() + Math.round(monthsToGo * 30.44));
+    projectedCompletion = projected.toISOString().slice(0, 10);
+  }
+
+  return { percentPerMonth, trend, projectedCompletion };
+}
+
+/**
+ * Compute time tracking stats from progressLog entries.
+ * Returns { totalMinutes, weeklyAverage, entriesCount }.
+ */
+export function computeTimeTracking(goal) {
+  const log = goal.progressLog;
+  if (!log?.length) return { totalMinutes: 0, weeklyAverage: 0, entriesCount: 0 };
+
+  let totalMinutes = 0;
+  let minDate = log[0].date;
+  let maxDate = log[0].date;
+  for (const e of log) {
+    totalMinutes += e.durationMinutes || 0;
+    if (e.date < minDate) minDate = e.date;
+    if (e.date > maxDate) maxDate = e.date;
+  }
+
+  const daySpan = (new Date(maxDate) - new Date(minDate)) / (1000 * 60 * 60 * 24);
+  const weeks = Math.max(1, daySpan / 7);
+  const weeklyAverage = Math.round(totalMinutes / weeks);
+
+  return { totalMinutes, weeklyAverage, entriesCount: log.length };
+}
+
+// =============================================================================
+// Goal Todos
+// =============================================================================
+
+export async function addTodo(goalId, { title, priority, estimateMinutes }) {
+  const goals = await loadJSON(GOALS_FILE, DEFAULT_GOALS);
+  const goal = goals.goals.find(g => g.id === goalId);
+  if (!goal) return null;
+
+  if (!goal.todos) goal.todos = [];
+
+  const todo = {
+    id: `todo-${uuidv4()}`,
+    title,
+    status: 'pending',
+    priority: priority || 'medium',
+    estimateMinutes: estimateMinutes || null,
+    createdAt: new Date().toISOString(),
+    completedAt: null
+  };
+
+  goal.todos.push(todo);
+  goal.updatedAt = new Date().toISOString();
+  goals.updatedAt = new Date().toISOString();
+  await saveJSON(GOALS_FILE, goals);
+
+  console.log(`✅ Todo added to "${goal.title}": "${title}"`);
+  return todo;
+}
+
+export async function updateTodo(goalId, todoId, updates) {
+  const goals = await loadJSON(GOALS_FILE, DEFAULT_GOALS);
+  const goal = goals.goals.find(g => g.id === goalId);
+  if (!goal) return null;
+
+  const todo = (goal.todos || []).find(t => t.id === todoId);
+  if (!todo) return null;
+
+  const allowed = ['title', 'status', 'priority', 'estimateMinutes'];
+  for (const key of allowed) {
+    if (updates[key] !== undefined) todo[key] = updates[key];
+  }
+
+  // Auto-set completedAt when marked done
+  if (updates.status === 'done' && !todo.completedAt) {
+    todo.completedAt = new Date().toISOString();
+  } else if (updates.status && updates.status !== 'done') {
+    todo.completedAt = null;
+  }
+
+  goal.updatedAt = new Date().toISOString();
+  goals.updatedAt = new Date().toISOString();
+  await saveJSON(GOALS_FILE, goals);
+  return todo;
+}
+
+export async function deleteTodo(goalId, todoId) {
+  const goals = await loadJSON(GOALS_FILE, DEFAULT_GOALS);
+  const goal = goals.goals.find(g => g.id === goalId);
+  if (!goal) return null;
+
+  const idx = (goal.todos || []).findIndex(t => t.id === todoId);
+  if (idx === -1) return null;
+
+  goal.todos.splice(idx, 1);
+  goal.updatedAt = new Date().toISOString();
+  goals.updatedAt = new Date().toISOString();
+  await saveJSON(GOALS_FILE, goals);
+  return { deleted: true };
 }

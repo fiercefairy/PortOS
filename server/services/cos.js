@@ -5,10 +5,9 @@
  * spawns sub-agents, and orchestrates task completion.
  */
 
-import { readFile, writeFile, rename, mkdir, readdir, rm, stat } from 'fs/promises';
+import { readFile, writeFile, rename, readdir, rm, stat } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
 import { exec, execFile } from 'child_process';
 import { execPm2 } from './pm2.js';
 import { promisify } from 'util';
@@ -23,7 +22,7 @@ import { createMutex } from '../lib/asyncMutex.js';
 import { generateProactiveTasks as generateMissionTasks, getStats as getMissionStats } from './missions.js';
 import { generateTaskFromJob, recordJobExecution, recordJobGateSkip, isScriptJob, executeScriptJob, isShellJob, executeShellJob } from './autonomousJobs.js';
 import { checkJobGate, hasGate } from './jobGates.js';
-import { formatDuration, safeJSONParse } from '../lib/fileUtils.js';
+import { ensureDir, ensureDirs, formatDuration, safeJSONParse, PATHS } from '../lib/fileUtils.js';
 import { sanitizeTaskMetadata } from '../lib/validation.js';
 import { addNotification, NOTIFICATION_TYPES } from './notifications.js';
 import { recordDecision, DECISION_TYPES } from './decisionLog.js';
@@ -38,15 +37,11 @@ const _execFileAsync = promisify(execFile);
 const execAsync = (cmd, opts) => _execAsync(cmd, { ...opts, windowsHide: true });
 const execFileAsync = (cmd, args, opts) => _execFileAsync(cmd, args, { ...opts, windowsHide: true });
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const DATA_DIR = join(__dirname, '../../data');
-const COS_DIR = join(DATA_DIR, 'cos');
-const STATE_FILE = join(COS_DIR, 'state.json');
-const AGENTS_DIR = join(COS_DIR, 'agents');
-const REPORTS_DIR = join(COS_DIR, 'reports');
-const SCRIPTS_DIR = join(COS_DIR, 'scripts');
-const ROOT_DIR = join(__dirname, '../../');
+const STATE_FILE = join(PATHS.cos, 'state.json');
+const AGENTS_DIR = join(PATHS.cos, 'agents');
+const REPORTS_DIR = PATHS.reports;
+const SCRIPTS_DIR = PATHS.scripts;
+const ROOT_DIR = PATHS.root;
 
 /**
  * Emit a log event for UI display
@@ -89,7 +84,7 @@ async function loadAgentIndex() {
 
   agentIndexPromise = (async () => {
     if (!existsSync(AGENTS_DIR)) {
-      await mkdir(AGENTS_DIR, { recursive: true });
+      await ensureDir(AGENTS_DIR);
     }
 
     if (existsSync(INDEX_FILE)) {
@@ -140,7 +135,7 @@ async function migrateAgentsToDateBuckets() {
   const index = new Map();
 
   if (!existsSync(AGENTS_DIR)) {
-    await mkdir(AGENTS_DIR, { recursive: true });
+    await ensureDir(AGENTS_DIR);
     await writeFile(INDEX_FILE, '{}');
     console.log('📂 Created empty agent index (no agents to migrate)');
     return index;
@@ -209,7 +204,7 @@ async function migrateAgentsToDateBuckets() {
 
     // Move into date bucket
     const bucketDir = join(AGENTS_DIR, dateStr);
-    await mkdir(bucketDir, { recursive: true });
+    await ensureDir(bucketDir);
     const targetDir = join(bucketDir, agentId);
 
     // If target already exists (partial previous migration), skip
@@ -223,7 +218,7 @@ async function migrateAgentsToDateBuckets() {
       // rename can fail across filesystems — fall back to copy+delete
       console.log(`⚠️ Rename failed for ${agentId}, using copy: ${renameErr.message}`);
       try {
-        await mkdir(targetDir, { recursive: true });
+        await ensureDir(targetDir);
         const files = await readdir(agentDir);
         for (const file of files) {
           const content = await readFile(join(agentDir, file));
@@ -359,12 +354,7 @@ const DEFAULT_STATE = {
  * Ensure data directories exist
  */
 async function ensureDirectories() {
-  const dirs = [DATA_DIR, COS_DIR, AGENTS_DIR, REPORTS_DIR, SCRIPTS_DIR];
-  for (const dir of dirs) {
-    if (!existsSync(dir)) {
-      await mkdir(dir, { recursive: true });
-    }
-  }
+  await ensureDirs([PATHS.data, PATHS.cos, AGENTS_DIR, REPORTS_DIR, SCRIPTS_DIR]);
 }
 
 /**
@@ -1237,11 +1227,14 @@ async function queueEligibleImprovementTasks(state, cosTaskData) {
   if (!improvementEnabled) return;
 
   // Get existing pending/in_progress system tasks to avoid duplicates
+  // Also skip task types where a user-terminated blocked task exists (user intentionally killed it)
   const existingTasks = cosTaskData.tasks || [];
   const existingTaskTypes = new Set();
 
   for (const task of existingTasks) {
-    if (task.status === 'pending' || task.status === 'in_progress') {
+    const isActive = task.status === 'pending' || task.status === 'in_progress';
+    const isUserTerminated = task.status === 'blocked' && task.metadata?.blockedCategory === 'user-terminated';
+    if (isActive || isUserTerminated) {
       const analysisType = task.metadata?.analysisType ||
         task.metadata?.selfImprovementType ||
         task.description?.match(/\[(?:self-improvement|improvement)\]\s*(\w[\w-]*)/i)?.[1];
@@ -1311,12 +1304,13 @@ function getSelfImprovementTaskDescription(taskType) {
     'performance': 'Profile and optimize slow components, queries, and renders',
     'test-coverage': 'Add missing tests for uncovered code paths',
     'documentation': 'Update documentation, comments, and README files',
-    'feature-ideas': 'Implement a feature idea aligned with GOALS.md (worktree+PR)',
+    'feature-ideas': 'Implement a feature idea aligned with GOALS.md and PLAN.md (worktree+PR)',
     'accessibility': 'Audit and fix accessibility issues (ARIA, keyboard nav, contrast)',
     'dependency-updates': 'Check for and safely update outdated dependencies',
     'error-handling': 'Improve error handling patterns and recovery logic',
     'typing': 'Add or fix TypeScript/JSDoc type annotations',
-    'release-check': 'Verify release readiness (changelog, version, tests)'
+    'release-check': 'Verify release readiness (changelog, version, tests)',
+    'jira-sprint-manager': 'Triage and implement JIRA sprint tickets (worktree+PR)'
   };
   return descriptions[taskType] || null;
 }
@@ -1338,8 +1332,9 @@ function getAppImprovementTaskDescription(taskType, app) {
     'typing': `Add/fix TypeScript types in ${app.name}`,
     'ui-bugs': `Review UI for visual bugs in ${app.name}`,
     'mobile-responsive': `Check mobile responsiveness of ${app.name}`,
-    'feature-ideas': `Implement a feature idea for ${app.name} aligned with GOALS.md (worktree+PR)`,
-    'release-check': `Verify release readiness for ${app.name}`
+    'feature-ideas': `Implement a feature idea for ${app.name} aligned with GOALS.md and PLAN.md (worktree+PR)`,
+    'release-check': `Verify release readiness for ${app.name}`,
+    'jira-sprint-manager': `Triage and implement JIRA sprint tickets for ${app.name} (worktree+PR)`
   };
   return descriptions[taskType] || null;
 }
@@ -1747,10 +1742,10 @@ Use model: claude-opus-4-5-20251101 for comprehensive test design`,
 
 Review and improve PortOS documentation:
 
-1. Update PLAN.md:
-   - Mark completed milestones
-   - Add any new features implemented
-   - Document architectural decisions
+1. Update PLAN.md and DONE.md:
+   - Move completed milestones from PLAN.md to DONE.md
+   - Add any new features implemented to DONE.md
+   - Keep PLAN.md focused on next actions and future work
 
 2. Check docs/ folder:
    - Are all features documented?
@@ -1783,18 +1778,20 @@ You are working in a git worktree on a feature branch. Your goal is to implement
 ## Research Phase
 
 1. Read GOALS.md for context on user goals and priorities
-2. Read PLAN.md for the current roadmap and planned work
-3. Search for existing feature idea documents:
+2. Read PLAN.md for the current roadmap and planned work (next actions, audit findings, future ideas)
+3. Read DONE.md to understand what has already been implemented (avoid re-implementing existing features)
+4. Search for existing feature idea documents:
    - Check .planning/research/FEATURES.md for planned features
    - Check .planning/ directory for any feature specs or research docs
    - Check data/COS-GOALS.md for CoS-specific goals
-4. Review recent completed tasks to understand what's already been done
-5. Review recent git log to see what's been implemented recently
+5. Review recent completed tasks to understand what's already been done
+6. Review recent git log to see what's been implemented recently
 
 ## Selection Phase
 
-6. Choose ONE feature to implement that:
+7. Choose ONE feature to implement that:
    - Aligns with GOALS.md priorities
+   - Is NOT already completed in DONE.md (avoid re-implementing shipped features)
    - Is NOT already planned in PLAN.md (avoid duplicating roadmap work)
    - Is NOT already documented in existing feature idea files
    - Is a small, self-contained improvement (completable in one session)
@@ -1802,14 +1799,14 @@ You are working in a git worktree on a feature branch. Your goal is to implement
 
 ## Implementation Phase
 
-7. Implement the feature:
+8. Implement the feature:
    - Write clean, tested code
    - Follow existing patterns in the codebase
    - Run tests to ensure nothing is broken
 
-8. Run \`/simplify\` to review changed code for reuse, quality, and efficiency. Fix any issues found.
+9. Run \`/simplify\` to review changed code for reuse, quality, and efficiency. Fix any issues found.
 
-9. Commit with a clear description of the feature and rationale
+10. Commit with a clear description of the feature and rationale
 
 Use model: claude-opus-4-5-20251101 for creative feature development`,
 
@@ -1906,7 +1903,8 @@ async function generateManagedAppImprovementTask(app, state) {
   // Replace template variables in the prompt
   const description = promptTemplate
     .replace(/\{appName\}/g, app.name)
-    .replace(/\{repoPath\}/g, app.repoPath);
+    .replace(/\{repoPath\}/g, app.repoPath)
+    .replace(/\{appId\}/g, app.id);
 
   // Get interval settings to determine provider/model
   const interval = await taskSchedule.getTaskInterval(nextType);
@@ -1983,7 +1981,8 @@ async function generateManagedAppImprovementTaskForType(taskType, app, state) {
   // Replace template variables in the prompt
   const description = promptTemplate
     .replace(/\{appName\}/g, app.name)
-    .replace(/\{repoPath\}/g, app.repoPath);
+    .replace(/\{repoPath\}/g, app.repoPath)
+    .replace(/\{appId\}/g, app.id);
 
   // Get interval settings to determine provider/model
   const interval = await taskSchedule.getTaskInterval(taskType);
@@ -2292,12 +2291,12 @@ export async function completeAgent(agentId, result = {}) {
     // Determine date bucket from completedAt
     const dateStr = state.agents[agentId].completedAt.slice(0, 10);
     const bucketDir = join(AGENTS_DIR, dateStr);
-    await mkdir(bucketDir, { recursive: true });
+    await ensureDir(bucketDir);
 
     // Write metadata to flat dir first (may already have output.txt/prompt.txt there)
     const flatDir = join(AGENTS_DIR, agentId);
     if (!existsSync(flatDir)) {
-      await mkdir(flatDir, { recursive: true });
+      await ensureDir(flatDir);
     }
     const { output: _output, ...agentWithoutOutput } = state.agents[agentId];
     await writeFile(join(flatDir, 'metadata.json'), JSON.stringify(agentWithoutOutput, null, 2));
@@ -2307,7 +2306,7 @@ export async function completeAgent(agentId, result = {}) {
     if (!existsSync(targetDir)) {
       await rename(flatDir, targetDir).catch(async () => {
         // Fallback for cross-filesystem: copy files then remove
-        await mkdir(targetDir, { recursive: true });
+        await ensureDir(targetDir);
         const files = await readdir(flatDir);
         for (const file of files) {
           const content = await readFile(join(flatDir, file));
@@ -2556,20 +2555,20 @@ export async function cleanupZombieAgents() {
         const dateStr = agent.completedAt?.slice(0, 10);
         if (!dateStr) continue;
         const bucketDir = join(AGENTS_DIR, dateStr);
-        await mkdir(bucketDir, { recursive: true });
+        await ensureDir(bucketDir);
 
         const flatDir = join(AGENTS_DIR, agentId);
         const { output, ...agentWithoutOutput } = agent;
 
         // Ensure metadata is written before move
-        if (!existsSync(flatDir)) await mkdir(flatDir, { recursive: true });
+        if (!existsSync(flatDir)) await ensureDir(flatDir);
         await writeFile(join(flatDir, 'metadata.json'), JSON.stringify(agentWithoutOutput, null, 2)).catch(() => {});
 
         // Move to date bucket
         const targetDir = join(bucketDir, agentId);
         if (!existsSync(targetDir)) {
           await rename(flatDir, targetDir).catch(async () => {
-            await mkdir(targetDir, { recursive: true });
+            await ensureDir(targetDir);
             const files = await readdir(flatDir);
             for (const file of files) {
               const content = await readFile(join(flatDir, file));
@@ -3040,7 +3039,7 @@ export async function archiveStaleAgents() {
         const dateStr = agent.completedAt?.slice(0, 10);
         if (!dateStr) continue;
         const bucketDir = join(AGENTS_DIR, dateStr);
-        await mkdir(bucketDir, { recursive: true });
+        await ensureDir(bucketDir);
 
         const { output, ...agentWithoutOutput } = agent;
         const flatDir = join(AGENTS_DIR, id);
@@ -3050,7 +3049,7 @@ export async function archiveStaleAgents() {
           // Write metadata then move (with cross-filesystem fallback)
           await writeFile(join(flatDir, 'metadata.json'), JSON.stringify(agentWithoutOutput, null, 2)).catch(() => {});
           await rename(flatDir, targetDir).catch(async () => {
-            await mkdir(targetDir, { recursive: true });
+            await ensureDir(targetDir);
             const files = await readdir(flatDir).catch(() => []);
             for (const file of files) {
               const content = await readFile(join(flatDir, file)).catch(() => null);
@@ -3060,7 +3059,7 @@ export async function archiveStaleAgents() {
           });
           if (!existsSync(targetDir)) continue; // Skip index update if move failed
         } else if (!existsSync(targetDir)) {
-          await mkdir(targetDir, { recursive: true });
+          await ensureDir(targetDir);
           await writeFile(join(targetDir, 'metadata.json'), JSON.stringify(agentWithoutOutput, null, 2)).catch(() => {});
         }
 

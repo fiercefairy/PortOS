@@ -35,7 +35,6 @@ const TRIAGE_TABS = [
 
 export default function InboxTab({ accounts }) {
   const [messages, setMessages] = useState([]);
-  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -62,7 +61,6 @@ export default function InboxTab({ accounts }) {
     if (debouncedSearch) params.search = debouncedSearch;
     const result = await api.getMessageInbox(params).catch(() => ({ messages: [], total: 0 }));
     setMessages(result.messages || []);
-    setTotal(result.total || 0);
     setLoading(false);
   }, [selectedAccount, debouncedSearch]);
 
@@ -92,7 +90,6 @@ export default function InboxTab({ accounts }) {
           new Date(b.date || 0) - new Date(a.date || 0)
         );
       });
-      setTotal(prev => prev + incoming.length);
     };
     socket.on('messages:sync:message', onSyncMessage);
     return () => socket.off('messages:sync:message', onSyncMessage);
@@ -176,7 +173,6 @@ export default function InboxTab({ accounts }) {
     if (result?.success) {
       toast.success(`Message ${action === 'archive' ? 'archived' : 'deleted'}`);
       setMessages(prev => prev.filter(m => m.id !== msg.id));
-      setTotal(prev => Math.max(0, prev - 1));
     }
   };
 
@@ -323,8 +319,6 @@ export default function InboxTab({ accounts }) {
       <div className="space-y-1">
         {messages.filter((TRIAGE_TABS.find(t => t.key === activeTab) || TRIAGE_TABS[0]).filter).map((msg) => {
           const ev = msg.evaluation;
-          const actionCfg = ev ? ACTION_CONFIG[ev.action] : null;
-          const ActionIcon = actionCfg?.icon;
           return (
             <div
               key={msg.id}
@@ -409,3 +403,4 @@ export default function InboxTab({ accounts }) {
     </div>
   );
 }
+

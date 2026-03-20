@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Loader } from 'lucide-react';
 import { getPostConfig, getPostSessions } from '../../../services/api';
 import { usePostSession } from '../../../hooks/usePostSession';
@@ -9,19 +10,25 @@ import PostSessionResults from '../post/PostSessionResults';
 import PostHistory from '../post/PostHistory';
 import PostDrillConfig from '../post/PostDrillConfig';
 import MemoryBuilder from '../post/MemoryBuilder';
+import ElementsSong from '../post/ElementsSong';
 import DrillTransition from '../post/DrillTransition';
+import WordplayTrainer from '../post/WordplayTrainer';
 import { LLM_DRILL_TYPES } from '../post/constants';
 
-export default function PostTab() {
-  const [view, setView] = useState('launcher');
+export default function PostTab({ tab = 'launcher', subtab }) {
+  const navigate = useNavigate();
   const [config, setConfig] = useState(null);
   const [recentSessions, setRecentSessions] = useState([]);
   const [sessionTags, setSessionTags] = useState({});
+  const [sessionView, setSessionView] = useState(null);
   const session = usePostSession();
+  const [elementsItem, setElementsItem] = useState(null);
+
+  useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (tab !== 'launcher' || subtab) setSessionView(null);
+  }, [tab, subtab]);
 
   async function loadData() {
     const [cfg, sessions] = await Promise.all([
@@ -35,76 +42,58 @@ export default function PostTab() {
   async function handleStart(drillConfigs, tags, training = false) {
     setSessionTags(tags || {});
     const started = await session.startSession(drillConfigs, training);
-    if (started) setView('running');
-  }
-
-  function handleDrillComplete() {
-    setView('results');
+    if (started) setSessionView('running');
   }
 
   async function handleSaved() {
     await loadData();
-    setView('launcher');
+    setSessionView(null);
     session.reset();
-  }
-
-  function handleViewHistory() {
-    setView('history');
-  }
-
-  function handleViewConfig() {
-    setView('config');
-  }
-
-  function handleViewMemory() {
-    setView('memory');
+    navigate('/post/launcher');
   }
 
   function handleConfigSaved(newConfig) {
     setConfig(newConfig);
-    setView('launcher');
+    navigate('/post/launcher');
   }
 
   function handleBack() {
     if (session.state === 'idle' || session.state === 'saved') {
-      setView('launcher');
+      setSessionView(null);
+      navigate('/post/launcher');
     }
   }
 
-  // When session completes (all drills done), transition to results
   useEffect(() => {
-    if (session.state === 'complete' && view === 'running') {
-      setView('results');
+    if (session.state === 'complete' && sessionView === 'running') {
+      setSessionView('results');
     }
-  }, [session.state, view]);
+  }, [session.state, sessionView]);
 
-  // When between drills, show transition (handled in switch/case below)
-
-  // Use queued drill config type (always current) rather than currentDrill (stale during loading transitions)
   const currentDrillConfig = session.drills[session.currentDrillIndex];
   const isLlmDrill = currentDrillConfig
     ? LLM_DRILL_TYPES.includes(currentDrillConfig.type)
     : session.currentDrill && LLM_DRILL_TYPES.includes(session.currentDrill.type);
 
-  // Show transition between drills
-  if (session.state === 'between-drills' && view === 'running') {
-    const nextIndex = session.currentDrillIndex + 1;
-    const nextDrill = session.drills[nextIndex];
-    if (nextDrill) {
-      return (
-        <DrillTransition
-          nextDrillType={nextDrill.type}
-          drillIndex={nextIndex}
-          drillCount={session.drillCount}
-          completedResults={session.drillResults}
-          onContinue={session.nextDrill}
-        />
-      );
+  // Ephemeral session views overlay the launcher tab
+  if (tab === 'launcher' && sessionView) {
+    if (session.state === 'between-drills' && sessionView === 'running') {
+      const nextIndex = session.currentDrillIndex + 1;
+      const nextDrill = session.drills[nextIndex];
+      if (nextDrill) {
+        return (
+          <DrillTransition
+            nextDrillType={nextDrill.type}
+            drillIndex={nextIndex}
+            drillCount={session.drillCount}
+            completedResults={session.drillResults}
+            onContinue={session.nextDrill}
+          />
+        );
+      }
     }
-  }
 
-  switch (view) {
-    case 'running':
+    if (sessionView === 'running') {
       if (session.state === 'loading' && isLlmDrill) {
         return (
           <div className="flex flex-col items-center justify-center h-64 gap-3">
@@ -127,12 +116,10 @@ export default function PostTab() {
           />
         );
       }
-      return (
-        <PostDrillRunner
-          session={session}
-        />
-      );
-    case 'results':
+      return <PostDrillRunner session={session} />;
+    }
+
+    if (sessionView === 'results') {
       return (
         <PostSessionResults
           session={session}
@@ -141,24 +128,36 @@ export default function PostTab() {
           onBack={handleBack}
         />
       );
+    }
+  }
+
+  switch (tab) {
     case 'history':
-      return (
-        <PostHistory
-          onBack={() => setView('launcher')}
-        />
-      );
+      return <PostHistory onBack={() => navigate('/post/launcher')} />;
     case 'config':
       return (
         <PostDrillConfig
           config={config}
           onSaved={handleConfigSaved}
-          onBack={() => setView('launcher')}
+          onBack={() => navigate('/post/launcher')}
         />
       );
+    case 'wordplay':
+      return <WordplayTrainer config={config} onBack={() => navigate('/post/launcher')} />;
     case 'memory':
+      if (subtab === 'elements') {
+        return (
+          <ElementsSong
+            item={elementsItem}
+            onBack={() => { setElementsItem(null); navigate('/post/memory'); }}
+            loadItemOnMount={!elementsItem}
+          />
+        );
+      }
       return (
         <MemoryBuilder
-          onBack={() => setView('launcher')}
+          onBack={() => navigate('/post/launcher')}
+          onNavigateElements={(item) => { setElementsItem(item); navigate('/post/memory/elements'); }}
         />
       );
     default:
@@ -167,9 +166,9 @@ export default function PostTab() {
           config={config}
           recentSessions={recentSessions}
           onStart={handleStart}
-          onViewHistory={handleViewHistory}
-          onViewConfig={handleViewConfig}
-          onViewMemory={handleViewMemory}
+          onViewHistory={() => navigate('/post/history')}
+          onViewConfig={() => navigate('/post/config')}
+          onViewMemory={() => navigate('/post/memory')}
         />
       );
   }

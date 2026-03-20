@@ -11,6 +11,7 @@ import DecisionLogWidget from '../components/DecisionLogWidget';
 import DeathClockWidget from '../components/DeathClockWidget';
 import QuickBrainCapture from '../components/QuickBrainCapture';
 import QuickTaskWidget from '../components/QuickTaskWidget';
+import ReviewHubCard from '../components/ReviewHubCard';
 import * as api from '../services/api';
 import socket from '../services/socket';
 
@@ -47,9 +48,13 @@ export default function Dashboard() {
     };
   }, [fetchData]);
 
-  // Sort apps: active first, archived last
+  // Sort apps: active first, archived last, alphabetical within each group
   const sortedApps = useMemo(() =>
-    [...apps].sort((a, b) => (a.archived ? 1 : 0) - (b.archived ? 1 : 0)),
+    [...apps].sort((a, b) => {
+      const archiveDiff = (a.archived ? 1 : 0) - (b.archived ? 1 : 0);
+      if (archiveDiff !== 0) return archiveDiff;
+      return a.name.localeCompare(b.name);
+    }),
     [apps]
   );
 
@@ -132,6 +137,7 @@ export default function Dashboard() {
 
       {/* Row 4 — Status, stats, decisions */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <ReviewHubCard />
         <SystemHealthWidget />
         <BackupWidget />
         <DeathClockWidget />

@@ -52,6 +52,15 @@ export async function saveCache(accountId, cache) {
   await writeFile(filePath, JSON.stringify(cache, null, 2));
 }
 
+function filterDeclinedAndCancelled(events) {
+  return events.filter(e =>
+    e.myStatus !== 'declined' &&
+    !e.isCancelled &&
+    !e.title?.startsWith('Declined: ') &&
+    !e.title?.startsWith('Canceled: ')
+  );
+}
+
 function filterByEnabledSubcalendars(events, account) {
   if (!account?.subcalendars?.length) return events;
   const enabledIds = new Set(
@@ -68,6 +77,7 @@ export async function getEvents(options = {}) {
     const cache = await loadCache(accountId);
     const account = await getAccount(accountId);
     let events = cache.events.map(e => ({ ...e, accountId: e.accountId || accountId }));
+    events = filterDeclinedAndCancelled(events);
     events = filterByEnabledSubcalendars(events, account);
     events = filterBySearch(events, search);
     events = filterByDateRange(events, startDate, endDate);
@@ -91,6 +101,7 @@ export async function getEvents(options = {}) {
     if (!UUID_RE.test(fileAccountId)) continue;
     const cache = await loadCache(fileAccountId);
     let events = cache.events.map(e => ({ ...e, accountId: e.accountId || fileAccountId }));
+    events = filterDeclinedAndCancelled(events);
     events = filterByEnabledSubcalendars(events, accountMap.get(fileAccountId));
     allEvents.push(...events);
   }

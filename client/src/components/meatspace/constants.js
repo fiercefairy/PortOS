@@ -1,6 +1,6 @@
 import {
   Beer,
-  Calendar,
+  Cigarette,
   Clock,
   Dna,
   HeartPulse,
@@ -17,11 +17,11 @@ export const TABS = [
   { id: 'alcohol', label: 'Alcohol', icon: Beer },
   { id: 'blood', label: 'Blood', icon: HeartPulse },
   { id: 'body', label: 'Body', icon: Scale },
-  { id: 'calendar', label: 'Calendar', icon: Calendar },
   { id: 'genome', label: 'Genome', icon: Dna },
   { id: 'health', label: 'Health', icon: Stethoscope },
   { id: 'import', label: 'Import', icon: Upload },
   { id: 'lifestyle', label: 'Lifestyle', icon: ClipboardList },
+  { id: 'nicotine', label: 'Nicotine', icon: Cigarette },
 ];
 
 // Lifestyle adjustment table for death clock
@@ -106,6 +106,19 @@ export const STATUS_COLORS = {
   high: 'text-port-error',
   unknown: 'text-gray-500'
 };
+
+// Local date string (YYYY-MM-DD) — avoids UTC timezone shift from toISOString()
+export function localDateStr(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Shared day-of-week helpers (used by AlcoholTab, NicotineTab, etc.)
+export const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+export function dayOfWeek(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return DAY_LABELS[new Date(y, m - 1, d).getDay()];
+}
 
 // LEV 2045 constants
 export const LEV_TARGET_YEAR = 2045;

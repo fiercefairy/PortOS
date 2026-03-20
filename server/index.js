@@ -4,6 +4,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { PATHS } from './lib/fileUtils.js';
 import { existsSync } from 'fs';
 import { readFile, unlink } from 'fs/promises';
 
@@ -49,12 +50,15 @@ import datadogRoutes from './routes/datadog.js';
 import jiraRoutes from './routes/jira.js';
 import autobiographyRoutes from './routes/autobiography.js';
 import backupRoutes from './routes/backup.js';
+import databaseRoutes from './routes/database.js';
 import searchRoutes from './routes/search.js';
 import identityRoutes from './routes/identity.js';
 import instancesRoutes from './routes/instances.js';
 import meatspaceRoutes from './routes/meatspace.js';
+import reviewRoutes from './routes/review.js';
 import githubRoutes from './routes/github.js';
 import settingsRoutes from './routes/settings.js';
+import telegramRoutes from './routes/telegram.js';
 import updateRoutes from './routes/update.js';
 import { ensureSelf, startPolling } from './services/instances.js';
 import { initSyncLog } from './services/brainSyncLog.js';
@@ -70,6 +74,7 @@ import './services/subAgentSpawner.js'; // Initialize CoS agent spawner
 import * as automationScheduler from './services/automationScheduler.js';
 import * as agentActionExecutor from './services/agentActionExecutor.js';
 import { startBackupScheduler } from './services/backupScheduler.js';
+import * as telegram from './services/telegram.js';
 import { startUpdateScheduler, recordUpdateResult, clearStaleUpdateInProgress, getCurrentVersion } from './services/updateChecker.js';
 import { startBrainScheduler } from './services/brainScheduler.js';
 import { recoverStuckClassifications } from './services/brain.js';
@@ -102,8 +107,8 @@ const io = new Server(httpServer, {
 // Initialize socket handlers
 initSocket(io);
 
-// Build absolute paths from __dirname to ensure consistency regardless of cwd
-const DATA_DIR = join(__dirname, '..', 'data');
+// Build absolute paths - use centralized PATHS for data, __dirname for non-data paths
+const DATA_DIR = PATHS.data;
 const DATA_SAMPLE_DIR = join(__dirname, '..', 'data.sample');
 
 // Lifecycle hooks shared between AI Toolkit and PortOS runner shim
@@ -207,6 +212,7 @@ app.use('/api/screenshots', screenshotsRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/attachments', attachmentsRoutes);
 app.use('/api/backup', backupRoutes);
+app.use('/api/database', databaseRoutes);
 app.use('/api/uploads', uploadsRoutes);
 // Agent Personalities feature routes (must be before /api/agents to avoid route conflicts)
 app.use('/api/agents/personalities', agentPersonalitiesRoutes);
@@ -241,8 +247,10 @@ app.use('/api/health', appleHealthRoutes);
 app.use('/api/insights', insightsRoutes);
 app.use('/api/instances', instancesRoutes);
 app.use('/api/meatspace', meatspaceRoutes);
+app.use('/api/review', reviewRoutes);
 app.use('/api/github', githubRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/telegram', telegramRoutes);
 app.use('/api/update', updateRoutes);
 
 // Initialize agent automation scheduler and action executor
@@ -257,8 +265,10 @@ startBrainScheduler();
 initBrainMemoryBridge();
 // Initialize backup scheduler for daily data backups
 startBackupScheduler().catch(err => console.error(`❌ Backup scheduler init failed: ${err.message}`));
+// Initialize Telegram bot (if configured)
+telegram.init().catch(err => console.error(`❌ Telegram init failed: ${err.message}`));
 // Check for update completion marker from a previous update cycle
-const updateMarkerPath = join(__dirname, '..', 'data', 'update-complete.json');
+const updateMarkerPath = join(PATHS.data, 'update-complete.json');
 const removeMarker = () => unlink(updateMarkerPath).catch(e => {
   if (e?.code !== 'ENOENT') console.error(`❌ Failed to remove update marker: ${e.message}`);
 });

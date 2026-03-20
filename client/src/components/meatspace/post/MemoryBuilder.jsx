@@ -12,7 +12,7 @@ const ITEM_TYPES = [
   { id: 'text', label: 'Text' },
 ];
 
-export default function MemoryBuilder({ onBack }) {
+export default function MemoryBuilder({ onBack, onNavigateElements }) {
   const [items, setItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [view, setView] = useState('list'); // list, practice, elements, create
@@ -34,6 +34,10 @@ export default function MemoryBuilder({ onBack }) {
   }
 
   function handleSelect(item) {
+    if (item.id === 'elements-song' && onNavigateElements) {
+      onNavigateElements(item);
+      return;
+    }
     setSelectedItem(item);
     if (item.id === 'elements-song') {
       setView('elements');
@@ -45,12 +49,6 @@ export default function MemoryBuilder({ onBack }) {
   async function handleDelete(id) {
     await deleteMemoryItem(id);
     setItems(prev => prev.filter(i => i.id !== id));
-  }
-
-  function handlePracticeComplete() {
-    loadItems();
-    setView('list');
-    setSelectedItem(null);
   }
 
   function resetCreateForm() {
@@ -94,8 +92,7 @@ export default function MemoryBuilder({ onBack }) {
     return (
       <MemoryPractice
         item={selectedItem}
-        onBack={() => { setView('list'); setSelectedItem(null); }}
-        onComplete={handlePracticeComplete}
+        onBack={() => { loadItems(); setView('list'); setSelectedItem(null); }}
       />
     );
   }

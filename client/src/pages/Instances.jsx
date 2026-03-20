@@ -4,7 +4,8 @@ import {
   Wifi, WifiOff, CircleDot,
   Cpu, HardDrive, Activity, Bot, MonitorSmartphone, Tag,
   ArrowUpRight, ArrowDownLeft, ArrowLeftRight,
-  Database, Brain, CheckCircle2, AlertCircle, Clock
+  Database, Brain, CheckCircle2, AlertCircle, Clock,
+  RefreshCcw, RefreshCcwDot, Timer
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import socket from '../services/socket';
@@ -27,14 +28,6 @@ const STATUS_ICONS = {
   unknown: CircleDot
 };
 
-function formatBytes(bytes) {
-  if (!bytes) return '—';
-  const gb = bytes / (1024 * 1024 * 1024);
-  if (gb >= 1) return `${gb.toFixed(1)} GB`;
-  const mb = bytes / (1024 * 1024);
-  return `${Math.round(mb)} MB`;
-}
-
 function timeAgo(iso) {
   if (!iso) return 'Never';
   const diff = Date.now() - new Date(iso).getTime();
@@ -45,6 +38,19 @@ function timeAgo(iso) {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function timeUntil(iso) {
+  if (!iso) return null;
+  const diff = new Date(iso).getTime() - Date.now();
+  if (diff <= 0) return 'now';
+  const secs = Math.floor(diff / 1000);
+  if (secs < 60) return `in ${secs}s`;
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `in ${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `in ${hrs}h`;
+  return `in ${Math.floor(hrs / 24)}d`;
 }
 
 function HealthSummary({ health, version }) {
@@ -243,7 +249,7 @@ function DirectionBadge({ directions = [] }) {
   return null;
 }
 
-function SyncStatusBadge({ label, icon: Icon, localSeq, peerSeq, cursorSeq }) {
+function SyncStatusBadge({ label, icon: Icon, localSeq: _localSeq, peerSeq, cursorSeq }) {
   // cursorSeq = how far we've pulled from them (our cursor for their data)
   // localSeq = our local max seq for this data type
   // peerSeq = their max seq for this data type (from their sync-status endpoint)
@@ -357,6 +363,11 @@ function PeerCard({ peer, onRefresh, syncStatus }) {
     onRefresh();
   };
 
+  const handleSyncToggle = async () => {
+    await updatePeer(peer.id, { syncEnabled: !peer.syncEnabled }).catch(() => null);
+    onRefresh();
+  };
+
   const saveName = async () => {
     if (!name.trim()) return;
     const result = await updatePeer(peer.id, { name: name.trim() }).catch(() => null);
@@ -407,6 +418,13 @@ function PeerCard({ peer, onRefresh, syncStatus }) {
           >
             {peer.enabled ? 'ON' : 'OFF'}
           </button>
+          <button
+            onClick={handleSyncToggle}
+            className={`p-1 transition-colors ${peer.syncEnabled !== false ? 'text-port-accent hover:text-port-accent/80' : 'text-gray-600 hover:text-white'}`}
+            title={peer.syncEnabled !== false ? 'Disable sync' : 'Enable sync'}
+          >
+            {peer.syncEnabled !== false ? <RefreshCcw size={13} /> : <RefreshCcwDot size={13} />}
+          </button>
           {confirmRemove ? (
             <div className="flex items-center gap-1">
               <button onClick={handleRemove} className="text-port-error hover:text-port-error/80 text-xs">Yes</button>
@@ -445,6 +463,23 @@ function PeerCard({ peer, onRefresh, syncStatus }) {
       <div className="mt-2 text-xs text-gray-600">
         Last seen: {timeAgo(peer.lastSeen)}
       </div>
+
+      {peer.consecutiveFailures > 0 && (
+        <div className="mt-1 flex items-center gap-1.5 text-xs text-port-warning">
+          <Timer size={12} />
+          <span>
+            {peer.consecutiveFailures} consecutive failure{peer.consecutiveFailures !== 1 ? 's' : ''}
+            {peer.nextProbeAt && ` · next probe ${timeUntil(peer.nextProbeAt) ?? '—'}`}
+          </span>
+        </div>
+      )}
+
+      {peer.syncEnabled === false && (
+        <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
+          <RefreshCcwDot size={12} />
+          <span>Sync disabled</span>
+        </div>
+      )}
 
       <SyncStatusSection peer={peer} syncStatus={syncStatus} />
 

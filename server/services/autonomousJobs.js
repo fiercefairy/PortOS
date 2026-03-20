@@ -24,6 +24,7 @@ import { cosEvents } from './cosEvents.js'
 import { DAY, ensureDir, HOUR, PATHS, readJSONFile } from '../lib/fileUtils.js'
 import { createMutex } from '../lib/asyncMutex.js'
 import { checkAndPrompt as autobiographyCheckAndPrompt } from './autobiography.js'
+import { runGoalCheckIn } from './goalCheckIn.js'
 import { validateCommand, redactOutput, ALLOWED_COMMANDS_SORTED } from '../lib/commandSecurity.js'
 
 /**
@@ -105,14 +106,13 @@ async function agentDataCleanup() {
 const SCRIPT_HANDLERS = {
   'autobiography-prompt': autobiographyCheckAndPrompt,
   'moltworld-exploration': runMoltworldExploration,
-  'agent-data-cleanup': agentDataCleanup
+  'agent-data-cleanup': agentDataCleanup,
+  'goal-check-in': runGoalCheckIn
 }
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
 const DATA_DIR = PATHS.cos
 const JOBS_FILE = join(DATA_DIR, 'autonomous-jobs.json')
-const JOBS_SKILLS_DIR = join(__dirname, '../../data/prompts/skills/jobs')
+const JOBS_SKILLS_DIR = PATHS.promptSkillsJobs
 const withLock = createMutex()
 
 /**
@@ -123,7 +123,6 @@ const JOB_SKILL_MAP = {
   'job-github-repo-maintenance': 'github-repo-maintenance',
   'job-brain-review': 'brain-review',
   'job-datadog-error-monitor': 'datadog-error-monitor',
-  'job-jira-sprint-manager': 'jira-sprint-manager',
   'job-autobiography-prompt': 'autobiography-prompt'
 }
 
@@ -215,7 +214,7 @@ Focus on surfacing actionable insights and moving projects forward. Don't just c
     category: 'daily-briefing',
     interval: 'daily',
     intervalMs: DAY,
-    scheduledTime: '05:00',
+    scheduledTime: '04:00',
     enabled: false,
     priority: 'LOW',
     autonomyLevel: 'assistant',
@@ -253,60 +252,13 @@ Write the briefing in a concise, actionable format. Save it as a CoS report.`,
     updatedAt: null
   },
   {
-    id: 'job-jira-sprint-manager',
-    name: 'JIRA Sprint Manager',
-    description: 'Triage current sprint tickets for JIRA-enabled apps, then implement the highest-priority ready ticket in a worktree with a merge request.',
-    category: 'jira-sprint-manager',
-    interval: 'daily',
-    intervalMs: DAY,
-    scheduledTime: '09:00',
-    weekdaysOnly: true,
-    enabled: false,
-    priority: 'HIGH',
-    autonomyLevel: 'yolo',
-    promptTemplate: `[Autonomous Job] JIRA Sprint Manager
-
-You are acting as my Chief of Staff, triaging and implementing JIRA tickets for apps with JIRA integration enabled.
-
-This job runs Monday-Friday. It triages all sprint tickets first, then implements the top-priority ready ticket.
-
-Phase 1 — Triage:
-1. Call GET /api/apps to get all managed apps
-2. Filter for apps with jira.enabled = true and jira.instanceId + jira.projectKey set
-3. For each JIRA-enabled app:
-   - Call GET /api/jira/:instanceId/my-sprint-tickets/:projectKey to get tickets assigned to me in current sprint
-   - For each ticket, evaluate what needs to be done next:
-     a) Does the ticket need clarification or better requirements? Add a comment with questions
-     b) Is the ticket blocked or needs discussion? Add a comment noting blockers
-     c) Is the ticket well-defined and ready to work? Mark it as a candidate for implementation
-4. Prioritize tickets marked as HIGH or Blocker
-
-Phase 2 — Implement:
-5. From the triage results, select the highest priority ticket in "To Do" or "Ready" status that is well-defined
-6. For the selected ticket:
-   - Create a git worktree using the worktree manager
-   - Implement the ticket requirements
-   - Commit changes and push the branch
-   - Create a merge request using gh CLI
-   - Transition the ticket to "In Review" status
-   - Add a comment to JIRA with the MR link
-7. If no tickets are ready to implement, skip Phase 2
-
-Phase 3 — Report:
-8. Generate a summary report covering triage actions taken and implementation work completed`,
-    lastRun: null,
-    runCount: 0,
-    createdAt: null,
-    updatedAt: null
-  },
-  {
     id: 'job-datadog-error-monitor',
     name: 'DataDog Error Monitor',
     description: 'Check DataDog for new errors in configured apps, create tasks for new errors, and optionally create JIRA tickets.',
     category: 'datadog-error-monitor',
     interval: 'daily',
     intervalMs: DAY,
-    scheduledTime: '08:00',
+    scheduledTime: '00:00',
     enabled: false,
     priority: 'MEDIUM',
     autonomyLevel: 'manager',
@@ -385,6 +337,23 @@ Phase 4 — Report:
     priority: 'LOW',
     type: 'script',
     scriptHandler: 'agent-data-cleanup',
+    lastRun: null,
+    runCount: 0,
+    createdAt: null,
+    updatedAt: null
+  },
+  {
+    id: 'job-goal-check-in',
+    name: 'Goal Check-in',
+    description: 'Weekly check-in on active goals with target dates. Computes progress, determines status, and sends assessment via Telegram.',
+    category: 'goal-check-in',
+    interval: 'weekly',
+    intervalMs: WEEK,
+    scheduledTime: '00:00',
+    enabled: false,
+    priority: 'MEDIUM',
+    type: 'script',
+    scriptHandler: 'goal-check-in',
     lastRun: null,
     runCount: 0,
     createdAt: null,
@@ -550,8 +519,8 @@ function createDefaultJobsData() {
  * Merge loaded data with defaults (add any missing default jobs)
  */
 function mergeWithDefaults(loaded) {
-  // Migration: remove pr-reviewer job (moved to Schedule system)
-  loaded.jobs = loaded.jobs.filter(j => j.id !== 'job-pr-reviewer')
+  // Migration: remove jobs moved to Schedule system
+  loaded.jobs = loaded.jobs.filter(j => j.id !== 'job-pr-reviewer' && j.id !== 'job-jira-sprint-manager')
 
   const existingById = new Map(loaded.jobs.map(j => [j.id, j]))
   const now = new Date().toISOString()
@@ -1155,7 +1124,7 @@ async function executeShellJob(job) {
   return new Promise((resolve, reject) => {
     let killed = false
     const child = spawn(validation.baseCommand, validation.args || [], {
-      cwd: join(__dirname, '../../'),
+      cwd: PATHS.root,
       shell: false,
       windowsHide: true
     })

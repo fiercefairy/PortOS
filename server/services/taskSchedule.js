@@ -13,19 +13,16 @@
  * - 'custom': Custom interval in milliseconds
  */
 
-import { writeFile, mkdir } from 'fs/promises';
+import { writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import { cosEvents, emitLog } from './cos.js';
-import { DAY, HOUR, readJSONFile } from '../lib/fileUtils.js';
+import { DAY, ensureDir, HOUR, readJSONFile, PATHS } from '../lib/fileUtils.js';
 import { getAdaptiveCooldownMultiplier } from './taskLearning.js';
 import { isTaskTypeEnabledForApp, getAppTaskTypeInterval, getActiveApps, getAppTaskTypeOverrides } from './apps.js';
 import { PORTOS_UI_URL } from '../lib/ports.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const DATA_DIR = join(__dirname, '../../data/cos');
+const DATA_DIR = PATHS.cos;
 const SCHEDULE_FILE = join(DATA_DIR, 'task-schedule.json');
 
 // Interval type constants
@@ -290,9 +287,9 @@ Repository: {repoPath}
    - Is information current?
    - Add missing guides if needed
 
-4. Update PLAN.md or similar if present:
-   - Mark completed milestones
-   - Document architectural decisions
+4. Update PLAN.md and DONE.md if present:
+   - Move completed milestones from PLAN.md to DONE.md
+   - Keep PLAN.md focused on next actions and future work
 
 Commit documentation improvements.`,
 
@@ -324,42 +321,75 @@ Use Playwright MCP to test the app at different viewport sizes:
 4. Fix CSS responsive classes as needed
 5. Test fixes and commit changes`,
 
-  'feature-ideas': `[Improvement: {appName}] Implement a Feature Idea
+  'feature-ideas': `[Improvement: {appName}] Implement Next Planned Feature
 
-You are working in a git worktree on a feature branch. Your goal is to implement ONE feature and open a PR.
+You are working in a git worktree on a feature branch. Your goal is to implement the next planned item from PLAN.md, or brainstorm a new feature if no plan exists.
 
 Repository: {repoPath}
 
-## Research Phase
+## Phase 1 — Find the Next Task
+
+1. Read PLAN.md from {repoPath}
+2. Read DONE.md from {repoPath} (if it exists) to understand what has already been implemented
+3. If PLAN.md does not exist, is empty, or has no unchecked items (\`- [ ]\`), go to **Phase 4 — Brainstorm**.
+4. Find the first unchecked item (\`- [ ]\`) that does NOT have a \`<!-- NEEDS_INPUT -->\` annotation
+5. If all unchecked items have \`<!-- NEEDS_INPUT -->\`, go to **Phase 4 — Brainstorm**.
+
+## Phase 2 — Evaluate Feasibility
+
+6. Read relevant source files to understand the scope of the item
+7. Determine: can this be implemented without user clarification?
+   - Consider: are requirements clear? Are there ambiguous design choices? Does it depend on external decisions?
+
+## Phase 3a — Implement (if feasible)
+
+8. Implement the feature:
+   - Write clean, tested code following existing patterns
+   - Run tests to ensure nothing is broken
+9. Run \`/simplify\` to review changed code for reuse, quality, and efficiency. Fix any issues found.
+10. Check the PLAN.md item: change \`- [ ]\` to \`- [x]\`
+11. Commit with a clear description referencing the PLAN.md item
+
+## Phase 3b — Request Clarification (if not feasible)
+
+8. Create a file named \`.plan-questions.md\` in the repository root with this format:
+   \`\`\`
+   # Plan Question: <short title summarizing the PLAN.md item>
+
+   ## PLAN.md Item
+   <the exact text of the unchecked item>
+
+   ## Questions
+   - <question 1>
+   - <question 2>
+   \`\`\`
+9. Annotate the PLAN.md item by appending \` <!-- NEEDS_INPUT -->\` to its line
+10. Commit both changes with message "chore: flag PLAN.md item needing user input"
+11. Do NOT open a PR — stop here
+
+## Phase 4 — Brainstorm a New Feature
+
+When PLAN.md is missing, empty, or fully completed, brainstorm and implement a new feature:
 
 1. Read GOALS.md from {repoPath} for context on the app's goals and priorities.
    If no GOALS.md exists, focus on general improvements.
-2. Read PLAN.md from {repoPath} for the current roadmap and planned work.
-3. Search for existing feature idea documents:
-   - Check .planning/ directory for feature specs, research docs, or FEATURES.md
-   - Check for any TODO.md, IDEAS.md, or similar feature tracking files
-4. Review recent completed tasks and user feedback to understand patterns
-5. Review recent git log to see what's been implemented recently
-
-## Selection Phase
-
-6. Choose ONE feature to implement that:
-   - Aligns with GOALS.md priorities
-   - Is NOT already planned in PLAN.md (avoid duplicating roadmap work)
-   - Is NOT already documented in existing feature idea files
-   - Is a small, self-contained improvement (completable in one session)
-   - Saves user time, improves the developer experience, or makes the app more useful
-
-## Implementation Phase
-
-7. Implement the feature:
-   - Write clean, tested code
-   - Follow existing patterns in the codebase
+2. Read DONE.md from {repoPath} (if it exists) to avoid re-implementing completed features
+3. Review the codebase structure, recent git log, and any README or docs to understand the app
+4. Identify ONE small, high-impact feature that:
+   - Aligns with GOALS.md priorities (if available)
+   - Is NOT already in DONE.md (avoid re-implementing shipped features)
+   - Saves user time, improves UX, or makes the app more useful
+   - Is self-contained and completable in one session
+   - Does NOT duplicate existing functionality
+5. Implement the feature:
+   - Write clean, tested code following existing patterns
    - Run tests to ensure nothing is broken
-
-8. Run \`/simplify\` to review changed code for reuse, quality, and efficiency. Fix any issues found.
-
-9. Commit with a clear description of the feature and rationale`,
+6. Run \`/simplify\` to review changed code for reuse, quality, and efficiency. Fix any issues found.
+7. Add the feature as a checked item in PLAN.md (create the file if needed):
+   \`\`\`
+   - [x] <description of the feature you implemented>
+   \`\`\`
+8. Commit with a clear description of the feature and rationale`,
 
   'error-handling': `[Improvement: {appName}] Improve Error Handling
 
@@ -510,6 +540,40 @@ Summarize:
 
 IMPORTANT: Always use \`git pull --rebase --autostash\` before pushing (dev branch gets auto-bumped by CI). Never use \`git push\` alone.`,
 
+  'jira-sprint-manager': `[Improvement: {appName}] JIRA Sprint Manager
+
+Triage and implement JIRA tickets for {appName}:
+
+Repository: {repoPath}
+
+## Phase 1 — Triage
+
+1. Call GET /api/apps to find the app config for {appName} (match by name or repoPath)
+2. Get the app's JIRA config: jira.instanceId and jira.projectKey
+3. Call GET /api/jira/instances/:instanceId/my-sprint-tickets/:projectKey to get tickets assigned to me in current sprint
+4. For each ticket, evaluate what needs to be done next:
+   a) Needs clarification or better requirements? Create a Review Hub todo via POST /api/review/todo with title "[TICKET-KEY] Needs clarification" and description listing the questions
+   b) Blocked or needs discussion? Create a Review Hub todo with title "[TICKET-KEY] Blocked" and description explaining the blockers
+   c) Well-defined and ready to work? Mark it as a candidate for implementation
+5. Prioritize tickets marked as HIGH or Blocker
+
+Do NOT comment on JIRA tickets directly — all action items go to the Review Hub so the user can review them in one place.
+
+## Phase 2 — Implement
+
+6. From the triage results, select the highest priority ticket in "To Do" or "Ready" status that is well-defined
+7. For the selected ticket:
+   - Implement the ticket requirements in {repoPath}
+   - Commit changes and push the branch
+   - Create a merge request using gh CLI or glab CLI (detect from git remote)
+   - Transition the ticket to "In Review" status
+   - Add a comment to JIRA with the MR link
+8. If no tickets are ready to implement, skip Phase 2
+
+## Phase 3 — Report
+
+9. Generate a summary report covering triage actions taken and implementation work completed`,
+
   'pr-reviewer': `[Improvement: {appName}] PR Review — Check Open PRs
 
 Review open pull requests / merge requests on {appName} from other contributors and post code reviews on any that lack a review since the last commit.
@@ -554,7 +618,7 @@ Repository: {repoPath}
 // Prompt versions — bump when a default prompt changes so existing instances auto-upgrade.
 // Only non-customized prompts (promptCustomized !== true) are upgraded.
 const PROMPT_VERSIONS = {
-  'feature-ideas': 2   // v2: implement feature in worktree+PR with /simplify, check GOALS/PLAN/FEATURES
+  'feature-ideas': 5   // v5: read DONE.md to avoid re-implementing completed features
 };
 
 // Known previous default prompts for legacy migration.
@@ -589,7 +653,155 @@ Repository: {repoPath}
 
 6. Commit with a clear description of the change and rationale
 
-Think critically about what we have before adding more.`
+Think critically about what we have before adding more.`,
+    // v2 default prompt
+    `[Improvement: {appName}] Implement a Feature Idea
+
+You are working in a git worktree on a feature branch. Your goal is to implement ONE feature and open a PR.
+
+Repository: {repoPath}
+
+## Research Phase
+
+1. Read GOALS.md from {repoPath} for context on the app's goals and priorities.
+   If no GOALS.md exists, focus on general improvements.
+2. Read PLAN.md from {repoPath} for the current roadmap and planned work.
+3. Search for existing feature idea documents:
+   - Check .planning/ directory for feature specs, research docs, or FEATURES.md
+   - Check for any TODO.md, IDEAS.md, or similar feature tracking files
+4. Review recent completed tasks and user feedback to understand patterns
+5. Review recent git log to see what's been implemented recently
+
+## Selection Phase
+
+6. Choose ONE feature to implement that:
+   - Aligns with GOALS.md priorities
+   - Is NOT already planned in PLAN.md (avoid duplicating roadmap work)
+   - Is NOT already documented in existing feature idea files
+   - Is a small, self-contained improvement (completable in one session)
+   - Saves user time, improves the developer experience, or makes the app more useful
+
+## Implementation Phase
+
+7. Implement the feature:
+   - Write clean, tested code
+   - Follow existing patterns in the codebase
+   - Run tests to ensure nothing is broken
+
+8. Run \`/simplify\` to review changed code for reuse, quality, and efficiency. Fix any issues found.
+
+9. Commit with a clear description of the feature and rationale`,
+    // v3 default prompt
+    `[Improvement: {appName}] Implement Next Planned Feature
+
+You are working in a git worktree on a feature branch. Your goal is to implement the next planned item from PLAN.md.
+
+Repository: {repoPath}
+
+## Phase 1 — Find the Next Task
+
+1. Read PLAN.md from {repoPath}
+2. Find the first unchecked item (\`- [ ]\`) that does NOT have a \`<!-- NEEDS_INPUT -->\` annotation
+3. If no unchecked items exist, stop and report: "PLAN.md has no remaining items."
+
+## Phase 2 — Evaluate Feasibility
+
+4. Read relevant source files to understand the scope of the item
+5. Determine: can this be implemented without user clarification?
+   - Consider: are requirements clear? Are there ambiguous design choices? Does it depend on external decisions?
+
+## Phase 3a — Implement (if feasible)
+
+6. Implement the feature:
+   - Write clean, tested code following existing patterns
+   - Run tests to ensure nothing is broken
+7. Run \`/simplify\` to review changed code for reuse, quality, and efficiency. Fix any issues found.
+8. Check the PLAN.md item: change \`- [ ]\` to \`- [x]\`
+9. Commit with a clear description referencing the PLAN.md item
+
+## Phase 3b — Request Clarification (if not feasible)
+
+6. Create a file named \`.plan-questions.md\` in the repository root with this format:
+   \`\`\`
+   # Plan Question: <short title summarizing the PLAN.md item>
+
+   ## PLAN.md Item
+   <the exact text of the unchecked item>
+
+   ## Questions
+   - <question 1>
+   - <question 2>
+   \`\`\`
+7. Annotate the PLAN.md item by appending \` <!-- NEEDS_INPUT -->\` to its line
+8. Commit both changes with message "chore: flag PLAN.md item needing user input"
+9. Do NOT open a PR — stop here`,
+    // v4 default prompt (before DONE.md support)
+    `[Improvement: {appName}] Implement Next Planned Feature
+
+You are working in a git worktree on a feature branch. Your goal is to implement the next planned item from PLAN.md, or brainstorm a new feature if no plan exists.
+
+Repository: {repoPath}
+
+## Phase 1 — Find the Next Task
+
+1. Read PLAN.md from {repoPath}
+2. If PLAN.md does not exist, is empty, or has no unchecked items (\`- [ ]\`), go to **Phase 4 — Brainstorm**.
+3. Find the first unchecked item (\`- [ ]\`) that does NOT have a \`<!-- NEEDS_INPUT -->\` annotation
+4. If all unchecked items have \`<!-- NEEDS_INPUT -->\`, go to **Phase 4 — Brainstorm**.
+
+## Phase 2 — Evaluate Feasibility
+
+5. Read relevant source files to understand the scope of the item
+6. Determine: can this be implemented without user clarification?
+   - Consider: are requirements clear? Are there ambiguous design choices? Does it depend on external decisions?
+
+## Phase 3a — Implement (if feasible)
+
+7. Implement the feature:
+   - Write clean, tested code following existing patterns
+   - Run tests to ensure nothing is broken
+8. Run \`/simplify\` to review changed code for reuse, quality, and efficiency. Fix any issues found.
+9. Check the PLAN.md item: change \`- [ ]\` to \`- [x]\`
+10. Commit with a clear description referencing the PLAN.md item
+
+## Phase 3b — Request Clarification (if not feasible)
+
+7. Create a file named \`.plan-questions.md\` in the repository root with this format:
+   \`\`\`
+   # Plan Question: <short title summarizing the PLAN.md item>
+
+   ## PLAN.md Item
+   <the exact text of the unchecked item>
+
+   ## Questions
+   - <question 1>
+   - <question 2>
+   \`\`\`
+8. Annotate the PLAN.md item by appending \` <!-- NEEDS_INPUT -->\` to its line
+9. Commit both changes with message "chore: flag PLAN.md item needing user input"
+10. Do NOT open a PR — stop here
+
+## Phase 4 — Brainstorm a New Feature
+
+When PLAN.md is missing, empty, or fully completed, brainstorm and implement a new feature:
+
+1. Read GOALS.md from {repoPath} for context on the app's goals and priorities.
+   If no GOALS.md exists, focus on general improvements.
+2. Review the codebase structure, recent git log, and any README or docs to understand the app
+3. Identify ONE small, high-impact feature that:
+   - Aligns with GOALS.md priorities (if available)
+   - Saves user time, improves UX, or makes the app more useful
+   - Is self-contained and completable in one session
+   - Does NOT duplicate existing functionality
+4. Implement the feature:
+   - Write clean, tested code following existing patterns
+   - Run tests to ensure nothing is broken
+5. Run \`/simplify\` to review changed code for reuse, quality, and efficiency. Fix any issues found.
+6. Add the feature as a checked item in PLAN.md (create the file if needed):
+   \`\`\`
+   - [x] <description of the feature you implemented>
+   \`\`\`
+7. Commit with a clear description of the feature and rationale`
   ]
 };
 
@@ -598,7 +810,7 @@ export const SELF_IMPROVEMENT_TASK_TYPES = [
   'security', 'code-quality', 'test-coverage', 'performance',
   'accessibility', 'console-errors', 'dependency-updates', 'documentation',
   'ui-bugs', 'mobile-responsive', 'feature-ideas', 'error-handling',
-  'typing', 'release-check', 'pr-reviewer'
+  'typing', 'release-check', 'pr-reviewer', 'jira-sprint-manager'
 ];
 
 const DEFAULT_TASK_INTERVALS = {
@@ -616,7 +828,8 @@ const DEFAULT_TASK_INTERVALS = {
   'error-handling':      { type: INTERVAL_TYPES.ROTATION, enabled: false, providerId: null, model: null, prompt: null },
   'typing':              { type: INTERVAL_TYPES.ONCE, enabled: false, providerId: null, model: null, prompt: null },
   'release-check':       { type: INTERVAL_TYPES.ON_DEMAND, enabled: false, providerId: null, model: null, prompt: null },
-  'pr-reviewer':         { type: INTERVAL_TYPES.CUSTOM, intervalMs: 7200000, enabled: false, weekdaysOnly: true, providerId: null, model: null, prompt: null }
+  'pr-reviewer':         { type: INTERVAL_TYPES.CUSTOM, intervalMs: 7200000, enabled: false, weekdaysOnly: true, providerId: null, model: null, prompt: null },
+  'jira-sprint-manager': { type: INTERVAL_TYPES.DAILY, enabled: false, weekdaysOnly: true, optIn: true, providerId: null, model: null, prompt: null, taskMetadata: { useWorktree: true, simplify: true } }
 };
 
 /**
@@ -639,9 +852,9 @@ const DEFAULT_SCHEDULE = {
   templates: []
 };
 
-async function ensureDir() {
+async function ensureDataDir() {
   if (!existsSync(DATA_DIR)) {
-    await mkdir(DATA_DIR, { recursive: true });
+    await ensureDir(DATA_DIR);
   }
 }
 
@@ -734,7 +947,7 @@ function migrateScheduleV1toV2(schedule) {
  * Load schedule data (auto-migrates from v1 if needed)
  */
 export async function loadSchedule() {
-  await ensureDir();
+  await ensureDataDir();
 
   const loaded = await readJSONFile(SCHEDULE_FILE, null);
   if (!loaded) {
@@ -831,7 +1044,7 @@ export async function loadSchedule() {
 }
 
 async function saveSchedule(schedule) {
-  await ensureDir();
+  await ensureDataDir();
   schedule.lastUpdated = new Date().toISOString();
   await writeFile(SCHEDULE_FILE, JSON.stringify(schedule, null, 2));
 }
@@ -934,9 +1147,17 @@ export async function shouldRunTask(taskType, appId = null) {
 
   // Check per-app override
   if (appId) {
-    const enabledForApp = await isTaskTypeEnabledForApp(appId, taskType);
-    if (!enabledForApp) {
-      return { shouldRun: false, reason: 'disabled-for-app' };
+    if (interval.optIn) {
+      // Opt-in tasks require explicit per-app enablement (default: disabled)
+      const overrides = await getAppTaskTypeOverrides(appId);
+      if (overrides[taskType]?.enabled !== true) {
+        return { shouldRun: false, reason: 'opt-in-not-enabled' };
+      }
+    } else {
+      const enabledForApp = await isTaskTypeEnabledForApp(appId, taskType);
+      if (!enabledForApp) {
+        return { shouldRun: false, reason: 'disabled-for-app' };
+      }
     }
   }
 
@@ -1214,6 +1435,10 @@ export async function getScheduleStatus() {
     const check = await shouldRunTask(taskType);
 
     // Build per-app overrides map and count enabled apps
+    // Opt-in tasks default to disabled; standard tasks default to enabled
+    const isEnabledForApp = interval.optIn
+      ? (override) => override?.enabled === true
+      : (override) => !override || override.enabled !== false;
     const appOverrides = {};
     let enabledAppCount = 0;
     const allOverrides = await Promise.all(activeApps.map(app => getAppTaskTypeOverrides(app.id)));
@@ -1221,12 +1446,12 @@ export async function getScheduleStatus() {
       const override = allOverrides[i][taskType];
       if (override) {
         appOverrides[activeApps[i].id] = {
-          enabled: override.enabled !== false,
+          enabled: isEnabledForApp(override),
           interval: override.interval || null,
           ...(override.taskMetadata && { taskMetadata: override.taskMetadata })
         };
       }
-      if (!override || override.enabled !== false) {
+      if (isEnabledForApp(override)) {
         enabledAppCount++;
       }
     }
@@ -1392,13 +1617,14 @@ function getTaskTypeDescription(taskType) {
     'performance': 'Performance optimization',
     'test-coverage': 'Improve test coverage',
     'documentation': 'Update documentation',
-    'feature-ideas': 'Brainstorm and implement features',
+    'feature-ideas': 'Implement next planned feature or brainstorm new one',
     'accessibility': 'Accessibility audit',
     'dependency-updates': 'Update dependencies',
     'release-check': 'Check dev for release readiness',
     'error-handling': 'Improve error handling',
     'typing': 'Improve TypeScript types',
-    'pr-reviewer': 'Review open PRs from contributors'
+    'pr-reviewer': 'Review open PRs from contributors',
+    'jira-sprint-manager': 'Triage and implement JIRA sprint tickets'
   };
   return descriptions[taskType] || taskType.replace(/-/g, ' ');
 }

@@ -139,24 +139,24 @@ export async function runAutomatedSetup(userEmail, io) {
   const project = projectMatch ? projectMatch[1] : '';
   const projectParam = project ? `?project=${project}` : '';
 
-  // === Step 1: Enable Google Calendar API ===
-  emit('enable-api', 'Enabling Google Calendar API...');
-  page = await navAndWait(`https://console.cloud.google.com/apis/library/calendar-json.googleapis.com${projectParam}`, 5000);
-  if (page) {
+  // === Step 1: Enable Google APIs ===
+  async function enableApi(name, librarySlug) {
+    emit('enable-api', `Enabling ${name}...`);
+    page = await navAndWait(`https://console.cloud.google.com/apis/library/${librarySlug}${projectParam}`, 5000);
+    if (!page) return;
     const alreadyEnabled = await evaluateOnPage(page, `
       document.body.innerText.includes('API enabled') || document.body.innerText.includes('MANAGE') || document.body.innerText.includes('Manage')
     `);
     if (!alreadyEnabled) {
-      // Button text is "Enable" with aria-label "enable this API"
       const clicked = await clickByText(page, ['enable this api', 'Enable']);
-      if (clicked) {
-        emit('enable-api', 'Calendar API enable clicked, waiting...');
-        await sleep(6000);
-      }
+      if (clicked) { emit('enable-api', `${name} enable clicked, waiting...`); await sleep(6000); }
     } else {
-      emit('enable-api', 'Calendar API already enabled');
+      emit('enable-api', `${name} already enabled`);
     }
   }
+
+  await enableApi('Google Calendar API', 'calendar-json.googleapis.com');
+  await enableApi('Gmail API', 'gmail.googleapis.com');
 
   // === Step 2: Configure OAuth consent / Google Auth Platform ===
   emit('consent', 'Configuring OAuth consent screen...');

@@ -7,8 +7,6 @@ import {
   Trash2,
   X,
   Save,
-  ChevronDown,
-  ChevronRight,
   CheckCircle2,
   Search,
   AlertTriangle
@@ -249,7 +247,7 @@ export default function MemoryTab({ onRefresh }) {
     setEditForm({ ...record, tagInput: (record.tags || []).join(', ') });
   };
 
-  const renderForm = (form, setForm, isEdit = false) => {
+  const renderForm = (form, setForm, _isEdit = false) => {
     switch (activeType) {
       case 'people':
         return (

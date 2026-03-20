@@ -85,6 +85,15 @@ router.post('/repo', asyncHandler(async (req, res) => {
     }
   }
 
+  // Check for iOS project (XcodeGen project.yml or .xcodeproj)
+  if (existsSync(join(path, 'project.yml'))) {
+    const ymlContent = await readFile(join(path, 'project.yml'), 'utf-8').catch(() => '');
+    if (ymlContent.includes('platform: iOS') || ymlContent.includes("deploymentTarget:")) {
+      result.type = 'ios-native';
+      result.startCommands = ['open *.xcodeproj'];
+    }
+  }
+
   // Check for .git
   if (existsSync(join(path, '.git'))) {
     result.hasGit = true;
@@ -134,9 +143,13 @@ router.post('/port', asyncHandler(async (req, res) => {
   };
 
   // Use lsof on macOS/Linux to find process
+  const safePort = parseInt(port, 10);
+  if (!Number.isInteger(safePort) || safePort < 1 || safePort > 65535) {
+    return res.status(400).json({ error: `Invalid port number: ${port}` });
+  }
   const command = process.platform === 'darwin'
-    ? `lsof -i :${port} -P -n | grep LISTEN`
-    : `ss -lntp | grep :${port}`;
+    ? `lsof -i :${safePort} -P -n | grep LISTEN`
+    : `ss -lntp | grep :${safePort}`;
 
   const { stdout } = await execAsync(command, { windowsHide: true }).catch(() => ({ stdout: '' }));
 

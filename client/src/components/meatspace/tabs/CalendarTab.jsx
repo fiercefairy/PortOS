@@ -2,7 +2,7 @@ import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from 'rea
 import {
   Calendar, Coffee, Droplets, Utensils, Dumbbell, BookOpen, Scissors,
   Cake, Plane, Plus, Trash2, Circle, Sun, Moon, TreePine, Snowflake,
-  Flower2, CloudSun, X, ChevronDown, Eye, EyeOff, Save
+  Flower2, CloudSun, ChevronDown, Eye, EyeOff
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -34,11 +34,6 @@ function computeEventWeeks(birthDate, grid, stats, lifeEvents) {
   if (!birthDate) return events;
 
   const birth = new Date(birthDate);
-  const birthMonth = birth.getMonth();
-  const birthDay = birth.getDate();
-  const currentAge = Math.floor(stats.age.years);
-  const now = new Date();
-
   // Helper: compute week offset within an age-year (server uses birth time as yearStart)
   const weekInAgeYear = (eventDate, yearStart) => {
     const ms = eventDate.getTime() - yearStart.getTime();
@@ -553,7 +548,7 @@ function WeekGridView({ grid, stats, birthDate, cellCfg, weekLayout, hideSpent, 
       result.push({ label: firstAge, weeks: slice });
     }
     return result;
-  }, [filteredGrid, allWeeks, weekLayout, layoutCfg, effectiveWeeksPerRow, hideSpent]);
+  }, [filteredGrid, allWeeks, weekLayout, layoutCfg, effectiveWeeksPerRow]);
 
   const shouldLabel = (age) => age != null && age % 10 === 0;
 
@@ -947,17 +942,23 @@ export default function CalendarTab() {
   if (error || data?.error) {
     const isBirthDateMissing = (error || data?.error || '').includes('Birth date not set');
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-12 max-w-md mx-auto">
         <Calendar size={48} className="text-gray-600 mx-auto mb-4" />
         <p className="text-gray-400 mb-2">Life calendar unavailable</p>
         <p className="text-sm text-gray-500 mb-4">{error || data.error}</p>
         {isBirthDateMissing && (
-          <Link
-            to="/meatspace/age"
-            className="inline-block px-4 py-2 rounded bg-port-accent/20 text-port-accent hover:bg-port-accent/30 text-sm"
-          >
-            Set Birth Date
-          </Link>
+          <div className="space-y-3">
+            <Link
+              to="/meatspace/age"
+              className="inline-block px-4 py-2 rounded bg-port-accent/20 text-port-accent hover:bg-port-accent/30 text-sm"
+            >
+              Set Birth Date
+            </Link>
+            <p className="text-xs text-gray-600">
+              Your birth date is required to calculate your life timeline.
+              Set it in <Link to="/meatspace/age" className="text-port-accent hover:underline">MeatSpace &gt; Age</Link>.
+            </p>
+          </div>
         )}
       </div>
     );
@@ -1011,6 +1012,27 @@ export default function CalendarTab() {
           </div>
         </div>
       </div>
+
+      {/* Setup tips for improving accuracy */}
+      <details className="text-xs text-gray-600">
+        <summary className="cursor-pointer text-gray-500 hover:text-gray-400">
+          Improve your timeline accuracy
+        </summary>
+        <div className="mt-2 p-3 bg-port-card border border-port-border rounded-lg space-y-1.5">
+          {[
+            { to: '/meatspace/age', label: 'Birth date', desc: 'required for all calculations' },
+            { to: '/meatspace/genome', label: 'Genome', desc: 'upload 23andMe data for genetic longevity markers' },
+            { to: '/digital-twin/identity', label: 'Longevity profile', desc: 'derives life expectancy from genome + cardiovascular markers' },
+            { to: '/meatspace/lifestyle', label: 'Lifestyle questionnaire', desc: 'smoking, exercise, diet, sleep adjustments' },
+            { to: '/meatspace/health', label: 'Health tracking', desc: 'ongoing health data for refined estimates' },
+          ].map(tip => (
+            <div key={tip.to} className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-port-accent shrink-0" />
+              <span><Link to={tip.to} className="text-port-accent hover:underline">{tip.label}</Link> — {tip.desc}</span>
+            </div>
+          ))}
+        </div>
+      </details>
 
       {/* Dashboard grid: Life Grid (main) + Time Stats (sidebar) */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">

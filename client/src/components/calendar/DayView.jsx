@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, RefreshCw, MapPin } from 'lucide-react';
 import * as api from '../../services/api';
 import socket from '../../services/socket';
 import EventDetail from './EventDetail';
+import { buildSubcalendarColorMap } from './calendarUtils';
 
 const START_HOUR = 6;
 const END_HOUR = 23;
@@ -97,7 +98,7 @@ function formatDate(date) {
   return date.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 }
 
-export default function DayView() {
+export default function DayView({ accounts }) {
   const [date, setDate] = useState(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -140,6 +141,7 @@ export default function DayView() {
   const allDayEvents = useMemo(() => events.filter(e => e.isAllDay), [events]);
   const timedEvents = useMemo(() => events.filter(e => !e.isAllDay), [events]);
   const layout = useMemo(() => layoutEvents(timedEvents), [timedEvents]);
+  const colorMap = useMemo(() => buildSubcalendarColorMap(accounts), [accounts]);
 
   // Current time indicator
   const now = new Date();
@@ -175,15 +177,22 @@ export default function DayView() {
           {allDayEvents.length > 0 && (
             <div className="space-y-1">
               <span className="text-xs text-gray-500 uppercase">All Day</span>
-              {allDayEvents.map(event => (
-                <button
-                  key={`${event.accountId}-${event.id}`}
-                  onClick={() => setSelectedEvent(event)}
-                  className="w-full text-left px-3 py-2 bg-port-accent/10 text-port-accent rounded text-sm hover:bg-port-accent/20 transition-colors"
-                >
-                  {event.title}
-                </button>
-              ))}
+              {allDayEvents.map(event => {
+                const adColor = colorMap.get(event.subcalendarId) || null;
+                return (
+                  <button
+                    key={`${event.accountId}-${event.id}`}
+                    onClick={() => setSelectedEvent(event)}
+                    className="w-full text-left px-3 py-2 rounded text-sm transition-colors hover:brightness-125"
+                    style={{
+                      backgroundColor: adColor ? `${adColor}20` : 'rgb(59 130 246 / 0.1)',
+                      color: adColor || 'var(--port-accent, #3b82f6)'
+                    }}
+                  >
+                    {event.title}
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -216,17 +225,20 @@ export default function DayView() {
                 const { column, totalColumns } = layout.get(key) || { column: 0, totalColumns: 1 };
                 const widthPercent = 100 / totalColumns;
                 const leftPercent = column * widthPercent;
+                const eventColor = colorMap.get(event.subcalendarId) || null;
                 return (
                   <button
                     key={key}
                     onClick={() => setSelectedEvent(event)}
-                    className="absolute px-1.5 py-0.5 bg-port-accent/20 border-l-2 border-port-accent rounded text-left overflow-hidden hover:bg-port-accent/30 transition-colors"
+                    className={`absolute px-1.5 py-0.5 border-l-2 rounded text-left overflow-hidden transition-colors ${eventColor ? 'hover:brightness-125' : 'hover:bg-port-accent/30'}`}
                     style={{
                       top,
                       height,
                       minHeight: PX_PER_15MIN,
                       left: `calc(${leftPercent}% + 2px)`,
-                      width: `calc(${widthPercent}% - 4px)`
+                      width: `calc(${widthPercent}% - 4px)`,
+                      borderLeftColor: eventColor || 'var(--port-accent, #3b82f6)',
+                      backgroundColor: eventColor ? `${eventColor}25` : 'rgb(59 130 246 / 0.2)'
                     }}
                   >
                     <div className="text-xs leading-tight font-medium text-white truncate">{event.title}</div>

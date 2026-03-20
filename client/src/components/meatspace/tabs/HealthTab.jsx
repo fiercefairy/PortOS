@@ -29,7 +29,7 @@ export default function HealthTab() {
   const [initialized, setInitialized] = useState(false);
   const sectionRefs = useRef({});
 
-  // Fetch which metrics have data
+  // Fetch which metrics have data (once on mount)
   useEffect(() => {
     api.getAvailableHealthMetrics()
       .then(metrics => {
@@ -39,19 +39,23 @@ export default function HealthTab() {
         for (const cat of METRIC_CATEGORIES) {
           if (cat.defaultExpanded) initial.add(cat.id);
         }
-        if (sectionParam) initial.add(sectionParam);
         setExpandedSections(initial);
         setInitialized(true);
       })
       .catch(() => setInitialized(true));
   }, []);
 
-  // Scroll to section if specified in URL
+  // Expand and scroll to section when URL param changes
   useEffect(() => {
-    if (sectionParam && initialized) {
-      const el = sectionRefs.current[sectionParam];
-      if (el) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
-    }
+    if (!sectionParam || !initialized) return;
+    setExpandedSections(prev => {
+      if (prev.has(sectionParam)) return prev;
+      const next = new Set(prev);
+      next.add(sectionParam);
+      return next;
+    });
+    const el = sectionRefs.current[sectionParam];
+    if (el) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
   }, [sectionParam, initialized]);
 
   // Fetch correlation data

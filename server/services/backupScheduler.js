@@ -27,7 +27,7 @@ export async function startBackupScheduler() {
     return;
   }
 
-  const cronExpression = settings.backup?.cronExpression || '0 2 * * *';
+  const cronExpression = settings.backup?.cronExpression || '0 0 * * *';
   const destPath = settings.backup.destPath;
   const excludePaths = settings.backup?.excludePaths || [];
 

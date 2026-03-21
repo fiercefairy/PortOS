@@ -11,6 +11,7 @@ import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { getSettings } from './settings.js';
 import { notificationEvents, NOTIFICATION_TYPES, getNotifications } from './notifications.js';
+import { approveMemory, rejectMemory } from './memory.js';
 import { ensureDir, PATHS, readJSONFile, formatDuration } from '../lib/fileUtils.js';
 import { getActiveAgents } from './subAgentSpawner.js';
 import { getGoals } from './identity.js';
@@ -181,6 +182,12 @@ export async function init(sendTestMessage = false) {
     await handleCheckinResponse(msg);
   });
 
+  // Handle inline keyboard button clicks (memory approve/reject)
+  bot.on('callback_query', async (query) => {
+    if (String(query.message?.chat?.id) !== authorizedChatId) return;
+    await handleCallbackQuery(query);
+  });
+
   // Start health check
   healthCheckInterval = setInterval(healthCheck, 30000);
 
@@ -267,7 +274,7 @@ async function healthCheck() {
 /**
  * Send a message to the configured chatId
  */
-export async function sendMessage(text) {
+export async function sendMessage(text, opts = { parse_mode: 'HTML' }) {
   if (!bot || !authorizedChatId) return { success: false, error: !bot ? 'Bot not initialized' : 'No chatId configured' };
 
   if (!consumeToken()) {
@@ -275,7 +282,7 @@ export async function sendMessage(text) {
     return { success: false, error: 'Rate limit exceeded' };
   }
 
-  const result = await bot.sendMessage(authorizedChatId, text, { parse_mode: 'HTML' }).catch(async (err) => {
+  const result = await bot.sendMessage(authorizedChatId, text, opts).catch(async (err) => {
     console.error(`📱 Telegram: send failed — ${err.message}`);
     isConnected = false;
     await reconnect();
@@ -304,6 +311,44 @@ export function updateCachedForwardTypes(forwardTypes) {
   cachedForwardTypes = forwardTypes;
 }
 
+// Callback data prefixes for inline keyboard actions
+const CALLBACK_APPROVE = 'mem_approve';
+const CALLBACK_REJECT = 'mem_reject';
+
+/**
+ * Handle inline keyboard callback queries (memory approve/reject)
+ */
+async function handleCallbackQuery(query) {
+  const data = query.data;
+  if (!data || !query.message) return;
+
+  if (data.startsWith(`${CALLBACK_APPROVE}:`) || data.startsWith(`${CALLBACK_REJECT}:`)) {
+    const colonIdx = data.indexOf(':');
+    const action = data.slice(0, colonIdx);
+    const memoryId = data.slice(colonIdx + 1);
+    const isApprove = action === CALLBACK_APPROVE;
+
+    const result = isApprove ? await approveMemory(memoryId) : await rejectMemory(memoryId);
+
+    const responseText = result.success
+      ? (isApprove ? '✅ Memory approved' : '❌ Memory rejected')
+      : `⚠️ ${result.error || 'Action failed'}`;
+
+    const originalText = query.message.text || '';
+    const statusLine = result.success
+      ? `\n\n${isApprove ? '✅ Approved' : '❌ Rejected'}`
+      : `\n\n⚠️ ${result.error || 'Action failed'}`;
+
+    await Promise.all([
+      bot.answerCallbackQuery(query.id, { text: responseText }).catch(() => {}),
+      bot.editMessageText(originalText + statusLine, {
+        chat_id: query.message.chat.id,
+        message_id: query.message.message_id
+      }).catch(() => {})
+    ]);
+  }
+}
+
 /**
  * Forward a notification to Telegram
  */
@@ -319,7 +364,17 @@ async function forwardNotification(notification) {
   if (notification.description) lines.push(escapeHtml(notification.description));
   if (notification.priority) lines.push(`Priority: ${priorityEmoji} ${notification.priority}`);
 
-  await sendMessage(lines.join('\n'));
+  const opts = { parse_mode: 'HTML' };
+  if (notification.type === NOTIFICATION_TYPES.MEMORY_APPROVAL && notification.metadata?.memoryId) {
+    opts.reply_markup = JSON.stringify({
+      inline_keyboard: [[
+        { text: '✅ Approve', callback_data: `${CALLBACK_APPROVE}:${notification.metadata.memoryId}` },
+        { text: '❌ Reject', callback_data: `${CALLBACK_REJECT}:${notification.metadata.memoryId}` }
+      ]]
+    });
+  }
+
+  await sendMessage(lines.join('\n'), opts);
 }
 
 /**

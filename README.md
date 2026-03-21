@@ -4,7 +4,7 @@
 
 Think [Umbrel](https://umbrel.com), but for your active git repos, AI workflows, and personal knowledge. Access everything from your phone, tablet, or any device on your Tailscale network.
 
-![PortOS Dashboard](./docs/media/portos_1.png)
+![PortOS Chief of Staff](./docs/media/portos_1.png)
 
 ---
 
@@ -22,13 +22,13 @@ Most developers juggle a dozen tools — PM2 terminals, JIRA boards, AI chat win
 
 ## Screenshots
 
-| Dashboard | CyberCity 3D | Chief of Staff |
+| Chief of Staff | AI Agents | AI Providers |
 |:-:|:-:|:-:|
-| ![Dashboard](./docs/media/portos_1.png) | ![CyberCity](./docs/media/portos_2.png) | ![CoS](./docs/media/portos_3.png) |
+| ![Chief of Staff](./docs/media/portos_1.png) | ![AI Agents](./docs/media/portos_2.png) | ![AI Providers](./docs/media/portos_3.png) |
 
-| Digital Twin | Brain | Developer Tools |
+| App Wizard | PM2 Processes | Chief of Staff Tasks |
 |:-:|:-:|:-:|
-| ![Digital Twin](./docs/media/portos_4.png) | ![Brain](./docs/media/portos_5.png) | ![DevTools](./docs/media/portos_6.png) |
+| ![App Wizard](./docs/media/portos_4.png) | ![PM2 Processes](./docs/media/portos_5.png) | ![Chief of Staff Tasks](./docs/media/portos_6.png) |
 
 ---
 

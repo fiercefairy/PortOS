@@ -33,5 +33,6 @@
 - Server-side rolling averages and summary use local dates instead of UTC — fixes today showing 0mg despite logged entries
 - Chart date range comparison uses local date strings instead of UTC Date objects — fixes today/yesterday missing from 7-day chart
 - Empty entry objects no longer accumulate in daily-log.json after moving the last item from a date
+- README screenshot labels corrected to match actual screenshot content (all 6 were mislabeled)
 
 ## Removed

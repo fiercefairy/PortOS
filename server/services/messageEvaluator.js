@@ -1,7 +1,10 @@
+import { readFile } from 'fs/promises';
+import { join } from 'path';
 import { getSettings } from './settings.js';
 import { getProviderById, getAllProviders } from './providers.js';
 import { createRun, executeApiRun, executeCliRun } from './runner.js';
 import { buildRulesPromptSection } from './messageTriageRules.js';
+import { PATHS } from '../lib/fileUtils.js';
 
 const EVAL_PROMPT = `You are an email triage assistant. For each email below, recommend ONE action and a brief reason.
 
@@ -138,14 +141,65 @@ export async function evaluateMessages(messages) {
   return { evaluations };
 }
 
+// Voice document filenames ordered by relevance for email drafting
+const VOICE_DOCS = ['SOUL.md', 'COMMUNICATION.md', 'PERSONALITY.md', 'VALUES.md', 'SOCIAL.md'];
+
+/**
+ * Load digital twin voice context documents for email drafting.
+ * Returns a formatted prompt section with the user's communication style and personality.
+ */
+async function loadVoiceContext() {
+  const contents = await Promise.all(
+    VOICE_DOCS.map(filename =>
+      readFile(join(PATHS.digitalTwin, filename), 'utf-8').catch(() => null)
+    )
+  );
+  const sections = contents
+    .map((content, i) => content?.trim() ? `### ${VOICE_DOCS[i].replace('.md', '')}\n${content.trim()}` : null)
+    .filter(Boolean);
+  if (!sections.length) {
+    console.log('📧 Voice mode enabled but no digital twin documents found');
+    return '';
+  }
+  return `\n<voice_context>
+The following documents describe the user's identity, communication style, and values.
+Write the reply in their authentic voice — match their tone, directness, and personality.
+Do NOT mention these documents or that you are an AI.
+
+${sections.join('\n\n')}
+</voice_context>\n`;
+}
+
+/**
+ * Format thread messages into conversation context for the AI.
+ */
+function buildThreadContext(threadMessages) {
+  if (!threadMessages?.length) return '';
+  const formatted = threadMessages.map(m => {
+    const from = m.from?.name || m.from?.email || 'Unknown';
+    const date = m.date ? new Date(m.date).toLocaleString() : '';
+    const body = sanitize((m.bodyText || '').slice(0, 500));
+    return `[${date}] ${sanitize(from)}:\n${body}`;
+  }).join('\n---\n');
+  return `\n<thread_context>
+Previous messages in this conversation:
+${formatted}
+</thread_context>\n`;
+}
+
 /**
  * Generate an AI reply draft for a message.
  * @param {object} message - The message to reply to
  * @param {string} instructions - Additional instructions
+ * @param {object} options - { useVoice, threadMessages }
  * @returns {{ body: string }}
  */
-export async function generateReplyBody(message, instructions = '') {
+export async function generateReplyBody(message, instructions = '', options = {}) {
+  const { useVoice, threadMessages } = options;
   const { provider, model, msgConfig } = await resolveProviderConfig('reply');
+
+  // Determine if voice mode is active (explicit param > settings default)
+  const shouldUseVoice = useVoice ?? msgConfig.voiceMode ?? false;
 
   // Build prompt from template
   let template = msgConfig.replyTemplate || 'Write a professional reply to this email.\n\nFrom: {{from}}\nSubject: {{subject}}\nBody:\n{{body}}';
@@ -165,7 +219,18 @@ export async function generateReplyBody(message, instructions = '') {
     return vars[key] ? block.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), vars[key]) : '';
   });
 
-  console.log(`📧 Generating AI reply with ${provider.name}/${model || provider.defaultModel}`);
+  // Prepend voice context if enabled
+  if (shouldUseVoice) {
+    const voiceContext = await loadVoiceContext();
+    if (voiceContext) template = voiceContext + template;
+  }
+
+  // Append thread context if available
+  const threadContext = buildThreadContext(threadMessages);
+  if (threadContext) template += threadContext;
+
+  const voiceLabel = shouldUseVoice ? ' with voice' : '';
+  console.log(`📧 Generating AI reply${voiceLabel} with ${provider.name}/${model || provider.defaultModel}`);
   const response = await runPrompt(provider, model, template, 'messages-reply');
   return { body: response.trim() };
 }

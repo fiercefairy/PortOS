@@ -1,17 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as api from '../../../services/api';
 import BrailleSpinner from '../../BrailleSpinner';
-
-const formatRelativeTime = (dateStr) => {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  return `${days}d ago`;
-};
+import { timeAgo } from '../../../utils/formatters';
 
 export default function PublishedTab({ agentId }) {
   const [accounts, setAccounts] = useState([]);
@@ -160,7 +150,7 @@ export default function PublishedTab({ agentId }) {
                           {post.commentCount ?? '-'}
                         </td>
                         <td className="py-2 pr-4 text-gray-500 whitespace-nowrap" title={new Date(post.publishedAt).toLocaleString()}>
-                          {formatRelativeTime(post.publishedAt)}
+                          {timeAgo(post.publishedAt)}
                         </td>
                         <td className="py-2">
                           {post.url ? (
@@ -217,7 +207,7 @@ export default function PublishedTab({ agentId }) {
                           </span>
                         </td>
                         <td className="py-2 pr-4 text-gray-500 whitespace-nowrap" title={new Date(comment.publishedAt).toLocaleString()}>
-                          {formatRelativeTime(comment.publishedAt)}
+                          {timeAgo(comment.publishedAt)}
                         </td>
                         <td className="py-2">
                           {comment.url ? (

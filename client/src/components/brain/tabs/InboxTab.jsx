@@ -20,9 +20,9 @@ import toast from 'react-hot-toast';
 
 import {
   DESTINATIONS,
-  getConfidenceColor,
-  formatRelativeTime
+  getConfidenceColor
 } from '../constants';
+import { timeAgo } from '../../../utils/formatters';
 
 export default function InboxTab({ onRefresh, settings }) {
   const [inputText, setInputText] = useState('');
@@ -258,7 +258,7 @@ export default function InboxTab({ onRefresh, settings }) {
                   <div className="flex items-center gap-2">
                     <RefreshCw className="w-4 h-4 text-port-accent animate-spin" />
                     <span className="text-xs text-gray-500 whitespace-nowrap">
-                      {formatRelativeTime(entry.capturedAt)}
+                      {timeAgo(entry.capturedAt)}
                     </span>
                   </div>
                 </div>
@@ -337,7 +337,7 @@ export default function InboxTab({ onRefresh, settings }) {
                       </>
                     )}
                     <span className="text-xs text-gray-500 whitespace-nowrap">
-                      {formatRelativeTime(entry.capturedAt)}
+                      {timeAgo(entry.capturedAt)}
                     </span>
                   </div>
 
@@ -573,7 +573,7 @@ export default function InboxTab({ onRefresh, settings }) {
                         <Trash2 size={14} />
                       </button>
                       <span className="text-xs text-gray-500 whitespace-nowrap">
-                        {formatRelativeTime(entry.capturedAt)}
+                        {timeAgo(entry.capturedAt)}
                       </span>
                     </div>
                   </div>
@@ -732,7 +732,7 @@ export default function InboxTab({ onRefresh, settings }) {
                           <Trash2 size={14} />
                         </button>
                         <span className="text-xs text-gray-600 whitespace-nowrap">
-                          {formatRelativeTime(entry.doneAt || entry.capturedAt)}
+                          {timeAgo(entry.doneAt || entry.capturedAt)}
                         </span>
                       </div>
                     </div>

@@ -4,6 +4,7 @@ import * as api from '../../../services/api';
 import BrailleSpinner from '../../BrailleSpinner';
 import socket from '../../../services/socket';
 import useMoltworldWs from '../../../hooks/useMoltworldWs';
+import { timeAgo } from '../../../utils/formatters';
 
 const EVENT_ICONS = {
   status: '🔌',
@@ -57,14 +58,6 @@ const QUEUE_STATUS_STYLES = {
 function formatEventTime(ts) {
   const d = new Date(ts);
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-}
-
-function formatRelativeTime(ts) {
-  const diff = Date.now() - new Date(ts).getTime();
-  if (diff < 60000) return 'just now';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  return `${Math.floor(diff / 86400000)}d ago`;
 }
 
 function summarizeParams(action, params) {
@@ -729,7 +722,7 @@ export default function WorldTab({ agentId }) {
                       </p>
                     </div>
                     <span className="text-gray-600 shrink-0 text-[10px]" title={entry.timestamp}>
-                      {formatRelativeTime(entry.timestamp)}
+                      {timeAgo(entry.timestamp)}
                     </span>
                   </div>
                 ))}

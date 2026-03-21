@@ -2,20 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, ChevronDown, ChevronRight } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { getPostSessions, getPostStats } from '../../../services/api';
-import { LLM_DRILL_TYPES } from './constants';
-
-const DRILL_LABELS = {
-  'doubling-chain': 'Doubling Chain',
-  'serial-subtraction': 'Serial Subtraction',
-  'multiplication': 'Multiplication',
-  'powers': 'Powers',
-  'estimation': 'Estimation',
-  'word-association': 'Word Association',
-  'story-recall': 'Story Recall',
-  'verbal-fluency': 'Verbal Fluency',
-  'wit-comeback': 'Wit & Comeback',
-  'pun-wordplay': 'Pun & Wordplay'
-};
+import { LLM_DRILL_TYPES, DRILL_LABELS } from './constants';
 
 const RANGES = [
   { label: '7d', days: 7 },

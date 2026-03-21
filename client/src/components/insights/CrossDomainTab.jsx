@@ -2,19 +2,7 @@ import { useState, useEffect } from 'react';
 import { RefreshCw, GitCompare } from 'lucide-react';
 import ReactDiffViewer from 'react-diff-viewer-continued';
 import { getInsightNarrative, refreshInsightNarrative } from '../../services/api';
-import { formatDate } from '../../utils/formatters';
-
-function formatRelativeTime(isoString) {
-  if (!isoString) return null;
-  const diffMs = Date.now() - new Date(isoString).getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays}d ago`;
-}
+import { formatDate, timeAgo } from '../../utils/formatters';
 
 export default function CrossDomainTab() {
   const [data, setData] = useState(null);
@@ -81,7 +69,7 @@ export default function CrossDomainTab() {
         <div className="flex items-center gap-3">
           {data.generatedAt && (
             <span className="text-xs text-gray-500">
-              Last analyzed {formatRelativeTime(data.generatedAt)}
+              Last analyzed {timeAgo(data.generatedAt)}
             </span>
           )}
           {data.model && (

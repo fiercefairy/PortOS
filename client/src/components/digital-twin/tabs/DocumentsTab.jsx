@@ -14,7 +14,8 @@ import {
 import * as api from '../../../services/api';
 import toast from 'react-hot-toast';
 
-import { DOCUMENT_CATEGORIES, formatRelativeTime } from '../constants';
+import { DOCUMENT_CATEGORIES } from '../constants';
+import { timeAgo } from '../../../utils/formatters';
 
 export default function DocumentsTab({ onRefresh }) {
   const [documents, setDocuments] = useState([]);
@@ -162,7 +163,7 @@ export default function DocumentsTab({ onRefresh }) {
                         </span>
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
-                        {formatRelativeTime(doc.lastModified)}
+                        {timeAgo(doc.lastModified)}
                       </div>
                     </button>
                   ))}

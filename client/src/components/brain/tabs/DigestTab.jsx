@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-import { formatRelativeTime } from '../constants';
+import { timeAgo } from '../../../utils/formatters';
 
 export default function DigestTab({ onRefresh }) {
   const [latestDigest, setLatestDigest] = useState(null);
@@ -109,7 +109,7 @@ export default function DigestTab({ onRefresh }) {
           <div className="p-4 bg-port-card border border-port-border rounded-lg">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm text-gray-500">
-                Generated {formatRelativeTime(latestDigest.generatedAt)}
+                Generated {timeAgo(latestDigest.generatedAt)}
               </span>
             </div>
 
@@ -173,7 +173,7 @@ export default function DigestTab({ onRefresh }) {
                   <div key={digest.id} className="p-3 bg-port-card/50 border border-port-border rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs text-gray-500">
-                        {formatRelativeTime(digest.generatedAt)}
+                        {timeAgo(digest.generatedAt)}
                       </span>
                     </div>
                     <p className="text-sm text-gray-300">{digest.digestText}</p>
@@ -210,7 +210,7 @@ export default function DigestTab({ onRefresh }) {
           <div className="p-4 bg-port-card border border-port-border rounded-lg">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm text-gray-500">
-                Generated {formatRelativeTime(latestReview.generatedAt)}
+                Generated {timeAgo(latestReview.generatedAt)}
               </span>
             </div>
 
@@ -283,7 +283,7 @@ export default function DigestTab({ onRefresh }) {
                   <div key={review.id} className="p-3 bg-port-card/50 border border-port-border rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs text-gray-500">
-                        {formatRelativeTime(review.generatedAt)}
+                        {timeAgo(review.generatedAt)}
                       </span>
                     </div>
                     <p className="text-sm text-gray-300">{review.reviewText}</p>

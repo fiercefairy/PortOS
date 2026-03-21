@@ -17,7 +17,7 @@ import {
   Tag
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { formatRelativeTime } from '../constants';
+import { timeAgo } from '../../../utils/formatters';
 
 const LINK_TYPE_COLORS = {
   github: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
@@ -374,7 +374,7 @@ export default function LinksTab({ onRefresh }) {
               )}
 
               <span className="text-xs text-gray-500 whitespace-nowrap">
-                {formatRelativeTime(link.createdAt)}
+                {timeAgo(link.createdAt)}
               </span>
             </div>
 

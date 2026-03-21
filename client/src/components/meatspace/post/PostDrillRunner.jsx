@@ -1,18 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { CheckCircle, XCircle } from 'lucide-react';
 
-import { MEMORY_DRILL_TYPES } from './constants';
-
-const DRILL_LABELS = {
-  'doubling-chain': 'Doubling Chain',
-  'serial-subtraction': 'Serial Subtraction',
-  'multiplication': 'Multiplication',
-  'powers': 'Powers',
-  'estimation': 'Estimation',
-  'memory-fill-blank': 'Memory Fill Blank',
-  'memory-sequence': 'Memory Sequence',
-  'memory-element-flash': 'Element Flash',
-};
+import { MEMORY_DRILL_TYPES, DRILL_LABELS } from './constants';
 
 export default function PostDrillRunner({ session }) {
   const {

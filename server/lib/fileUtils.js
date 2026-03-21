@@ -359,6 +359,43 @@ export function getDateString(date = new Date()) {
  * formatDuration(7200000)  // "2h 0m"
  * formatDuration(90000000) // "1d 1h"
  */
+/**
+ * UUID v4 regex pattern for validating account/entity IDs.
+ */
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Safely parse a date value to epoch milliseconds.
+ * Returns 0 for invalid/missing dates instead of NaN.
+ *
+ * @param {string|Date|number} d - Date value to parse
+ * @returns {number} Epoch milliseconds, or 0 if invalid
+ */
+export function safeDate(d) {
+  const t = new Date(d).getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
+
+/**
+ * Generic search filter — returns items where any of the specified fields
+ * contain the search string (case-insensitive).
+ *
+ * @param {Array<Object>} items - Items to filter
+ * @param {string} search - Search query
+ * @param {Array<string>} fields - Dot-notation field paths to search (e.g., 'from.name')
+ * @returns {Array<Object>} Filtered items
+ */
+export function filterBySearch(items, search, fields) {
+  if (!search) return items;
+  const q = search.toLowerCase();
+  return items.filter(item =>
+    fields.some(field => {
+      const val = field.includes('.') ? field.split('.').reduce((o, k) => o?.[k], item) : item[field];
+      return val?.toLowerCase?.().includes(q);
+    })
+  );
+}
+
 export function formatDuration(ms) {
   if (!ms) return '0m';
   const mins = Math.floor(ms / 60000);

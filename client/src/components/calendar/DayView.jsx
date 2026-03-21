@@ -4,6 +4,7 @@ import * as api from '../../services/api';
 import socket from '../../services/socket';
 import EventDetail from './EventDetail';
 import { buildSubcalendarColorMap } from './calendarUtils';
+import { formatDateFull } from '../../utils/formatters';
 
 const START_HOUR = 6;
 const END_HOUR = 23;
@@ -94,10 +95,6 @@ function eventKey(e) {
   return `${e.accountId}-${e.id}`;
 }
 
-function formatDate(date) {
-  return date.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-}
-
 export default function DayView({ accounts }) {
   const [date, setDate] = useState(() => {
     const d = new Date();
@@ -164,7 +161,7 @@ export default function DayView({ accounts }) {
           <button onClick={() => navigate(1)} className="p-1.5 text-gray-400 hover:text-white rounded hover:bg-port-border transition-colors">
             <ChevronRight size={18} />
           </button>
-          <h2 className="text-lg font-semibold text-white ml-2">{formatDate(date)}</h2>
+          <h2 className="text-lg font-semibold text-white ml-2">{formatDateFull(date)}</h2>
         </div>
         <button onClick={goToday} className="px-3 py-1.5 text-sm text-gray-400 hover:text-white bg-port-card border border-port-border rounded hover:bg-port-border transition-colors">
           Today

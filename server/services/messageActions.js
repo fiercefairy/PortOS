@@ -4,10 +4,9 @@ import { findOrOpenPage, getPages, isAuthPage, evaluateOnPage } from './messageP
 import { recordCorrection } from './messageTriageRules.js';
 import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { ensureDir, PATHS, safeJSONParse } from '../lib/fileUtils.js';
+import { ensureDir, PATHS, safeJSONParse, UUID_RE } from '../lib/fileUtils.js';
 
 const CACHE_DIR = join(PATHS.messages, 'cache');
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const PROVIDER_URLS = {
   outlook: 'https://outlook.office.com/mail/',

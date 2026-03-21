@@ -2,11 +2,7 @@ import { useState, useEffect } from 'react';
 import { RefreshCw, GitCompare } from 'lucide-react';
 import ReactDiffViewer from 'react-diff-viewer-continued';
 import { getInsightNarrative, refreshInsightNarrative } from '../../services/api';
-
-function formatDate(isoString) {
-  if (!isoString) return null;
-  return new Date(isoString).toLocaleString();
-}
+import { formatDate } from '../../utils/formatters';
 
 function formatRelativeTime(isoString) {
   if (!isoString) return null;

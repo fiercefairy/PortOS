@@ -22,6 +22,35 @@ export function formatTime(timestamp) {
 }
 
 /**
+ * Format a timestamp as a localized time-of-day string (e.g., "1:30 PM")
+ * @param {string|Date} dateStr - ISO timestamp or Date object
+ * @returns {string} Formatted time of day
+ */
+export function formatTimeOfDay(dateStr) {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+/**
+ * Format a date as a localized date string (e.g., "March 5, 2026")
+ * @param {string|Date} dateStr - ISO timestamp or Date object
+ * @returns {string|null} Formatted date, or null for missing input
+ */
+export function formatDate(dateStr) {
+  if (!dateStr) return null;
+  return new Date(dateStr).toLocaleString();
+}
+
+/**
+ * Format a date with full detail including weekday (e.g., "Saturday, March 5, 2026")
+ * @param {Date} date - Date object
+ * @returns {string} Formatted date string
+ */
+export function formatDateFull(date) {
+  return date.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+/**
  * Format a duration in milliseconds as a human-readable string
  * @param {number} ms - Duration in milliseconds
  * @returns {string|null} Formatted duration (e.g., "500ms", "1.5s", "2.0m")

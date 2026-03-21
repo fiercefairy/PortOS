@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import * as api from '../../services/api';
 import socket from '../../services/socket';
 import EventDetail from './EventDetail';
+import { formatTimeOfDay as formatTime } from '../../utils/formatters';
 
 const RSVP_STYLES = {
   accepted: 'bg-port-success/20 text-port-success',
@@ -11,10 +12,6 @@ const RSVP_STYLES = {
   tentative: 'bg-port-warning/20 text-port-warning',
   none: 'bg-gray-700 text-gray-400'
 };
-
-function formatTime(dateStr) {
-  return new Date(dateStr).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-}
 
 function formatDayHeader(dateStr) {
   const date = new Date(dateStr);

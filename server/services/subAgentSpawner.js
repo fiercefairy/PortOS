@@ -2256,8 +2256,21 @@ function createStreamJsonParser() {
   let lineBuffer = '';
   let finalResult = '';
   let textBuffer = '';
+  // Track text across all conversation turns so multi-step agents (e.g., task + /simplify)
+  // preserve all summaries instead of only the final one
+  const textSections = [];
+  let currentTextSection = '';
   // Track active tool blocks by index for input accumulation
   const activeTools = new Map(); // index -> { name, inputJson }
+
+  // Flush accumulated text into a section boundary (tool call start, result event, or stream end)
+  const commitSection = () => {
+    const section = currentTextSection.trim();
+    if (section) {
+      textSections.push(section);
+      currentTextSection = '';
+    }
+  };
 
   const processChunk = (rawData) => {
     const lines = [];
@@ -2284,6 +2297,7 @@ function createStreamJsonParser() {
         if (event?.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
           const text = event.delta.text;
           textBuffer += text;
+          currentTextSection += text;
           // Emit complete lines for readability, accumulate partial
           const textLines = textBuffer.split('\n');
           textBuffer = textLines.pop() || '';
@@ -2305,6 +2319,7 @@ function createStreamJsonParser() {
           const idx = event.index;
           activeTools.set(idx, { name: toolName, inputJson: '' });
           lines.push(`🔧 Using ${toolName}...`);
+          commitSection();
         }
         // When tool input is complete, emit a detailed summary line
         if (event?.type === 'content_block_stop') {
@@ -2331,7 +2346,6 @@ function createStreamJsonParser() {
         if (Array.isArray(content)) {
           for (const block of content) {
             if (block.type === 'tool_result' && typeof block.content === 'string') {
-              // Summarize tool results (first line only to avoid noise)
               const firstLine = block.content.split('\n')[0]?.substring(0, 200);
               if (firstLine) {
                 lines.push(`  ↳ ${firstLine}`);
@@ -2343,11 +2357,11 @@ function createStreamJsonParser() {
 
       // Capture final result text for output file
       if (parsed.type === 'result') {
-        // Flush any remaining text buffer
         if (textBuffer) {
           lines.push(textBuffer);
           textBuffer = '';
         }
+        commitSection();
         finalResult = parsed.result || '';
       }
     }
@@ -2361,10 +2375,18 @@ function createStreamJsonParser() {
       lines.push(textBuffer);
       textBuffer = '';
     }
+    commitSection();
     return lines;
   };
 
-  const getFinalResult = () => finalResult;
+  // Multi-section: return all text turns combined (e.g., task summary + simplify summary)
+  // Single-section: return the CLI result field (cleaner, no tool call noise)
+  const getFinalResult = () => {
+    if (textSections.length > 1) {
+      return textSections.join('\n\n');
+    }
+    return finalResult;
+  };
 
   return { processChunk, flush, getFinalResult };
 }

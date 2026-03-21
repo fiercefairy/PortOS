@@ -607,9 +607,13 @@ Repository: {repoPath}
     - Delete remotely: \`git push origin --delete <branch>\`
     - Log the branch name and result
 
-## Phase 4 — Report
+## Phase 4 — Checkout Default Branch
 
-11. Summarize:
+11. Checkout the default branch so the repo is not left on a stale feature branch: \`git checkout <defaultBranch>\`
+
+## Phase 5 — Report
+
+12. Summarize:
     - Total branches found (local and remote)
     - Branches deleted (local and remote)
     - Branches skipped (protected or unmerged)

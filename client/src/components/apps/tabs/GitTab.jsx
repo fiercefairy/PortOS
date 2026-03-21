@@ -97,6 +97,9 @@ export default function GitTab({ appId: _appId, appName, repoPath }) {
   const [loadingRemote, setLoadingRemote] = useState(false);
   const [deleting, setDeleting] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [merging, setMerging] = useState(null);
+  const [mergeConfirm, setMergeConfirm] = useState(null);
+  const [checkingOutRemote, setCheckingOutRemote] = useState(null);
 
   const loadGitInfo = useCallback(async () => {
     if (!repoPath) return;
@@ -284,6 +287,38 @@ export default function GitTab({ appId: _appId, appName, repoPath }) {
             : b
         ));
       }
+    }
+  };
+
+  const handleMerge = async (branchName) => {
+    if (!repoPath || merging) return;
+    setMerging(branchName);
+    setMergeConfirm(null);
+    const result = await api.mergeBranch(repoPath, branchName).catch((err) => {
+      toast.error(`Merge failed: ${err.message}`);
+      return null;
+    });
+    setMerging(null);
+    if (result?.success) {
+      toast.success(`Merged ${branchName} into current branch`);
+      await loadGitInfo();
+    }
+  };
+
+  const handleCheckoutRemote = async (branchName) => {
+    if (!repoPath || checkingOutRemote) return;
+    setCheckingOutRemote(branchName);
+    const result = await api.checkoutRemoteBranch(repoPath, branchName).catch((err) => {
+      toast.error(`Checkout failed: ${err.message}`);
+      return null;
+    });
+    setCheckingOutRemote(null);
+    if (result?.success) {
+      toast.success(`Checked out ${branchName}`);
+      setRemoteBranches(prev => prev.map(b =>
+        b.name === branchName ? { ...b, hasLocal: true } : b
+      ));
+      await loadGitInfo();
     }
   };
 
@@ -551,6 +586,33 @@ export default function GitTab({ appId: _appId, appName, repoPath }) {
                             )}
                           </button>
                         )}
+                        {!branch.current && (
+                          mergeConfirm === branch.name ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleMerge(branch.name)}
+                                disabled={merging === branch.name}
+                                className="px-2 py-1 text-xs bg-port-accent/20 text-port-accent rounded hover:bg-port-accent/30 disabled:opacity-50"
+                              >
+                                {merging === branch.name ? 'Merging...' : 'Confirm'}
+                              </button>
+                              <button
+                                onClick={() => setMergeConfirm(null)}
+                                className="px-2 py-1 text-xs text-gray-400 hover:text-white"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setMergeConfirm(branch.name)}
+                              className="p-1.5 text-gray-400 hover:text-port-accent hover:bg-port-bg rounded"
+                              title={`Merge ${branch.name} into current branch`}
+                            >
+                              <GitMerge size={14} />
+                            </button>
+                          )
+                        )}
                       </div>
                     </div>
                   ))}
@@ -609,6 +671,20 @@ export default function GitTab({ appId: _appId, appName, repoPath }) {
                         <span className="text-xs text-gray-500">
                           {new Date(rb.lastCommitDate).toLocaleDateString()}
                         </span>
+                      )}
+                      {!rb.hasLocal && (
+                        <button
+                          onClick={() => handleCheckoutRemote(rb.name)}
+                          disabled={checkingOutRemote === rb.name}
+                          className="p-1.5 text-gray-400 hover:text-port-success hover:bg-port-bg rounded disabled:opacity-50"
+                          title="Checkout locally"
+                        >
+                          {checkingOutRemote === rb.name ? (
+                            <RefreshCw size={14} className="animate-spin" />
+                          ) : (
+                            <Download size={14} />
+                          )}
+                        </button>
                       )}
                       {!rb.isDefault && (
                         <>

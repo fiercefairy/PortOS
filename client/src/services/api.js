@@ -359,6 +359,14 @@ export const deleteBranch = (path, branch, { local = false, remote = false } = {
     method: 'POST',
     body: JSON.stringify({ path, branch, local, remote })
   });
+export const mergeBranch = (path, branch) => request('/git/merge', {
+  method: 'POST',
+  body: JSON.stringify({ path, branch })
+});
+export const checkoutRemoteBranch = (path, branch) => request('/git/checkout-remote', {
+  method: 'POST',
+  body: JSON.stringify({ path, branch })
+});
 
 // Usage
 export const getUsage = () => request('/usage');

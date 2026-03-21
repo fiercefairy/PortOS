@@ -124,8 +124,9 @@ export default function ResumeAgentModal({ agent, taskType = 'user', providers, 
                 accept="image/*"
                 multiple
                 onChange={handleFileSelect}
-                className="hidden"
-                aria-label="Upload screenshot files"
+                className="absolute w-0 h-0 opacity-0 overflow-hidden"
+                tabIndex={-1}
+                aria-hidden="true"
               />
               {screenshots.length > 0 && (
                 <span className="text-xs text-gray-500">{screenshots.length} screenshot{screenshots.length > 1 ? 's' : ''}</span>

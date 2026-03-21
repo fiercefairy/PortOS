@@ -190,7 +190,9 @@ export default function Uploads() {
           type="file"
           multiple
           onChange={(e) => handleFileUpload(e.target.files)}
-          className="hidden"
+          className="absolute w-0 h-0 opacity-0 overflow-hidden"
+          tabIndex={-1}
+          aria-hidden="true"
         />
 
         <Upload size={40} className={`mx-auto mb-4 ${dragActive ? 'text-port-accent' : 'text-gray-500'}`} />

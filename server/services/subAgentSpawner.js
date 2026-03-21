@@ -1945,7 +1945,9 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
   // Clean up worktree if agent was using one (skip merge when JIRA branch — PR handles merge)
   if (!jiraBranch) {
     const taskOpenPR = isTruthyMeta(agent.task?.metadata?.openPR);
-    await cleanupAgentWorktree(agentId, success, { openPR: taskOpenPR, description: task?.description });
+    const taskReviewLoop = isTruthyMeta(agent.task?.metadata?.reviewLoop);
+    // When reviewLoop + openPR are both enabled, the agent handles the PR during its run — skip post-exit PR creation
+    await cleanupAgentWorktree(agentId, success, { openPR: taskOpenPR && !taskReviewLoop, description: task?.description });
   }
 
   runnerAgents.delete(agentId);
@@ -2685,6 +2687,9 @@ async function buildAgentPrompt(task, config, workspaceDir, worktreeInfo = null)
 
   // Build worktree context section if applicable
   const willOpenPR = isTruthyMeta(task.metadata?.openPR);
+  const willReviewLoop = isTruthyMeta(task.metadata?.reviewLoop);
+  // When reviewLoop is enabled alongside openPR, the agent opens the PR during its run (reviewLoop takes precedence over post-exit PR creation)
+  const prHandledByAgent = willReviewLoop && willOpenPR;
   const worktreeSection = worktreeInfo ? `
 ## Git Worktree Context
 You are working in an **isolated git worktree** to avoid conflicts with other agents working concurrently.
@@ -2692,7 +2697,7 @@ You are working in an **isolated git worktree** to avoid conflicts with other ag
 - **Worktree Path**: \`${worktreeInfo.worktreePath}\`
 ${worktreeInfo.baseBranch ? `- **Based on**: \`${worktreeInfo.baseBranch}\` (latest from origin)` : ''}
 
-**Important**: Commit your changes to this branch.${willOpenPR ? ' Your commits will be submitted as a pull request to the default branch when your task completes.' : ' Your commits will be automatically merged back to the main development branch when your task completes.'} Do NOT manually switch branches or modify the worktree configuration.
+**Important**: Commit your changes to this branch.${willOpenPR && !prHandledByAgent ? ' Your commits will be submitted as a pull request to the default branch when your task completes.' : ' Your commits will be automatically merged back to the main development branch when your task completes.'} Do NOT manually switch branches or modify the worktree configuration.
 ` : '';
 
   // Build simplify section if enabled
@@ -2701,8 +2706,8 @@ ${worktreeInfo.baseBranch ? `- **Based on**: \`${worktreeInfo.baseBranch}\` (lat
 After completing your work and before committing, run \`/simplify\` to review the changed code for reuse, quality, and efficiency. Fix any issues found before committing.
 ` : '';
 
-  // Build review loop section if enabled (only when the agent creates the PR itself, not when openPR auto-creates it post-exit)
-  const reviewLoopSection = (isTruthyMeta(task.metadata?.reviewLoop) && !willOpenPR) ? `
+  // Build review loop section if enabled
+  const reviewLoopSection = willReviewLoop ? `
 ## Review Loop
 After opening the PR, run \`/do:rpr\` to resolve PR review feedback and complete the merge validation. Continue running the review loop until all checks pass and the PR is approved.
 ` : '';

@@ -54,7 +54,6 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
     setCreateJiraTicket(!!app?.jira?.enabled);
     setUseWorktree(defaultUseWorktree);
     setOpenPR(defaultOpenPR);
-    if (defaultOpenPR) setReviewLoop(false);
   }, [newTask.app, apps]);
 
   // Get models for selected provider
@@ -400,10 +399,7 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
               type="checkbox"
               checked={openPR}
               disabled={!useWorktree}
-              onChange={(e) => {
-                setOpenPR(e.target.checked);
-                if (e.target.checked) setReviewLoop(false);
-              }}
+              onChange={(e) => setOpenPR(e.target.checked)}
               className="w-4 h-4 rounded border-port-border bg-port-bg text-port-accent focus:ring-port-accent focus:ring-offset-0 disabled:opacity-40"
             />
             <span className={`flex items-center gap-1.5 text-sm ${useWorktree ? 'text-gray-400' : 'text-gray-600'}`} title="Open a pull request to the default branch. If unchecked with worktree enabled, auto-merges on completion.">
@@ -427,12 +423,11 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
             <input
               type="checkbox"
               checked={reviewLoop}
-              disabled={openPR}
               onChange={(e) => setReviewLoop(e.target.checked)}
-              className="w-4 h-4 rounded border-port-border bg-port-bg text-port-accent focus:ring-port-accent focus:ring-offset-0 disabled:opacity-40"
+              className="w-4 h-4 rounded border-port-border bg-port-bg text-port-accent focus:ring-port-accent focus:ring-offset-0"
             />
-            <span className={`flex items-center gap-1.5 text-sm ${openPR ? 'text-gray-600' : 'text-gray-400'}`} title={openPR ? 'Review Loop is incompatible with Open PR — the PR is created after the agent exits, so there is no PR to iterate on during the run.' : 'After the agent opens a PR during its run, keep iterating on review feedback until checks pass.'}>
-              <RefreshCw size={14} className={openPR ? 'text-gray-600' : 'text-amber-400'} />
+            <span className="flex items-center gap-1.5 text-sm text-gray-400" title="After the agent opens a PR during its run, keep iterating on review feedback until checks pass.">
+              <RefreshCw size={14} className="text-amber-400" />
               Review Loop
             </span>
           </label>
@@ -499,8 +494,9 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
             accept="image/*"
             multiple
             onChange={handleFileSelect}
-            className="hidden"
-            aria-label="Upload screenshot files"
+            className="absolute w-0 h-0 opacity-0 overflow-hidden"
+            tabIndex={-1}
+            aria-hidden="true"
           />
           <button
             type="button"
@@ -516,8 +512,9 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
             accept=".txt,.md,.json,.csv,.xml,.yaml,.yml,.png,.jpg,.jpeg,.gif,.webp,.svg,.pdf,.js,.ts,.jsx,.tsx,.py,.sh,.sql,.html,.css,.zip,.tar,.gz"
             multiple
             onChange={handleAttachmentSelect}
-            className="hidden"
-            aria-label="Upload attachment files"
+            className="absolute w-0 h-0 opacity-0 overflow-hidden"
+            tabIndex={-1}
+            aria-hidden="true"
           />
           {screenshots.length > 0 && (
             <span className="text-xs text-gray-500">{screenshots.length} screenshot{screenshots.length > 1 ? 's' : ''}</span>

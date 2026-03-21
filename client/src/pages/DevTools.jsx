@@ -1135,7 +1135,9 @@ ${prompt.trim()}`;
               accept="image/*"
               multiple
               onChange={handleFileSelect}
-              className="hidden"
+              className="absolute w-0 h-0 opacity-0 overflow-hidden"
+              tabIndex={-1}
+              aria-hidden="true"
             />
           </>
         )}

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { CheckCircle, XCircle, Loader } from 'lucide-react';
 import { scorePostLlmDrill } from '../../../services/api';
 import { DRILL_LABELS } from './constants';
-import { CompoundChainUI, BridgeWordUI, DoubleMeaningUI, IdiomTwistUI } from './WordplayDrillUI';
+import { AILoadingIndicator, CompoundChainUI, BridgeWordUI, DoubleMeaningUI, IdiomTwistUI } from './WordplayDrillUI';
 
 export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, drillCount, onComplete, isTraining, providerId, model }) {
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -207,10 +207,7 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
             <span className="text-purple-400">{DRILL_LABELS[drillType] || drillType} — Training</span>
             <span>Drill {drillIndex + 1} of {drillCount}</span>
           </div>
-          <div className="flex flex-col items-center gap-3 py-12">
-            <Loader size={32} className="text-purple-400 animate-spin" />
-            <span className="text-gray-400 text-sm">Evaluating your response...</span>
-          </div>
+          <AILoadingIndicator label="Evaluating your response..." />
         </div>
       );
     }

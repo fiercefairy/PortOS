@@ -45,6 +45,7 @@ import * as healthService from '../services/meatspaceHealth.js';
 import * as postService from '../services/meatspacePost.js';
 import * as memoryService from '../services/meatspacePostMemory.js';
 import { generateLlmDrill, scoreLlmDrill } from '../services/meatspacePostLlm.js';
+import { getCachedDrill, triggerReplenish } from '../services/meatspacePostDrillCache.js';
 import * as trainingService from '../services/meatspacePostTraining.js';
 import * as calendarService from '../services/meatspaceCalendar.js';
 
@@ -575,10 +576,20 @@ router.post('/post/drill', asyncHandler(async (req, res) => {
   const data = validateRequest(postDrillRequestSchema, req.body);
 
   if (LLM_DRILL_TYPES.includes(data.type)) {
+    // Try pre-generated cache first for instant response
+    const cached = getCachedDrill(data.type);
+    if (cached) {
+      console.log(`⚡ POST drill served from cache: ${data.type}`);
+      triggerReplenish(data.type, data.providerId, data.model);
+      return res.json(cached);
+    }
+
     const drill = await generateLlmDrill(data.type, data.config, data.providerId, data.model);
     if (!drill) {
       throw new ServerError('Failed to generate LLM drill', { status: 500, code: 'LLM_DRILL_FAILED' });
     }
+    // Trigger background fill so next request is instant
+    triggerReplenish(data.type, data.providerId, data.model);
     return res.json(drill);
   }
 

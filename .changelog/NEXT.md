@@ -1,6 +1,10 @@
 # Unreleased Changes
 
 ## Added
+- POST wordplay drill cache: pre-generates challenges on startup so drills load instantly from cache with background replenishment
+- POST local scoring for deterministic drill types (bridge-word, compound-chain, verbal-fluency, story-recall) — instant results without LLM calls
+- POST loading indicator with elapsed timer, progress bar, and cycling status messages replaces static spinner
+- POST drill tutorial hints: compound chain shows example compounds, bridge word explains the goal, double-meaning and idiom-twist show example answers
 - Ambient Dashboard Mode: fullscreen live status board at `/ambient` for wall-mounted displays — shows real-time clock, death clock countdown, today's calendar events, goal progress, and agent activity with auto-refresh, auto-hiding controls, and fullscreen toggle
 - Agent options (Worktree+PR, /simplify, Review Loop) configurable per-app on both the Automation tab and CoS Schedule per-app overrides
 - Review Loop agent option: runs PR review feedback loop after opening a PR until checks pass

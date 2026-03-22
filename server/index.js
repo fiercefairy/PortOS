@@ -83,6 +83,7 @@ import { restoreLoops } from './services/loops.js';
 import { startBrainScheduler } from './services/brainScheduler.js';
 import { recoverStuckClassifications } from './services/brain.js';
 import { initBridge as initBrainMemoryBridge } from './services/brainMemoryBridge.js';
+import { initDrillCache } from './services/meatspacePostDrillCache.js';
 import { createAIToolkit } from 'portos-ai-toolkit/server';
 import { createPortOSProviderRoutes } from './routes/providers.js';
 import { createPortOSRunsRoutes } from './routes/runs.js';
@@ -268,6 +269,8 @@ recoverStuckClassifications().catch(err => console.error(`❌ Brain recovery fai
 startBrainScheduler();
 // Initialize brain→memory bridge (mirrors brain data into CoS memory for semantic search)
 initBrainMemoryBridge();
+// Pre-fill POST drill cache in background
+initDrillCache().catch(err => console.error(`❌ POST drill cache init failed: ${err.message}`));
 // Initialize backup scheduler for daily data backups
 startBackupScheduler().catch(err => console.error(`❌ Backup scheduler init failed: ${err.message}`));
 // Initialize Telegram (manual bot or MCP bridge based on settings)

@@ -1,4 +1,46 @@
+import { useState, useEffect } from 'react';
+import { Loader } from 'lucide-react';
 import { getDifficultyColor } from './constants';
+
+const LOADING_MESSAGES = [
+  'Crafting challenges...',
+  'Picking interesting words...',
+  'Building puzzles...',
+  'Almost ready...',
+];
+
+export function AILoadingIndicator({ label, color = 'text-purple-400' }) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const start = Date.now();
+    const timer = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const msgIndex = Math.floor(elapsed / 3) % LOADING_MESSAGES.length;
+
+  const pct = Math.min(90, elapsed * 6);
+
+  return (
+    <div className="flex flex-col items-center gap-4 py-8">
+      <Loader size={28} className={`${color} animate-spin`} />
+      <div className="text-center space-y-1">
+        <span className="text-gray-300 text-sm">{label}</span>
+        <div className="text-gray-500 text-xs">{LOADING_MESSAGES[msgIndex]}</div>
+      </div>
+      <div className="w-48 space-y-1">
+        <div className="w-full h-1 bg-port-border rounded-full overflow-hidden">
+          <div
+            className="h-full bg-port-accent/50 rounded-full transition-all duration-1000"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <div className="text-center text-xs text-gray-600">{elapsed}s</div>
+      </div>
+    </div>
+  );
+}
 
 export function ProgressBar({ index, total }) {
   const pct = total > 0 ? ((index + 1) / total) * 100 : 0;
@@ -22,7 +64,18 @@ export function DifficultyBadge({ difficulty }) {
   );
 }
 
+function ExampleHint({ example }) {
+  if (!example) return null;
+  return <div className="text-xs text-gray-600 mt-3 italic">e.g. &quot;{example}&quot;</div>;
+}
+
 export function CompoundChainUI({ challenge, items, inputValue, setInputValue, onAddItem, onRemoveItem, onSubmit, inputRef, questionIndex, totalPrompts }) {
+  const directionHint = challenge?.position === 'prefix'
+    ? `e.g. ${challenge?.rootWord}house, ${challenge?.rootWord}work`
+    : challenge?.position === 'suffix'
+      ? `e.g. day${challenge?.rootWord}, flash${challenge?.rootWord}`
+      : `e.g. ${challenge?.rootWord}house, flash${challenge?.rootWord}`;
+
   return (
     <>
       <div className="text-center py-4">
@@ -32,6 +85,9 @@ export function CompoundChainUI({ challenge, items, inputValue, setInputValue, o
           {challenge?.position === 'prefix' ? 'Starts with this word' : challenge?.position === 'suffix' ? 'Ends with this word' : 'Either direction'}
           {challenge?.minExpected && ` · Target: ${challenge.minExpected}+`}
         </div>
+        {items.length === 0 && (
+          <div className="text-xs text-gray-600 mt-2 italic">{directionHint}</div>
+        )}
       </div>
 
       <form onSubmit={onAddItem} className="flex gap-2">
@@ -85,7 +141,8 @@ export function BridgeWordUI({ puzzle, inputValue, setInputValue, onSubmit, inpu
             <span key={i} className="px-4 py-2 bg-purple-500/20 text-purple-300 rounded-lg text-lg font-mono">{clue}</span>
           ))}
         </div>
-        {puzzle?.hint && <div className="text-sm text-gray-500 mt-3">Hint: {puzzle.hint}</div>}
+        <div className="text-xs text-gray-600 mt-3 italic">One word completes all the blanks above</div>
+        {puzzle?.hint && <div className="text-sm text-gray-500 mt-2">Hint: {puzzle.hint}</div>}
         {puzzle?.difficulty && <DifficultyBadge difficulty={puzzle.difficulty} />}
       </div>
       <form onSubmit={onSubmit} className="space-y-3">
@@ -152,6 +209,7 @@ export function DoubleMeaningUI({ challenge, inputValue, setInputValue, onSubmit
             <span key={i} className="px-3 py-1 bg-amber-500/20 text-amber-400 rounded-lg text-sm">{m}</span>
           ))}
         </div>
+        <ExampleHint example={challenge?.example} />
         {challenge?.difficulty && <div className="mt-3"><DifficultyBadge difficulty={challenge.difficulty} /></div>}
       </div>
       {input}
@@ -200,6 +258,7 @@ export function IdiomTwistUI({ challenge, inputValue, setInputValue, onSubmit, i
           <span className="text-gray-500">New domain:</span>
           <span className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-lg font-medium">{challenge?.domain}</span>
         </div>
+        <ExampleHint example={challenge?.example} />
         {challenge?.difficulty && <div className="mt-3"><DifficultyBadge difficulty={challenge.difficulty} /></div>}
       </div>
       {input}

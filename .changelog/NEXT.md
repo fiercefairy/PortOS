@@ -17,6 +17,7 @@
 - Personal Goals dashboard widget: shows top-level goals with progress bars, category icons, horizon labels, and stall detection (14+ days idle) — replaces broken CoS task-based goal widget that never rendered
 
 ## Changed
+- Release-check scheduled task now discovers the project's release process from CLAUDE.md, README.md, CONTRIBUTING.md, docs/, CI workflows, and changelog docs instead of hardcoding dev→main
 - Exported `cleanupAgentWorktree` from `subAgentSpawner.js` with dedicated test file covering the openPR completion path (push, PR creation, failure preservation, auto-merge fallback)
 - Exported `isTruthyMeta` from `subAgentSpawner.js` and `applyAppWorktreeDefault` from `cos.js`; tests now import production helpers instead of duplicating their logic inline
 - Consolidated 5 duplicate `timeAgo`/`formatTimeAgo` implementations into a single `timeAgo()` in `utils/formatters.js`

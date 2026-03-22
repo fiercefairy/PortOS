@@ -442,43 +442,64 @@ Repository: {repoPath}
 
 4. Run type checking and commit improvements`,
 
-  'release-check': `[Improvement: {appName}] Release Check — dev → main
+  'release-check': `[Improvement: {appName}] Release Check
 
-Check if the dev branch has accumulated enough work for a release, and if so, create a PR to main, wait for Copilot code review, iterate on feedback until clean, and merge.
+Repository: {repoPath}
 
-NOTE: The repo has a GitHub ruleset that automatically requests a Copilot code review on every push to a PR targeting main. You do NOT need to manually request reviews — just create/push the PR and wait.
+Check if {appName} has accumulated enough work for a release, following the project's own documented release process.
+
+## Step 0: Discover the Release Process
+
+You need to determine these values (use angle-bracket names as placeholders in subsequent steps):
+- \`<SOURCE_BRANCH>\` — where development happens
+- \`<TARGET_BRANCH>\` — where releases go
+- Changelog format and location
+- Pre-release checks (tests, builds)
+- Push/rebase conventions
+
+First, extract \`<OWNER>\` and \`<REPO>\`:
+\`\`\`bash
+cd {repoPath} && gh repo view --json owner,name --jq '"OWNER=" + .owner.login + " REPO=" + .name'
+\`\`\`
+
+Then search for release documentation. Check your CLAUDE.md context (already provided above) for "Git Workflow", "Release", or "Changelog" sections. If the release process is not clear from CLAUDE.md, check these files in order (use whichever exist):
+1. \`cat {repoPath}/README.md\` — look for release/deployment/workflow sections
+2. \`cat {repoPath}/.changelog/README.md\` — changelog format and release conventions
+3. \`cat {repoPath}/CONTRIBUTING.md\` — contributing/release guidelines
+4. \`ls {repoPath}/docs/\` — look for release process docs (e.g., RELEASE.md, DEPLOY.md)
+5. \`ls {repoPath}/.github/workflows/\` — infer branch flow from CI workflow triggers
+6. \`gh api repos/<OWNER>/<REPO>/branches --jq '.[].name'\` — list branches to identify the flow
+
+If no documentation specifies a release flow, fall back to: source=dev, target=main.
 
 ## Step 1: Evaluate Readiness
 
-Read the current changelog and version:
-- \`cat .changelog/v*.x.md\` (the one with literal "x", not a resolved version)
-- \`node -p "require('./package.json').version"\`
+Using the changelog location discovered in Step 0:
+- Read the current changelog (e.g., \`.changelog/NEXT.md\` or \`.changelog/v*.x.md\`)
+- Read the current version: \`node -p "require('{repoPath}/package.json').version"\` or equivalent
 
 Count substantive entries (lines starting with "###" or "- **" under Features, Fixes, Improvements sections). If fewer than 2 substantive entries exist, stop and report: "Not enough work accumulated for a release." Do NOT create a PR.
 
 ## Step 2: Verify Clean State
 
-Run these checks (stop if any fail):
-1. \`git fetch origin\` and ensure dev is up to date: \`git status -uno\` should show "Your branch is up to date"
-2. \`cd server && npm test\` — all tests must pass
-3. \`cd client && npm run build\` — build must succeed
+Run these checks on \`<SOURCE_BRANCH>\` (stop if any fail):
+1. \`git -C {repoPath} fetch origin\` and ensure \`<SOURCE_BRANCH>\` is up to date
+2. Run the project's test suite (use the command from release docs)
+3. Run the project's build (use the command from release docs)
 
 ## Step 3: Create or Find PR
 
-Check for existing PR: \`gh pr list --base main --head dev --state open --json number,url\`
+Check for existing PR: \`gh pr list --repo <OWNER>/<REPO> --base <TARGET_BRANCH> --head <SOURCE_BRANCH> --state open --json number,url\`
 
-If a PR exists, use it. If not, create one:
-\`\`\`bash
-gh pr create --base main --head dev --title "Release $(node -p \\"require('./package.json').version\\")" --body "$(cat .changelog/v*.x.md | head -60)"
-\`\`\`
+If a PR exists, use it. If not, create one following the project's documented release PR conventions.
 
-Capture the PR number and URL.
+Capture the PR number as \`<PR_NUM>\` and URL.
 
 ## Step 4: Wait for Copilot Review
 
 Copilot review is triggered automatically on push. Poll every 15 seconds until the review appears:
 \`\`\`bash
-gh api repos/atomantic/PortOS/pulls/PR_NUM/reviews --jq '.[] | select(.user.login == "copilot-pull-request-reviewer") | .state'
+gh api repos/<OWNER>/<REPO>/pulls/<PR_NUM>/reviews --jq '.[] | select(.user.login == "copilot-pull-request-reviewer") | .state'
 \`\`\`
 
 Wait until you see APPROVED or CHANGES_REQUESTED. Timeout after 5 minutes of polling.
@@ -490,7 +511,7 @@ Wait until you see APPROVED or CHANGES_REQUESTED. Timeout after 5 minutes of pol
 Use gh api graphql (JSON input to avoid shell escaping issues with GraphQL variables):
 
 \`\`\`bash
-echo '{"query":"query{repository(owner:\\"atomantic\\",name:\\"PortOS\\"){pullRequest(number:PR_NUM){reviewThreads(first:100){nodes{id,isResolved,comments(first:10){nodes{body,path,line,author{login}}}}}}}}"}' | gh api graphql --input -
+echo '{"query":"query{repository(owner:\\"<OWNER>\\",name:\\"<REPO>\\"){pullRequest(number:<PR_NUM>){reviewThreads(first:100){nodes{id,isResolved,comments(first:10){nodes{body,path,line,author{login}}}}}}}}"}' | gh api graphql --input -
 \`\`\`
 
 ### 5b. If no unresolved threads: skip to Step 6 (Merge).
@@ -504,9 +525,7 @@ For each comment, read the referenced file and critically evaluate the suggestio
 Either way, resolve every thread — the goal is zero unresolved threads before merge.
 
 After evaluating all threads:
-- If any code changes were made: run \`cd server && npm test\` to verify, then commit and push:
-  \`git add <files> && git commit -m "fix: address Copilot review feedback"\`
-  \`git pull --rebase --autostash && git push\`
+- If any code changes were made: run the project's test suite to verify, then commit and push following the project's push conventions (e.g., \`git pull --rebase --autostash && git push\`)
 
 ### 5d. Resolve ALL threads via GraphQL mutation (both fixed and dismissed):
 
@@ -525,10 +544,10 @@ If after 5 iterations there are still unresolved threads, stop and report what r
 
 Only merge when Copilot's most recent review has NO unresolved threads:
 \`\`\`bash
-gh pr merge PR_NUM --merge
+gh pr merge <PR_NUM> --merge
 \`\`\`
 
-If merge fails (e.g., branch protections), try: \`gh pr merge PR_NUM --merge --admin\`
+If merge fails (e.g., branch protections), try: \`gh pr merge <PR_NUM> --merge --admin\`
 
 ## Step 7: Report
 
@@ -536,9 +555,7 @@ Summarize:
 - Version released
 - Key changes (from changelog)
 - Number of review iterations needed
-- Any unresolved issues
-
-IMPORTANT: Always use \`git pull --rebase --autostash\` before pushing (dev branch gets auto-bumped by CI). Never use \`git push\` alone.`,
+- Any unresolved issues`,
 
   'jira-sprint-manager': `[Improvement: {appName}] JIRA Sprint Manager
 
@@ -1695,7 +1712,7 @@ function getTaskTypeDescription(taskType) {
     'accessibility': 'Accessibility audit',
     'branch-cleanup': 'Clean up merged branches',
     'dependency-updates': 'Update dependencies',
-    'release-check': 'Check dev for release readiness',
+    'release-check': 'Check for release readiness',
     'error-handling': 'Improve error handling',
     'typing': 'Improve TypeScript types',
     'pr-reviewer': 'Review open PRs from contributors',

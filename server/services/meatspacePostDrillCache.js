@@ -7,7 +7,7 @@
 
 import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { PATHS } from '../lib/paths.js';
+import { PATHS } from '../lib/fileUtils.js';
 import { generateLlmDrill } from './meatspacePostLlm.js';
 
 const CACHE_FILE = join(PATHS.data, 'meatspace', 'post-drill-cache.json');

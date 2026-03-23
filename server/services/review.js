@@ -240,6 +240,25 @@ cosEvents.on('memory:approval-needed', (data) => {
   }
 });
 
+async function dismissByReferenceId(referenceId) {
+  const items = await loadItems();
+  const matching = items.filter(i => i.metadata?.referenceId === referenceId && i.status === 'pending');
+  for (const item of matching) {
+    item.status = 'dismissed';
+    item.updatedAt = new Date().toISOString();
+    reviewEvents.emit('item:updated', item);
+  }
+  if (matching.length > 0) await saveItems(items);
+}
+
+cosEvents.on('memory:approved', (data) => {
+  if (data?.id) dismissByReferenceId(data.id).catch(err => console.error(`❌ Failed to dismiss approved memory review item: ${err.message}`));
+});
+
+cosEvents.on('memory:rejected', (data) => {
+  if (data?.id) dismissByReferenceId(data.id).catch(err => console.error(`❌ Failed to dismiss rejected memory review item: ${err.message}`));
+});
+
 cosEvents.on('task:ready', (data) => {
   createItem({
     type: 'cos',

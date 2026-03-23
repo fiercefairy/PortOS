@@ -1028,9 +1028,10 @@ async function resolveFailedTaskUpdate(task, errorAnalysis, agentId) {
 
   // Non-actionable errors: track retry count and block after max retries
   const failureCount = (task.metadata?.failureCount || 0) + 1;
+  const totalSpawns = task.metadata?.totalSpawnCount || 0;
   const lastErrorCategory = errorAnalysis?.category || 'unknown';
 
-  if (failureCount >= MAX_TASK_RETRIES) {
+  if (totalSpawns >= MAX_TOTAL_SPAWNS || failureCount >= MAX_TASK_RETRIES) {
     emitLog('warn', `🚫 Task ${task.id} blocked after ${failureCount} failures (${lastErrorCategory})`, {
       taskId: task.id, failureCount, category: lastErrorCategory
     });
@@ -1249,6 +1250,23 @@ export async function spawnAgentForTask(task) {
     console.log(`⚠️ Task ${task.id} already being spawned, skipping duplicate`);
     return null;
   }
+
+  // Check total spawn count across all retry types to prevent runaway respawning
+  const totalSpawns = task.metadata?.totalSpawnCount || 0;
+  if (totalSpawns >= MAX_TOTAL_SPAWNS) {
+    console.log(`🚫 Task ${task.id} hit max total spawns (${totalSpawns}/${MAX_TOTAL_SPAWNS}), blocking`);
+    await updateTask(task.id, {
+      status: 'blocked',
+      metadata: {
+        ...task.metadata,
+        blockedReason: `Max total spawns exceeded (${totalSpawns}/${MAX_TOTAL_SPAWNS})`,
+        blockedCategory: 'max-spawns',
+        blockedAt: new Date().toISOString()
+      }
+    }, task.taskType || 'user').catch(() => {});
+    return null;
+  }
+
   spawningTasks.add(task.id);
 
   const agentId = `agent-${uuidv4().slice(0, 8)}`;
@@ -1625,8 +1643,16 @@ export async function spawnAgentForTask(task) {
 
   emitLog('info', `Agent ${agentId} initializing...${worktreeInfo ? ' (worktree)' : ''}${jiraBranchName ? ` (JIRA: ${jiraTicket?.ticketId})` : ''}`, { agentId, taskId: task.id });
 
-  // Mark the task as in_progress to prevent re-spawning
-  const updateResult = await updateTask(task.id, { status: 'in_progress' }, task.taskType || 'user')
+  // Mark the task as in_progress and increment total spawn count
+  const newSpawnCount = (task.metadata?.totalSpawnCount || 0) + 1;
+  const updateResult = await updateTask(task.id, {
+    status: 'in_progress',
+    metadata: {
+      ...task.metadata,
+      totalSpawnCount: newSpawnCount,
+      lastSpawnedAt: new Date().toISOString()
+    }
+  }, task.taskType || 'user')
     .catch(err => {
       console.error(`❌ Failed to mark task ${task.id} as in_progress: ${err.message}`);
       return null;
@@ -1776,7 +1802,16 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
         if (success) {
           await updateTask(cosAgent.taskId, { status: 'completed' }, taskType);
         } else {
-          await updateTask(cosAgent.taskId, { status: 'ready', metadata: { retryReason: 'orphaned-agent' } }, taskType);
+          // Preserve existing metadata (retry counts, spawn counts) to prevent counter resets
+          await updateTask(cosAgent.taskId, {
+            status: 'pending',
+            metadata: {
+              ...task.metadata,
+              retryReason: 'orphaned-agent',
+              lastOrphanedAt: new Date().toISOString(),
+              lastOrphanedAgentId: agentId
+            }
+          }, taskType);
         }
       }
     }
@@ -3218,6 +3253,10 @@ export async function killAllAgents() {
 // Max retries before creating investigation task
 const MAX_ORPHAN_RETRIES = 3;
 const MAX_TASK_RETRIES = 3;
+// Absolute cap on total agent spawns per task (across all retry types)
+const MAX_TOTAL_SPAWNS = 5;
+// Minimum cooldown between orphan retries (30 minutes)
+const ORPHAN_RETRY_COOLDOWN_MS = 30 * 60 * 1000;
 
 /**
  * Check if a process is running by PID
@@ -3350,13 +3389,23 @@ async function handleOrphanedTask(taskId, agentId, getTaskById) {
 
   // Get current retry count from task metadata
   const retryCount = (task.metadata?.orphanRetryCount || 0) + 1;
+  const totalSpawns = task.metadata?.totalSpawnCount || 0;
   const taskType = task.taskType || 'user';
 
-  if (retryCount < MAX_ORPHAN_RETRIES) {
+  // Block if total spawn count across all retry types is exhausted
+  const totalExceeded = totalSpawns >= MAX_TOTAL_SPAWNS;
+
+  // Enforce cooldown between orphan retries
+  const lastOrphanedAt = task.metadata?.lastOrphanedAt ? new Date(task.metadata.lastOrphanedAt).getTime() : 0;
+  const cooldownRemaining = lastOrphanedAt ? ORPHAN_RETRY_COOLDOWN_MS - (Date.now() - lastOrphanedAt) : 0;
+  const inCooldown = cooldownRemaining > 0;
+
+  if (retryCount < MAX_ORPHAN_RETRIES && !totalExceeded && !inCooldown) {
     // Reset task to pending for automatic retry
-    emitLog('info', `Resetting orphaned task ${taskId} for retry (attempt ${retryCount}/${MAX_ORPHAN_RETRIES})`, {
+    emitLog('info', `Resetting orphaned task ${taskId} for retry (attempt ${retryCount}/${MAX_ORPHAN_RETRIES}, total spawns ${totalSpawns}/${MAX_TOTAL_SPAWNS})`, {
       taskId,
       retryCount,
+      totalSpawns,
       maxRetries: MAX_ORPHAN_RETRIES
     });
 
@@ -3369,11 +3418,35 @@ async function handleOrphanedTask(taskId, agentId, getTaskById) {
         lastOrphanedAgentId: agentId
       }
     }, taskType);
+  } else if (inCooldown && retryCount < MAX_ORPHAN_RETRIES && !totalExceeded) {
+    // Within cooldown — block temporarily with info about when retry is eligible
+    const cooldownMinutes = Math.ceil(cooldownRemaining / 60000);
+    emitLog('info', `⏳ Orphan retry for task ${taskId} in cooldown (${cooldownMinutes}m remaining)`, {
+      taskId, cooldownMinutes, retryCount
+    });
+
+    await updateTask(taskId, {
+      status: 'blocked',
+      metadata: {
+        ...task.metadata,
+        orphanRetryCount: retryCount,
+        lastOrphanedAt: new Date().toISOString(),
+        lastOrphanedAgentId: agentId,
+        blockedReason: `Orphan retry cooldown (${cooldownMinutes}m remaining)`,
+        blockedCategory: 'orphan-cooldown',
+        blockedAt: new Date().toISOString(),
+        cooldownUntil: new Date(Date.now() + cooldownRemaining).toISOString()
+      }
+    }, taskType);
   } else {
-    // Max retries exceeded - create auto-approved investigation task
-    emitLog('warn', `Task ${taskId} exceeded max orphan retries (${MAX_ORPHAN_RETRIES}), creating investigation task`, {
+    // Max retries or total spawns exceeded - create auto-approved investigation task
+    const reason = totalExceeded
+      ? `total spawns exceeded (${totalSpawns}/${MAX_TOTAL_SPAWNS})`
+      : `orphan retries exceeded (${retryCount}/${MAX_ORPHAN_RETRIES})`;
+    emitLog('warn', `Task ${taskId} blocked: ${reason}, creating investigation task`, {
       taskId,
-      retryCount
+      retryCount,
+      totalSpawns
     });
 
     // Mark task as blocked
@@ -3382,7 +3455,9 @@ async function handleOrphanedTask(taskId, agentId, getTaskById) {
       metadata: {
         ...task.metadata,
         orphanRetryCount: retryCount,
-        blockedReason: 'Max orphan retries exceeded'
+        blockedReason: reason,
+        blockedCategory: 'max-retries',
+        blockedAt: new Date().toISOString()
       }
     }, taskType);
 
@@ -3390,10 +3465,12 @@ async function handleOrphanedTask(taskId, agentId, getTaskById) {
     const description = `[Auto-Fix] Investigate repeated agent orphaning for task ${taskId}
 
 **Original Task**: ${(task.description || '').substring(0, 200)}
-**Retry Attempts**: ${retryCount}
+**Orphan Retries**: ${retryCount}
+**Total Spawns**: ${totalSpawns}
 **Last Orphaned Agent**: ${agentId}
+**Blocked Reason**: ${reason}
 
-This task has failed ${retryCount} times due to agent orphaning. Investigate:
+This task has been blocked after ${totalSpawns} total agent spawns. Investigate:
 1. Check CoS Runner logs for errors
 2. Verify process spawning is working correctly
 3. Look for resource constraints (memory, CPU)

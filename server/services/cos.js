@@ -893,6 +893,30 @@ export async function evaluateTasks() {
   // Get both user and CoS tasks
   const { user: userTaskData, cos: cosTaskData } = await getAllTasks();
 
+  // Unblock tasks whose orphan-retry cooldown has expired
+  const allBlocked = [
+    ...(userTaskData.grouped?.blocked || []),
+    ...(cosTaskData.grouped?.blocked || [])
+  ];
+  for (const task of allBlocked) {
+    if (task.metadata?.blockedCategory === 'orphan-cooldown' && task.metadata?.cooldownUntil) {
+      if (new Date(task.metadata.cooldownUntil).getTime() <= Date.now()) {
+        const taskType = task.taskType || (userTaskData.grouped?.blocked?.includes(task) ? 'user' : 'internal');
+        emitLog('info', `⏰ Orphan cooldown expired for task ${task.id}, unblocking`, { taskId: task.id });
+        await updateTask(task.id, {
+          status: 'pending',
+          metadata: {
+            ...task.metadata,
+            blockedReason: undefined,
+            blockedCategory: undefined,
+            blockedAt: undefined,
+            cooldownUntil: undefined
+          }
+        }, taskType);
+      }
+    }
+  }
+
   // Count running agents and available slots (global + per-project)
   const runningAgentEntries = Object.values(state.agents).filter(a => a.status === 'running');
   const runningAgents = runningAgentEntries.length;

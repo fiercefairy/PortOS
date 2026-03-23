@@ -69,6 +69,20 @@ function ExampleHint({ example }) {
   return <div className="text-xs text-gray-600 mt-3 italic">e.g. &quot;{example}&quot;</div>;
 }
 
+export function MissedExamplesDisplay({ examples }) {
+  if (!examples?.length) return null;
+  return (
+    <div className="pt-2 border-t border-port-border">
+      <p className="text-xs text-gray-500 mb-1">You could also have said:</p>
+      <div className="flex flex-wrap gap-1.5">
+        {examples.map((ex, i) => (
+          <span key={i} className="px-2 py-0.5 bg-port-accent/10 text-port-accent text-xs rounded">{ex}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function CompoundChainUI({ challenge, items, inputValue, setInputValue, onAddItem, onRemoveItem, onSubmit, inputRef, questionIndex, totalPrompts }) {
   const directionHint = challenge?.position === 'prefix'
     ? `e.g. ${challenge?.rootWord}house, ${challenge?.rootWord}work`

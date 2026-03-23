@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { CheckCircle, XCircle, Loader } from 'lucide-react';
 import { scorePostLlmDrill } from '../../../services/api';
 import { DRILL_LABELS } from './constants';
-import { AILoadingIndicator, CompoundChainUI, BridgeWordUI, DoubleMeaningUI, IdiomTwistUI } from './WordplayDrillUI';
+import { AILoadingIndicator, MissedExamplesDisplay, CompoundChainUI, BridgeWordUI, DoubleMeaningUI, IdiomTwistUI } from './WordplayDrillUI';
 
 export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, drillCount, onComplete, isTraining, providerId, model }) {
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -229,16 +229,7 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
         </div>
         <div className="bg-port-card border border-port-border rounded-lg p-4 space-y-2">
           <p className="text-sm text-gray-300">{trainingFeedback.feedback}</p>
-          {trainingFeedback.missedExamples?.length > 0 && (
-            <div className="pt-2 border-t border-port-border">
-              <p className="text-xs text-gray-500 mb-1">You could also have said:</p>
-              <div className="flex flex-wrap gap-1.5">
-                {trainingFeedback.missedExamples.map((ex, i) => (
-                  <span key={i} className="px-2 py-0.5 bg-port-accent/10 text-port-accent text-xs rounded">{ex}</span>
-                ))}
-              </div>
-            </div>
-          )}
+          <MissedExamplesDisplay examples={trainingFeedback.missedExamples} />
         </div>
         <button
           onClick={acknowledgeTrainingFeedback}

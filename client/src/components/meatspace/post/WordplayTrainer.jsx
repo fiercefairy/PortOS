@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { ArrowLeft, Link, Puzzle, BookOpen, Shuffle, Loader, CheckCircle, XCircle, ChevronRight } from 'lucide-react';
 import { generatePostDrill, scorePostLlmDrill } from '../../../services/api';
-import { AILoadingIndicator, CompoundChainUI, BridgeWordUI, DoubleMeaningUI, IdiomTwistUI, ProgressBar } from './WordplayDrillUI';
+import { AILoadingIndicator, MissedExamplesDisplay, CompoundChainUI, BridgeWordUI, DoubleMeaningUI, IdiomTwistUI, ProgressBar } from './WordplayDrillUI';
 
 const GAME_MODES = [
   {
@@ -277,16 +277,7 @@ export default function WordplayTrainer({ onBack, config }) {
           {feedback.invalidItems?.length > 0 && (
             <p className="text-xs text-port-error">Invalid: {feedback.invalidItems.join(', ')}</p>
           )}
-          {feedback.missedExamples?.length > 0 && (
-            <div className="pt-2 border-t border-port-border">
-              <p className="text-xs text-gray-500 mb-1">You could also have said:</p>
-              <div className="flex flex-wrap gap-1.5">
-                {feedback.missedExamples.map((ex, i) => (
-                  <span key={i} className="px-2 py-0.5 bg-port-accent/10 text-port-accent text-xs rounded">{ex}</span>
-                ))}
-              </div>
-            </div>
-          )}
+          <MissedExamplesDisplay examples={feedback.missedExamples} />
         </div>
         <button
           onClick={handleNext}

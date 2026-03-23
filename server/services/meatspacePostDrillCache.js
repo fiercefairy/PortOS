@@ -81,7 +81,9 @@ export function getCachedDrill(type) {
   if (!CACHEABLE_TYPES.includes(type)) return null;
   const drills = cache[type];
   if (!drills?.length) return null;
-  return drills.shift(); // consume oldest
+  const result = drills.shift();
+  debouncedSave();
+  return result;
 }
 
 /**

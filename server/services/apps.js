@@ -3,6 +3,7 @@ import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import EventEmitter from 'events';
 import { ensureDir, readJSONFile, PATHS } from '../lib/fileUtils.js';
+import { NON_PM2_TYPES } from './streamingDetect.js';
 import { SELF_IMPROVEMENT_TASK_TYPES } from './taskSchedule.js';
 import { sanitizeTaskMetadata } from '../lib/validation.js';
 import { PORTS } from '../lib/ports.js';
@@ -198,7 +199,7 @@ export async function createApp(appData) {
     icon: appData.icon || null,
     appIconPath: appData.appIconPath || null,
     editorCommand: appData.editorCommand
-      || (['ios-native', 'macos-native', 'xcode', 'swift'].includes(appData.type) ? 'xed .' : 'code .'),
+      || (NON_PM2_TYPES.has(appData.type) ? 'xed .' : 'code .'),
     archived: false,
     jira: appData.jira || null,
     taskTypeOverrides: Object.fromEntries(

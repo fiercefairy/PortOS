@@ -184,7 +184,10 @@ export async function init(sendTestMessage = false) {
 
   // Handle inline keyboard button clicks (memory approve/reject)
   bot.on('callback_query', async (query) => {
-    if (String(query.message?.chat?.id) !== authorizedChatId) return;
+    if (String(query.message?.chat?.id) !== authorizedChatId) {
+      await bot.answerCallbackQuery(query.id, { text: 'Unauthorized' }).catch(() => {});
+      return;
+    }
     await handleCallbackQuery(query);
   });
 

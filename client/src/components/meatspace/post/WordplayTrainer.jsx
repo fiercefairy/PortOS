@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { ArrowLeft, Link, Puzzle, BookOpen, Shuffle, Loader, CheckCircle, XCircle, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Link, Puzzle, BookOpen, Shuffle, CheckCircle, XCircle, ChevronRight } from 'lucide-react';
 import { generatePostDrill, scorePostLlmDrill } from '../../../services/api';
 import { AILoadingIndicator, MissedExamplesDisplay, CompoundChainUI, BridgeWordUI, DoubleMeaningUI, IdiomTwistUI, ProgressBar } from './WordplayDrillUI';
 

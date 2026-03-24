@@ -148,10 +148,11 @@ export default function LinksTab({ onRefresh }) {
   };
 
   const handleDelete = async (linkId) => {
-    await api.deleteBrainLink(linkId).catch(err => {
+    const result = await api.deleteBrainLink(linkId).catch(err => {
       toast.error(err.message || 'Failed to delete');
       return null;
     });
+    if (!result) return;
 
     toast.success('Link deleted');
     setConfirmingDeleteId(null);

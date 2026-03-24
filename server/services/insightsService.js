@@ -196,11 +196,11 @@ export async function getGenomeHealthCorrelations() {
 
   // Fetch blood test data in parallel (fail gracefully)
   let bloodValues = new Map();
-  let hasBlooodData = false;
+  let hasBloodData = false;
   const bloodData = await getBloodTests().catch(() => null);
   if (bloodData?.tests?.length) {
     bloodValues = getLatestBloodValues(bloodData.tests);
-    hasBlooodData = true;
+    hasBloodData = true;
   }
 
   // Group markers by category
@@ -265,7 +265,7 @@ export async function getGenomeHealthCorrelations() {
 
   // Determine sources
   const sources = ['23andMe'];
-  if (hasBlooodData) sources.push('Blood Tests');
+  if (hasBloodData) sources.push('Blood Tests');
 
   // Check for Apple Health data availability
   const appleHealthData = await getCorrelationData(

@@ -47,7 +47,7 @@ const GoalProgressWidget = memo(function GoalProgressWidget() {
     return {
       goals: topLevel,
       stalledCount: topLevel.filter(g => g.isStalled).length,
-      avgProgress: Math.round(topLevel.reduce((sum, g) => sum + (g.progress || 0), 0) / topLevel.length)
+      avgProgress: topLevel.length ? Math.round(topLevel.reduce((sum, g) => sum + (g.progress || 0), 0) / topLevel.length) : 0
     };
   }, [goalsData]);
 

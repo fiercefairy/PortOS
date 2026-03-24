@@ -275,7 +275,7 @@ export default function AlcoholTab() {
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-gray-500">Week</span>
-            <span className={`text-sm font-semibold ${summary.weeklyTotal > summary.thresholds.weeklyMax ? 'text-port-error' : 'text-gray-300'}`}>
+            <span className={`text-sm font-semibold ${summary.weeklyTotal > summary.thresholds?.weeklyMax ? 'text-port-error' : 'text-gray-300'}`}>
               {summary.grams?.weeklyTotal ?? 0}g
             </span>
             <span className="text-xs text-gray-600">/ {summary.gramThresholds?.weeklyMax ?? 196}g</span>

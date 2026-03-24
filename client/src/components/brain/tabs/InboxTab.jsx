@@ -167,10 +167,11 @@ export default function InboxTab({ onRefresh, settings }) {
   };
 
   const handleDelete = async (entryId) => {
-    await api.deleteBrainInboxEntry(entryId).catch(err => {
+    const result = await api.deleteBrainInboxEntry(entryId).catch(err => {
       toast.error(err.message || 'Failed to delete');
       return null;
     });
+    if (!result) return;
 
     toast.success('Entry deleted');
     setConfirmingDeleteId(null);

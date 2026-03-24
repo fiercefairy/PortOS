@@ -377,7 +377,7 @@ export async function bulkUpdateAppTaskTypeOverride(taskType, { enabled } = {}) 
     const existing = overrides[taskType] || {};
     const updated = { ...existing, enabled };
 
-    if (!updated.enabled && !updated.interval && !updated.taskMetadata) {
+    if (updated.enabled === undefined && !updated.interval && !updated.taskMetadata) {
       delete overrides[taskType];
     } else {
       overrides[taskType] = updated;

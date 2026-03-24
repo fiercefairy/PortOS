@@ -26,8 +26,14 @@ router.get('/:id', asyncHandler(async (req, res) => {
 // POST /api/loops
 router.post('/', asyncHandler(async (req, res) => {
   const { prompt, interval, name, cwd, providerId, timeout, runImmediately } = req.body;
-  if (!prompt) throw new ServerError('Prompt is required', { status: 400, code: 'VALIDATION_ERROR' });
+  if (!prompt || typeof prompt !== 'string') throw new ServerError('Prompt is required', { status: 400, code: 'VALIDATION_ERROR' });
   if (!interval) throw new ServerError('Interval is required', { status: 400, code: 'VALIDATION_ERROR' });
+  if (typeof interval !== 'string' && typeof interval !== 'number') {
+    throw new ServerError('Interval must be a string (e.g. "30s", "5m") or number of milliseconds', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+  if (timeout !== undefined && typeof timeout !== 'number') {
+    throw new ServerError('Timeout must be a number of milliseconds', { status: 400, code: 'VALIDATION_ERROR' });
+  }
 
   const loop = await loopsService.createLoop({
     prompt, interval, name, cwd, providerId, timeout,

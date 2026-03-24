@@ -301,18 +301,20 @@ export function createCachedStore(filePath, defaultValue, { ttl = 2000, context 
   let cache = null;
   let cacheTimestamp = 0;
   const dir = dirname(filePath);
+  // Safe clone for plain JSON defaults (structuredClone requires Node 17+)
+  const cloneDefault = () => JSON.parse(JSON.stringify(defaultValue));
 
   const load = async () => {
     const now = Date.now();
     if (cache && (now - cacheTimestamp) < ttl) return cache;
     await ensureDir(dir);
     if (!existsSync(filePath)) {
-      cache = structuredClone(defaultValue);
+      cache = cloneDefault();
       cacheTimestamp = now;
       return cache;
     }
     const content = await readFile(filePath, 'utf-8');
-    cache = safeJSONParse(content, structuredClone(defaultValue), { context });
+    cache = safeJSONParse(content, cloneDefault(), { context });
     cacheTimestamp = now;
     return cache;
   };

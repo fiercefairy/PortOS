@@ -54,6 +54,7 @@ function replenishType(type, providerId, model) {
 
   (async () => {
     let generated = 0;
+    let consecutiveFailures = 0;
     try {
       for (let i = 0; i < needed; i++) {
         const drill = await generateLlmDrill(type, { count: 5 }, providerId, model).catch(err => {
@@ -63,6 +64,14 @@ function replenishType(type, providerId, model) {
         if (drill) {
           cache[type].push(drill);
           generated++;
+          consecutiveFailures = 0;
+        } else {
+          consecutiveFailures++;
+          // Bail early if provider appears unavailable (2+ consecutive failures)
+          if (consecutiveFailures >= 2) {
+            console.log(`⚠️ POST cache: bailing on ${type} after ${consecutiveFailures} consecutive failures`);
+            break;
+          }
         }
       }
       if (generated > 0) {

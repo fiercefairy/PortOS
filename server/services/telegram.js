@@ -326,6 +326,12 @@ async function handleCallbackQuery(query) {
     const colonIdx = data.indexOf(':');
     const action = data.slice(0, colonIdx);
     const memoryId = data.slice(colonIdx + 1);
+
+    if (!memoryId) {
+      await bot.answerCallbackQuery(query.id, { text: '⚠️ Invalid callback data' }).catch(() => {});
+      return;
+    }
+
     const isApprove = action === CALLBACK_APPROVE;
 
     let result;

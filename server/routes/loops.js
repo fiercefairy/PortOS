@@ -34,6 +34,15 @@ router.post('/', asyncHandler(async (req, res) => {
   if (timeout !== undefined && typeof timeout !== 'number') {
     throw new ServerError('Timeout must be a number of milliseconds', { status: 400, code: 'VALIDATION_ERROR' });
   }
+  if (name !== undefined && typeof name !== 'string') {
+    throw new ServerError('Name must be a string', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+  if (cwd !== undefined && typeof cwd !== 'string') {
+    throw new ServerError('cwd must be a string', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+  if (providerId !== undefined && typeof providerId !== 'string') {
+    throw new ServerError('providerId must be a string', { status: 400, code: 'VALIDATION_ERROR' });
+  }
 
   const loop = await loopsService.createLoop({
     prompt, interval, name, cwd, providerId, timeout,

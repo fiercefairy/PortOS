@@ -5,9 +5,9 @@
  * background replenishment kicks in. Cache persists to disk.
  */
 
-import { readFile, writeFile } from 'fs/promises';
-import { join } from 'path';
-import { PATHS } from '../lib/fileUtils.js';
+import { readFile, writeFile, mkdir } from 'fs/promises';
+import { join, dirname } from 'path';
+import { PATHS, safeJSONParse } from '../lib/fileUtils.js';
 import { generateLlmDrill } from './meatspacePostLlm.js';
 
 const CACHE_FILE = join(PATHS.data, 'meatspace', 'post-drill-cache.json');
@@ -25,13 +25,14 @@ let saveQueued = false;
 
 async function loadCache() {
   const raw = await readFile(CACHE_FILE, 'utf-8').catch(() => '{}');
-  cache = JSON.parse(raw);
+  cache = safeJSONParse(raw, {});
   for (const type of CACHEABLE_TYPES) {
     if (!Array.isArray(cache[type])) cache[type] = [];
   }
 }
 
 async function saveCache() {
+  await mkdir(dirname(CACHE_FILE), { recursive: true });
   await writeFile(CACHE_FILE, JSON.stringify(cache, null, 2));
 }
 

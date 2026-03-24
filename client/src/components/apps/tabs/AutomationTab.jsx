@@ -124,7 +124,7 @@ export default function AutomationTab({ appId, appName }) {
                 {taskTypes.map(taskType => {
                   const override = overrides[taskType] || {};
                   const globalConfig = schedule.tasks[taskType] || {};
-                  const isEnabled = override.enabled === true;
+                  const isEnabled = override.enabled !== false;
                   const overrideInterval = override.interval || null;
 
                   return (

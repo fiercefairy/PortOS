@@ -2570,7 +2570,7 @@ export async function sendBtwToAgent(agentId, message) {
 
   // Send to runner to write the BTW.md file
   const { sendBtwToAgent: sendViaRunner } = await import('./cosRunnerClient.js');
-  const result = await sendViaRunner(agentId, message, agentInfo.workspacePath);
+  const result = await sendViaRunner(agentId, message);
 
   // Track in agent state (cap at 50 messages)
   const timestamp = new Date().toISOString();

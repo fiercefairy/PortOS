@@ -472,7 +472,8 @@ app.post('/spawn', async (req, res) => {
     startedAt: Date.now(),
     outputBuffer: '',
     rawStreamBuffer: '',
-    streamParser
+    streamParser,
+    workspacePath: cwd
   });
 
   // Send prompt via stdin
@@ -690,7 +691,7 @@ app.post('/terminate-all', async (req, res) => {
  */
 app.post('/btw/:agentId', async (req, res) => {
   const { agentId } = req.params;
-  const { message, workspacePath } = req.body;
+  const { message } = req.body;
   const agent = activeAgents.get(agentId);
 
   if (!agent) {
@@ -701,13 +702,15 @@ app.post('/btw/:agentId', async (req, res) => {
     return res.status(400).json({ error: 'Missing or invalid message' });
   }
 
-  if (!workspacePath || typeof workspacePath !== 'string') {
-    return res.status(400).json({ error: 'Missing workspacePath' });
+  // Derive workspace from the agent's known record, not from request body
+  const agentWorkspace = agent.workspacePath;
+  if (!agentWorkspace || typeof agentWorkspace !== 'string') {
+    return res.status(400).json({ error: 'Agent has no known workspacePath' });
   }
 
   const timestamp = new Date().toISOString();
   const entry = `\n---\n**[${timestamp}]** ${message}\n`;
-  const btwPath = join(workspacePath, 'BTW.md');
+  const btwPath = join(agentWorkspace, 'BTW.md');
 
   // Append to BTW.md (create if first message)
   const existing = await readFile(btwPath, 'utf-8').catch(() => '');

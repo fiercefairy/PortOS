@@ -310,7 +310,8 @@ export async function getAppTaskTypeOverrides(id) {
  */
 export async function isTaskTypeEnabledForApp(id, taskType) {
   const overrides = await getAppTaskTypeOverrides(id);
-  return overrides[taskType]?.enabled === true;
+  // No override means inherit global (enabled); only disabled when explicitly false
+  return overrides[taskType]?.enabled !== false;
 }
 
 /**
@@ -346,8 +347,8 @@ export async function updateAppTaskTypeOverride(id, taskType, { enabled, interva
     }
   }
 
-  // If override matches defaults (disabled, no interval, no metadata), remove the entry
-  if (!updated.enabled && !updated.interval && !updated.taskMetadata) {
+  // Remove entry when all fields are inherit (enabled undefined, no interval, no metadata)
+  if (updated.enabled === undefined && !updated.interval && !updated.taskMetadata) {
     delete overrides[taskType];
   } else {
     overrides[taskType] = updated;

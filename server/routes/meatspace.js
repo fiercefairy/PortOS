@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { join } from 'path';
+import crypto from 'node:crypto';
 import { asyncHandler, ServerError } from '../lib/errorHandler.js';
 import { validateRequest } from '../lib/validation.js';
 import { PATHS, readJSONFile } from '../lib/fileUtils.js';

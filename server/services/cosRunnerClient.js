@@ -223,11 +223,11 @@ export async function terminateAllAgentsViaRunner() {
 /**
  * Send a BTW (additional context) message to a running agent via the runner
  */
-export async function sendBtwToAgent(agentId, message, workspacePath) {
+export async function sendBtwToAgent(agentId, message) {
   const response = await fetchWithTimeout(`${COS_RUNNER_URL}/btw/${agentId}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, workspacePath }),
+    body: JSON.stringify({ message }),
   }, 30000);
   if (!response.ok) {
     const error = await response.json();

@@ -136,6 +136,6 @@ export async function initDrillCache(providerId, model) {
       for (const type of lowTypes) {
         await replenishType(type, providerId, model);
       }
-    })();
+    })().catch(err => console.error(`❌ POST drill cache startup fill failed: ${err.message}`));
   }
 }

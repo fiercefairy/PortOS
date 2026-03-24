@@ -50,8 +50,8 @@ function validateCronFieldRange(expr, min, max) {
   return true
 }
 
-// Maximum iterations for cron search loop (1 year in minutes)
-const MAX_CRON_ITERATIONS = 525960
+// Maximum iterations for cron search loop (2 years in minutes, matches maxDate window)
+const MAX_CRON_ITERATIONS = 1051920
 
 /**
  * Parse cron expression to next execution time

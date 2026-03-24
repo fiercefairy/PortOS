@@ -1233,9 +1233,11 @@ export async function shouldRunTask(taskType, appId = null) {
     return { shouldRun: false, reason: 'disabled' };
   }
 
+  // Fetch timezone once for reuse across weekday and cron checks
+  const timezone = await getUserTimezone();
+
   // Weekday-only tasks skip weekends (timezone-aware)
   if (interval.weekdaysOnly) {
-    const timezone = await getUserTimezone();
     const { dayOfWeek } = getLocalParts(new Date(), timezone);
     if (dayOfWeek === 0 || dayOfWeek === 6) {
       return { shouldRun: false, reason: 'weekday-only' };
@@ -1348,8 +1350,7 @@ export async function shouldRunTask(taskType, appId = null) {
         result = { shouldRun: false, reason: 'invalid-cron' };
         break;
       }
-      const timezone = await getUserTimezone();
-      const fromDate = lastRun ? new Date(lastRun) : new Date(now - DAY);
+      const fromDate = lastRun ? new Date(lastRun) : new Date(now);
       const nextRun = parseCronToNextRun(cronExpr, fromDate, timezone);
       if (!nextRun) {
         result = { shouldRun: false, reason: 'invalid-cron', cronExpression: cronExpr };

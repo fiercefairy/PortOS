@@ -966,7 +966,7 @@ router.post('/jobs', asyncHandler(async (req, res) => {
     if (parts.length !== 5) {
       throw new ServerError('cronExpression must be a 5-field cron expression (minute hour dayOfMonth month dayOfWeek)', { status: 400, code: 'VALIDATION_ERROR' });
     }
-    // Validate by computing next run within a 90-day window to avoid expensive searches
+    // Validate by attempting to compute the next run time
     const nextRun = parseCronToNextRun(cronExpression, new Date(), 'UTC');
     if (!nextRun) {
       throw new ServerError('Invalid cronExpression: unable to compute next run time', { status: 400, code: 'VALIDATION_ERROR' });

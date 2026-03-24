@@ -12,6 +12,7 @@ import { logAction } from '../services/history.js';
 import { z } from 'zod';
 import { validateRequest, appSchema, appUpdateSchema, sanitizeTaskMetadata } from '../lib/validation.js';
 import * as git from '../services/git.js';
+import { parseCronToNextRun } from '../services/eventScheduler.js';
 import { asyncHandler, ServerError } from '../lib/errorHandler.js';
 import { safeJSONParse } from '../lib/fileUtils.js';
 import { parseEcosystemFromPath, usesPm2 } from '../services/streamingDetect.js';
@@ -354,6 +355,12 @@ router.put('/:id/task-types/:taskType', asyncHandler(async (req, res) => {
       const isCron = interval.trim().split(/\s+/).length === 5;
       if (!isCron && !allowedIntervals.includes(interval)) {
         throw new ServerError('interval must be one of rotation|daily|weekly|once|on-demand, a cron expression, or null', { status: 400, code: 'VALIDATION_ERROR' });
+      }
+      if (isCron) {
+        const nextRun = parseCronToNextRun(interval, new Date(), 'UTC');
+        if (!nextRun) {
+          throw new ServerError('Invalid cron expression: unable to compute next run time', { status: 400, code: 'VALIDATION_ERROR' });
+        }
       }
     } else if (interval !== null) {
       throw new ServerError('interval must be a string or null', { status: 400, code: 'VALIDATION_ERROR' });

@@ -1638,7 +1638,14 @@ export async function spawnAgentForTask(task) {
     jiraTicketUrl: task.metadata?.jiraTicketUrl || null,
     jiraBranch: task.metadata?.jiraBranch || null,
     jiraInstanceId: task.metadata?.jiraInstanceId || null,
-    jiraCreatePR: task.metadata?.jiraCreatePR ?? null
+    jiraCreatePR: task.metadata?.jiraCreatePR ?? null,
+    // Agent configuration flags (visible in UI)
+    configOpenPR: isTruthyMeta(task.metadata?.openPR),
+    configSimplify: isTruthyMeta(task.metadata?.simplify),
+    configReviewLoop: isTruthyMeta(task.metadata?.reviewLoop),
+    configUseWorktree: !!worktreeInfo,
+    configWorktreeAutoDetected: !!worktreeInfo && !explicitWorktree,
+    configCodingOnMain: !worktreeInfo && !jiraBranchName
   });
 
   emitLog('info', `Agent ${agentId} initializing...${worktreeInfo ? ' (worktree)' : ''}${jiraBranchName ? ` (JIRA: ${jiraTicket?.ticketId})` : ''}`, { agentId, taskId: task.id });

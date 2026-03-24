@@ -109,7 +109,26 @@ export async function removeWorktree(agentId, sourceWorkspace, branchName, optio
 
   if (!existsSync(worktreePath)) {
     console.log(`🌳 Worktree already removed for ${agentId}`);
-    return { merged: false, removed: true };
+    return { merged: false, removed: true, uncommittedSaved: false };
+  }
+
+  // Safety check: detect uncommitted changes before removing the worktree
+  let uncommittedSaved = false;
+  const dirtyFiles = (await execGit(['status', '--porcelain'], worktreePath).catch(() => '')).trim();
+  if (dirtyFiles) {
+    console.log(`🌳 Worktree for ${agentId} has uncommitted changes — committing before cleanup`);
+    await execGit(['add', '-A'], worktreePath).catch(err => {
+      console.log(`⚠️ git add failed in worktree ${agentId}: ${err.message}`);
+    });
+    await execGit(
+      ['commit', '-m', `chore: save uncommitted agent work (auto-committed during worktree cleanup)\n\nAgent ${agentId} had uncommitted changes that would have been lost during worktree removal.`],
+      worktreePath
+    ).then(() => {
+      uncommittedSaved = true;
+      console.log(`🌳 Auto-committed uncommitted changes for ${agentId}`);
+    }).catch(err => {
+      console.log(`⚠️ Auto-commit failed for worktree ${agentId}: ${err.message}`);
+    });
   }
 
   let merged = false;
@@ -155,9 +174,9 @@ export async function removeWorktree(agentId, sourceWorkspace, branchName, optio
       console.log(`⚠️ Branch delete failed for ${branchName}: ${err.message}`);
     });
 
-  console.log(`🌳 Removed worktree for ${agentId}${merged ? ' (merged)' : ''}`);
+  console.log(`🌳 Removed worktree for ${agentId}${merged ? ' (merged)' : ''}${uncommittedSaved ? ' (auto-committed)' : ''}`);
 
-  return { merged, removed: true };
+  return { merged, removed: true, uncommittedSaved };
 }
 
 /**
@@ -295,7 +314,7 @@ export async function cleanupOrphanedWorktrees(sourceWorkspace, activeAgentIds) 
     const agentId = wt.path.split('/').pop();
     if (!activeAgentIds.has(agentId)) {
       const branchName = wt.branch?.replace('refs/heads/', '') || '';
-      await removeWorktree(agentId, sourceWorkspace, branchName, { merge: false })
+      await removeWorktree(agentId, sourceWorkspace, branchName, { merge: true })
         .catch(err => {
           console.log(`⚠️ Failed to clean orphaned worktree ${agentId}: ${err.message}`);
         });

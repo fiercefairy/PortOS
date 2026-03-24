@@ -966,9 +966,10 @@ router.post('/jobs', asyncHandler(async (req, res) => {
     if (parts.length !== 5) {
       throw new ServerError('cronExpression must be a 5-field cron expression (minute hour dayOfMonth month dayOfWeek)', { status: 400, code: 'VALIDATION_ERROR' });
     }
-    const nextRun = parseCronToNextRun(cronExpression);
+    // Validate by computing next run within a 90-day window to avoid expensive searches
+    const nextRun = parseCronToNextRun(cronExpression, new Date(), 'UTC');
     if (!nextRun) {
-      throw new ServerError('Invalid cronExpression: unable to parse next run time', { status: 400, code: 'VALIDATION_ERROR' });
+      throw new ServerError('Invalid cronExpression: unable to compute next run time', { status: 400, code: 'VALIDATION_ERROR' });
     }
   }
 
@@ -988,9 +989,9 @@ router.put('/jobs/:id', asyncHandler(async (req, res) => {
     if (parts.length !== 5) {
       throw new ServerError('cronExpression must be a 5-field cron expression', { status: 400, code: 'VALIDATION_ERROR' });
     }
-    const nextRun = parseCronToNextRun(cronExpression);
+    const nextRun = parseCronToNextRun(cronExpression, new Date(), 'UTC');
     if (!nextRun) {
-      throw new ServerError('Invalid cronExpression: unable to parse next run time', { status: 400, code: 'VALIDATION_ERROR' });
+      throw new ServerError('Invalid cronExpression: unable to compute next run time', { status: 400, code: 'VALIDATION_ERROR' });
     }
   }
   const job = await autonomousJobs.updateJob(req.params.id, {

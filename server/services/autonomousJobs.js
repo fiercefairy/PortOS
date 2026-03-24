@@ -632,7 +632,7 @@ async function getDueJobs() {
   for (const job of enabledJobs) {
     // Cron-mode jobs: compute next run from cron expression
     if (job.cronExpression) {
-      const from = job.lastRun ? new Date(job.lastRun) : new Date(0)
+      const from = job.lastRun ? new Date(job.lastRun) : new Date(now)
       const next = parseCronToNextRun(job.cronExpression, from, timezone)
       if (!next || next.getTime() > now) continue
 
@@ -1042,7 +1042,7 @@ async function getNextDueJob() {
 
     if (job.cronExpression) {
       // Cron-mode: derive next due from cron expression
-      const from = job.lastRun ? new Date(job.lastRun) : new Date(0)
+      const from = job.lastRun ? new Date(job.lastRun) : new Date()
       const next = parseCronToNextRun(job.cronExpression, from, timezone)
       if (!next) continue
       nextDue = next.getTime()

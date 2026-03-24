@@ -643,7 +643,7 @@ function AppTaskTypeRow({ taskType, config, onUpdate, onTrigger, onReset, provid
               {enabledCount}/{totalCount} apps
             </span>
           )}
-          <IntervalBadge type={config.type} />
+          <IntervalBadge type={config.type} cronExpression={config.cronExpression} />
         </div>
       </div>
 

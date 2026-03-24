@@ -117,11 +117,11 @@ function parseCronToNextRun(cronExpr, from = new Date(), timezone = 'UTC') {
       hour = next.getHours(); minute = next.getMinutes()
     }
 
-    if (matchesCronField(month, monthExpr) &&
-        matchesCronField(day, dayOfMonthExpr) &&
-        matchesCronField(dow, dayOfWeekExpr) &&
-        matchesCronField(hour, hourExpr) &&
-        matchesCronField(minute, minuteExpr)) {
+    if (matchesCronField(month, monthExpr, 1) &&
+        matchesCronField(day, dayOfMonthExpr, 1) &&
+        matchesCronField(dow, dayOfWeekExpr, 0) &&
+        matchesCronField(hour, hourExpr, 0) &&
+        matchesCronField(minute, minuteExpr, 0)) {
       return next
     }
     next.setMinutes(next.getMinutes() + 1)
@@ -136,22 +136,22 @@ function parseCronToNextRun(cronExpr, from = new Date(), timezone = 'UTC') {
  * @param {string} expr - Cron field expression
  * @returns {boolean} - True if matches
  */
-function matchesCronField(value, expr) {
+function matchesCronField(value, expr, fieldMin = 0) {
   if (expr === '*') return true
 
   // Handle comma-separated values
   if (expr.includes(',')) {
-    return expr.split(',').some(part => matchesCronField(value, part.trim()))
+    return expr.split(',').some(part => matchesCronField(value, part.trim(), fieldMin))
   }
 
   // Handle step values first (e.g., */5, 0/10, 1-5/2)
   if (expr.includes('/')) {
     const [rangeExpr, step] = expr.split('/')
     const stepNum = Number(step)
-    let startNum = 0
+    let startNum = fieldMin
     let endNum = Infinity
     if (rangeExpr === '*') {
-      startNum = 0
+      startNum = fieldMin
     } else if (rangeExpr.includes('-')) {
       const [s, e] = rangeExpr.split('-').map(Number)
       startNum = s

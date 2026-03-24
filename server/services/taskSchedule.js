@@ -1351,11 +1351,15 @@ export async function shouldRunTask(taskType, appId = null) {
       const timezone = await getUserTimezone();
       const fromDate = lastRun ? new Date(lastRun) : new Date(now - DAY);
       const nextRun = parseCronToNextRun(cronExpr, fromDate, timezone);
-      if (nextRun && now >= nextRun.getTime()) {
+      if (!nextRun) {
+        result = { shouldRun: false, reason: 'invalid-cron', cronExpression: cronExpr };
+        break;
+      }
+      if (now >= nextRun.getTime()) {
         result = { shouldRun: true, reason: 'cron-due', cronExpression: cronExpr, nextRunAt: nextRun.toISOString() };
       } else {
         result = { shouldRun: false, reason: 'cron-cooldown', cronExpression: cronExpr,
-          nextRunAt: nextRun?.toISOString() || null };
+          nextRunAt: nextRun.toISOString() };
       }
       break;
     }

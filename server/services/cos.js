@@ -4025,21 +4025,24 @@ async function init() {
   await ensureDirectories();
 
   // When an agent completes, immediately try to dequeue the next pending task
-  cosEvents.on('agent:completed', async (agent) => {
+  cosEvents.on('agent:completed', (agent) => {
     setImmediate(() => dequeueNextTask());
 
     // Create notification when a daily briefing completes
     if (agent?.metadata?.jobId === 'job-daily-briefing' && agent?.result?.success) {
-      const tz = await getUserTimezone();
-      const today = todayInTimezone(tz);
-      addNotification({
-        type: NOTIFICATION_TYPES.BRIEFING_READY,
-        title: 'Daily Briefing Ready',
-        description: `Your daily briefing for ${today} is ready for review.`,
-        priority: 'low',
-        link: '/cos/briefing',
-        metadata: { date: today, agentId: agent.id }
-      }).catch(err => console.error(`❌ Failed to create briefing notification: ${err.message}`));
+      getUserTimezone()
+        .then(tz => {
+          const today = todayInTimezone(tz);
+          return addNotification({
+            type: NOTIFICATION_TYPES.BRIEFING_READY,
+            title: 'Daily Briefing Ready',
+            description: `Your daily briefing for ${today} is ready for review.`,
+            priority: 'low',
+            link: '/cos/briefing',
+            metadata: { date: today, agentId: agent.id }
+          });
+        })
+        .catch(err => console.error(`❌ Failed to create briefing notification: ${err.message}`));
     }
   });
 

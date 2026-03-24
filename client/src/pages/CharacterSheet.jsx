@@ -3,6 +3,7 @@ import {
   Sword, Star, Moon, ScrollText, Shield, Heart,
   Sparkles, RefreshCw, Dices, X, ChevronDown, Zap
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { timeAgo } from '../utils/formatters';
 
 const request = async (endpoint, options = {}) => {
@@ -64,6 +65,7 @@ function hpColor(pct) {
 export default function CharacterSheet() {
   const [char, setChar] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [activeAction, setActiveAction] = useState(null);
   const [editingName, setEditingName] = useState(false);
   const [editingClass, setEditingClass] = useState(false);
@@ -81,12 +83,21 @@ export default function CharacterSheet() {
   const [evtDice, setEvtDice] = useState('');
 
   const load = useCallback(async () => {
-    const data = await get().catch(() => null);
-    if (!data || data.error) return setLoading(false);
-    setChar(data);
-    setNameVal(data.name || '');
-    setClassVal(data.class || '');
-    setLoading(false);
+    setLoadError(null);
+    try {
+      const data = await get();
+      if (!data || data.error) {
+        setLoadError('Failed to load character data');
+        return;
+      }
+      setChar(data);
+      setNameVal(data.name || '');
+      setClassVal(data.class || '');
+    } catch (err) {
+      setLoadError(err.message || 'Failed to load character data');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -96,72 +107,102 @@ export default function CharacterSheet() {
   };
 
   const handleDamage = async () => {
-    const result = await post('/damage', { diceNotation: dmgDice, description: dmgDesc || undefined });
-    setChar(result.character);
-    setActiveAction(null);
-    setDmgDice('1d6');
-    setDmgDesc('');
+    try {
+      const result = await post('/damage', { diceNotation: dmgDice, description: dmgDesc || undefined });
+      setChar(result.character);
+      setActiveAction(null);
+      setDmgDice('1d6');
+      setDmgDesc('');
+    } catch (err) { toast.error(err.message || 'Failed to apply damage'); }
   };
 
   const handleShortRest = async () => {
-    const result = await post('/rest', { type: 'short' });
-    setChar(result.character);
+    try {
+      const result = await post('/rest', { type: 'short' });
+      setChar(result.character);
+    } catch (err) { toast.error(err.message || 'Failed to take short rest'); }
   };
 
   const handleLongRest = async () => {
-    const result = await post('/rest', { type: 'long' });
-    setChar(result.character);
+    try {
+      const result = await post('/rest', { type: 'long' });
+      setChar(result.character);
+    } catch (err) { toast.error(err.message || 'Failed to take long rest'); }
   };
 
   const handleAddXp = async () => {
     if (!xpAmount) return;
-    const result = await post('/xp', { amount: Number(xpAmount), source: 'manual', description: xpDesc || undefined });
-    setChar(result.character);
-    setActiveAction(null);
-    setXpAmount('');
-    setXpDesc('');
+    try {
+      const result = await post('/xp', { amount: Number(xpAmount), source: 'manual', description: xpDesc || undefined });
+      setChar(result.character);
+      setActiveAction(null);
+      setXpAmount('');
+      setXpDesc('');
+    } catch (err) { toast.error(err.message || 'Failed to add XP'); }
   };
 
   const handleLogEvent = async () => {
     if (!evtDesc) return;
-    const body = { description: evtDesc };
-    if (evtXp) body.xp = Number(evtXp);
-    if (evtDice) body.diceNotation = evtDice;
-    const result = await post('/event', body);
-    setChar(result.character);
-    setActiveAction(null);
-    setEvtDesc('');
-    setEvtXp('');
-    setEvtDice('');
+    try {
+      const body = { description: evtDesc };
+      if (evtXp) body.xp = Number(evtXp);
+      if (evtDice) body.diceNotation = evtDice;
+      const result = await post('/event', body);
+      setChar(result.character);
+      setActiveAction(null);
+      setEvtDesc('');
+      setEvtXp('');
+      setEvtDice('');
+    } catch (err) { toast.error(err.message || 'Failed to log event'); }
   };
 
   const handleSync = async (type) => {
     setSyncing(type);
-    const result = await post(`/sync/${type}`, {});
-    setChar(result.character);
-    setSyncing(null);
+    try {
+      const result = await post(`/sync/${type}`, {});
+      setChar(result.character);
+    } catch (err) {
+      toast.error(err.message || `Failed to sync ${type}`);
+    } finally {
+      setSyncing(null);
+    }
   };
 
   const handleNameSave = async () => {
-    if (nameVal.trim() && nameVal !== char.name) {
-      const data = await put({ name: nameVal.trim() });
-      setChar(data);
-    }
+    try {
+      if (nameVal.trim() && nameVal !== char.name) {
+        const data = await put({ name: nameVal.trim() });
+        setChar(data);
+      }
+    } catch (err) { toast.error(err.message || 'Failed to save name'); }
     setEditingName(false);
   };
 
   const handleClassSave = async () => {
-    if (classVal.trim() && classVal !== char.class) {
-      const data = await put({ class: classVal.trim() });
-      setChar(data);
-    }
+    try {
+      if (classVal.trim() && classVal !== char.class) {
+        const data = await put({ class: classVal.trim() });
+        setChar(data);
+      }
+    } catch (err) { toast.error(err.message || 'Failed to save class'); }
     setEditingClass(false);
   };
 
-  if (loading || !char) {
+  if (loading) {
     return (
       <div className="h-full flex items-center justify-center text-gray-400">
         <RefreshCw className="w-6 h-6 animate-spin mr-2" /> Loading character...
+      </div>
+    );
+  }
+
+  if (loadError || !char) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-4">
+        <p className="text-port-error">{loadError || 'Failed to load character data'}</p>
+        <button onClick={load} className="px-4 py-2 bg-port-accent/20 hover:bg-port-accent/30 text-port-accent rounded-lg text-sm transition-colors">
+          Retry
+        </button>
       </div>
     );
   }

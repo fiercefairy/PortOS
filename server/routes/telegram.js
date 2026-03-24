@@ -1,24 +1,102 @@
 import { Router } from 'express';
 import { asyncHandler, ServerError } from '../lib/errorHandler.js';
-import { telegramConfigSchema, telegramTestSchema } from '../lib/telegramValidation.js';
+import { telegramConfigSchema, telegramTestSchema, telegramMethodSchema } from '../lib/telegramValidation.js';
 import { getSettings, updateSettings } from '../services/settings.js';
 import * as telegram from '../services/telegram.js';
+import * as telegramBridge from '../services/telegramBridge.js';
 
 const router = Router();
+
+/**
+ * Get the active telegram service based on configured method
+ */
+async function getActiveService() {
+  const settings = await getSettings();
+  return settings.telegram?.method === 'mcp-bridge' ? telegramBridge : telegram;
+}
 
 // GET /api/telegram/status
 router.get('/status', asyncHandler(async (req, res) => {
   const settings = await getSettings();
-  const status = telegram.getStatus();
-  res.json({
-    ...status,
-    hasToken: !!settings.secrets?.telegram?.token,
-    hasChatId: !!settings.telegram?.chatId,
-    forwardTypes: settings.telegram?.forwardTypes || []
-  });
+  const method = settings.telegram?.method || 'manual';
+
+  if (method === 'mcp-bridge') {
+    const status = telegramBridge.getStatus();
+    res.json({
+      method,
+      ...status,
+      hasToken: status.hasBotToken,
+      hasChatId: status.hasChatId,
+      forwardTypes: settings.telegram?.forwardTypes || []
+    });
+  } else {
+    const status = telegram.getStatus();
+    res.json({
+      method,
+      ...status,
+      hasToken: !!settings.secrets?.telegram?.token,
+      hasChatId: !!settings.telegram?.chatId,
+      forwardTypes: settings.telegram?.forwardTypes || []
+    });
+  }
 }));
 
-// PUT /api/telegram/config
+// PUT /api/telegram/method
+router.put('/method', asyncHandler(async (req, res) => {
+  const result = telegramMethodSchema.safeParse(req.body);
+  if (!result.success) {
+    throw new ServerError('Validation failed', {
+      status: 400,
+      code: 'VALIDATION_ERROR',
+      context: { details: result.error.errors }
+    });
+  }
+
+  const { method } = result.data;
+  const settings = await getSettings();
+
+  // Save method preference
+  await updateSettings({
+    telegram: {
+      ...settings.telegram,
+      method
+    }
+  });
+
+  // Switch services
+  if (method === 'mcp-bridge') {
+    // Stop manual bot, start bridge
+    await telegram.cleanup();
+    const bridgeOk = await telegramBridge.init();
+    if (settings.telegram?.forwardTypes) {
+      telegramBridge.updateCachedForwardTypes(settings.telegram.forwardTypes);
+    }
+    const status = telegramBridge.getStatus();
+    res.json({
+      method,
+      ...status,
+      hasToken: status.hasBotToken,
+      hasChatId: status.hasChatId,
+      initialized: bridgeOk
+    });
+  } else {
+    // Stop bridge, start manual bot
+    await telegramBridge.cleanup();
+    await telegram.init(false);
+    if (settings.telegram?.forwardTypes) {
+      telegram.updateCachedForwardTypes(settings.telegram.forwardTypes);
+    }
+    const status = telegram.getStatus();
+    res.json({
+      method,
+      ...status,
+      hasToken: !!settings.secrets?.telegram?.token,
+      hasChatId: !!settings.telegram?.chatId
+    });
+  }
+}));
+
+// PUT /api/telegram/config (manual bot only)
 router.put('/config', asyncHandler(async (req, res) => {
   const result = telegramConfigSchema.safeParse(req.body);
   if (!result.success) {
@@ -68,9 +146,15 @@ router.put('/config', asyncHandler(async (req, res) => {
 
 // DELETE /api/telegram/config
 router.delete('/config', asyncHandler(async (req, res) => {
-  await telegram.cleanup();
-
   const settings = await getSettings();
+  const method = settings.telegram?.method || 'manual';
+
+  if (method === 'mcp-bridge') {
+    await telegramBridge.cleanup();
+  } else {
+    await telegram.cleanup();
+  }
+
   await updateSettings({
     telegram: null,
     secrets: { ...settings.secrets, telegram: undefined }
@@ -91,7 +175,8 @@ router.post('/test', asyncHandler(async (req, res) => {
   }
 
   const message = result.data.message || '🧪 Test message from PortOS';
-  const sendResult = await telegram.sendMessage(message);
+  const service = await getActiveService();
+  const sendResult = await service.sendMessage(message);
 
   if (!sendResult.success) {
     throw new ServerError(sendResult.error || 'Failed to send test message', {
@@ -121,10 +206,18 @@ router.put('/forward-types', asyncHandler(async (req, res) => {
     }
   });
 
-  // Update in-memory cache
+  // Update cache on both services (only the active one matters)
   telegram.updateCachedForwardTypes(forwardTypes);
+  telegramBridge.updateCachedForwardTypes(forwardTypes);
 
   res.json({ success: true, forwardTypes });
+}));
+
+// POST /api/telegram/bridge/reload — reload bridge config from MCP plugin files
+router.post('/bridge/reload', asyncHandler(async (req, res) => {
+  await telegramBridge.reload();
+  const status = telegramBridge.getStatus();
+  res.json(status);
 }));
 
 export default router;

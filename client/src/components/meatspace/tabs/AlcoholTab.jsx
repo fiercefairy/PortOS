@@ -249,76 +249,63 @@ export default function AlcoholTab() {
   const hasMore = allEntries?.length > visibleDays;
 
   return (
-    <div className="space-y-6">
-      {/* Rolling Averages Summary */}
+    <div className="space-y-4">
+      {/* Compact Summary Stats Bar */}
       {summary && (
-        <div className="bg-port-card border border-port-border rounded-xl p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-            <div className="flex items-center gap-2">
-              <Beer size={18} className="text-port-accent" />
-              <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">
-                Alcohol Summary
-              </h3>
-            </div>
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border self-start sm:self-auto ${RISK_BG[summary.riskLevel]}`}>
-              {summary.riskLevel === 'high' && <AlertTriangle size={12} />}
-              {summary.riskLevel === 'low' && <TrendingDown size={12} />}
-              {summary.riskLevel === 'moderate' && <TrendingUp size={12} />}
-              <span className={RISK_COLORS[summary.riskLevel]}>
-                {summary.riskLevel === 'low' ? 'Low Risk' : summary.riskLevel === 'moderate' ? 'Moderate Risk' : 'High Risk'}
-              </span>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-4 py-2 bg-port-card border border-port-border rounded-lg">
+          <div className="flex items-center gap-1.5">
+            <Beer size={14} className="text-port-accent" />
+            <span className="text-xs text-gray-500">Today</span>
+            <span className={`text-sm font-bold ${summary.grams?.today > 40 ? 'text-port-error' : summary.grams?.today > 10 ? 'text-port-warning' : 'text-white'}`}>
+              {summary.grams?.today ?? 0}g
+            </span>
+            <span className="text-xs text-gray-600">({summary.today} drinks)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-500">7d</span>
+            <span className={`text-sm font-semibold ${summary.grams?.avg7day > 40 ? 'text-port-error' : summary.grams?.avg7day > 10 ? 'text-port-warning' : 'text-gray-300'}`}>
+              {summary.grams?.avg7day ?? 0}g/d
             </span>
           </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div>
-              <span className="text-xs text-gray-500">Today</span>
-              <p className={`text-2xl font-bold ${summary.grams?.today > 40 ? 'text-port-error' : summary.grams?.today > 10 ? 'text-port-warning' : 'text-white'}`}>
-                {summary.grams?.today ?? 0}g
-              </p>
-              <span className="text-xs text-gray-600">{summary.today} drinks</span>
-            </div>
-            <div>
-              <span className="text-xs text-gray-500">7-Day Avg</span>
-              <p className={`text-2xl font-bold ${summary.grams?.avg7day > 40 ? 'text-port-error' : summary.grams?.avg7day > 10 ? 'text-port-warning' : 'text-white'}`}>
-                {summary.grams?.avg7day ?? 0}g
-              </p>
-              <span className="text-xs text-gray-600">{summary.avg7day} drinks/day</span>
-            </div>
-            <div>
-              <span className="text-xs text-gray-500">30-Day Avg</span>
-              <p className={`text-2xl font-bold ${summary.grams?.avg30day > 40 ? 'text-port-error' : summary.grams?.avg30day > 10 ? 'text-port-warning' : 'text-white'}`}>
-                {summary.grams?.avg30day ?? 0}g
-              </p>
-              <span className="text-xs text-gray-600">{summary.avg30day} drinks/day</span>
-            </div>
-            <div>
-              <span className="text-xs text-gray-500">Weekly Total</span>
-              <p className={`text-2xl font-bold ${summary.weeklyTotal > summary.thresholds.weeklyMax ? 'text-port-error' : 'text-white'}`}>
-                {summary.grams?.weeklyTotal ?? 0}g
-              </p>
-              <span className="text-xs text-gray-600">{summary.weeklyTotal} drinks / {summary.thresholds.weeklyMax} max</span>
-            </div>
-            <div>
-              <span className="text-xs text-gray-500">All-Time Avg</span>
-              <p className={`text-2xl font-bold ${summary.grams?.allTimeAvg > 40 ? 'text-port-error' : summary.grams?.allTimeAvg > 10 ? 'text-port-warning' : 'text-gray-300'}`}>
-                {summary.grams?.allTimeAvg ?? 0}g
-              </p>
-              <span className="text-xs text-gray-600">{summary.allTimeAvg} drinks/day</span>
-            </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-500">30d</span>
+            <span className={`text-sm font-semibold ${summary.grams?.avg30day > 40 ? 'text-port-error' : summary.grams?.avg30day > 10 ? 'text-port-warning' : 'text-gray-300'}`}>
+              {summary.grams?.avg30day ?? 0}g/d
+            </span>
           </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-500">Week</span>
+            <span className={`text-sm font-semibold ${summary.weeklyTotal > summary.thresholds?.weeklyMax ? 'text-port-error' : 'text-gray-300'}`}>
+              {summary.grams?.weeklyTotal ?? 0}g
+            </span>
+            <span className="text-xs text-gray-600">/ {summary.gramThresholds?.weeklyMax ?? 196}g</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-500">All-time</span>
+            <span className={`text-sm font-semibold ${summary.grams?.allTimeAvg > 40 ? 'text-port-error' : summary.grams?.allTimeAvg > 10 ? 'text-port-warning' : 'text-gray-400'}`}>
+              {summary.grams?.allTimeAvg ?? 0}g/d
+            </span>
+          </div>
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${RISK_BG[summary.riskLevel]}`}>
+            {summary.riskLevel === 'high' && <AlertTriangle size={10} />}
+            {summary.riskLevel === 'low' && <TrendingDown size={10} />}
+            {summary.riskLevel === 'moderate' && <TrendingUp size={10} />}
+            <span className={RISK_COLORS[summary.riskLevel]}>
+              {summary.riskLevel === 'low' ? 'Low' : summary.riskLevel === 'moderate' ? 'Moderate' : 'High'}
+            </span>
+          </span>
         </div>
       )}
 
       {/* Consumption + HRV Correlation Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <AlcoholChart sex={summary?.sex} onRefreshKey={refreshKey} onViewChange={setChartView} />
         {correlationData && <AlcoholHrvCorrelation data={correlationData} range={chartView} />}
       </div>
 
       {/* Log a Drink */}
-      <div className="bg-port-card border border-port-border rounded-xl p-4 sm:p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-port-card border border-port-border rounded-xl p-4">
+        <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Log a Drink</h3>
           <button
             onClick={() => setManagingButtons(v => !v)}
@@ -540,8 +527,8 @@ export default function AlcoholTab() {
 
       {/* All Drink Entries */}
       {allEntries?.length > 0 && (
-        <div className="bg-port-card border border-port-border rounded-xl p-4 sm:p-6">
-          <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-4">
+        <div className="bg-port-card border border-port-border rounded-xl p-4">
+          <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-3">
             All Drink Entries ({allEntries.length} days)
           </h3>
           <div className="max-h-[70vh] overflow-x-auto overflow-y-auto rounded-lg border border-port-border">

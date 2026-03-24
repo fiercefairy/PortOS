@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { CheckCircle, XCircle, Loader } from 'lucide-react';
+import { CheckCircle, XCircle } from 'lucide-react';
 import { scorePostLlmDrill } from '../../../services/api';
 import { DRILL_LABELS } from './constants';
-import { CompoundChainUI, BridgeWordUI, DoubleMeaningUI, IdiomTwistUI } from './WordplayDrillUI';
+import { AILoadingIndicator, MissedExamplesDisplay, CompoundChainUI, BridgeWordUI, DoubleMeaningUI, IdiomTwistUI } from './WordplayDrillUI';
 
 export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, drillCount, onComplete, isTraining, providerId, model }) {
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -127,6 +127,7 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
         scoring: false,
         score: fb.score ?? scored?.score ?? 0,
         feedback: fb.feedback || scored?.evaluation?.summary || 'No feedback available',
+        missedExamples: fb.missedExamples,
       });
       return;
     }
@@ -207,10 +208,7 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
             <span className="text-purple-400">{DRILL_LABELS[drillType] || drillType} — Training</span>
             <span>Drill {drillIndex + 1} of {drillCount}</span>
           </div>
-          <div className="flex flex-col items-center gap-3 py-12">
-            <Loader size={32} className="text-purple-400 animate-spin" />
-            <span className="text-gray-400 text-sm">Evaluating your response...</span>
-          </div>
+          <AILoadingIndicator label="Evaluating your response..." />
         </div>
       );
     }
@@ -229,8 +227,9 @@ export default function PostLlmDrillRunner({ drill, timeLimitSec, drillIndex, dr
           <FbIcon size={40} className={fbScoreColor} />
           <div className={`text-3xl font-mono font-bold mt-2 ${fbScoreColor}`}>{trainingFeedback.score}</div>
         </div>
-        <div className="bg-port-card border border-port-border rounded-lg p-4">
+        <div className="bg-port-card border border-port-border rounded-lg p-4 space-y-2">
           <p className="text-sm text-gray-300">{trainingFeedback.feedback}</p>
+          <MissedExamplesDisplay examples={trainingFeedback.missedExamples} />
         </div>
         <button
           onClick={acknowledgeTrainingFeedback}

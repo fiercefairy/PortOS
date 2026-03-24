@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
-import { ArrowLeft, Link, Puzzle, BookOpen, Shuffle, Loader, CheckCircle, XCircle, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Link, Puzzle, BookOpen, Shuffle, CheckCircle, XCircle, ChevronRight } from 'lucide-react';
 import { generatePostDrill, scorePostLlmDrill } from '../../../services/api';
-import { CompoundChainUI, BridgeWordUI, DoubleMeaningUI, IdiomTwistUI, ProgressBar } from './WordplayDrillUI';
+import { AILoadingIndicator, MissedExamplesDisplay, CompoundChainUI, BridgeWordUI, DoubleMeaningUI, IdiomTwistUI, ProgressBar } from './WordplayDrillUI';
 
 const GAME_MODES = [
   {
@@ -114,6 +114,7 @@ export default function WordplayTrainer({ onBack, config }) {
       feedback: fb.feedback || scored?.evaluation?.summary || 'No feedback available',
       validCount: fb.validCount,
       invalidItems: fb.invalidItems,
+      missedExamples: fb.missedExamples,
     });
     setResults(prev => [...prev, {
       ...responseObj,
@@ -195,10 +196,10 @@ export default function WordplayTrainer({ onBack, config }) {
     return (
       <div className="max-w-lg mx-auto space-y-6">
         <ModeHeader modeInfo={modeInfo} onBack={handleBackToModes} />
-        <div className="flex flex-col items-center gap-3 py-12">
-          <Loader size={32} className={`${modeInfo?.color || 'text-purple-400'} animate-spin`} />
-          <span className="text-gray-400 text-sm">Generating {modeInfo?.label} challenges...</span>
-        </div>
+        <AILoadingIndicator
+          label={`Generating ${modeInfo?.label} challenges...`}
+          color={modeInfo?.color || 'text-purple-400'}
+        />
       </div>
     );
   }
@@ -249,10 +250,10 @@ export default function WordplayTrainer({ onBack, config }) {
       return (
         <div className="max-w-lg mx-auto space-y-6">
           <ModeHeader modeInfo={modeInfo} onBack={handleBackToModes} />
-          <div className="flex flex-col items-center gap-3 py-12">
-            <Loader size={32} className={`${modeInfo?.color || 'text-purple-400'} animate-spin`} />
-            <span className="text-gray-400 text-sm">Evaluating your response...</span>
-          </div>
+          <AILoadingIndicator
+            label="Evaluating your response..."
+            color={modeInfo?.color || 'text-purple-400'}
+          />
         </div>
       );
     }
@@ -268,14 +269,15 @@ export default function WordplayTrainer({ onBack, config }) {
           <FbIcon size={40} className={fbScoreColor} />
           <div className={`text-3xl font-mono font-bold mt-2 ${fbScoreColor}`}>{feedback.score}</div>
         </div>
-        <div className="bg-port-card border border-port-border rounded-lg p-4">
+        <div className="bg-port-card border border-port-border rounded-lg p-4 space-y-2">
           <p className="text-sm text-gray-300">{feedback.feedback}</p>
           {feedback.validCount != null && (
-            <p className="text-xs text-gray-500 mt-2">Valid items: {feedback.validCount}</p>
+            <p className="text-xs text-gray-500">Valid items: {feedback.validCount}</p>
           )}
           {feedback.invalidItems?.length > 0 && (
-            <p className="text-xs text-port-error mt-1">Invalid: {feedback.invalidItems.join(', ')}</p>
+            <p className="text-xs text-port-error">Invalid: {feedback.invalidItems.join(', ')}</p>
           )}
+          <MissedExamplesDisplay examples={feedback.missedExamples} />
         </div>
         <button
           onClick={handleNext}

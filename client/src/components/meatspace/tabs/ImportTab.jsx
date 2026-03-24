@@ -124,7 +124,9 @@ export default function ImportTab({ onRefresh }) {
             type="file"
             accept=".json"
             onChange={handleJsonFileSelect}
-            className="hidden"
+            className="absolute w-0 h-0 opacity-0 overflow-hidden"
+            tabIndex={-1}
+            aria-hidden="true"
           />
           <button
             onClick={() => jsonFileInputRef.current?.click()}
@@ -210,7 +212,9 @@ export default function ImportTab({ onRefresh }) {
             type="file"
             accept=".xml,.zip"
             onChange={handleXmlFileSelect}
-            className="hidden"
+            className="absolute w-0 h-0 opacity-0 overflow-hidden"
+            tabIndex={-1}
+            aria-hidden="true"
           />
           <button
             onClick={() => xmlFileInputRef.current?.click()}

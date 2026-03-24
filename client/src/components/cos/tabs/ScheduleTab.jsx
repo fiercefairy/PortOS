@@ -3,6 +3,7 @@ import { Play, RotateCcw, ChevronDown, ChevronRight, AlertCircle, RefreshCw, Pac
 import toast from 'react-hot-toast';
 import * as api from '../../../services/api';
 import AppIcon from '../../AppIcon';
+import { AGENT_OPTIONS, toggleAppMetadataOverride } from '../constants';
 
 const INTERVAL_LABELS = {
   rotation: 'Rotation',
@@ -22,17 +23,23 @@ const INTERVAL_DESCRIPTIONS = {
   custom: 'Custom interval'
 };
 
+// Toggle a global taskMetadata field, enforcing the openPR→useWorktree invariant.
+// Persists both true and false values so explicit overrides survive the server-side
+// merge with task-type defaults (e.g., feature-ideas defaults openPR to true).
 function toggleMetadataField(metadata, field) {
   const current = metadata || {};
   const newMeta = { ...current, [field]: !current[field] };
-  const active = Object.fromEntries(Object.entries(newMeta).filter(([, v]) => v));
-  return Object.keys(active).length ? active : null;
+  // openPR requires useWorktree
+  if (newMeta.openPR && !newMeta.useWorktree) {
+    newMeta.useWorktree = true;
+  }
+  // useWorktree off means openPR must be off
+  if (newMeta.useWorktree === false && newMeta.openPR) {
+    newMeta.openPR = false;
+  }
+  return newMeta;
 }
 
-const AGENT_OPTIONS = [
-  { field: 'useWorktree', label: 'Worktree + PR', shortLabel: 'WT', description: 'Work in an isolated git worktree on a feature branch, then open a PR. If unchecked, commits directly to the default branch.' },
-  { field: 'simplify', label: 'Run /simplify', shortLabel: '/s', description: 'Review code for reuse and quality before committing' }
-];
 
 function IntervalBadge({ type }) {
   return (
@@ -48,7 +55,7 @@ function IntervalBadge({ type }) {
   );
 }
 
-function GlobalConfigControls({ taskType, config, onUpdate, onTrigger, onReset, category: _category, providers, apps, updating, setUpdating }) {
+function GlobalConfigControls({ taskType, config, onUpdate, onTrigger, onReset, category: _category, providers, apps, updating, setUpdating, allTaskTypes }) {
   const [selectedType, setSelectedType] = useState(config.type);
   const [selectedProviderId, setSelectedProviderId] = useState(config.providerId || '');
   const [selectedModel, setSelectedModel] = useState(config.model || '');
@@ -280,6 +287,38 @@ function GlobalConfigControls({ taskType, config, onUpdate, onTrigger, onReset, 
         </div>
       </div>
 
+      {allTaskTypes?.length > 1 && (
+        <div>
+          <label className="text-sm text-gray-400 block mb-2">Run After (dependencies)</label>
+          <div className="flex flex-wrap gap-2">
+            {allTaskTypes.filter(t => t !== taskType).map(dep => {
+              const isSelected = (config.runAfter || []).includes(dep);
+              return (
+                <button
+                  key={dep}
+                  onClick={() => {
+                    const current = config.runAfter || [];
+                    const updated = isSelected
+                      ? current.filter(d => d !== dep)
+                      : [...current, dep];
+                    onUpdate(taskType, { runAfter: updated.length > 0 ? updated : null });
+                  }}
+                  disabled={updating}
+                  className={`text-xs px-2 py-1 rounded border transition-colors ${
+                    isSelected
+                      ? 'bg-port-accent/20 border-port-accent/50 text-port-accent'
+                      : 'bg-port-card border-port-border text-gray-400 hover:border-gray-500'
+                  }`}
+                >
+                  {dep}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-gray-500 mt-1">This task will wait for selected tasks to complete first within the same cycle</p>
+        </div>
+      )}
+
       <div className="flex gap-2">
         {activeApps.length > 0 ? (
           <div className="relative" ref={appSelectorRef}>
@@ -348,7 +387,7 @@ function GlobalConfigControls({ taskType, config, onUpdate, onTrigger, onReset, 
 
 function AppOverrideRow({ app, taskType, globalIntervalType, globalTaskMetadata, override, onUpdate }) {
   const [updating, setUpdating] = useState(false);
-  const isEnabled = override?.enabled !== false;
+  const isEnabled = override?.enabled === true;
   const currentInterval = override?.interval || null;
 
   const handleToggle = async () => {
@@ -366,17 +405,8 @@ function AppOverrideRow({ app, taskType, globalIntervalType, globalTaskMetadata,
 
   const handleMetaToggle = async (field) => {
     setUpdating(true);
-    const current = override?.taskMetadata || {};
-    const newMeta = { ...current };
-    if (newMeta[field] !== undefined) {
-      // Already overridden — remove override to inherit global
-      delete newMeta[field];
-    } else {
-      // Set override to opposite of effective value
-      const effective = override?.taskMetadata?.[field] ?? globalTaskMetadata?.[field] ?? false;
-      newMeta[field] = !effective;
-    }
-    await onUpdate(app.id, taskType, { taskMetadata: Object.keys(newMeta).length ? newMeta : null }).catch(() => {});
+    const taskMetadata = toggleAppMetadataOverride(override?.taskMetadata, globalTaskMetadata, field);
+    await onUpdate(app.id, taskType, { taskMetadata }).catch(() => {});
     setUpdating(false);
   };
 
@@ -446,8 +476,8 @@ function PerAppOverrideList({ taskType, config, apps, onUpdateOverride, onBulkTo
 
   if (activeApps.length === 0) return null;
 
-  const allEnabled = activeApps.every(app => appOverrides[app.id]?.enabled !== false);
-  const allDisabled = activeApps.every(app => appOverrides[app.id]?.enabled === false);
+  const allEnabled = activeApps.every(app => appOverrides[app.id]?.enabled === true);
+  const allDisabled = activeApps.every(app => appOverrides[app.id]?.enabled !== true);
 
   const handleBulkToggle = async () => {
     setBulkUpdating(true);
@@ -493,7 +523,7 @@ function PerAppOverrideList({ taskType, config, apps, onUpdateOverride, onBulkTo
   );
 }
 
-function AppTaskTypeRow({ taskType, config, onUpdate, onTrigger, onReset, providers, apps, onUpdateOverride, onBulkToggleOverride }) {
+function AppTaskTypeRow({ taskType, config, onUpdate, onTrigger, onReset, providers, apps, onUpdateOverride, onBulkToggleOverride, allTaskTypes }) {
   const [expanded, setExpanded] = useState(false);
   const [updating, setUpdating] = useState(false);
 
@@ -520,12 +550,20 @@ function AppTaskTypeRow({ taskType, config, onUpdate, onTrigger, onReset, provid
             {!config.enabled && (
               <span className="text-xs px-2 py-0.5 bg-gray-600/50 text-gray-400 rounded">Disabled</span>
             )}
+            {config.status?.reason === 'waiting-on-dependencies' && (
+              <span className="text-xs px-2 py-0.5 bg-port-warning/20 text-port-warning rounded" title={`Waiting for: ${config.status.pendingDeps?.join(', ')}`}>
+                Waiting on deps
+              </span>
+            )}
           </div>
-          {config.globalLastRun && (
-            <div className="text-xs text-gray-500">
-              Last run: {new Date(config.globalLastRun).toLocaleDateString()} ({config.globalRunCount || 0} total)
-            </div>
-          )}
+          <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+            {config.globalLastRun && (
+              <span>Last run: {new Date(config.globalLastRun).toLocaleDateString()} ({config.globalRunCount || 0} total)</span>
+            )}
+            {config.runAfter?.length > 0 && (
+              <span className="text-gray-500">after: {config.runAfter.join(', ')}</span>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -557,6 +595,7 @@ function AppTaskTypeRow({ taskType, config, onUpdate, onTrigger, onReset, provid
               apps={apps}
               updating={updating}
               setUpdating={setUpdating}
+              allTaskTypes={allTaskTypes}
             />
           </div>
 
@@ -578,6 +617,7 @@ function AppTaskTypeSection({ tasks, onUpdate, onTrigger, onReset, providers, ap
   if (taskEntries.length === 0) return null;
 
   const enabledCount = taskEntries.filter(([, config]) => config.enabled).length;
+  const allTaskTypes = taskEntries.map(([taskType]) => taskType);
 
   return (
     <div className="space-y-3">
@@ -603,6 +643,7 @@ function AppTaskTypeSection({ tasks, onUpdate, onTrigger, onReset, providers, ap
             apps={apps}
             onUpdateOverride={onUpdateOverride}
             onBulkToggleOverride={onBulkToggleOverride}
+            allTaskTypes={allTaskTypes}
           />
         ))}
       </div>

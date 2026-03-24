@@ -22,6 +22,44 @@ export function formatTime(timestamp) {
 }
 
 /**
+ * Format a timestamp as a localized time-of-day string (e.g., "1:30 PM")
+ * @param {string|Date} dateStr - ISO timestamp or Date object
+ * @returns {string} Formatted time of day
+ */
+export function formatTimeOfDay(dateStr) {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+/**
+ * Format a date as a localized date string (e.g., "March 5, 2026")
+ * @param {string|Date} dateStr - ISO timestamp or Date object
+ * @returns {string|null} Formatted date, or null for missing input
+ */
+export function formatDate(dateStr) {
+  if (!dateStr) return null;
+  return new Date(dateStr).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+/**
+ * Format a date with full detail including weekday (e.g., "Saturday, March 5, 2026")
+ * @param {Date} date - Date object
+ * @returns {string} Formatted date string
+ */
+export function formatDateFull(date) {
+  return date.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+/**
+ * Format a Date as a clock time string with seconds (e.g., "02:30:45 PM")
+ * @param {Date} date - Date object
+ * @returns {string} Formatted clock time
+ */
+export function formatClockTime(date) {
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+/**
  * Format a duration in milliseconds as a human-readable string
  * @param {number} ms - Duration in milliseconds
  * @returns {string|null} Formatted duration (e.g., "500ms", "1.5s", "2.0m")
@@ -31,6 +69,28 @@ export function formatRuntime(ms) {
   if (ms < 1000) return `${ms}ms`;
   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
   return `${(ms / 60000).toFixed(1)}m`;
+}
+
+/**
+ * Format a timestamp as relative time (e.g., "just now", "5m ago", "2d ago")
+ * Handles null/missing values with configurable fallback.
+ * @param {string|Date|null} dateStr - ISO timestamp, Date object, or null
+ * @param {string} fallback - Text to show for null/missing dates (default: 'never')
+ * @returns {string} Relative time string
+ */
+export function timeAgo(dateStr, fallback = 'never') {
+  if (!dateStr) return fallback;
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (seconds < 0) return 'just now';
+  if (seconds < 60) return seconds < 10 ? 'just now' : `${seconds}s ago`;
+  const mins = Math.floor(seconds / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
 }
 
 /**

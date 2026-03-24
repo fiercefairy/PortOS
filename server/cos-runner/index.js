@@ -104,7 +104,20 @@ function createStreamJsonParser() {
   let lineBuffer = '';
   let finalResult = '';
   let textBuffer = '';
+  // Track text across all conversation turns so multi-step agents (e.g., task + /simplify)
+  // preserve all summaries instead of only the final one
+  const textSections = [];
+  let currentTextSection = '';
   const activeTools = new Map();
+
+  // Flush accumulated text into a section boundary (tool call start, result event, or stream end)
+  const commitSection = () => {
+    const section = currentTextSection.trim();
+    if (section) {
+      textSections.push(section);
+      currentTextSection = '';
+    }
+  };
 
   const processChunk = (rawData) => {
     const lines = [];
@@ -126,6 +139,7 @@ function createStreamJsonParser() {
         if (event?.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
           const text = event.delta.text;
           textBuffer += text;
+          currentTextSection += text;
           const textLines = textBuffer.split('\n');
           textBuffer = textLines.pop() || '';
           for (const tl of textLines) {
@@ -145,6 +159,7 @@ function createStreamJsonParser() {
           const idx = event.index;
           activeTools.set(idx, { name: toolName, inputJson: '' });
           lines.push(`🔧 Using ${toolName}...`);
+          commitSection();
         }
         // Emit detailed summary when tool input is complete
         if (event?.type === 'content_block_stop') {
@@ -184,6 +199,7 @@ function createStreamJsonParser() {
           lines.push(textBuffer);
           textBuffer = '';
         }
+        commitSection();
         finalResult = parsed.result || '';
       }
     }
@@ -197,10 +213,18 @@ function createStreamJsonParser() {
       lines.push(textBuffer);
       textBuffer = '';
     }
+    commitSection();
     return lines;
   };
 
-  const getFinalResult = () => finalResult;
+  // Multi-section: return all text turns combined (e.g., task summary + simplify summary)
+  // Single-section: return the CLI result field (cleaner, no tool call noise)
+  const getFinalResult = () => {
+    if (textSections.length > 1) {
+      return textSections.join('\n\n');
+    }
+    return finalResult;
+  };
 
   return { processChunk, flush, getFinalResult };
 }
@@ -448,7 +472,8 @@ app.post('/spawn', async (req, res) => {
     startedAt: Date.now(),
     outputBuffer: '',
     rawStreamBuffer: '',
-    streamParser
+    streamParser,
+    workspacePath: cwd
   });
 
   // Send prompt via stdin
@@ -657,6 +682,47 @@ app.post('/terminate-all', async (req, res) => {
   }, 5000);
 
   res.json({ success: true, killed: agentIds.length });
+});
+
+/**
+ * Send a BTW (additional context) message to a running agent.
+ * Writes the message to a BTW.md file in the agent's workspace so the
+ * agent can discover it during file operations.
+ */
+app.post('/btw/:agentId', async (req, res) => {
+  const { agentId } = req.params;
+  const { message } = req.body;
+  const agent = activeAgents.get(agentId);
+
+  if (!agent) {
+    return res.status(404).json({ error: 'Agent not found or not running' });
+  }
+
+  if (!message || typeof message !== 'string') {
+    return res.status(400).json({ error: 'Missing or invalid message' });
+  }
+
+  // Derive workspace from the agent's known record, not from request body
+  const agentWorkspace = agent.workspacePath;
+  if (!agentWorkspace || typeof agentWorkspace !== 'string') {
+    return res.status(400).json({ error: 'Agent has no known workspacePath' });
+  }
+
+  const timestamp = new Date().toISOString();
+  const entry = `\n---\n**[${timestamp}]** ${message}\n`;
+  const btwPath = join(agentWorkspace, 'BTW.md');
+
+  // Append to BTW.md (create if first message)
+  const existing = await readFile(btwPath, 'utf-8').catch(() => '');
+  const header = existing ? '' : '# Additional Context from User\n\nThe user has sent you additional context while you are working. Read and incorporate this information.\n';
+  await writeFile(btwPath, header + existing + entry);
+
+  console.log(`💬 BTW message delivered to agent ${agentId}: ${message.substring(0, 80)}`);
+
+  // Emit the btw event so the main server can track it
+  emitToServer('agent:btw', { agentId, message, timestamp });
+
+  res.json({ success: true, agentId, btwPath });
 });
 
 /**

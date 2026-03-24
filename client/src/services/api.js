@@ -359,6 +359,14 @@ export const deleteBranch = (path, branch, { local = false, remote = false } = {
     method: 'POST',
     body: JSON.stringify({ path, branch, local, remote })
   });
+export const mergeBranch = (path, branch) => request('/git/merge', {
+  method: 'POST',
+  body: JSON.stringify({ path, branch })
+});
+export const checkoutRemoteBranch = (path, branch) => request('/git/checkout-remote', {
+  method: 'POST',
+  body: JSON.stringify({ path, branch })
+});
 
 // Usage
 export const getUsage = () => request('/usage');
@@ -675,6 +683,10 @@ export const clearCompletedCosAgents = () => request('/cos/agents/completed', { 
 export const submitCosAgentFeedback = (id, feedback) => request(`/cos/agents/${id}/feedback`, {
   method: 'POST',
   body: JSON.stringify(feedback)
+});
+export const sendCosAgentBtw = (id, message) => request(`/cos/agents/${id}/btw`, {
+  method: 'POST',
+  body: JSON.stringify({ message })
 });
 export const getCosFeedbackStats = () => request('/cos/feedback/stats');
 export const getCosReports = () => request('/cos/reports');
@@ -1345,6 +1357,7 @@ export const deleteEpigeneticIntervention = (id) => request(`/meatspace/genome/e
 
 // Digital Twin - Identity
 export const getIdentityStatus = () => request('/digital-twin/identity');
+export const getCrossInsights = () => request('/digital-twin/identity/cross-insights');
 export const getChronotype = () => request('/digital-twin/identity/chronotype');
 export const deriveChronotype = () => request('/digital-twin/identity/chronotype/derive', { method: 'POST' });
 export const updateChronotypeBehavioral = (data) => request('/digital-twin/identity/chronotype', {
@@ -1353,7 +1366,7 @@ export const updateChronotypeBehavioral = (data) => request('/digital-twin/ident
 });
 export const getLongevity = () => request('/digital-twin/identity/longevity');
 export const deriveLongevity = () => request('/digital-twin/identity/longevity/derive', { method: 'POST' });
-export const getGoals = () => request('/digital-twin/identity/goals');
+export const getGoals = (options) => request('/digital-twin/identity/goals', options);
 export const setBirthDate = (birthDate) => request('/digital-twin/identity/goals/birth-date', {
   method: 'PUT',
   body: JSON.stringify({ birthDate })
@@ -1657,6 +1670,11 @@ export const updateTelegramForwardTypes = (forwardTypes) => request('/telegram/f
   method: 'PUT',
   body: JSON.stringify({ forwardTypes })
 });
+export const updateTelegramMethod = (method) => request('/telegram/method', {
+  method: 'PUT',
+  body: JSON.stringify({ method })
+});
+export const reloadTelegramBridge = () => request('/telegram/bridge/reload', { method: 'POST' });
 
 // Insights
 export const getGenomeHealthCorrelations = () => request('/insights/genome-health');
@@ -1774,13 +1792,10 @@ export const getCalendarEvents = (params = {}) => {
   const str = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null)).toString();
   return request(`/calendar/events${str ? `?${str}` : ''}`);
 };
-export const getCalendarEvent = (accountId, eventId) => request(`/calendar/events/${accountId}/${eventId}`);
 export const getCalendarTokenStatus = () => request('/calendar/debug/token-status');
 export const testCalendarToken = (provider) => request('/calendar/debug/test-token', { method: 'POST', body: JSON.stringify({ provider }) });
 export const clearCalendarToken = (provider) => request('/calendar/debug/clear-token', { method: 'POST', body: JSON.stringify({ provider }) });
-export const getSubcalendars = (accountId) => request(`/calendar/accounts/${accountId}/subcalendars`);
 export const updateSubcalendars = (accountId, data) => request(`/calendar/accounts/${accountId}/subcalendars`, { method: 'PUT', body: JSON.stringify(data) });
-export const pushSyncCalendar = (accountId, data) => request(`/calendar/sync/${accountId}/push`, { method: 'POST', body: JSON.stringify(data) });
 export const mcpSyncGoogleCalendar = (accountId) => request(`/calendar/sync/${accountId}/google`, { method: 'POST' });
 export const mcpDiscoverCalendars = (accountId) => request(`/calendar/sync/${accountId}/discover`, { method: 'POST' });
 export const getGoogleAuthStatus = () => request('/calendar/google/auth/status');
@@ -1790,7 +1805,6 @@ export const clearGoogleAuth = () => request('/calendar/google/auth/clear', { me
 export const apiSyncGoogleCalendar = (accountId) => request(`/calendar/sync/${accountId}/api`, { method: 'POST' });
 export const apiDiscoverCalendars = (accountId) => request(`/calendar/sync/${accountId}/discover-api`, { method: 'POST' });
 export const startGoogleAutoConfig = () => request('/calendar/google/auto-configure/start', { method: 'POST' });
-export const captureGoogleCredentials = () => request('/calendar/google/auto-configure/capture', { method: 'POST' });
 export const runGoogleAutoConfig = (email) => request('/calendar/google/auto-configure/run', { method: 'POST', body: JSON.stringify({ email }) });
 export const getDailyReview = (date) => request(`/calendar/review/${date}`);
 export const confirmDailyReviewEvent = (date, data) => request(`/calendar/review/${date}/confirm`, { method: 'POST', body: JSON.stringify(data) });
@@ -1881,3 +1895,14 @@ export const destroyDatabase = (backend) => request('/database/destroy', {
   method: 'POST',
   body: JSON.stringify({ backend })
 });
+
+// Loops
+export const getLoops = () => request('/loops');
+export const getLoop = (id) => request(`/loops/${id}`);
+export const getLoopProviders = () => request('/loops/providers');
+export const createLoop = (data) => request('/loops', { method: 'POST', body: JSON.stringify(data) });
+export const updateLoop = (id, data) => request(`/loops/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const stopLoop = (id) => request(`/loops/${id}/stop`, { method: 'POST' });
+export const resumeLoop = (id) => request(`/loops/${id}/resume`, { method: 'POST' });
+export const triggerLoop = (id) => request(`/loops/${id}/trigger`, { method: 'POST' });
+export const deleteLoop = (id) => request(`/loops/${id}`, { method: 'DELETE' });

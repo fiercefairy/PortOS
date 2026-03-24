@@ -3,6 +3,7 @@ import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import EventEmitter from 'events';
 import { ensureDir, readJSONFile, PATHS } from '../lib/fileUtils.js';
+import { NON_PM2_TYPES } from './streamingDetect.js';
 import { SELF_IMPROVEMENT_TASK_TYPES } from './taskSchedule.js';
 import { sanitizeTaskMetadata } from '../lib/validation.js';
 import { PORTS } from '../lib/ports.js';
@@ -197,7 +198,8 @@ export async function createApp(appData) {
     envFile: appData.envFile || '.env',
     icon: appData.icon || null,
     appIconPath: appData.appIconPath || null,
-    editorCommand: appData.editorCommand || 'code .',
+    editorCommand: appData.editorCommand
+      || (NON_PM2_TYPES.has(appData.type) && process.platform === 'darwin' ? 'xed .' : 'code .'),
     archived: false,
     jira: appData.jira || null,
     taskTypeOverrides: Object.fromEntries(
@@ -308,6 +310,7 @@ export async function getAppTaskTypeOverrides(id) {
  */
 export async function isTaskTypeEnabledForApp(id, taskType) {
   const overrides = await getAppTaskTypeOverrides(id);
+  // No override means inherit global (enabled); only disabled when explicitly false
   return overrides[taskType]?.enabled !== false;
 }
 
@@ -344,8 +347,8 @@ export async function updateAppTaskTypeOverride(id, taskType, { enabled, interva
     }
   }
 
-  // If override matches "inherit everything" defaults, remove the entry
-  if (updated.enabled !== false && !updated.interval && !updated.taskMetadata) {
+  // Remove entry when all fields are inherit (enabled undefined, no interval, no metadata)
+  if (updated.enabled === undefined && !updated.interval && !updated.taskMetadata) {
     delete overrides[taskType];
   } else {
     overrides[taskType] = updated;
@@ -374,7 +377,7 @@ export async function bulkUpdateAppTaskTypeOverride(taskType, { enabled } = {}) 
     const existing = overrides[taskType] || {};
     const updated = { ...existing, enabled };
 
-    if (updated.enabled !== false && !updated.interval && !updated.taskMetadata) {
+    if (updated.enabled === undefined && !updated.interval && !updated.taskMetadata) {
       delete overrides[taskType];
     } else {
       overrides[taskType] = updated;

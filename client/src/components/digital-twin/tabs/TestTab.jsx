@@ -18,7 +18,8 @@ import {
 import * as api from '../../../services/api';
 import toast from 'react-hot-toast';
 
-import { TEST_STATUS, formatRelativeTime } from '../constants';
+import { TEST_STATUS } from '../constants';
+import { timeAgo } from '../../../utils/formatters';
 
 export default function TestTab({ onRefresh }) {
   const [tests, setTests] = useState([]);
@@ -568,7 +569,7 @@ export default function TestTab({ onRefresh }) {
                   <div>
                     <div className="text-sm text-white">{run.model}</div>
                     <div className="text-xs text-gray-500">
-                      {run.passed}/{run.total} passed • {formatRelativeTime(run.timestamp)}
+                      {run.passed}/{run.total} passed • {timeAgo(run.timestamp)}
                     </div>
                   </div>
                 </div>

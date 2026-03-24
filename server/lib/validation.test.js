@@ -191,6 +191,15 @@ describe('validation.js', () => {
       const result = appUpdateSchema.safeParse(update);
       expect(result.success).toBe(false);
     });
+
+    it('should not inject default values for omitted boolean fields', () => {
+      const update = { name: 'Updated Name' };
+      const result = appUpdateSchema.safeParse(update);
+      expect(result.success).toBe(true);
+      expect(result.data).not.toHaveProperty('archived');
+      expect(result.data).not.toHaveProperty('defaultUseWorktree');
+      expect(result.data).not.toHaveProperty('defaultOpenPR');
+    });
   });
 
   describe('providerSchema', () => {
@@ -451,6 +460,14 @@ describe('validation.js', () => {
       expect(sanitizeTaskMetadata({ useWorktree: true })).toEqual({ useWorktree: true });
       expect(sanitizeTaskMetadata({ simplify: false })).toEqual({ simplify: false });
       expect(sanitizeTaskMetadata({ useWorktree: true, simplify: false })).toEqual({ useWorktree: true, simplify: false });
+    });
+
+    it('should accept openPR as an allowed metadata key', () => {
+      expect(sanitizeTaskMetadata({ openPR: true })).toEqual({ openPR: true });
+      expect(sanitizeTaskMetadata({ openPR: false })).toEqual({ openPR: false });
+      expect(sanitizeTaskMetadata({ useWorktree: true, openPR: true })).toEqual({ useWorktree: true, openPR: true });
+      expect(sanitizeTaskMetadata({ useWorktree: true, openPR: true, simplify: true, reviewLoop: false }))
+        .toEqual({ useWorktree: true, openPR: true, simplify: true, reviewLoop: false });
     });
 
     it('should drop non-boolean values for allowed keys', () => {

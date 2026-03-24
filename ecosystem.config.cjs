@@ -30,7 +30,7 @@ const PORTS = {
   AUTOFIXER: 5559,     // Autofixer API
   AUTOFIXER_UI: 5560,  // Autofixer UI
   POSTGRES_DOCKER: 5561, // PostgreSQL Docker container (host port mapping)
-  POSTGRES: pgMode === 'native' ? 5432 : 5561 // Active PostgreSQL port
+  POSTGRES: pgMode === 'native' ? 5432 : 5561 // Active PostgreSQL port (unused in file mode)
 };
 
 module.exports = {
@@ -50,6 +50,7 @@ module.exports = {
         HOST: '0.0.0.0',
         PGPORT: PORTS.POSTGRES,
         PGPASSWORD: process.env.PGPASSWORD || 'portos',
+        ...(pgMode === 'file' ? { MEMORY_BACKEND: 'file' } : {}),
         PATH: process.env.PATH // Inherit PATH for git/node access in child processes
       },
       watch: ['server'],

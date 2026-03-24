@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import BrailleSpinner from './components/BrailleSpinner';
 import Dashboard from './pages/Dashboard';
+import Ambient from './pages/Ambient';
 import Apps from './pages/Apps';
 import CreateApp from './pages/CreateApp';
 import Templates from './pages/Templates';
@@ -22,6 +23,7 @@ import Instances from './pages/Instances';
 import MeatSpace from './pages/MeatSpace';
 import Post from './pages/Post';
 import Review from './pages/Review';
+import Loops from './pages/Loops';
 
 // Auto-reload on stale chunk errors (e.g., after a rebuild changes chunk hashes)
 // Uses sessionStorage to prevent infinite reload loops (max 1 reload per session)
@@ -75,6 +77,7 @@ export default function App() {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
+        <Route path="/ambient" element={<Ambient />} />
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />
           <Route path="apps" element={<Apps />} />
@@ -116,6 +119,7 @@ export default function App() {
           <Route path="insights" element={<Navigate to="/insights/overview" replace />} />
           <Route path="insights/:tab" element={<Insights />} />
           <Route path="instances" element={<Instances />} />
+          <Route path="loops" element={<Loops />} />
           <Route path="meatspace" element={<Navigate to="/meatspace/overview" replace />} />
           <Route path="meatspace/:tab" element={<MeatSpace />} />
           <Route path="post" element={<Navigate to="/post/launcher" replace />} />

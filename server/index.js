@@ -60,6 +60,7 @@ import githubRoutes from './routes/github.js';
 import settingsRoutes from './routes/settings.js';
 import telegramRoutes from './routes/telegram.js';
 import updateRoutes from './routes/update.js';
+import loopsRoutes from './routes/loops.js';
 import { ensureSelf, startPolling } from './services/instances.js';
 import { initSyncLog } from './services/brainSyncLog.js';
 import { backfillOriginInstanceId } from './services/brainStorage.js';
@@ -75,10 +76,14 @@ import * as automationScheduler from './services/automationScheduler.js';
 import * as agentActionExecutor from './services/agentActionExecutor.js';
 import { startBackupScheduler } from './services/backupScheduler.js';
 import * as telegram from './services/telegram.js';
+import * as telegramBridge from './services/telegramBridge.js';
+import { getSettings as getInitSettings } from './services/settings.js';
 import { startUpdateScheduler, recordUpdateResult, clearStaleUpdateInProgress, getCurrentVersion } from './services/updateChecker.js';
+import { restoreLoops } from './services/loops.js';
 import { startBrainScheduler } from './services/brainScheduler.js';
 import { recoverStuckClassifications } from './services/brain.js';
 import { initBridge as initBrainMemoryBridge } from './services/brainMemoryBridge.js';
+import { initDrillCache } from './services/meatspacePostDrillCache.js';
 import { createAIToolkit } from 'portos-ai-toolkit/server';
 import { createPortOSProviderRoutes } from './routes/providers.js';
 import { createPortOSRunsRoutes } from './routes/runs.js';
@@ -252,6 +257,7 @@ app.use('/api/github', githubRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/telegram', telegramRoutes);
 app.use('/api/update', updateRoutes);
+app.use('/api/loops', loopsRoutes);
 
 // Initialize agent automation scheduler and action executor
 automationScheduler.init().catch(err => console.error(`❌ Agent scheduler init failed: ${err.message}`));
@@ -263,10 +269,18 @@ recoverStuckClassifications().catch(err => console.error(`❌ Brain recovery fai
 startBrainScheduler();
 // Initialize brain→memory bridge (mirrors brain data into CoS memory for semantic search)
 initBrainMemoryBridge();
+// Pre-fill POST drill cache in background
+initDrillCache().catch(err => console.error(`❌ POST drill cache init failed: ${err.message}`));
 // Initialize backup scheduler for daily data backups
 startBackupScheduler().catch(err => console.error(`❌ Backup scheduler init failed: ${err.message}`));
-// Initialize Telegram bot (if configured)
-telegram.init().catch(err => console.error(`❌ Telegram init failed: ${err.message}`));
+// Initialize Telegram (manual bot or MCP bridge based on settings)
+getInitSettings().then(s => {
+  if (s.telegram?.method === 'mcp-bridge') {
+    telegramBridge.init().catch(err => console.error(`❌ TG Bridge init failed: ${err.message}`));
+  } else {
+    telegram.init().catch(err => console.error(`❌ Telegram init failed: ${err.message}`));
+  }
+}).catch(err => console.error(`❌ Telegram settings read failed: ${err.message}`));
 // Check for update completion marker from a previous update cycle
 const updateMarkerPath = join(PATHS.data, 'update-complete.json');
 const removeMarker = () => unlink(updateMarkerPath).catch(e => {
@@ -313,6 +327,9 @@ clearStaleUpdateInProgress().catch(err => console.error(`❌ Stale update recove
 
 // Start periodic update checker (checks GitHub releases every 30 min)
 startUpdateScheduler();
+
+// Restore any active loops from previous session
+restoreLoops().catch(err => console.error(`❌ Loop restore failed: ${err.message}`));
 
 // Serve built client UI (production mode — no Vite dev server needed)
 const CLIENT_DIST = join(__dirname, '..', 'client', 'dist');

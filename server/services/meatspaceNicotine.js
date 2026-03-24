@@ -7,7 +7,7 @@
 
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
-import { PATHS, ensureDir, readJSONFile } from '../lib/fileUtils.js';
+import { PATHS, ensureDir, readJSONFile, getDateString } from '../lib/fileUtils.js';
 
 const MEATSPACE_DIR = PATHS.meatspace;
 const DAILY_LOG_FILE = join(MEATSPACE_DIR, 'daily-log.json');
@@ -29,7 +29,7 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
  */
 export function computeRollingAverages(entries) {
   const now = new Date();
-  const today = now.toISOString().split('T')[0];
+  const today = getDateString(now);
 
   const allEntries = [...entries].sort((a, b) => a.date.localeCompare(b.date));
 
@@ -42,7 +42,7 @@ export function computeRollingAverages(entries) {
   const rollingAverage = (days) => {
     const cutoff = new Date(now);
     cutoff.setDate(cutoff.getDate() - days);
-    const cutoffStr = cutoff.toISOString().split('T')[0];
+    const cutoffStr = getDateString(cutoff);
 
     let totalMg = 0;
     for (const entry of allEntries) {
@@ -116,10 +116,10 @@ export async function getNicotineSummary() {
   const averages = computeRollingAverages(log.entries || []);
 
   // Recent entries (last 7 days)
-  const today = new Date().toISOString().split('T')[0];
+  const today = getDateString();
   const weekAgo = new Date();
   weekAgo.setDate(weekAgo.getDate() - 7);
-  const weekAgoStr = weekAgo.toISOString().split('T')[0];
+  const weekAgoStr = getDateString(weekAgo);
 
   const recentEntries = (log.entries || [])
     .filter(e => e.date >= weekAgoStr && e.date <= today && e.nicotine?.items?.length > 0)
@@ -143,7 +143,7 @@ export async function getDailyNicotine(from, to) {
 
 export async function logNicotine({ product, mgPerUnit, count = 1, date }) {
   const log = await loadDailyLog();
-  const targetDate = date || new Date().toISOString().split('T')[0];
+  const targetDate = date || getDateString();
 
   const totalMg = Math.round(mgPerUnit * count * 100) / 100;
   const item = { product: product || '', mgPerUnit, count };
@@ -160,7 +160,13 @@ export async function logNicotine({ product, mgPerUnit, count = 1, date }) {
     entry.nicotine = { items: [], totalMg: 0 };
   }
 
-  entry.nicotine.items.push(item);
+  // Combine with existing matching product on same date
+  const existing = entry.nicotine.items.find(i => i.product === item.product && i.mgPerUnit === item.mgPerUnit);
+  if (existing) {
+    existing.count = (existing.count || 1) + count;
+  } else {
+    entry.nicotine.items.push(item);
+  }
   recalcDayTotal(entry);
 
   // Re-sort and update lastEntryDate

@@ -1,26 +1,14 @@
 import { readdir, unlink, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { ensureDir, PATHS, readJSONFile } from '../lib/fileUtils.js';
+import { ensureDir, filterBySearch as genericFilterBySearch, PATHS, readJSONFile, safeDate, UUID_RE } from '../lib/fileUtils.js';
 import { getAccount, updateSyncStatus } from './calendarAccounts.js';
 
 export const CACHE_DIR = join(PATHS.calendar, 'cache');
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const syncLocks = new Map();
 
-function safeDate(d) {
-  const t = new Date(d).getTime();
-  return Number.isNaN(t) ? 0 : t;
-}
-
+const CALENDAR_SEARCH_FIELDS = ['title', 'description', 'location', 'organizer.name'];
 function filterBySearch(events, search) {
-  if (!search) return events;
-  const q = search.toLowerCase();
-  return events.filter(e =>
-    e.title?.toLowerCase().includes(q) ||
-    e.description?.toLowerCase().includes(q) ||
-    e.location?.toLowerCase().includes(q) ||
-    e.organizer?.name?.toLowerCase().includes(q)
-  );
+  return genericFilterBySearch(events, search, CALENDAR_SEARCH_FIELDS);
 }
 
 function filterByDateRange(events, startDate, endDate) {

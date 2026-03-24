@@ -302,7 +302,7 @@ const DEFAULT_CONFIG = {
   selfImprovementEnabled: true,            // Deprecated: use improvementEnabled
   appImprovementEnabled: true,             // Deprecated: use improvementEnabled
   improvementEnabled: true,                // Allow CoS to run improvement tasks on all apps (including PortOS)
-  avatarStyle: 'svg',                      // UI preference: 'svg' | 'ascii' | 'cyber' | 'sigil'
+  avatarStyle: 'svg',                      // UI preference: 'svg' | 'ascii' | 'cyber' | 'sigil' | 'esoteric' | 'nexus'
   dynamicAvatar: true,                     // Avatar changes based on active agent context
   // Always-on mode settings
   alwaysOn: true,                          // CoS starts automatically and stays active
@@ -628,6 +628,19 @@ export async function start() {
 
   cosEvents.emit('status', { running: true });
   emitLog('success', 'CoS daemon started successfully');
+
+  // Queue due improvement tasks shortly after startup (not during initial eval
+  // to avoid overwhelming fresh installs, but soon enough to not stall)
+  setTimeout(() => {
+    if (!daemonRunning) return;
+    loadState().then(async (state) => {
+      if (!state.config.idleReviewEnabled) return;
+      const cosTaskData = await getCosTasks();
+      await queueEligibleImprovementTasks(state, cosTaskData);
+      setImmediate(() => dequeueNextTask());
+    }).catch(err => emitLog('warn', `Post-startup improvement queuing failed: ${err.message}`));
+  }, 30000);
+
   return { success: true };
 }
 
@@ -804,26 +817,25 @@ async function resetOrphanedTasks() {
 
   emitLog('debug', `Running agents: ${runningAgentTaskIds.length}`, { taskIds: runningAgentTaskIds });
 
-  // Reset orphaned user tasks
-  if (userTaskData.exists) {
-    const inProgressUserTasks = userTaskData.grouped.in_progress || [];
-    for (const task of inProgressUserTasks) {
+  // Route orphaned tasks through handleOrphanedTask for consistent retry counting,
+  // cooldown enforcement, and max-spawn limits (prevents runaway respawning)
+  const { handleOrphanedTask } = await import('./subAgentSpawner.js');
+
+  const processOrphanedTasks = async (tasks) => {
+    for (const task of tasks) {
       if (!runningAgentTaskIds.includes(task.id)) {
-        emitLog('info', `Resetting orphaned user task ${task.id} to pending`, { taskId: task.id });
-        await updateTask(task.id, { status: 'pending' }, 'user');
+        emitLog('info', `Found orphaned in_progress task ${task.id}, routing through retry handler`, { taskId: task.id });
+        await handleOrphanedTask(task.id, 'unknown-reset', getTaskById);
       }
     }
+  };
+
+  if (userTaskData.exists) {
+    await processOrphanedTasks(userTaskData.grouped.in_progress || []);
   }
 
-  // Reset orphaned CoS internal tasks
   if (cosTaskData.exists) {
-    const inProgressCosTasks = cosTaskData.grouped.in_progress || [];
-    for (const task of inProgressCosTasks) {
-      if (!runningAgentTaskIds.includes(task.id)) {
-        emitLog('info', `Resetting orphaned system task ${task.id} to pending`, { taskId: task.id });
-        await updateTask(task.id, { status: 'pending' }, 'internal');
-      }
-    }
+    await processOrphanedTasks(cosTaskData.grouped.in_progress || []);
   }
 }
 
@@ -879,6 +891,30 @@ export async function evaluateTasks() {
 
   // Get both user and CoS tasks
   const { user: userTaskData, cos: cosTaskData } = await getAllTasks();
+
+  // Unblock tasks whose orphan-retry cooldown has expired
+  const allBlocked = [
+    ...(userTaskData.grouped?.blocked || []),
+    ...(cosTaskData.grouped?.blocked || [])
+  ];
+  for (const task of allBlocked) {
+    if (task.metadata?.blockedCategory === 'orphan-cooldown' && task.metadata?.cooldownUntil) {
+      if (new Date(task.metadata.cooldownUntil).getTime() <= Date.now()) {
+        const taskType = task.taskType || (userTaskData.grouped?.blocked?.includes(task) ? 'user' : 'internal');
+        emitLog('info', `⏰ Orphan cooldown expired for task ${task.id}, unblocking`, { taskId: task.id });
+        await updateTask(task.id, {
+          status: 'pending',
+          metadata: {
+            ...task.metadata,
+            blockedReason: undefined,
+            blockedCategory: undefined,
+            blockedAt: undefined,
+            cooldownUntil: undefined
+          }
+        }, taskType);
+      }
+    }
+  }
 
   // Count running agents and available slots (global + per-project)
   const runningAgentEntries = Object.values(state.agents).filter(a => a.status === 'running');
@@ -1853,6 +1889,46 @@ Use model: claude-opus-4-5-20251101 for thorough security analysis`
  * @param {Object} state - Current CoS state
  * @returns {Object} Generated task
  */
+// Apply app-level worktree/PR defaults only when not already set by task-type metadata.
+// openPR is applied first since it implies useWorktree — this prevents defaultUseWorktree: false
+// from blocking defaultOpenPR: true when both are app-level defaults.
+export function applyAppWorktreeDefault(metadata, app) {
+  const taskTypeDisabledWorktree = metadata.useWorktree === false || metadata.useWorktree === 'false';
+
+  // Apply defaultOpenPR first (since openPR implies useWorktree)
+  if (metadata.openPR === undefined) {
+    if (app.defaultOpenPR === true && !taskTypeDisabledWorktree) {
+      metadata.openPR = true;
+      metadata.useWorktree = true; // openPR implies useWorktree
+    } else if (app.defaultOpenPR === false || taskTypeDisabledWorktree) {
+      metadata.openPR = false;
+    }
+  }
+
+  // Apply defaultUseWorktree (only if not already set by task-type or openPR above)
+  if (metadata.useWorktree === undefined) {
+    // openPR implies useWorktree — don't let app default override explicit openPR: true
+    const explicitOpenPR = metadata.openPR === true || metadata.openPR === 'true';
+    if (explicitOpenPR) {
+      metadata.useWorktree = true;
+    } else if (app.defaultUseWorktree === true) {
+      metadata.useWorktree = true;
+    } else if (app.defaultUseWorktree === false) {
+      metadata.useWorktree = false;
+    }
+  }
+
+  // Final invariant: openPR implies useWorktree (normalize in both directions)
+  const finalOpenPR = metadata.openPR === true || metadata.openPR === 'true';
+  const finalWorktreeOff = metadata.useWorktree === false || metadata.useWorktree === 'false';
+  if (finalOpenPR && finalWorktreeOff) {
+    // openPR wins — force useWorktree on
+    metadata.useWorktree = true;
+  } else if (finalWorktreeOff) {
+    metadata.openPR = false;
+  }
+}
+
 async function generateManagedAppImprovementTask(app, state) {
   const { getAppActivityById, updateAppActivity } = await import('./appActivity.js');
   const taskSchedule = await import('./taskSchedule.js');
@@ -1931,6 +2007,8 @@ async function generateManagedAppImprovementTask(app, state) {
     Object.assign(metadata, sanitizedAppMeta);
   }
 
+  applyAppWorktreeDefault(metadata, app);
+
   // Use configured model/provider if specified, otherwise use default
   if (interval.providerId) {
     metadata.providerId = interval.providerId;
@@ -2008,6 +2086,8 @@ async function generateManagedAppImprovementTaskForType(taskType, app, state) {
   if (sanitizedAppMeta) {
     Object.assign(metadata, sanitizedAppMeta);
   }
+
+  applyAppWorktreeDefault(metadata, app);
 
   // Use configured model/provider if specified, otherwise use default
   if (interval.providerId) {
@@ -2469,6 +2549,46 @@ export async function terminateAgent(agentId) {
 export async function killAgent(agentId) {
   const { killAgent: killAgentFromSpawner } = await import('./subAgentSpawner.js');
   return killAgentFromSpawner(agentId);
+}
+
+/**
+ * Send a BTW (additional context) message to a running agent.
+ * Writes the message to a file in the agent's workspace and tracks it in state.
+ */
+export async function sendBtwToAgent(agentId, message) {
+  // Single locked read to validate agent and extract workspacePath
+  const agentInfo = await withStateLock(async () => {
+    const state = await loadState();
+    const agent = state.agents[agentId];
+    if (!agent) return { error: 'Agent not found' };
+    if (agent.status !== 'running') return { error: 'Agent is not running' };
+    if (!agent.metadata?.workspacePath) return { error: 'Agent has no workspace path' };
+    return { workspacePath: agent.metadata.workspacePath };
+  });
+
+  if (agentInfo.error) return agentInfo;
+
+  // Send to runner to write the BTW.md file
+  const { sendBtwToAgent: sendViaRunner } = await import('./cosRunnerClient.js');
+  const result = await sendViaRunner(agentId, message);
+
+  // Track in agent state (cap at 50 messages)
+  const timestamp = new Date().toISOString();
+  await withStateLock(async () => {
+    const state = await loadState();
+    if (!state.agents[agentId]) return;
+    if (!state.agents[agentId].btwMessages) {
+      state.agents[agentId].btwMessages = [];
+    }
+    state.agents[agentId].btwMessages.push({ message, timestamp });
+    if (state.agents[agentId].btwMessages.length > 50) {
+      state.agents[agentId].btwMessages = state.agents[agentId].btwMessages.slice(-50);
+    }
+    await saveState(state);
+  });
+
+  cosEvents.emit('agent:btw', { agentId, message, timestamp });
+  return { success: true, ...result };
 }
 
 /**
@@ -3164,9 +3284,17 @@ export async function addTask(taskData, taskType = 'user', { raw = false } = {})
     if (taskData.provider) metadata.provider = taskData.provider;
     if (taskData.app) metadata.app = taskData.app;
     if (taskData.createJiraTicket) metadata.createJiraTicket = true;
-    if (taskData.useWorktree) metadata.useWorktree = true;
-    if (taskData.simplify) metadata.simplify = true;
-    if (taskData.reviewLoop) metadata.reviewLoop = true;
+    // Boolean flags: persist both true and false so users can explicitly override defaults.
+    // The string round-trip ('false' from TASKS.md) is handled by isTruthyMeta/isFalsyMeta.
+    // undefined means "use app defaults".
+    if (taskData.useWorktree === true) metadata.useWorktree = true;
+    else if (taskData.useWorktree === false) metadata.useWorktree = false;
+    if (taskData.openPR === true) metadata.openPR = true;
+    else if (taskData.openPR === false) metadata.openPR = false;
+    if (taskData.simplify === true) metadata.simplify = true;
+    else if (taskData.simplify === false) metadata.simplify = false;
+    if (taskData.reviewLoop === true) metadata.reviewLoop = true;
+    else if (taskData.reviewLoop === false) metadata.reviewLoop = false;
     if (taskData.jiraTicketId) metadata.jiraTicketId = taskData.jiraTicketId;
     if (taskData.jiraTicketUrl) metadata.jiraTicketUrl = taskData.jiraTicketUrl;
     if (taskData.screenshots?.length > 0) metadata.screenshots = taskData.screenshots;
@@ -3458,6 +3586,13 @@ export async function updateTask(taskId, updates, taskType = 'user') {
   if (updates.provider !== undefined) updatedMetadata.provider = updates.provider || undefined;
   if (updates.app !== undefined) updatedMetadata.app = updates.app || undefined;
 
+  // Clear blocked/failure metadata when transitioning out of blocked status
+  if (updates.status && updates.status !== 'blocked' && tasks[taskIndex].status === 'blocked') {
+    for (const key of ['blocker', 'blockedReason', 'blockedCategory', 'blockedAt', 'failureCount', 'lastErrorCategory', 'lastFailureAt']) {
+      delete updatedMetadata[key];
+    }
+  }
+
   // Clean undefined values from metadata
   Object.keys(updatedMetadata).forEach(key => {
     if (updatedMetadata[key] === undefined) delete updatedMetadata[key];
@@ -3723,10 +3858,12 @@ async function executeScheduledJob(jobId) {
     });
     if (shellOk) emitLog('info', `Shell job executed: ${job.name}`, { jobId: job.id });
   } else {
-    // Check if this job is already being spawned or has a running agent
+    // Check if this job is already being spawned or has a running agent.
+    // Don't re-register the timer here — the job:spawned handler will do it
+    // after recordJobExecution updates lastRun. Re-registering with stale
+    // lastRun causes a 1-second re-fire loop.
     if (spawningJobIds.has(jobId)) {
       emitLog('debug', `Job ${job.name} skipped - already spawning`, { jobId });
-      await registerSingleJobSchedule(jobId);
       return;
     }
     const agentAlreadyRunning = Object.values(state.agents).some(
@@ -3734,7 +3871,6 @@ async function executeScheduledJob(jobId) {
     );
     if (agentAlreadyRunning) {
       emitLog('debug', `Job ${job.name} skipped - agent already running`, { jobId });
-      await registerSingleJobSchedule(jobId);
       return;
     }
 
@@ -3781,13 +3917,18 @@ async function executeScheduledJob(jobId) {
       const task = await generateTaskFromJob(job);
       emitLog('info', `Autonomous job firing: ${job.name}`, { jobId, category: job.category });
       cosEvents.emit('task:ready', task);
+      // Don't re-register timer here — lastRun hasn't been updated yet, so
+      // computeNextJobFireTime would return a past-due time and the timer would
+      // fire in 1s, creating a rapid re-fire loop. The job:spawned handler
+      // re-registers after recordJobExecution updates lastRun.
+      return;
     } catch (err) {
       clearSpawningJob(jobId);
       emitLog('error', `Failed to fire autonomous job: ${job.name} - ${err?.message || err}`, { jobId, category: job.category });
     }
   }
 
-  // Re-register for next fire time
+  // Re-register for next fire time (script/shell jobs, early returns, and error paths)
   await registerSingleJobSchedule(jobId);
 }
 
@@ -3854,6 +3995,7 @@ async function scheduleNextImprovementCheck() {
       if (state.config.idleReviewEnabled) {
         const cosTaskData = await getCosTasks();
         await queueEligibleImprovementTasks(state, cosTaskData);
+        setImmediate(() => dequeueNextTask());
       }
 
       await scheduleNextImprovementCheck();
@@ -3886,15 +4028,26 @@ async function init() {
     }
   });
 
-  // Record autonomous job execution only after the agent actually spawns
+  // Record autonomous job execution only after the agent actually spawns.
+  // Update lastRun BEFORE clearing the spawning guard to prevent a race where
+  // a pending timer fires between clearSpawningJob and recordJobExecution,
+  // sees no guard and stale lastRun, and spawns a duplicate agent.
   cosEvents.on('job:spawned', async ({ jobId }) => {
-    clearSpawningJob(jobId);
     await recordJobExecution(jobId).catch(err =>
       console.error(`❌ Failed to record job execution for ${jobId}: ${err.message}`)
     );
+    clearSpawningJob(jobId);
+    // Re-register with updated lastRun so the next timer has the correct delay
+    await registerSingleJobSchedule(jobId).catch(err =>
+      console.error(`❌ Failed to re-register job schedule for ${jobId}: ${err.message}`)
+    );
   });
 
-  // Event-driven triggers: file watcher changes → dequeueNextTask
+  // Event-driven triggers: task/file changes → dequeueNextTask
+  cosEvents.on('tasks:changed', (data) => {
+    if (daemonRunning && data?.action === 'added') setImmediate(() => dequeueNextTask());
+  });
+
   cosEvents.on('tasks:user:added', () => {
     if (daemonRunning) setImmediate(() => dequeueNextTask());
   });

@@ -20,6 +20,7 @@ import { MARKER_CATEGORIES } from '../lib/curatedGenomeMarkers.js';
 import { getTasteProfile } from './taste-questionnaire.js';
 import { getActiveProvider, getProviderById } from './providers.js';
 import { getCorrelationData } from './appleHealthQuery.js';
+import { stripCodeFences, parseLLMJSON } from '../lib/aiProvider.js';
 
 const INSIGHTS_DIR = join(PATHS.data, 'insights');
 const THEMES_FILE = join(INSIGHTS_DIR, 'themes.json');
@@ -170,13 +171,6 @@ async function callProviderAISimple(provider, model, prompt, { temperature = 0.3
   return { error: 'Insights analysis requires an API-based provider' };
 }
 
-/**
- * Strip markdown code fences from LLM output before JSON.parse.
- */
-function stripCodeFences(raw) {
-  return raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
-}
-
 // =============================================================================
 // EXPORTED FUNCTIONS
 // =============================================================================
@@ -202,11 +196,11 @@ export async function getGenomeHealthCorrelations() {
 
   // Fetch blood test data in parallel (fail gracefully)
   let bloodValues = new Map();
-  let hasBlooodData = false;
+  let hasBloodData = false;
   const bloodData = await getBloodTests().catch(() => null);
   if (bloodData?.tests?.length) {
     bloodValues = getLatestBloodValues(bloodData.tests);
-    hasBlooodData = true;
+    hasBloodData = true;
   }
 
   // Group markers by category
@@ -271,7 +265,7 @@ export async function getGenomeHealthCorrelations() {
 
   // Determine sources
   const sources = ['23andMe'];
-  if (hasBlooodData) sources.push('Blood Tests');
+  if (hasBloodData) sources.push('Blood Tests');
 
   // Check for Apple Health data availability
   const appleHealthData = await getCorrelationData(
@@ -359,7 +353,7 @@ Example format:
     return { available: false, reason: result.error };
   }
 
-  const themes = JSON.parse(stripCodeFences(result.text));
+  const themes = parseLLMJSON(result.text);
 
   await ensureDir(INSIGHTS_DIR);
   const output = {

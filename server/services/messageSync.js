@@ -1,26 +1,14 @@
 import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { ensureDir, PATHS, safeJSONParse } from '../lib/fileUtils.js';
+import { ensureDir, filterBySearch as genericFilterBySearch, PATHS, safeDate, safeJSONParse, UUID_RE } from '../lib/fileUtils.js';
 import { getAccount, updateSyncStatus } from './messageAccounts.js';
 
 const CACHE_DIR = join(PATHS.messages, 'cache');
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const syncLocks = new Map();
 
-function safeDate(d) {
-  const t = new Date(d).getTime();
-  return Number.isNaN(t) ? 0 : t;
-}
-
+const MESSAGE_SEARCH_FIELDS = ['subject', 'from.name', 'from.email', 'bodyText'];
 function filterBySearch(messages, search) {
-  if (!search) return messages;
-  const q = search.toLowerCase();
-  return messages.filter(m =>
-    m.subject?.toLowerCase().includes(q) ||
-    m.from?.name?.toLowerCase().includes(q) ||
-    m.from?.email?.toLowerCase().includes(q) ||
-    m.bodyText?.toLowerCase().includes(q)
-  );
+  return genericFilterBySearch(messages, search, MESSAGE_SEARCH_FIELDS);
 }
 
 async function loadCache(accountId) {

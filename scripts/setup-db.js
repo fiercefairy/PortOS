@@ -13,7 +13,7 @@ import { execFileSync } from 'child_process';
 import { createInterface } from 'readline';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, '..');
@@ -119,43 +119,90 @@ function getDockerHints(issue) {
   return issue === 'not_installed' ? hints.install : hints.start;
 }
 
-// Prompt user to continue without Docker (TTY only)
-function promptContinue(message, hint) {
+// Write PGMODE to .env (create or update)
+function setPgMode(mode) {
+  const envPath = join(rootDir, '.env');
+  let content = '';
+  try {
+    content = readFileSync(envPath, 'utf8');
+  } catch { /* no .env yet */ }
+
+  if (content.match(/^PGMODE=/m)) {
+    content = content.replace(/^PGMODE=.*/m, `PGMODE=${mode}`);
+  } else {
+    content = `PGMODE=${mode}\n${content}`;
+  }
+  writeFileSync(envPath, content);
+}
+
+// Prompt user to choose storage mode (TTY only)
+function promptStorageChoice(message, hint) {
   return new Promise((resolve) => {
-    // Non-TTY (CI, piped scripts) — continue without prompting
+    // Non-TTY (CI, piped scripts) — default to file-based
     if (!process.stdin.isTTY) {
-      resolve(true);
+      resolve('file');
       return;
     }
 
     console.log(`⚠️  ${message}`);
     console.log(`   ${hint}`);
     console.log('');
+    console.log('   Choose a storage backend:');
+    console.log('');
+    console.log('   1) Docker PostgreSQL (recommended — containerized, no system install)');
+    console.log('   2) Native PostgreSQL (use system-installed PostgreSQL on port 5432)');
+    console.log('   3) File-based JSON storage (deprecated — no vector search)');
+    console.log('');
 
     const rl = createInterface({ input: process.stdin, output: process.stdout });
-    rl.question('   Continue without Docker (file-based storage)? [Y/n] ', (answer) => {
+    rl.question('   Enter choice [1/2/3]: ', (answer) => {
       rl.close();
-      const trimmed = answer.trim().toLowerCase();
-      // Default is Y (continue)
-      resolve(trimmed === '' || trimmed === 'y' || trimmed === 'yes');
+      const trimmed = answer.trim();
+      if (trimmed === '2') resolve('native');
+      else if (trimmed === '3') resolve('file');
+      else resolve('exit'); // 1 or default = they want docker, so exit to install it
     });
   });
 }
 
 async function handleDockerUnavailable(message, issue) {
   const hint = getDockerHints(issue);
-  const shouldContinue = await promptContinue(message, hint);
+  const choice = await promptStorageChoice(message, hint);
 
-  if (shouldContinue) {
-    console.log('   Memory system will use file-based JSON storage');
+  if (choice === 'native') {
+    console.log('   Switching to native PostgreSQL mode...');
+    setPgMode('native');
+    if (isNativeReady()) {
+      console.log('✅ System PostgreSQL ready on port 5432');
+    } else if (process.platform === 'darwin') {
+      console.log('⚠️  Native PostgreSQL not detected — try: brew install postgresql@17 && brew services start postgresql@17');
+      console.log('   Then re-run setup');
+    } else {
+      console.log('⚠️  Native PostgreSQL not detected — install and start PostgreSQL, then re-run setup');
+    }
     process.exit(0);
-  } else {
-    console.log('   Exiting — install/start Docker and try again');
-    process.exit(1);
   }
+
+  if (choice === 'file') {
+    setPgMode('file');
+    console.log('   Memory system will use file-based JSON storage (deprecated)');
+    process.exit(0);
+  }
+
+  // choice === 'exit' — user wants Docker, tell them to install/start it
+  console.log(`   ${hint}`);
+  console.log('   Install/start Docker and re-run setup');
+  process.exit(1);
 }
 
 const mode = getMode();
+
+if (mode === 'file') {
+  console.log('🗄️  Storage mode: file-based JSON (deprecated)');
+  console.log('   Tip: switch to PostgreSQL with: scripts/db.sh set-mode docker');
+  process.exit(0);
+}
+
 console.log(`🗄️  Setting up PostgreSQL (mode: ${mode})...`);
 
 if (mode === 'native') {

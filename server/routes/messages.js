@@ -62,7 +62,8 @@ const generateDraftSchema = z.object({
   replyToMessageId: z.string().nullish(),
   threadId: z.string().nullish(),
   context: z.string().optional().default(''),
-  instructions: z.string().optional().default('')
+  instructions: z.string().optional().default(''),
+  useVoice: z.boolean().optional()
 });
 
 const updateSelectorsSchema = z.object({
@@ -219,7 +220,15 @@ router.post('/drafts/generate', asyncHandler(async (req, res) => {
   if (data.replyToMessageId) {
     const originalMsg = await messageSync.getMessage(data.accountId, data.replyToMessageId);
     if (originalMsg) {
-      const aiResult = await generateReplyBody(originalMsg, data.instructions).catch(err => {
+      // Load thread context if available
+      let threadMessages = null;
+      if (data.threadId) {
+        threadMessages = await messageSync.getThread(data.accountId, data.threadId).catch(() => null);
+      }
+      const aiResult = await generateReplyBody(originalMsg, data.instructions, {
+        useVoice: data.useVoice,
+        threadMessages
+      }).catch(err => {
         console.log(`📧 AI reply generation failed, using placeholder: ${err.message}`);
         return null;
       });

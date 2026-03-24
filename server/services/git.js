@@ -697,6 +697,30 @@ export async function deleteBranch(dir, branchName, { local = false, remote = fa
 }
 
 /**
+ * Merge a branch into the current branch.
+ * Uses --no-ff to always create a merge commit for traceability.
+ * @param {string} dir - Working directory
+ * @param {string} branchName - Branch to merge into current
+ * @returns {Promise<{success: boolean, output: string}>}
+ */
+export async function mergeBranch(dir, branchName) {
+  const result = await execGit(['merge', '--no-ff', branchName], dir);
+  return { success: true, output: (result.stdout + result.stderr).trim() };
+}
+
+/**
+ * Checkout a remote branch that doesn't exist locally.
+ * Creates a local tracking branch from the remote ref.
+ * @param {string} dir - Working directory
+ * @param {string} branchName - Branch name (without origin/ prefix)
+ * @returns {Promise<{success: boolean, branch: string}>}
+ */
+export async function checkoutRemoteBranch(dir, branchName) {
+  await execGit(['checkout', '-b', branchName, `origin/${branchName}`], dir);
+  return { success: true, branch: branchName };
+}
+
+/**
  * Get comprehensive git info
  */
 export async function getGitInfo(dir) {

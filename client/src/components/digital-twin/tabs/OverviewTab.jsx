@@ -20,9 +20,9 @@ import toast from 'react-hot-toast';
 import {
   DOCUMENT_CATEGORIES,
   getHealthColor,
-  getHealthLabel,
-  formatRelativeTime
+  getHealthLabel
 } from '../constants';
+import { timeAgo } from '../../../utils/formatters';
 import SoulWizard from '../SoulWizard';
 import PersonalityMap from '../PersonalityMap';
 import ConfidenceGauge from '../ConfidenceGauge';
@@ -510,7 +510,7 @@ export default function OverviewTab({ status, settings, onRefresh }) {
             <div className="font-medium text-white">Run Tests</div>
             <div className="text-sm text-gray-500 truncate">
               {status.lastTestRun
-                ? `Last: ${formatRelativeTime(status.lastTestRun.timestamp)}`
+                ? `Last: ${timeAgo(status.lastTestRun.timestamp)}`
                 : 'Test behavioral alignment'}
             </div>
           </div>
@@ -562,7 +562,7 @@ export default function OverviewTab({ status, settings, onRefresh }) {
                   {status.lastTestRun.passed}/{status.lastTestRun.total} tests passed
                 </div>
                 <div className="text-xs sm:text-sm text-gray-500">
-                  Model: {status.lastTestRun.model} • {formatRelativeTime(status.lastTestRun.timestamp)}
+                  Model: {status.lastTestRun.model} • {timeAgo(status.lastTestRun.timestamp)}
                 </div>
               </div>
             </div>

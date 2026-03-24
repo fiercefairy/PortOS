@@ -3,10 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import * as api from '../services/api';
 import { Brain as BrainIcon, RefreshCw } from 'lucide-react';
 
-import {
-  TABS,
-  formatRelativeTime
-} from '../components/brain/constants';
+import { TABS } from '../components/brain/constants';
+import { timeAgo } from '../utils/formatters';
 
 import InboxTab from '../components/brain/tabs/InboxTab';
 import LinksTab from '../components/brain/tabs/LinksTab';
@@ -105,7 +103,7 @@ export default function Brain() {
             </span>
             {summary.lastDailyDigest && (
               <span className="text-gray-500">
-                Last digest: {formatRelativeTime(summary.lastDailyDigest)}
+                Last digest: {timeAgo(summary.lastDailyDigest)}
               </span>
             )}
           </div>

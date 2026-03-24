@@ -10,6 +10,7 @@ import GenomeHealthTab from '../components/insights/GenomeHealthTab';
 import TasteIdentityTab from '../components/insights/TasteIdentityTab';
 import CrossDomainTab from '../components/insights/CrossDomainTab';
 import ConfidenceBadge from '../components/insights/ConfidenceBadge';
+import { timeAgo } from '../utils/formatters';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: Lightbulb },
@@ -19,18 +20,6 @@ const TABS = [
 ];
 
 const VALID_TAB_IDS = new Set(TABS.map(t => t.id));
-
-function formatRelativeTime(isoString) {
-  if (!isoString) return null;
-  const diffMs = Date.now() - new Date(isoString).getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays}d ago`;
-}
 
 function SummaryCardSkeleton() {
   return (
@@ -134,7 +123,7 @@ function OverviewTab() {
       icon: Link2,
       iconColor: 'text-port-accent',
       stat: narrativeAvailable
-        ? `Last analyzed ${formatRelativeTime(narrativeData.generatedAt)}`
+        ? `Last analyzed ${timeAgo(narrativeData.generatedAt)}`
         : 'Not yet generated',
       topInsight: firstSentence
         ? `${firstSentence}.`

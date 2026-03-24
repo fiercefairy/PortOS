@@ -7,7 +7,7 @@
 
 import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { PATHS, ensureDir, readJSONFile } from '../lib/fileUtils.js';
+import { PATHS, ensureDir, readJSONFile, getDateString } from '../lib/fileUtils.js';
 
 const MEATSPACE_DIR = PATHS.meatspace;
 const DAILY_LOG_FILE = join(MEATSPACE_DIR, 'daily-log.json');
@@ -26,6 +26,7 @@ const DEFAULT_DRINK_BUTTONS = [
 let averageCache = null;
 let averageCacheAt = 0;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 
 // === Pure Functions ===
 
@@ -53,7 +54,7 @@ export function drinksToGrams(standardDrinks) {
  */
 export function computeRollingAverages(entries, sex = 'male') {
   const now = new Date();
-  const today = now.toISOString().split('T')[0];
+  const today = getDateString(now);
 
   // Filter entries with alcohol data, sorted by date
   const alcoholEntries = entries
@@ -70,7 +71,7 @@ export function computeRollingAverages(entries, sex = 'male') {
   const rollingAverage = (days) => {
     const cutoff = new Date(now);
     cutoff.setDate(cutoff.getDate() - days);
-    const cutoffStr = cutoff.toISOString().split('T')[0];
+    const cutoffStr = getDateString(cutoff);
 
     let totalDrinks = 0;
     let dayCount = 0;
@@ -99,7 +100,7 @@ export function computeRollingAverages(entries, sex = 'male') {
   const thresholds = sex === 'female'
     ? { dailyMax: 1, weeklyMax: 7 }
     : { dailyMax: 2, weeklyMax: 14 };
-  const gramThresholds = { dailyTarget: 10, dailyDanger: 40 };
+  const gramThresholds = { dailyTarget: 10, dailyDanger: 40, weeklyMax: drinksToGrams(thresholds.weeklyMax) };
 
   const avg7day = rollingAverage(7);
   const avg30day = rollingAverage(30);
@@ -159,10 +160,10 @@ export async function getAlcoholSummary() {
   const averages = computeRollingAverages(log.entries || [], config.sex || 'male');
 
   // Recent drinks (last 7 days)
-  const today = new Date().toISOString().split('T')[0];
+  const today = getDateString();
   const weekAgo = new Date();
   weekAgo.setDate(weekAgo.getDate() - 7);
-  const weekAgoStr = weekAgo.toISOString().split('T')[0];
+  const weekAgoStr = getDateString(weekAgo);
 
   const recentEntries = (log.entries || [])
     .filter(e => e.date >= weekAgoStr && e.date <= today && e.alcohol?.drinks?.length > 0)
@@ -186,7 +187,7 @@ export async function getDailyAlcohol(from, to) {
 
 export async function logDrink({ name, oz, abv, count = 1, date }) {
   const log = await loadDailyLog();
-  const targetDate = date || new Date().toISOString().split('T')[0];
+  const targetDate = date || getDateString();
 
   const standardDrinks = computeStandardDrinks(oz * count, abv);
   const drink = { name: name || '', abv, oz, count };
@@ -203,7 +204,13 @@ export async function logDrink({ name, oz, abv, count = 1, date }) {
     entry.alcohol = { drinks: [], standardDrinks: 0 };
   }
 
-  entry.alcohol.drinks.push(drink);
+  // Combine with existing matching drink on same date
+  const existing = entry.alcohol.drinks.find(d => d.name === drink.name && d.oz === drink.oz && d.abv === drink.abv);
+  if (existing) {
+    existing.count = (existing.count || 1) + count;
+  } else {
+    entry.alcohol.drinks.push(drink);
+  }
 
   recalcAlcoholTotal(entry);
 

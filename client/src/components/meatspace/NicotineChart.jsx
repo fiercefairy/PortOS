@@ -46,9 +46,8 @@ export default function NicotineChart({ onRefreshKey, onViewChange }) {
     }
 
     const cursor = new Date(from);
-    const end = new Date(toStr);
-    while (cursor <= end) {
-      const dateStr = localDateStr(cursor);
+    let dateStr = localDateStr(cursor);
+    while (dateStr <= toStr) {
       const mg = dateMap[dateStr] || 0;
       chartData.push({
         date: dateStr,
@@ -56,6 +55,7 @@ export default function NicotineChart({ onRefreshKey, onViewChange }) {
         mg
       });
       cursor.setDate(cursor.getDate() + 1);
+      dateStr = localDateStr(cursor);
     }
 
     setData(chartData);

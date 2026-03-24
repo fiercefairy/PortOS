@@ -18,9 +18,9 @@ import {
   DESTINATIONS,
   PROJECT_STATUS_COLORS,
   IDEA_STATUS_COLORS,
-  ADMIN_STATUS_COLORS,
-  formatRelativeTime
+  ADMIN_STATUS_COLORS
 } from '../constants';
+import { timeAgo } from '../../../utils/formatters';
 
 export default function MemoryTab({ onRefresh }) {
   const [activeType, setActiveType] = useState('memories');
@@ -531,7 +531,7 @@ export default function MemoryTab({ onRefresh }) {
             )}
 
             <p className="text-xs text-gray-500 mt-2">
-              Updated {formatRelativeTime(record.updatedAt)}
+              Updated {timeAgo(record.updatedAt)}
             </p>
           </div>
 

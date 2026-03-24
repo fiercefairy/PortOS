@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Plus, Image, X, ChevronDown, ChevronRight, Sparkles, Loader2, Paperclip, FileText, Zap, Bookmark, Ticket, GitBranch, Wand2, RefreshCw } from 'lucide-react';
+import { Plus, Image, X, ChevronDown, ChevronRight, Sparkles, Loader2, Paperclip, FileText, Zap, Bookmark, Ticket, GitBranch, GitPullRequest, Wand2, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as api from '../../services/api';
 import { processScreenshotUploads, processAttachmentUploads } from '../../utils/fileUpload';
@@ -11,6 +11,7 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
   const [enhancePrompt, setEnhancePrompt] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [useWorktree, setUseWorktree] = useState(false);
+  const [openPR, setOpenPR] = useState(false);
   const [simplify, setSimplify] = useState(true);
   const [reviewLoop, setReviewLoop] = useState(false);
   const [createJiraTicket, setCreateJiraTicket] = useState(false);
@@ -45,11 +46,14 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
   );
   const appHasJira = selectedApp?.jira?.enabled;
 
-  // Auto-toggle JIRA and worktree checkboxes when app selection changes
+  // Auto-toggle JIRA, worktree, and PR checkboxes when app selection changes
   useEffect(() => {
     const app = apps?.find(a => a.id === newTask.app);
+    const defaultOpenPR = !!app?.defaultOpenPR;
+    const defaultUseWorktree = !!app?.defaultUseWorktree || defaultOpenPR;
     setCreateJiraTicket(!!app?.jira?.enabled);
-    setUseWorktree(!!app?.defaultUseWorktree);
+    setUseWorktree(defaultUseWorktree);
+    setOpenPR(defaultOpenPR);
   }, [newTask.app, apps]);
 
   // Get models for selected provider
@@ -182,10 +186,11 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
       model: newTask.model || undefined,
       provider: newTask.provider || undefined,
       app: newTask.app || undefined,
-      createJiraTicket: createJiraTicket || undefined,
-      useWorktree: useWorktree || undefined,
-      simplify: simplify || undefined,
-      reviewLoop: reviewLoop || undefined,
+      createJiraTicket,
+      useWorktree,
+      openPR,
+      simplify,
+      reviewLoop,
       screenshots: screenshots.length > 0 ? screenshots.map(s => s.path) : undefined,
       attachments: attachments.length > 0 ? attachments.map(a => ({
         filename: a.filename,
@@ -211,6 +216,7 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
     setEnhancePrompt(false);
     setCreateJiraTicket(false);
     setUseWorktree(false);
+    setOpenPR(false);
     setSimplify(true);
     setReviewLoop(false);
     setExpanded(false);
@@ -377,12 +383,28 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
             <input
               type="checkbox"
               checked={useWorktree}
-              onChange={(e) => setUseWorktree(e.target.checked)}
+              onChange={(e) => {
+                setUseWorktree(e.target.checked);
+                if (!e.target.checked) setOpenPR(false);
+              }}
               className="w-4 h-4 rounded border-port-border bg-port-bg text-port-accent focus:ring-port-accent focus:ring-offset-0"
             />
-            <span className="flex items-center gap-1.5 text-sm text-gray-400" title="Work in an isolated git worktree on a feature branch, then open a PR. If unchecked, commits directly to the default branch.">
+            <span className="flex items-center gap-1.5 text-sm text-gray-400" title="Work in an isolated git worktree on a feature branch. If unchecked, commits directly to the default branch.">
               <GitBranch size={14} className="text-emerald-400" />
-              Worktree + PR
+              Worktree
+            </span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer select-none whitespace-nowrap min-h-[44px]">
+            <input
+              type="checkbox"
+              checked={openPR}
+              disabled={!useWorktree}
+              onChange={(e) => setOpenPR(e.target.checked)}
+              className="w-4 h-4 rounded border-port-border bg-port-bg text-port-accent focus:ring-port-accent focus:ring-offset-0 disabled:opacity-40"
+            />
+            <span className={`flex items-center gap-1.5 text-sm ${useWorktree ? 'text-gray-400' : 'text-gray-600'}`} title="Open a pull request to the default branch. If unchecked with worktree enabled, auto-merges on completion.">
+              <GitPullRequest size={14} className={useWorktree ? 'text-blue-400' : 'text-gray-600'} />
+              Open PR
             </span>
           </label>
           <label className="flex items-center gap-2 cursor-pointer select-none whitespace-nowrap min-h-[44px]">
@@ -404,7 +426,7 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
               onChange={(e) => setReviewLoop(e.target.checked)}
               className="w-4 h-4 rounded border-port-border bg-port-bg text-port-accent focus:ring-port-accent focus:ring-offset-0"
             />
-            <span className="flex items-center gap-1.5 text-sm text-gray-400">
+            <span className="flex items-center gap-1.5 text-sm text-gray-400" title="After the agent opens a PR during its run, keep iterating on review feedback until checks pass.">
               <RefreshCw size={14} className="text-amber-400" />
               Review Loop
             </span>
@@ -472,8 +494,9 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
             accept="image/*"
             multiple
             onChange={handleFileSelect}
-            className="hidden"
-            aria-label="Upload screenshot files"
+            className="absolute w-0 h-0 opacity-0 overflow-hidden"
+            tabIndex={-1}
+            aria-hidden="true"
           />
           <button
             type="button"
@@ -489,8 +512,9 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
             accept=".txt,.md,.json,.csv,.xml,.yaml,.yml,.png,.jpg,.jpeg,.gif,.webp,.svg,.pdf,.js,.ts,.jsx,.tsx,.py,.sh,.sql,.html,.css,.zip,.tar,.gz"
             multiple
             onChange={handleAttachmentSelect}
-            className="hidden"
-            aria-label="Upload attachment files"
+            className="absolute w-0 h-0 opacity-0 overflow-hidden"
+            tabIndex={-1}
+            aria-hidden="true"
           />
           {screenshots.length > 0 && (
             <span className="text-xs text-gray-500">{screenshots.length} screenshot{screenshots.length > 1 ? 's' : ''}</span>

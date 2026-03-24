@@ -137,14 +137,21 @@ function escapeNewlines(value) {
 
 /**
  * Parse metadata line (indented under task)
- * Format:   - Key: Value
+ * Format:   - key: Value
+ * Keys are written in camelCase (e.g., openPR, useWorktree, reviewLoop).
+ * Legacy Title-Case keys (e.g., Context, App) are accepted and normalized
+ * to camelCase by lowercasing the first character.
  */
 function parseMetadataLine(line) {
   const match = line.match(/^\s+-\s*(\w+):\s*(.+)$/);
   if (!match) return null;
 
+  // Normalize key: lowercase first character to handle legacy Title-Case keys (Context→context,
+  // App→app) while preserving camelCase keys (openPR stays openPR, useWorktree stays useWorktree)
+  const rawKey = match[1];
+  const key = rawKey.charAt(0).toLowerCase() + rawKey.slice(1);
   return {
-    key: match[1].toLowerCase(),
+    key,
     value: unescapeNewlines(match[2].trim())
   };
 }
@@ -255,9 +262,8 @@ export function generateTasksMarkdown(tasks, includeApprovalFlags = false) {
 
       // Add metadata (escape newlines in values for single-line storage)
       for (const [key, value] of Object.entries(task.metadata)) {
-        const capitalizedKey = key.charAt(0).toUpperCase() + key.slice(1);
         const escapedValue = escapeNewlines(String(value));
-        lines.push(`  - ${capitalizedKey}: ${escapedValue}`);
+        lines.push(`  - ${key}: ${escapedValue}`);
       }
     }
 

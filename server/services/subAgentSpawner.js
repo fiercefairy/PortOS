@@ -39,6 +39,10 @@ const ROOT_DIR = PATHS.root;
 const AGENTS_DIR = PATHS.cosAgents;
 const RUNS_DIR = PATHS.runs;
 
+// Metadata booleans may arrive as true/'true' or false/'false' (from JSON vs TASKS.md string round-trip)
+export const isTruthyMeta = (value) => value === true || value === 'true';
+export const isFalsyMeta = (value) => value === false || value === 'false';
+
 /**
  * Extract task type key for learning lookup
  * Matches the format used in taskLearning.js for consistency
@@ -57,6 +61,16 @@ function extractTaskTypeKey(task) {
   }
   if (task?.taskType === 'user') return 'user-task';
   return 'unknown';
+}
+
+/**
+ * Remove BTW.md from agent workspace after completion.
+ * Prevents ephemeral context files from being committed to git.
+ */
+async function cleanupBtwFile(workspacePath) {
+  if (!workspacePath) return;
+  const btwPath = join(workspacePath, 'BTW.md');
+  await rm(btwPath).catch(() => {});
 }
 
 const SKILLS_DIR = join(ROOT_DIR, 'data/prompts/skills');
@@ -1014,9 +1028,10 @@ async function resolveFailedTaskUpdate(task, errorAnalysis, agentId) {
 
   // Non-actionable errors: track retry count and block after max retries
   const failureCount = (task.metadata?.failureCount || 0) + 1;
+  const totalSpawns = task.metadata?.totalSpawnCount || 0;
   const lastErrorCategory = errorAnalysis?.category || 'unknown';
 
-  if (failureCount >= MAX_TASK_RETRIES) {
+  if (totalSpawns >= MAX_TOTAL_SPAWNS || failureCount >= MAX_TASK_RETRIES) {
     emitLog('warn', `🚫 Task ${task.id} blocked after ${failureCount} failures (${lastErrorCategory})`, {
       taskId: task.id, failureCount, category: lastErrorCategory
     });
@@ -1235,6 +1250,23 @@ export async function spawnAgentForTask(task) {
     console.log(`⚠️ Task ${task.id} already being spawned, skipping duplicate`);
     return null;
   }
+
+  // Check total spawn count across all retry types to prevent runaway respawning
+  const totalSpawns = task.metadata?.totalSpawnCount || 0;
+  if (totalSpawns >= MAX_TOTAL_SPAWNS) {
+    console.log(`🚫 Task ${task.id} hit max total spawns (${totalSpawns}/${MAX_TOTAL_SPAWNS}), blocking`);
+    await updateTask(task.id, {
+      status: 'blocked',
+      metadata: {
+        ...task.metadata,
+        blockedReason: `Max total spawns exceeded (${totalSpawns}/${MAX_TOTAL_SPAWNS})`,
+        blockedCategory: 'max-spawns',
+        blockedAt: new Date().toISOString()
+      }
+    }, task.taskType || 'user').catch(() => {});
+    return null;
+  }
+
   spawningTasks.add(task.id);
 
   const agentId = `agent-${uuidv4().slice(0, 8)}`;
@@ -1470,12 +1502,13 @@ export async function spawnAgentForTask(task) {
     }
   }
 
-  // Determine worktree usage: explicit user flag takes priority, then conflict-based auto-detection.
-  // The useWorktree metadata flag is set from the task creation UI checkbox.
-  // When true, always create a worktree (branch + PR). When not set, only create a
-  // worktree if conflict is detected with other running agents.
+  // Determine worktree usage: explicit user flags take priority, then conflict-based auto-detection.
+  // useWorktree: work in an isolated worktree branch
+  // openPR: open a PR to default branch (implies useWorktree)
+  // When neither is set, only create a worktree if conflict is detected with other running agents.
   let worktreeInfo = null;
-  const explicitWorktree = task.metadata?.useWorktree === 'true' || task.metadata?.useWorktree === true;
+  const explicitOpenPR = isTruthyMeta(task.metadata?.openPR);
+  const explicitWorktree = isTruthyMeta(task.metadata?.useWorktree) || explicitOpenPR;
 
   // Feature agent tasks: use persistent worktree instead of creating a new one
   if (task.metadata?.featureAgentRun && task.metadata?.featureAgentId) {
@@ -1525,8 +1558,8 @@ export async function spawnAgentForTask(task) {
         agentId, worktreePath: worktreeInfo.worktreePath, branchName: worktreeInfo.branchName, baseBranch: worktreeInfo.baseBranch
       });
     }
-  } else if (!jiraBranchName) {
-    // No explicit worktree requested: use worktree only when conflict is detected
+  } else if (!jiraBranchName && !isFalsyMeta(task.metadata?.useWorktree)) {
+    // No explicit worktree requested and not explicitly disabled: use worktree only when conflict is detected
     const { getAgents } = await import('./cos.js');
     const allAgents = await getAgents();
     const runningAgents = allAgents.filter(a => a.status === 'running');
@@ -1597,6 +1630,7 @@ export async function spawnAgentForTask(task) {
     taskApp: task.metadata?.app || null,
     taskAppName: resolvedAppName,
     selfImprovementType: task.metadata?.selfImprovementType || null,
+    jobId: task.metadata?.jobId || null,
     missionName: task.metadata?.missionName || null,
     missionId: task.metadata?.missionId || null,
     // JIRA integration metadata
@@ -1609,8 +1643,16 @@ export async function spawnAgentForTask(task) {
 
   emitLog('info', `Agent ${agentId} initializing...${worktreeInfo ? ' (worktree)' : ''}${jiraBranchName ? ` (JIRA: ${jiraTicket?.ticketId})` : ''}`, { agentId, taskId: task.id });
 
-  // Mark the task as in_progress to prevent re-spawning
-  const updateResult = await updateTask(task.id, { status: 'in_progress' }, task.taskType || 'user')
+  // Mark the task as in_progress and increment total spawn count
+  const newSpawnCount = (task.metadata?.totalSpawnCount || 0) + 1;
+  const updateResult = await updateTask(task.id, {
+    status: 'in_progress',
+    metadata: {
+      ...task.metadata,
+      totalSpawnCount: newSpawnCount,
+      lastSpawnedAt: new Date().toISOString()
+    }
+  }, task.taskType || 'user')
     .catch(err => {
       console.error(`❌ Failed to mark task ${task.id} as in_progress: ${err.message}`);
       return null;
@@ -1756,11 +1798,11 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
     if (cosAgent.taskId) {
       const task = await getTaskById(cosAgent.taskId).catch(() => null);
       if (task && task.status !== 'completed') {
-        const taskType = task.taskType || 'user';
         if (success) {
-          await updateTask(cosAgent.taskId, { status: 'completed' }, taskType);
+          await updateTask(cosAgent.taskId, { status: 'completed' }, task.taskType || 'user');
         } else {
-          await updateTask(cosAgent.taskId, { status: 'ready', metadata: { retryReason: 'orphaned-agent' } }, taskType);
+          // Route through handleOrphanedTask for consistent retry counting, cooldown, and limits
+          await handleOrphanedTask(cosAgent.taskId, agentId, getTaskById);
         }
       }
     }
@@ -1792,11 +1834,23 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
     outputBuffer = await readFile(outputFile, 'utf-8').catch(() => '');
   }
 
+  // Post-execution validation: check for task commit even if exit code is non-zero
+  // This catches cases where the agent was killed/crashed after committing work
+  let effectiveSuccess = success;
+  if (!effectiveSuccess && task?.id) {
+    const workspacePath = agent.workspacePath || ROOT_DIR;
+    const commitFound = checkForTaskCommit(task.id, workspacePath);
+    if (commitFound) {
+      emitLog('warn', `Agent ${agentId} reported failure (exit ${exitCode}) but work completed - commit found for task ${task.id}`, { agentId, taskId: task.id, exitCode });
+      effectiveSuccess = true;
+    }
+  }
+
   // Analyze failure if applicable
-  const errorAnalysis = success ? null : analyzeAgentFailure(outputBuffer, task, model);
+  const errorAnalysis = effectiveSuccess ? null : analyzeAgentFailure(outputBuffer, task, model);
 
   await completeAgent(agentId, {
-    success,
+    success: effectiveSuccess,
     exitCode,
     duration,
     outputLength: outputBuffer.length,
@@ -1809,7 +1863,7 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
   }
 
   // Update task status with retry tracking
-  if (success) {
+  if (effectiveSuccess) {
     await updateTask(task.id, { status: 'completed' }, task.taskType || 'user');
   } else {
     const failedUpdate = await resolveFailedTaskUpdate(task, errorAnalysis, agentId);
@@ -1837,7 +1891,7 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
   }
 
   // Process memory extraction and app cooldown
-  await processAgentCompletion(agentId, task, success, outputBuffer);
+  await processAgentCompletion(agentId, task, effectiveSuccess, outputBuffer);
 
   // Fetch agent state once for JIRA and plan-question blocks
   const { getAgent: getAgentState } = await import('./cos.js');
@@ -1937,9 +1991,15 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
     }
   }
 
+  // Clean up ephemeral BTW.md before worktree removal
+  await cleanupBtwFile(agentState?.metadata?.workspacePath);
+
   // Clean up worktree if agent was using one (skip merge when JIRA branch — PR handles merge)
   if (!jiraBranch) {
-    await cleanupAgentWorktree(agentId, success);
+    const taskOpenPR = isTruthyMeta(agent.task?.metadata?.openPR);
+    const taskReviewLoop = isTruthyMeta(agent.task?.metadata?.reviewLoop);
+    // When reviewLoop + openPR are both enabled, the agent handles the PR during its run — skip post-exit PR creation
+    await cleanupAgentWorktree(agentId, success, { openPR: taskOpenPR && !taskReviewLoop, description: task?.description });
   }
 
   runnerAgents.delete(agentId);
@@ -1948,9 +2008,10 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
 /**
  * Clean up a worktree for a completed agent.
  * Reads worktree metadata from the agent's registered state and removes the worktree.
- * On success, merges the worktree branch back to the source branch.
+ * When openPR is true, pushes the branch and creates a PR instead of auto-merging.
+ * Otherwise, merges the worktree branch back to the source branch on success.
  */
-async function cleanupAgentWorktree(agentId, success) {
+export async function cleanupAgentWorktree(agentId, success, { openPR = false, description = null } = {}) {
   const { getAgent: getAgentState } = await import('./cos.js');
   const agentState = await getAgentState(agentId).catch(() => null);
   if (!agentState?.metadata?.isWorktree) return;
@@ -1960,6 +2021,60 @@ async function cleanupAgentWorktree(agentId, success) {
   const { sourceWorkspace, worktreeBranch } = agentState.metadata;
   if (!sourceWorkspace || !worktreeBranch) return;
 
+  // When openPR is set and task succeeded, push branch and create PR instead of auto-merging
+  if (openPR && success) {
+    emitLog('info', `🌳 Opening PR for worktree agent ${agentId} branch ${worktreeBranch}`, { agentId, branchName: worktreeBranch });
+
+    const worktreePath = agentState.metadata.workspacePath || join(PATHS.worktrees, agentId);
+
+    // Push branch and resolve target branch in parallel
+    const [pushResult, branchInfo] = await Promise.all([
+      git.push(worktreePath, worktreeBranch).then(() => true).catch(err => {
+        emitLog('warn', `🌳 Failed to push worktree branch ${worktreeBranch}: ${err.message}`, { agentId });
+        return false;
+      }),
+      git.getRepoBranches(sourceWorkspace).catch(() => ({ baseBranch: null, devBranch: null }))
+    ]);
+
+    // Only create PR if push succeeded; preserve worktree/branch for manual intervention if push fails
+    if (pushResult) {
+      // Use baseBranch (not devBranch) since worktrees are created from the default branch
+      const targetBranch = branchInfo.baseBranch || 'main';
+      const taskDesc = description || 'CoS automated task';
+      const prTitle = taskDesc.replace(/[\r\n]+/g, ' ').trim().substring(0, 100);
+
+      const prResult = await git.createPR(worktreePath, {
+        title: prTitle,
+        body: `Automated PR created by PortOS Chief of Staff.\n\n**Task:** ${taskDesc}`,
+        base: targetBranch,
+        head: worktreeBranch
+      }).catch(err => {
+        emitLog('warn', `🌳 Failed to create PR for ${worktreeBranch}: ${err.message}`, { agentId });
+        return null;
+      });
+
+      if (!prResult?.success) {
+        const reason = prResult?.error || 'unknown error (createPR returned null or threw)';
+        emitLog('error', `🌳 PR creation failed for ${worktreeBranch}: ${reason}`, { agentId, branchName: worktreeBranch });
+        // Preserve worktree/branch for manual PR creation
+        return;
+      }
+
+      emitLog('success', `🌳 Created PR: ${prResult.url}`, { agentId, branchName: worktreeBranch });
+
+      // Remove worktree without merging (PR handles merge)
+      await removeWorktree(agentId, sourceWorkspace, worktreeBranch, { merge: false }).catch(err => {
+        emitLog('warn', `🌳 Worktree cleanup failed for ${agentId}: ${err.message}`, { agentId });
+      });
+      return;
+    }
+
+    // Push failed — preserve worktree/branch for manual intervention (do NOT auto-merge in openPR mode)
+    emitLog('warn', `🌳 Push failed for ${worktreeBranch} — worktree preserved at ${worktreePath} for manual retry`, { agentId, branchName: worktreeBranch });
+    return;
+  }
+
+  // Default: auto-merge on success, just cleanup on failure
   emitLog('info', `🌳 Cleaning up worktree for agent ${agentId} (merge: ${success})`, {
     agentId, branchName: worktreeBranch, merge: success
   });
@@ -2186,8 +2301,14 @@ async function spawnDirectly(agentId, task, prompt, workspacePath, model, provid
     // Process memory extraction and app cooldown
     await processAgentCompletion(agentId, task, success, outputBuffer);
 
+    // Clean up ephemeral BTW.md before worktree removal
+    await cleanupBtwFile(workspacePath);
+
     // Clean up worktree if agent was using one
-    await cleanupAgentWorktree(agentId, success);
+    await cleanupAgentWorktree(agentId, success, {
+      openPR: isTruthyMeta(task.metadata?.openPR),
+      description: task.description
+    });
 
     unregisterSpawnedAgent(agentData?.pid || claudeProcess.pid);
     activeAgents.delete(agentId);
@@ -2256,8 +2377,21 @@ function createStreamJsonParser() {
   let lineBuffer = '';
   let finalResult = '';
   let textBuffer = '';
+  // Track text across all conversation turns so multi-step agents (e.g., task + /simplify)
+  // preserve all summaries instead of only the final one
+  const textSections = [];
+  let currentTextSection = '';
   // Track active tool blocks by index for input accumulation
   const activeTools = new Map(); // index -> { name, inputJson }
+
+  // Flush accumulated text into a section boundary (tool call start, result event, or stream end)
+  const commitSection = () => {
+    const section = currentTextSection.trim();
+    if (section) {
+      textSections.push(section);
+      currentTextSection = '';
+    }
+  };
 
   const processChunk = (rawData) => {
     const lines = [];
@@ -2284,6 +2418,7 @@ function createStreamJsonParser() {
         if (event?.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
           const text = event.delta.text;
           textBuffer += text;
+          currentTextSection += text;
           // Emit complete lines for readability, accumulate partial
           const textLines = textBuffer.split('\n');
           textBuffer = textLines.pop() || '';
@@ -2305,6 +2440,7 @@ function createStreamJsonParser() {
           const idx = event.index;
           activeTools.set(idx, { name: toolName, inputJson: '' });
           lines.push(`🔧 Using ${toolName}...`);
+          commitSection();
         }
         // When tool input is complete, emit a detailed summary line
         if (event?.type === 'content_block_stop') {
@@ -2331,7 +2467,6 @@ function createStreamJsonParser() {
         if (Array.isArray(content)) {
           for (const block of content) {
             if (block.type === 'tool_result' && typeof block.content === 'string') {
-              // Summarize tool results (first line only to avoid noise)
               const firstLine = block.content.split('\n')[0]?.substring(0, 200);
               if (firstLine) {
                 lines.push(`  ↳ ${firstLine}`);
@@ -2343,11 +2478,11 @@ function createStreamJsonParser() {
 
       // Capture final result text for output file
       if (parsed.type === 'result') {
-        // Flush any remaining text buffer
         if (textBuffer) {
           lines.push(textBuffer);
           textBuffer = '';
         }
+        commitSection();
         finalResult = parsed.result || '';
       }
     }
@@ -2361,10 +2496,18 @@ function createStreamJsonParser() {
       lines.push(textBuffer);
       textBuffer = '';
     }
+    commitSection();
     return lines;
   };
 
-  const getFinalResult = () => finalResult;
+  // Multi-section: return all text turns combined (e.g., task summary + simplify summary)
+  // Single-section: return the CLI result field (cleaner, no tool call noise)
+  const getFinalResult = () => {
+    if (textSections.length > 1) {
+      return textSections.join('\n\n');
+    }
+    return finalResult;
+  };
 
   return { processChunk, flush, getFinalResult };
 }
@@ -2598,6 +2741,10 @@ async function buildAgentPrompt(task, config, workspaceDir, worktreeInfo = null)
   const compactionSection = task.metadata?.compaction?.needed ? buildCompactionSection(task) : '';
 
   // Build worktree context section if applicable
+  const willOpenPR = isTruthyMeta(task.metadata?.openPR);
+  const willReviewLoop = isTruthyMeta(task.metadata?.reviewLoop);
+  // When reviewLoop is enabled alongside openPR, the agent opens the PR during its run (reviewLoop takes precedence over post-exit PR creation)
+  const prHandledByAgent = willReviewLoop && willOpenPR;
   const worktreeSection = worktreeInfo ? `
 ## Git Worktree Context
 You are working in an **isolated git worktree** to avoid conflicts with other agents working concurrently.
@@ -2605,17 +2752,17 @@ You are working in an **isolated git worktree** to avoid conflicts with other ag
 - **Worktree Path**: \`${worktreeInfo.worktreePath}\`
 ${worktreeInfo.baseBranch ? `- **Based on**: \`${worktreeInfo.baseBranch}\` (latest from origin)` : ''}
 
-**Important**: Commit your changes to this branch. Your commits will be automatically merged back to the main development branch when your task completes. Do NOT manually switch branches or modify the worktree configuration.
+**Important**: Commit your changes to this branch.${willOpenPR && !prHandledByAgent ? ' Your commits will be submitted as a pull request to the default branch when your task completes.' : ' Your commits will be automatically merged back to the main development branch when your task completes.'} Do NOT manually switch branches or modify the worktree configuration.
 ` : '';
 
   // Build simplify section if enabled
-  const simplifySection = task.metadata?.simplify ? `
+  const simplifySection = isTruthyMeta(task.metadata?.simplify) ? `
 ## Simplify Step
 After completing your work and before committing, run \`/simplify\` to review the changed code for reuse, quality, and efficiency. Fix any issues found before committing.
 ` : '';
 
   // Build review loop section if enabled
-  const reviewLoopSection = task.metadata?.reviewLoop ? `
+  const reviewLoopSection = willReviewLoop ? `
 ## Review Loop
 After opening the PR, run \`/do:rpr\` to resolve PR review feedback and complete the merge validation. Continue running the review loop until all checks pass and the PR is approved.
 ` : '';
@@ -2717,7 +2864,8 @@ ${skillSection ? `## Task-Type Skill Guidelines\n\n${skillSection}\n` : ''}${pla
 - Do not make unrelated changes
 - If blocked, explain clearly why
 - Never update the PortOS changelog (\`.changelog/\`) for work on managed apps — the PortOS changelog tracks PortOS core changes only
-${task.metadata?.app && worktreeInfo ? `- **When done, create a pull request to the repo's default branch** (main/master) instead of committing directly to dev. Use the /pr skill or gh CLI to open the PR.` : `- Commit code after each feature or bug fix using the git tools or /cam skill`}
+- **BTW Messages**: The user may send you additional context while you work. Check for a \`BTW.md\` file in your working directory root — if it exists, read it for important messages from the user. Incorporate that context into your work. Do not delete or modify BTW.md.
+${task.metadata?.app && worktreeInfo && willOpenPR ? `- Commit code after each feature or bug fix using the git tools or /cam skill. A pull request will be automatically created when your task completes — do NOT open a PR manually.` : task.metadata?.app && worktreeInfo ? `- Commit code after each feature or bug fix using the git tools or /cam skill. Your worktree branch will be automatically merged back to the source branch when your task completes — do NOT open a PR.` : `- Commit code after each feature or bug fix using the git tools or /cam skill`}
 
 ## Git Hygiene (CRITICAL)
 - **Before starting work**, run \`git status\` to verify a clean working tree. If there are uncommitted changes from a previous agent or manual work, **stash or discard them** before proceeding — do NOT commit someone else's changes.
@@ -3108,6 +3256,10 @@ export async function killAllAgents() {
 // Max retries before creating investigation task
 const MAX_ORPHAN_RETRIES = 3;
 const MAX_TASK_RETRIES = 3;
+// Absolute cap on total agent spawns per task (across all retry types)
+const MAX_TOTAL_SPAWNS = 5;
+// Minimum cooldown between orphan retries (30 minutes)
+const ORPHAN_RETRY_COOLDOWN_MS = 30 * 60 * 1000;
 
 /**
  * Check if a process is running by PID
@@ -3225,7 +3377,7 @@ export async function cleanupOrphanedAgents() {
 /**
  * Handle an orphaned task - retry or create investigation
  */
-async function handleOrphanedTask(taskId, agentId, getTaskById) {
+export async function handleOrphanedTask(taskId, agentId, getTaskById) {
   const task = await getTaskById(taskId).catch(() => null);
   if (!task) {
     emitLog('warn', `Could not find task ${taskId} for orphaned agent ${agentId}`, { taskId, agentId });
@@ -3238,15 +3390,33 @@ async function handleOrphanedTask(taskId, agentId, getTaskById) {
     return;
   }
 
+  // Check if the agent actually committed work before treating as orphaned
+  const commitFound = checkForTaskCommit(taskId);
+  if (commitFound) {
+    emitLog('info', `✅ Orphaned agent ${agentId} actually completed work - commit found for task ${taskId}`, { taskId, agentId });
+    await updateTask(taskId, { status: 'completed' }, task.taskType || 'user');
+    return;
+  }
+
   // Get current retry count from task metadata
   const retryCount = (task.metadata?.orphanRetryCount || 0) + 1;
+  const totalSpawns = task.metadata?.totalSpawnCount || 0;
   const taskType = task.taskType || 'user';
 
-  if (retryCount < MAX_ORPHAN_RETRIES) {
+  // Block if total spawn count across all retry types is exhausted
+  const totalExceeded = totalSpawns >= MAX_TOTAL_SPAWNS;
+
+  // Enforce cooldown between orphan retries
+  const lastOrphanedAt = task.metadata?.lastOrphanedAt ? new Date(task.metadata.lastOrphanedAt).getTime() : 0;
+  const cooldownRemaining = lastOrphanedAt ? ORPHAN_RETRY_COOLDOWN_MS - (Date.now() - lastOrphanedAt) : 0;
+  const inCooldown = cooldownRemaining > 0;
+
+  if (retryCount < MAX_ORPHAN_RETRIES && !totalExceeded && !inCooldown) {
     // Reset task to pending for automatic retry
-    emitLog('info', `Resetting orphaned task ${taskId} for retry (attempt ${retryCount}/${MAX_ORPHAN_RETRIES})`, {
+    emitLog('info', `Resetting orphaned task ${taskId} for retry (attempt ${retryCount}/${MAX_ORPHAN_RETRIES}, total spawns ${totalSpawns}/${MAX_TOTAL_SPAWNS})`, {
       taskId,
       retryCount,
+      totalSpawns,
       maxRetries: MAX_ORPHAN_RETRIES
     });
 
@@ -3259,11 +3429,35 @@ async function handleOrphanedTask(taskId, agentId, getTaskById) {
         lastOrphanedAgentId: agentId
       }
     }, taskType);
+  } else if (inCooldown && retryCount < MAX_ORPHAN_RETRIES && !totalExceeded) {
+    // Within cooldown — block temporarily with info about when retry is eligible
+    const cooldownMinutes = Math.ceil(cooldownRemaining / 60000);
+    emitLog('info', `⏳ Orphan retry for task ${taskId} in cooldown (${cooldownMinutes}m remaining)`, {
+      taskId, cooldownMinutes, retryCount
+    });
+
+    await updateTask(taskId, {
+      status: 'blocked',
+      metadata: {
+        ...task.metadata,
+        orphanRetryCount: retryCount,
+        lastOrphanedAt: new Date().toISOString(),
+        lastOrphanedAgentId: agentId,
+        blockedReason: `Orphan retry cooldown (${cooldownMinutes}m remaining)`,
+        blockedCategory: 'orphan-cooldown',
+        blockedAt: new Date().toISOString(),
+        cooldownUntil: new Date(Date.now() + cooldownRemaining).toISOString()
+      }
+    }, taskType);
   } else {
-    // Max retries exceeded - create auto-approved investigation task
-    emitLog('warn', `Task ${taskId} exceeded max orphan retries (${MAX_ORPHAN_RETRIES}), creating investigation task`, {
+    // Max retries or total spawns exceeded - create auto-approved investigation task
+    const reason = totalExceeded
+      ? `total spawns exceeded (${totalSpawns}/${MAX_TOTAL_SPAWNS})`
+      : `orphan retries exceeded (${retryCount}/${MAX_ORPHAN_RETRIES})`;
+    emitLog('warn', `Task ${taskId} blocked: ${reason}, creating investigation task`, {
       taskId,
-      retryCount
+      retryCount,
+      totalSpawns
     });
 
     // Mark task as blocked
@@ -3272,7 +3466,9 @@ async function handleOrphanedTask(taskId, agentId, getTaskById) {
       metadata: {
         ...task.metadata,
         orphanRetryCount: retryCount,
-        blockedReason: 'Max orphan retries exceeded'
+        blockedReason: reason,
+        blockedCategory: 'max-retries',
+        blockedAt: new Date().toISOString()
       }
     }, taskType);
 
@@ -3280,10 +3476,12 @@ async function handleOrphanedTask(taskId, agentId, getTaskById) {
     const description = `[Auto-Fix] Investigate repeated agent orphaning for task ${taskId}
 
 **Original Task**: ${(task.description || '').substring(0, 200)}
-**Retry Attempts**: ${retryCount}
+**Orphan Retries**: ${retryCount}
+**Total Spawns**: ${totalSpawns}
 **Last Orphaned Agent**: ${agentId}
+**Blocked Reason**: ${reason}
 
-This task has failed ${retryCount} times due to agent orphaning. Investigate:
+This task has been blocked after ${totalSpawns} total agent spawns. Investigate:
 1. Check CoS Runner logs for errors
 2. Verify process spawning is working correctly
 3. Look for resource constraints (memory, CPU)

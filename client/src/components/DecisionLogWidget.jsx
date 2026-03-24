@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import * as api from '../services/api';
 import { useAutoRefetch } from '../hooks/useAutoRefetch';
+import { timeAgo } from '../utils/formatters';
 
 /**
  * DecisionLogWidget - Shows transparency into CoS decision-making
@@ -81,20 +82,6 @@ const DecisionLogWidget = memo(function DecisionLogWidget() {
       idle: 'Idle'
     };
     return labels[type] || type;
-  };
-
-  // Format relative time
-  const formatRelativeTime = (timestamp) => {
-    const now = Date.now();
-    const then = new Date(timestamp).getTime();
-    const diffMs = now - then;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return 'yesterday';
   };
 
   // Render context-specific detail pills for a decision
@@ -310,7 +297,7 @@ const DecisionLogWidget = memo(function DecisionLogWidget() {
                       </p>
                       {renderContextDetails(decision)}
                       <div className="text-xs text-gray-500 mt-0.5">
-                        {formatRelativeTime(decision.lastTimestamp || decision.timestamp)}
+                        {timeAgo(decision.lastTimestamp || decision.timestamp)}
                         {(decision.count || 1) > 1 && (
                           <span className="ml-2 text-gray-400">
                             ({decision.count}x)

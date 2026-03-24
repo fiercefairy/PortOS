@@ -17,7 +17,7 @@ import { writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { cosEvents, emitLog } from './cos.js';
-import { DAY, ensureDir, HOUR, readJSONFile, PATHS } from '../lib/fileUtils.js';
+import { DAY, ensureDir, HOUR, readJSONFile, PATHS, safeDate } from '../lib/fileUtils.js';
 import { getAdaptiveCooldownMultiplier } from './taskLearning.js';
 import { isTaskTypeEnabledForApp, getAppTaskTypeInterval, getActiveApps, getAppTaskTypeOverrides } from './apps.js';
 import { PORTOS_UI_URL } from '../lib/ports.js';
@@ -107,7 +107,7 @@ async function getPerformanceAdjustedInterval(taskType, baseIntervalMs) {
 }
 
 // ============================================================
-// Unified DEFAULT_TASK_PROMPTS (15 task types)
+// Unified DEFAULT_TASK_PROMPTS (17 task types)
 // All prompts use {appName} and {repoPath} template variables
 // ============================================================
 
@@ -442,43 +442,64 @@ Repository: {repoPath}
 
 4. Run type checking and commit improvements`,
 
-  'release-check': `[Improvement: {appName}] Release Check — dev → main
+  'release-check': `[Improvement: {appName}] Release Check
 
-Check if the dev branch has accumulated enough work for a release, and if so, create a PR to main, wait for Copilot code review, iterate on feedback until clean, and merge.
+Repository: {repoPath}
 
-NOTE: The repo has a GitHub ruleset that automatically requests a Copilot code review on every push to a PR targeting main. You do NOT need to manually request reviews — just create/push the PR and wait.
+Check if {appName} has accumulated enough work for a release, following the project's own documented release process.
+
+## Step 0: Discover the Release Process
+
+You need to determine these values (use angle-bracket names as placeholders in subsequent steps):
+- \`<SOURCE_BRANCH>\` — where development happens
+- \`<TARGET_BRANCH>\` — where releases go
+- Changelog format and location
+- Pre-release checks (tests, builds)
+- Push/rebase conventions
+
+First, extract \`<OWNER>\` and \`<REPO>\`:
+\`\`\`bash
+cd {repoPath} && gh repo view --json owner,name --jq '"OWNER=" + .owner.login + " REPO=" + .name'
+\`\`\`
+
+Then search for release documentation. Check your CLAUDE.md context (already provided above) for "Git Workflow", "Release", or "Changelog" sections. If the release process is not clear from CLAUDE.md, check these files in order (use whichever exist):
+1. \`cat {repoPath}/README.md\` — look for release/deployment/workflow sections
+2. \`cat {repoPath}/.changelog/README.md\` — changelog format and release conventions
+3. \`cat {repoPath}/CONTRIBUTING.md\` — contributing/release guidelines
+4. \`ls {repoPath}/docs/\` — look for release process docs (e.g., RELEASE.md, DEPLOY.md)
+5. \`ls {repoPath}/.github/workflows/\` — infer branch flow from CI workflow triggers
+6. \`gh api repos/<OWNER>/<REPO>/branches --jq '.[].name'\` — list branches to identify the flow
+
+If no documentation specifies a release flow, fall back to: source=dev, target=main.
 
 ## Step 1: Evaluate Readiness
 
-Read the current changelog and version:
-- \`cat .changelog/v*.x.md\` (the one with literal "x", not a resolved version)
-- \`node -p "require('./package.json').version"\`
+Using the changelog location discovered in Step 0:
+- Read the current changelog (e.g., \`.changelog/NEXT.md\` or \`.changelog/v*.x.md\`)
+- Read the current version: \`node -p "require('{repoPath}/package.json').version"\` or equivalent
 
 Count substantive entries (lines starting with "###" or "- **" under Features, Fixes, Improvements sections). If fewer than 2 substantive entries exist, stop and report: "Not enough work accumulated for a release." Do NOT create a PR.
 
 ## Step 2: Verify Clean State
 
-Run these checks (stop if any fail):
-1. \`git fetch origin\` and ensure dev is up to date: \`git status -uno\` should show "Your branch is up to date"
-2. \`cd server && npm test\` — all tests must pass
-3. \`cd client && npm run build\` — build must succeed
+Run these checks on \`<SOURCE_BRANCH>\` (stop if any fail):
+1. \`git -C {repoPath} fetch origin\` and ensure \`<SOURCE_BRANCH>\` is up to date
+2. Run the project's test suite (use the command from release docs)
+3. Run the project's build (use the command from release docs)
 
 ## Step 3: Create or Find PR
 
-Check for existing PR: \`gh pr list --base main --head dev --state open --json number,url\`
+Check for existing PR: \`gh pr list --repo <OWNER>/<REPO> --base <TARGET_BRANCH> --head <SOURCE_BRANCH> --state open --json number,url\`
 
-If a PR exists, use it. If not, create one:
-\`\`\`bash
-gh pr create --base main --head dev --title "Release $(node -p \\"require('./package.json').version\\")" --body "$(cat .changelog/v*.x.md | head -60)"
-\`\`\`
+If a PR exists, use it. If not, create one following the project's documented release PR conventions.
 
-Capture the PR number and URL.
+Capture the PR number as \`<PR_NUM>\` and URL.
 
 ## Step 4: Wait for Copilot Review
 
 Copilot review is triggered automatically on push. Poll every 15 seconds until the review appears:
 \`\`\`bash
-gh api repos/atomantic/PortOS/pulls/PR_NUM/reviews --jq '.[] | select(.user.login == "copilot-pull-request-reviewer") | .state'
+gh api repos/<OWNER>/<REPO>/pulls/<PR_NUM>/reviews --jq '.[] | select(.user.login == "copilot-pull-request-reviewer") | .state'
 \`\`\`
 
 Wait until you see APPROVED or CHANGES_REQUESTED. Timeout after 5 minutes of polling.
@@ -490,7 +511,7 @@ Wait until you see APPROVED or CHANGES_REQUESTED. Timeout after 5 minutes of pol
 Use gh api graphql (JSON input to avoid shell escaping issues with GraphQL variables):
 
 \`\`\`bash
-echo '{"query":"query{repository(owner:\\"atomantic\\",name:\\"PortOS\\"){pullRequest(number:PR_NUM){reviewThreads(first:100){nodes{id,isResolved,comments(first:10){nodes{body,path,line,author{login}}}}}}}}"}' | gh api graphql --input -
+echo '{"query":"query{repository(owner:\\"<OWNER>\\",name:\\"<REPO>\\"){pullRequest(number:<PR_NUM>){reviewThreads(first:100){nodes{id,isResolved,comments(first:10){nodes{body,path,line,author{login}}}}}}}}"}' | gh api graphql --input -
 \`\`\`
 
 ### 5b. If no unresolved threads: skip to Step 6 (Merge).
@@ -504,9 +525,7 @@ For each comment, read the referenced file and critically evaluate the suggestio
 Either way, resolve every thread — the goal is zero unresolved threads before merge.
 
 After evaluating all threads:
-- If any code changes were made: run \`cd server && npm test\` to verify, then commit and push:
-  \`git add <files> && git commit -m "fix: address Copilot review feedback"\`
-  \`git pull --rebase --autostash && git push\`
+- If any code changes were made: run the project's test suite to verify, then commit and push following the project's push conventions (e.g., \`git pull --rebase --autostash && git push\`)
 
 ### 5d. Resolve ALL threads via GraphQL mutation (both fixed and dismissed):
 
@@ -525,10 +544,10 @@ If after 5 iterations there are still unresolved threads, stop and report what r
 
 Only merge when Copilot's most recent review has NO unresolved threads:
 \`\`\`bash
-gh pr merge PR_NUM --merge
+gh pr merge <PR_NUM> --merge
 \`\`\`
 
-If merge fails (e.g., branch protections), try: \`gh pr merge PR_NUM --merge --admin\`
+If merge fails (e.g., branch protections), try: \`gh pr merge <PR_NUM> --merge --admin\`
 
 ## Step 7: Report
 
@@ -536,9 +555,7 @@ Summarize:
 - Version released
 - Key changes (from changelog)
 - Number of review iterations needed
-- Any unresolved issues
-
-IMPORTANT: Always use \`git pull --rebase --autostash\` before pushing (dev branch gets auto-bumped by CI). Never use \`git push\` alone.`,
+- Any unresolved issues`,
 
   'jira-sprint-manager': `[Improvement: {appName}] JIRA Sprint Manager
 
@@ -573,6 +590,53 @@ Do NOT comment on JIRA tickets directly — all action items go to the Review Hu
 ## Phase 3 — Report
 
 9. Generate a summary report covering triage actions taken and implementation work completed`,
+
+  'branch-cleanup': `[Improvement: {appName}] Branch Cleanup — Delete Merged Branches
+
+Clean up stale branches in {appName} that have already been merged into the default branch.
+
+Repository: {repoPath}
+
+## Phase 1 — Identify Merged Branches
+
+1. cd into {repoPath}
+2. Run \`git fetch origin --prune\` to sync remote refs and remove stale tracking references
+3. Detect the default branch: \`git branch --list\` — look for main, then master
+4. List all local branches: \`git branch --format='%(refname:short)'\`
+5. List merged branches: \`git branch --merged <defaultBranch> --format='%(refname:short)'\`
+6. Filter out protected branches that must NEVER be deleted:
+   - main, master (default branches)
+   - release (release branch)
+   - dev, develop (development branches)
+   - The currently checked-out branch
+
+## Phase 2 — Delete Merged Local Branches
+
+7. For each merged branch that is NOT protected:
+   - Delete locally: \`git branch -d <branch>\`
+   - Log the branch name and result
+
+## Phase 3 — Clean Up Merged Remote Branches
+
+8. List remote branches merged into the default branch: \`git branch -r --merged origin/<defaultBranch> --format='%(refname:short)'\`
+9. Filter out protected remote branches (origin/main, origin/master, origin/release, origin/dev, origin/develop, origin/HEAD)
+10. For each merged remote branch:
+    - Delete remotely: \`git push origin --delete <branch>\`
+    - Log the branch name and result
+
+## Phase 4 — Checkout Default Branch
+
+11. Checkout the default branch so the repo is not left on a stale feature branch: \`git checkout <defaultBranch>\`
+
+## Phase 5 — Report
+
+12. Summarize:
+    - Total branches found (local and remote)
+    - Branches deleted (local and remote)
+    - Branches skipped (protected or unmerged)
+    - Any errors encountered
+
+IMPORTANT: Never delete unmerged branches. Only delete branches fully merged into the default branch. Use \`git branch -d\` (not -D) for local branches to ensure safety.`,
 
   'pr-reviewer': `[Improvement: {appName}] PR Review — Check Open PRs
 
@@ -805,10 +869,10 @@ When PLAN.md is missing, empty, or fully completed, brainstorm and implement a n
   ]
 };
 
-// Unified default interval settings for all 15 task types
+// Unified default interval settings for all 17 task types
 export const SELF_IMPROVEMENT_TASK_TYPES = [
   'security', 'code-quality', 'test-coverage', 'performance',
-  'accessibility', 'console-errors', 'dependency-updates', 'documentation',
+  'accessibility', 'branch-cleanup', 'console-errors', 'dependency-updates', 'documentation',
   'ui-bugs', 'mobile-responsive', 'feature-ideas', 'error-handling',
   'typing', 'release-check', 'pr-reviewer', 'jira-sprint-manager'
 ];
@@ -819,17 +883,18 @@ const DEFAULT_TASK_INTERVALS = {
   'test-coverage':       { type: INTERVAL_TYPES.WEEKLY, enabled: false, providerId: null, model: null, prompt: null },
   'performance':         { type: INTERVAL_TYPES.WEEKLY, enabled: false, providerId: null, model: null, prompt: null },
   'accessibility':       { type: INTERVAL_TYPES.ONCE, enabled: false, providerId: null, model: null, prompt: null },
+  'branch-cleanup':      { type: INTERVAL_TYPES.WEEKLY, enabled: false, providerId: null, model: null, prompt: null },
   'console-errors':      { type: INTERVAL_TYPES.ROTATION, enabled: false, providerId: null, model: null, prompt: null },
   'dependency-updates':  { type: INTERVAL_TYPES.WEEKLY, enabled: false, providerId: null, model: null, prompt: null },
   'documentation':       { type: INTERVAL_TYPES.ONCE, enabled: false, providerId: null, model: null, prompt: null },
   'ui-bugs':             { type: INTERVAL_TYPES.ON_DEMAND, enabled: false, providerId: null, model: null, prompt: null },
   'mobile-responsive':   { type: INTERVAL_TYPES.ON_DEMAND, enabled: false, providerId: null, model: null, prompt: null },
-  'feature-ideas':       { type: INTERVAL_TYPES.DAILY, enabled: false, providerId: null, model: null, prompt: null, taskMetadata: { useWorktree: true, simplify: true } },
+  'feature-ideas':       { type: INTERVAL_TYPES.DAILY, enabled: false, providerId: null, model: null, prompt: null, taskMetadata: { useWorktree: true, openPR: true, simplify: true } },
   'error-handling':      { type: INTERVAL_TYPES.ROTATION, enabled: false, providerId: null, model: null, prompt: null },
   'typing':              { type: INTERVAL_TYPES.ONCE, enabled: false, providerId: null, model: null, prompt: null },
   'release-check':       { type: INTERVAL_TYPES.ON_DEMAND, enabled: false, providerId: null, model: null, prompt: null },
   'pr-reviewer':         { type: INTERVAL_TYPES.CUSTOM, intervalMs: 7200000, enabled: false, weekdaysOnly: true, providerId: null, model: null, prompt: null },
-  'jira-sprint-manager': { type: INTERVAL_TYPES.DAILY, enabled: false, weekdaysOnly: true, optIn: true, providerId: null, model: null, prompt: null, taskMetadata: { useWorktree: true, simplify: true } }
+  'jira-sprint-manager': { type: INTERVAL_TYPES.DAILY, enabled: false, weekdaysOnly: true, providerId: null, model: null, prompt: null, taskMetadata: { useWorktree: true, openPR: true, simplify: true } }
 };
 
 /**
@@ -1127,6 +1192,34 @@ export async function getExecutionHistory(taskType) {
 }
 
 /**
+ * Check if all runAfter dependencies have completed since this task's last run.
+ * Returns { satisfied, pending } where pending lists unfinished dependency task types.
+ */
+function checkRunAfterDeps(schedule, taskType, appId = null) {
+  const interval = schedule.tasks[taskType];
+  const deps = interval?.runAfter;
+  if (!deps || deps.length === 0) return { satisfied: true, pending: [] };
+
+  const key = `task:${taskType}`;
+  const execution = schedule.executions[key] || { lastRun: null, perApp: {} };
+  const ownLastRun = safeDate(appId ? execution.perApp[appId]?.lastRun : execution.lastRun);
+
+  const pending = [];
+  for (const dep of deps) {
+    const depKey = `task:${dep}`;
+    const depExec = schedule.executions[depKey] || { lastRun: null, perApp: {} };
+    const depLastRun = safeDate(appId ? depExec.perApp[appId]?.lastRun : depExec.lastRun);
+
+    // Dependency must have run after this task's last run (i.e., within the current cycle)
+    if (depLastRun <= ownLastRun) {
+      pending.push(dep);
+    }
+  }
+
+  return { satisfied: pending.length === 0, pending };
+}
+
+/**
  * Check if a task type should run for a specific app (or globally)
  */
 export async function shouldRunTask(taskType, appId = null) {
@@ -1145,19 +1238,10 @@ export async function shouldRunTask(taskType, appId = null) {
     }
   }
 
-  // Check per-app override
   if (appId) {
-    if (interval.optIn) {
-      // Opt-in tasks require explicit per-app enablement (default: disabled)
-      const overrides = await getAppTaskTypeOverrides(appId);
-      if (overrides[taskType]?.enabled !== true) {
-        return { shouldRun: false, reason: 'opt-in-not-enabled' };
-      }
-    } else {
-      const enabledForApp = await isTaskTypeEnabledForApp(appId, taskType);
-      if (!enabledForApp) {
-        return { shouldRun: false, reason: 'disabled-for-app' };
-      }
+    const enabledForApp = await isTaskTypeEnabledForApp(appId, taskType);
+    if (!enabledForApp) {
+      return { shouldRun: false, reason: 'disabled-for-app' };
     }
   }
 
@@ -1188,71 +1272,82 @@ export async function shouldRunTask(taskType, appId = null) {
     return result;
   };
 
+  let result;
+
   switch (effectiveType) {
     case INTERVAL_TYPES.ROTATION:
-      return { shouldRun: true, reason: 'rotation' };
+      result = { shouldRun: true, reason: 'rotation' };
+      break;
 
     case INTERVAL_TYPES.DAILY: {
       const learningAdjustment = await getPerformanceAdjustedInterval(taskType, DAY);
       const adjustedInterval = learningAdjustment.adjustedIntervalMs;
-
       if (timeSinceLastRun >= adjustedInterval) {
-        return buildResult(true, learningAdjustment.adjusted ? 'daily-due-adjusted' : 'daily-due', DAY, { learningAdjustment });
+        result = buildResult(true, learningAdjustment.adjusted ? 'daily-due-adjusted' : 'daily-due', DAY, { learningAdjustment });
+      } else {
+        result = buildResult(false, learningAdjustment.adjusted ? 'daily-cooldown-adjusted' : 'daily-cooldown', DAY, {
+          learningAdjustment, nextRunIn: adjustedInterval - timeSinceLastRun,
+          nextRunAt: new Date(lastRun + adjustedInterval).toISOString(),
+          baseIntervalMs: DAY, adjustedIntervalMs: adjustedInterval
+        });
       }
-      return buildResult(false, learningAdjustment.adjusted ? 'daily-cooldown-adjusted' : 'daily-cooldown', DAY, {
-        learningAdjustment,
-        nextRunIn: adjustedInterval - timeSinceLastRun,
-        nextRunAt: new Date(lastRun + adjustedInterval).toISOString(),
-        baseIntervalMs: DAY,
-        adjustedIntervalMs: adjustedInterval
-      });
+      break;
     }
 
     case INTERVAL_TYPES.WEEKLY: {
       const learningAdjustment = await getPerformanceAdjustedInterval(taskType, WEEK);
       const adjustedInterval = learningAdjustment.adjustedIntervalMs;
-
       if (timeSinceLastRun >= adjustedInterval) {
-        return buildResult(true, learningAdjustment.adjusted ? 'weekly-due-adjusted' : 'weekly-due', WEEK, { learningAdjustment });
+        result = buildResult(true, learningAdjustment.adjusted ? 'weekly-due-adjusted' : 'weekly-due', WEEK, { learningAdjustment });
+      } else {
+        result = buildResult(false, learningAdjustment.adjusted ? 'weekly-cooldown-adjusted' : 'weekly-cooldown', WEEK, {
+          learningAdjustment, nextRunIn: adjustedInterval - timeSinceLastRun,
+          nextRunAt: new Date(lastRun + adjustedInterval).toISOString(),
+          baseIntervalMs: WEEK, adjustedIntervalMs: adjustedInterval
+        });
       }
-      return buildResult(false, learningAdjustment.adjusted ? 'weekly-cooldown-adjusted' : 'weekly-cooldown', WEEK, {
-        learningAdjustment,
-        nextRunIn: adjustedInterval - timeSinceLastRun,
-        nextRunAt: new Date(lastRun + adjustedInterval).toISOString(),
-        baseIntervalMs: WEEK,
-        adjustedIntervalMs: adjustedInterval
-      });
+      break;
     }
 
     case INTERVAL_TYPES.ONCE:
-      if (appExecution.count === 0) {
-        return { shouldRun: true, reason: 'once-first-run' };
-      }
-      return { shouldRun: false, reason: 'once-completed', completedAt: appExecution.lastRun };
+      result = appExecution.count === 0
+        ? { shouldRun: true, reason: 'once-first-run' }
+        : { shouldRun: false, reason: 'once-completed', completedAt: appExecution.lastRun };
+      break;
 
     case INTERVAL_TYPES.ON_DEMAND:
-      return { shouldRun: false, reason: 'on-demand-only' };
+      result = { shouldRun: false, reason: 'on-demand-only' };
+      break;
 
     case INTERVAL_TYPES.CUSTOM: {
       const baseInterval = interval.intervalMs || DAY;
       const learningAdjustment = await getPerformanceAdjustedInterval(taskType, baseInterval);
       const adjustedInterval = learningAdjustment.adjustedIntervalMs;
-
       if (timeSinceLastRun >= adjustedInterval) {
-        return buildResult(true, learningAdjustment.adjusted ? 'custom-due-adjusted' : 'custom-due', baseInterval, { learningAdjustment });
+        result = buildResult(true, learningAdjustment.adjusted ? 'custom-due-adjusted' : 'custom-due', baseInterval, { learningAdjustment });
+      } else {
+        result = buildResult(false, learningAdjustment.adjusted ? 'custom-cooldown-adjusted' : 'custom-cooldown', baseInterval, {
+          learningAdjustment, nextRunIn: adjustedInterval - timeSinceLastRun,
+          nextRunAt: new Date(lastRun + adjustedInterval).toISOString(),
+          baseIntervalMs: baseInterval, adjustedIntervalMs: adjustedInterval
+        });
       }
-      return buildResult(false, learningAdjustment.adjusted ? 'custom-cooldown-adjusted' : 'custom-cooldown', baseInterval, {
-        learningAdjustment,
-        nextRunIn: adjustedInterval - timeSinceLastRun,
-        nextRunAt: new Date(lastRun + adjustedInterval).toISOString(),
-        baseIntervalMs: baseInterval,
-        adjustedIntervalMs: adjustedInterval
-      });
+      break;
     }
 
     default:
-      return { shouldRun: true, reason: 'unknown-default-rotation' };
+      result = { shouldRun: true, reason: 'unknown-default-rotation' };
   }
+
+  // If the task would run, check runAfter dependencies — blocked until all deps have run since our last run
+  if (result.shouldRun && interval.runAfter?.length > 0) {
+    const depCheck = checkRunAfterDeps(schedule, taskType, appId);
+    if (!depCheck.satisfied) {
+      return { shouldRun: false, reason: 'waiting-on-dependencies', pendingDeps: depCheck.pending };
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -1434,11 +1529,7 @@ export async function getScheduleStatus() {
     // Check global shouldRun status
     const check = await shouldRunTask(taskType);
 
-    // Build per-app overrides map and count enabled apps
-    // Opt-in tasks default to disabled; standard tasks default to enabled
-    const isEnabledForApp = interval.optIn
-      ? (override) => override?.enabled === true
-      : (override) => !override || override.enabled !== false;
+    const isEnabledForApp = (override) => override?.enabled === true;
     const appOverrides = {};
     let enabledAppCount = 0;
     const allOverrides = await Promise.all(activeApps.map(app => getAppTaskTypeOverrides(app.id)));
@@ -1619,8 +1710,9 @@ function getTaskTypeDescription(taskType) {
     'documentation': 'Update documentation',
     'feature-ideas': 'Implement next planned feature or brainstorm new one',
     'accessibility': 'Accessibility audit',
+    'branch-cleanup': 'Clean up merged branches',
     'dependency-updates': 'Update dependencies',
-    'release-check': 'Check dev for release readiness',
+    'release-check': 'Check for release readiness',
     'error-handling': 'Improve error handling',
     'typing': 'Improve TypeScript types',
     'pr-reviewer': 'Review open PRs from contributors',

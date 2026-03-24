@@ -4,6 +4,7 @@ import { getInsightThemes, refreshInsightThemes } from '../../services/api';
 import InsightCard from './InsightCard';
 import ConfidenceBadge from './ConfidenceBadge';
 import EmptyState from './EmptyState';
+import { timeAgo } from '../../utils/formatters';
 
 // Map theme strength to confidence level
 const STRENGTH_TO_LEVEL = {
@@ -11,18 +12,6 @@ const STRENGTH_TO_LEVEL = {
   moderate: 'moderate',
   tentative: 'weak'
 };
-
-function formatRelativeTime(isoString) {
-  if (!isoString) return null;
-  const diffMs = Date.now() - new Date(isoString).getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays}d ago`;
-}
 
 function EvidenceList({ evidence }) {
   const [expanded, setExpanded] = useState(false);
@@ -139,7 +128,7 @@ export default function TasteIdentityTab() {
     );
   }
 
-  const relativeTime = formatRelativeTime(data.generatedAt);
+  const relativeTime = timeAgo(data.generatedAt);
 
   return (
     <div className="space-y-4">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ChevronRight, Calculator, BookOpen, MessageCircle, Mic, Sparkles } from 'lucide-react';
-import { DOMAINS, DRILL_TO_DOMAIN } from './constants';
+import { DOMAINS, DRILL_TO_DOMAIN, DRILL_LABELS } from './constants';
 
 const DOMAIN_ICONS = {
   math: Calculator,
@@ -8,27 +8,6 @@ const DOMAIN_ICONS = {
   wordplay: MessageCircle,
   verbal: Mic,
   imagination: Sparkles,
-};
-
-const DRILL_LABELS = {
-  'doubling-chain': 'Doubling Chain',
-  'serial-subtraction': 'Serial Subtraction',
-  'multiplication': 'Multiplication',
-  'powers': 'Powers',
-  'estimation': 'Estimation',
-  'word-association': 'Word Association',
-  'story-recall': 'Story Recall',
-  'verbal-fluency': 'Verbal Fluency',
-  'wit-comeback': 'Wit & Comeback',
-  'pun-wordplay': 'Pun & Wordplay',
-  'memory-fill-blank': 'Memory Fill Blank',
-  'memory-sequence': 'Memory Sequence',
-  'memory-element-flash': 'Element Flash',
-  'what-if': 'What If?',
-  'alternative-uses': 'Alternative Uses',
-  'story-prompt': 'Story Prompt',
-  'invention-pitch': 'Invention Pitch',
-  'reframe': 'Reframe',
 };
 
 export default function DrillTransition({ nextDrillType, drillIndex, drillCount, completedResults, onContinue }) {

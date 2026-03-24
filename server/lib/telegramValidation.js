@@ -8,3 +8,7 @@ export const telegramConfigSchema = z.object({
 export const telegramTestSchema = z.object({
   message: z.string().optional()
 });
+
+export const telegramMethodSchema = z.object({
+  method: z.enum(['manual', 'mcp-bridge'])
+});

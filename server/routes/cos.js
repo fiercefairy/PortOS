@@ -17,6 +17,7 @@ import * as productivity from '../services/productivity.js';
 import * as goalProgress from '../services/goalProgress.js';
 import * as decisionLog from '../services/decisionLog.js';
 import { reinitialize as reinitializeEmbeddings } from '../services/memoryEmbeddings.js';
+import * as claudeChangelog from '../services/claudeChangelog.js';
 import { asyncHandler, ServerError } from '../lib/errorHandler.js';
 import { validateRequest, sanitizeTaskMetadata } from '../lib/validation.js';
 import { z } from 'zod';
@@ -42,7 +43,7 @@ const cosConfigSchema = z.object({
   selfImprovementEnabled: z.boolean().optional(),
   appImprovementEnabled: z.boolean().optional(),
   improvementEnabled: z.boolean().optional(),
-  avatarStyle: z.enum(['svg', 'ascii', 'cyber', 'sigil']).optional(),
+  avatarStyle: z.enum(['svg', 'ascii', 'cyber', 'sigil', 'esoteric', 'nexus']).optional(),
   dynamicAvatar: z.boolean().optional(),
   alwaysOn: z.boolean().optional(),
   appReviewCooldownMs: z.number().int().min(0).optional(),
@@ -63,7 +64,7 @@ const cosConfigSchema = z.object({
   }).optional()
 }).strict();
 
-const SCHEDULE_FIELDS = ['type', 'enabled', 'intervalMs', 'providerId', 'model', 'prompt', 'taskMetadata'];
+const SCHEDULE_FIELDS = ['type', 'enabled', 'intervalMs', 'providerId', 'model', 'prompt', 'taskMetadata', 'runAfter'];
 
 /**
  * Pick only defined values from body for schedule settings updates
@@ -88,6 +89,17 @@ function pickScheduleSettings(body) {
       throw new ServerError('Invalid taskMetadata: unrecognized keys or values', { status: 400, code: 'VALIDATION_ERROR' });
     }
     settings.taskMetadata = sanitized;
+  }
+  if (settings.runAfter !== undefined && settings.runAfter !== null) {
+    if (!Array.isArray(settings.runAfter)) {
+      throw new ServerError('runAfter must be an array of task type strings or null', { status: 400, code: 'VALIDATION_ERROR' });
+    }
+    if (!settings.runAfter.every(v => typeof v === 'string')) {
+      throw new ServerError('runAfter entries must be strings', { status: 400, code: 'VALIDATION_ERROR' });
+    }
+    if (settings.runAfter.length === 0) {
+      settings.runAfter = null;
+    }
   }
   return settings;
 }
@@ -191,13 +203,15 @@ router.post('/tasks/enhance', asyncHandler(async (req, res) => {
 
 // POST /api/cos/tasks - Add a new task
 router.post('/tasks', asyncHandler(async (req, res) => {
-  const { description, priority, context, model, provider, app, type = 'user', approvalRequired, screenshots, attachments, position = 'bottom', createJiraTicket, jiraTicketId, jiraTicketUrl, useWorktree, simplify, reviewLoop } = req.body;
+  const { description, priority, context, model, provider, app, type = 'user', approvalRequired, screenshots, attachments, position = 'bottom', createJiraTicket, jiraTicketId, jiraTicketUrl, useWorktree, openPR, simplify, reviewLoop } = req.body;
 
   if (!description) {
     throw new ServerError('Description is required', { status: 400, code: 'VALIDATION_ERROR' });
   }
 
-  const taskData = { description, priority, context, model, provider, app, approvalRequired, screenshots, attachments, position, createJiraTicket, jiraTicketId, jiraTicketUrl, useWorktree, simplify, reviewLoop };
+  // Coerce boolean flags — values from req.body may arrive as strings like 'false' (truthy in JS)
+  const toBool = (v) => v === true || v === 'true' ? true : v === false || v === 'false' ? false : undefined;
+  const taskData = { description, priority, context, model, provider, app, approvalRequired, screenshots, attachments, position, createJiraTicket: toBool(createJiraTicket), jiraTicketId, jiraTicketUrl, useWorktree: toBool(useWorktree), openPR: toBool(openPR), simplify: toBool(simplify), reviewLoop: toBool(reviewLoop) };
   const result = await cos.addTask(taskData, type);
 
   if (result?.duplicate) {
@@ -221,12 +235,9 @@ router.put('/tasks/:id', asyncHandler(async (req, res) => {
   if (provider !== undefined) updates.provider = provider;
   if (app !== undefined) updates.app = app;
 
-  // Handle blocker metadata - set when marking as blocked, clear when unblocking
+  // Set blocker metadata when marking as blocked
   if (status === 'blocked' && blockedReason) {
     updates.metadata = { blocker: blockedReason };
-  } else if (status && status !== 'blocked') {
-    // Clear blocker when moving out of blocked status
-    updates.metadata = { blocker: undefined };
   }
 
   const result = await cos.updateTask(id, updates, type);
@@ -365,6 +376,29 @@ router.post('/agents/:id/feedback', asyncHandler(async (req, res) => {
   res.json(result);
 }));
 
+// POST /api/cos/agents/:id/btw - Send additional context to a running agent
+router.post('/agents/:id/btw', asyncHandler(async (req, res) => {
+  const { message } = req.body;
+
+  if (!message || typeof message !== 'string' || message.trim().length === 0) {
+    throw new ServerError('message is required and must be a non-empty string', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+
+  if (message.length > 5000) {
+    throw new ServerError('message must be 5000 characters or less', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+
+  const result = await cos.sendBtwToAgent(req.params.id, message.trim());
+  if (result?.error) {
+    const isNotFound = result.error === 'Agent not found';
+    throw new ServerError(result.error, {
+      status: isNotFound ? 404 : 400,
+      code: isNotFound ? 'NOT_FOUND' : 'INVALID_STATE'
+    });
+  }
+  res.json(result);
+}));
+
 // GET /api/cos/feedback/stats - Get feedback statistics
 router.get('/feedback/stats', asyncHandler(async (req, res) => {
   const stats = await cos.getFeedbackStats();
@@ -418,6 +452,18 @@ router.get('/briefings/:date', asyncHandler(async (req, res) => {
     throw new ServerError('Briefing not found', { status: 404, code: 'NOT_FOUND' });
   }
   res.json(briefing);
+}));
+
+// GET /api/cos/claude-changelog - Get Claude Code changelog (fetches Atom feed)
+router.get('/claude-changelog', asyncHandler(async (req, res) => {
+  const result = await claudeChangelog.checkChangelog();
+  res.json(result);
+}));
+
+// GET /api/cos/claude-changelog/cached - Get cached changelog without fetching
+router.get('/claude-changelog/cached', asyncHandler(async (req, res) => {
+  const result = await claudeChangelog.getCachedChangelog();
+  res.json(result);
 }));
 
 // GET /api/cos/scripts - List generated scripts
@@ -595,6 +641,12 @@ router.post('/learning/recalculate-model-tiers', asyncHandler(async (req, res) =
   res.json({ success: true, ...result });
 }));
 
+// POST /api/cos/learning/recalculate-durations - Rebuild success-only duration stats from agent archive
+router.post('/learning/recalculate-durations', asyncHandler(async (req, res) => {
+  const result = await taskLearning.recalculateDurationStats();
+  res.json({ success: true, ...result });
+}));
+
 // ============================================================
 // Weekly Digest Routes
 // ============================================================
@@ -689,7 +741,13 @@ router.get('/schedule/task/:taskType', asyncHandler(async (req, res) => {
 // PUT /api/cos/schedule/task/:taskType - Update interval for a task type (unified)
 router.put('/schedule/task/:taskType', asyncHandler(async (req, res) => {
   const { taskType } = req.params;
-  const result = await taskSchedule.updateTaskInterval(taskType, pickScheduleSettings(req.body));
+  const settings = pickScheduleSettings(req.body);
+  // Filter self-references from runAfter to prevent permanent blocking
+  if (Array.isArray(settings.runAfter)) {
+    settings.runAfter = settings.runAfter.filter(dep => dep !== taskType);
+    if (settings.runAfter.length === 0) settings.runAfter = null;
+  }
+  const result = await taskSchedule.updateTaskInterval(taskType, settings);
   res.json({ success: true, taskType, interval: result });
 }));
 

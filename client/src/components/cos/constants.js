@@ -49,6 +49,49 @@ export const STATE_MESSAGES = {
   ideating: "Analyzing options...",
 };
 
+// Agent option toggles for task metadata (useWorktree, openPR, simplify, reviewLoop)
+export const AGENT_OPTIONS = [
+  { field: 'useWorktree', label: 'Worktree', shortLabel: 'WT', description: 'Work in an isolated git worktree on a feature branch. If unchecked, commits directly to the default branch.' },
+  { field: 'openPR', label: 'Open PR', shortLabel: 'PR', description: 'Open a pull request to the default branch (implies worktree). If unchecked with worktree enabled, auto-merges to the default branch on completion.' },
+  { field: 'simplify', label: 'Run /simplify', shortLabel: '/s', description: 'Review code for reuse and quality before committing' },
+  { field: 'reviewLoop', label: 'Review Loop', shortLabel: 'RL', description: 'After the agent opens a PR during its run, keep iterating on review feedback until checks pass. Only applies when Open PR is not enabled (manual PR creation by agent).' }
+];
+
+// Compute new taskMetadata after toggling a field in a per-app override.
+// Returns null when all overrides are cleared (inherit everything).
+// Enforces invariant: openPR implies useWorktree (turning on openPR forces
+// useWorktree on; turning off useWorktree forces openPR off).
+export function toggleAppMetadataOverride(overrideMetadata, globalMetadata, field) {
+  const current = overrideMetadata || {};
+  const newMeta = { ...current };
+  if (newMeta[field] !== undefined) {
+    delete newMeta[field];
+  } else {
+    const effective = overrideMetadata?.[field] ?? globalMetadata?.[field] ?? false;
+    newMeta[field] = !effective;
+  }
+
+  const resolve = (f) => newMeta[f] ?? globalMetadata?.[f] ?? false;
+
+  // Enforce invariant: openPR implies useWorktree
+  if (!resolve('useWorktree') && resolve('openPR')) {
+    // useWorktree is effectively off but openPR is on — force openPR off
+    newMeta.openPR = false;
+  }
+  if (resolve('openPR') && !resolve('useWorktree')) {
+    // openPR on requires useWorktree — force useWorktree on
+    newMeta.useWorktree = true;
+  }
+
+  // Clean entries that match the global value (revert to inherit)
+  for (const key of Object.keys(newMeta)) {
+    if (newMeta[key] === (globalMetadata?.[key] ?? false)) {
+      delete newMeta[key];
+    }
+  }
+  return Object.keys(newMeta).length ? newMeta : null;
+}
+
 export const MEMORY_TYPES = ['fact', 'learning', 'observation', 'decision', 'preference', 'context'];
 
 export const MEMORY_TYPE_COLORS = {

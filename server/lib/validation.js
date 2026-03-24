@@ -182,7 +182,7 @@ export const appSchema = z.object({
   apiPort: z.number().int().min(1).max(65535).nullable().optional(),
   buildCommand: z.string().max(200).optional(),
   uiUrl: z.string().url().optional(),
-  startCommands: z.array(z.string()).min(1).optional(),
+  startCommands: z.array(z.string()).optional(),
   pm2ProcessNames: z.array(z.string()).optional(),
   processes: z.array(processSchema).optional(), // Per-process port configs from ecosystem.config
   envFile: z.string().optional(),
@@ -190,14 +190,15 @@ export const appSchema = z.object({
   appIconPath: z.string().nullable().optional(), // Absolute path to detected app icon image
   editorCommand: z.string().optional(),
   description: z.string().optional(),
-  archived: z.boolean().optional().default(false),
+  archived: z.boolean().optional(),
   pm2Home: z.string().optional(), // Custom PM2_HOME path for apps that run in their own PM2 instance
   disabledTaskTypes: z.array(z.string()).optional(), // Legacy: migrated to taskTypeOverrides
   taskTypeOverrides: z.record(z.object({
     enabled: z.boolean().optional(),
     interval: z.string().nullable().optional()
   })).optional(), // Per-task overrides: { [taskType]: { enabled, interval } }
-  defaultUseWorktree: z.boolean().optional().default(false),
+  defaultUseWorktree: z.boolean().optional(),
+  defaultOpenPR: z.boolean().optional(),
   jira: jiraConfigSchema.optional().nullable(),
   datadog: datadogConfigSchema.optional().nullable()
 });
@@ -542,7 +543,7 @@ export function validateRequest(schema, data) {
 // TASK METADATA SANITIZATION
 // =============================================================================
 
-const ALLOWED_TASK_METADATA_KEYS = ['useWorktree', 'simplify'];
+const ALLOWED_TASK_METADATA_KEYS = ['useWorktree', 'openPR', 'simplify', 'reviewLoop'];
 
 /**
  * Sanitize taskMetadata to only allowed agent-option keys with boolean values.

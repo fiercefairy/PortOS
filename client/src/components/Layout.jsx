@@ -45,6 +45,7 @@ import {
   Ticket,
   Network,
   Flame,
+  Monitor,
   Cigarette,
   Skull,
   HeartPulse,
@@ -75,21 +76,15 @@ import { useUpdateChecker } from '../hooks/useUpdateChecker';
 import NotificationDropdown from './NotificationDropdown';
 import ThemeSwitcher from './ThemeSwitcher';
 import CmdKSearch from './CmdKSearch';
+import KeyboardHelp from './KeyboardHelp';
 import * as api from '../services/api';
 import socket from '../services/socket';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: Home, single: true },
+  { to: '/review', label: 'Review Hub', icon: ClipboardList, single: true },
   { to: '/city', label: 'CyberCity', icon: Building2, single: true },
   { separator: true },
-  {
-    label: 'AI Config',
-    icon: Bot,
-    children: [
-      { to: '/prompts', label: 'Prompts', icon: FileText },
-      { to: '/ai', label: 'Providers', icon: Bot }
-    ]
-  },
   { label: 'Apps', icon: Package, dynamic: 'apps', children: [] },
   {
     label: 'Brain',
@@ -130,6 +125,7 @@ const navItems = [
       { to: '/cos/gsd', label: 'GSD', icon: Compass },
       { to: '/cos/health', label: 'Health', icon: Activity },
       { to: '/cos/learning', label: 'Learning', icon: GraduationCap },
+      { to: '/loops', label: 'Loops', icon: RefreshCw },
       { to: '/cos/memory', label: 'Memory', icon: Brain },
       { to: '/cos/schedule', label: 'Schedule', icon: Clock },
       { to: '/cos/scripts', label: 'Scripts', icon: Terminal },
@@ -148,10 +144,13 @@ const navItems = [
       { to: '/browser', label: 'Browser', icon: Globe },
       { to: '/devtools/runner', label: 'Code', icon: Code2 },
       { to: '/devtools/datadog', label: 'DataDog', icon: Dog },
+      { to: '/feature-agents', label: 'Feature Agents', icon: Wand2 },
       { to: '/devtools/github', label: 'GitHub', icon: Github },
       { to: '/devtools/history', label: 'History', icon: History },
+      { to: '/instances', label: 'Instances', icon: Network },
       { to: '/devtools/jira', label: 'JIRA', icon: Ticket },
       { to: '/devtools/processes', label: 'Processes', icon: Activity },
+      { to: '/shell', label: 'Shell', icon: SquareTerminal },
       { to: '/devtools/usage', label: 'Usage', icon: BarChart3 }
     ]
   },
@@ -173,10 +172,8 @@ const navItems = [
       { to: '/digital-twin/test', label: 'Test', icon: CheckCircle }
     ]
   },
-  { to: '/feature-agents', label: 'Feature Agents', icon: Wand2, single: true },
   { to: '/goals/tree', label: 'Goals', icon: Target, single: true },
   { to: '/insights/overview', label: 'Insights', icon: Lightbulb, single: true },
-  { to: '/instances', label: 'Instances', icon: Network, single: true },
   {
     label: 'MeatSpace',
     icon: Skull,
@@ -214,20 +211,20 @@ const navItems = [
       { to: '/post/wordplay', label: 'Wordplay', icon: MessageCircle },
     ]
   },
-  { to: '/review', label: 'Review Hub', icon: ClipboardList, single: true },
-  { to: '/security', label: 'Security', icon: Camera, single: true },
   {
     label: 'Settings',
     icon: Settings,
     children: [
       { to: '/settings/backup', label: 'Backup', icon: Download },
       { to: '/settings/database', label: 'Database', icon: Database },
-      { to: '/settings/telegram', label: 'Telegram', icon: MessageSquare }
+      { to: '/prompts', label: 'Prompts', icon: FileText },
+      { to: '/ai', label: 'Providers', icon: Bot },
+      { to: '/security', label: 'Security', icon: Camera },
+      { to: '/settings/telegram', label: 'Telegram', icon: MessageSquare },
+      { to: '/uploads', label: 'Uploads', icon: Upload }
     ]
   },
-  { to: '/shell', label: 'Shell', icon: SquareTerminal, single: true },
-  { to: '/agents', label: 'Social Agents', icon: Users, single: true },
-  { to: '/uploads', label: 'Uploads', icon: Upload, single: true }
+  { to: '/agents', label: 'Social Agents', icon: Users, single: true }
 ];
 
 const SIDEBAR_KEY = 'portos-sidebar-collapsed';
@@ -605,6 +602,18 @@ export default function Layout() {
               v{__APP_VERSION__}
             </span>
             <div className="flex items-center gap-1">
+              <NavLink
+                to="/ambient"
+                className={`p-1.5 rounded-lg transition-colors ${
+                  isActive('/ambient')
+                    ? 'text-port-accent'
+                    : 'text-gray-500 hover:text-white'
+                }`}
+                title="Ambient"
+                aria-label="Ambient display"
+              >
+                <Monitor size={18} />
+              </NavLink>
               <ThemeSwitcher />
               <NotificationDropdown
                 notifications={notifications}
@@ -636,6 +645,17 @@ export default function Layout() {
             <span className="font-bold text-sm text-port-accent">PortOS</span>
           </div>
           <div className="flex items-center gap-1">
+            <NavLink
+              to="/ambient"
+              className={`p-1.5 rounded-lg transition-colors ${
+                isActive('/ambient')
+                  ? 'text-port-accent'
+                  : 'text-gray-500 hover:text-white'
+              }`}
+              aria-label="Ambient display"
+            >
+              <Monitor size={16} />
+            </NavLink>
             <ThemeSwitcher position="below" />
             <NotificationDropdown
               notifications={notifications}
@@ -675,6 +695,8 @@ export default function Layout() {
       </div>
       {/* Cmd+K search overlay — mounted in layout so it's available on every page */}
       <CmdKSearch />
+      {/* Keyboard shortcuts help — press ? to toggle */}
+      <KeyboardHelp />
     </div>
   );
 }

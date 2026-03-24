@@ -39,9 +39,8 @@ export default function AlcoholChart({ sex = 'male', onRefreshKey, onViewChange 
     }
 
     const cursor = new Date(from);
-    const end = new Date(toStr);
-    while (cursor <= end) {
-      const dateStr = localDateStr(cursor);
+    let dateStr = localDateStr(cursor);
+    while (dateStr <= toStr) {
       const drinks = dateMap[dateStr] || 0;
       chartData.push({
         date: dateStr,
@@ -50,6 +49,7 @@ export default function AlcoholChart({ sex = 'male', onRefreshKey, onViewChange 
         grams: Math.round(drinks * GRAMS_PER_STD_DRINK * 100) / 100
       });
       cursor.setDate(cursor.getDate() + 1);
+      dateStr = localDateStr(cursor);
     }
 
     setData(chartData);

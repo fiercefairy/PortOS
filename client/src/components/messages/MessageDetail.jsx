@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, Reply, Sparkles, Send, RefreshCw, Archive, Trash2 } from 'lucide-react';
+import { ArrowLeft, Reply, Sparkles, Send, RefreshCw, Archive, Trash2, User } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as api from '../../services/api';
 
@@ -67,11 +67,19 @@ export default function MessageDetail({ message, accounts, onBack }) {
   const [refreshing, setRefreshing] = useState(false);
   const [displayedMessage, setDisplayedMessage] = useState(message);
   const [actioning, setActioning] = useState(null);
+  const [useVoice, setUseVoice] = useState(false);
 
   // Sync displayedMessage when the message prop changes (e.g., selecting a different message)
   useEffect(() => {
     setDisplayedMessage(message);
   }, [message]);
+
+  // Load voice mode default from settings
+  useEffect(() => {
+    api.getSettings()
+      .then(s => setUseVoice(s?.messages?.voiceMode ?? false))
+      .catch(() => {});
+  }, []);
 
   const account = accounts.find(a => a.id === displayedMessage.accountId) || accounts[0];
 
@@ -107,14 +115,15 @@ export default function MessageDetail({ message, accounts, onBack }) {
       replyToMessageId: displayedMessage.id,
       threadId: displayedMessage.threadId,
       context: `Replying to: "${displayedMessage.subject}" from ${displayedMessage.from?.name || displayedMessage.from?.email}`,
-      instructions: ''
+      instructions: '',
+      useVoice: useVoice ?? undefined
     }).catch(() => null);
     setGenerating(false);
     if (draft) {
       setReplyBody(draft.body);
       setGeneratedDraftId(draft.id);
       setShowReply(true);
-      toast.success('AI draft generated');
+      toast.success(useVoice ? 'AI draft generated with your voice' : 'AI draft generated');
     }
   };
 
@@ -169,6 +178,7 @@ export default function MessageDetail({ message, accounts, onBack }) {
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <button onClick={() => setShowReply(!showReply)} className="p-1.5 text-port-accent hover:bg-port-accent/10 rounded transition-colors" title="Reply"><Reply size={14} /></button>
+          <button onClick={() => setUseVoice(v => !v)} className={`p-1.5 rounded transition-colors ${useVoice ? 'text-purple-400 bg-purple-500/10' : 'text-gray-500 hover:text-gray-300'}`} title={useVoice ? 'Voice mode ON — replies use your Digital Twin voice' : 'Voice mode OFF — replies use generic tone'}><User size={14} /></button>
           <button onClick={handleGenerateReply} disabled={generating} className="p-1.5 text-purple-400 hover:bg-purple-500/10 rounded transition-colors disabled:opacity-50" title="AI Reply"><Sparkles size={14} className={generating ? 'animate-pulse' : ''} /></button>
           <button onClick={handleRefresh} disabled={refreshing} className="p-1.5 text-port-accent hover:bg-port-accent/10 rounded transition-colors disabled:opacity-50" title="Refresh"><RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} /></button>
           <span className="w-px h-4 bg-port-border mx-0.5" />

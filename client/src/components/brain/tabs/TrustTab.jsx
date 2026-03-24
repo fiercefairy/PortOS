@@ -12,9 +12,9 @@ import toast from 'react-hot-toast';
 import {
   DESTINATIONS,
   STATUS_COLORS,
-  getConfidenceColor,
-  formatRelativeTime
+  getConfidenceColor
 } from '../constants';
+import { timeAgo } from '../../../utils/formatters';
 
 export default function TrustTab({ onRefresh }) {
   const [entries, setEntries] = useState([]);
@@ -263,7 +263,7 @@ export default function TrustTab({ onRefresh }) {
                         {Math.round(confidence * 100)}%
                       </span>
                       <span className="text-xs text-gray-500">
-                        {formatRelativeTime(entry.capturedAt)}
+                        {timeAgo(entry.capturedAt)}
                       </span>
                     </div>
                   </div>

@@ -4,10 +4,9 @@ import { findOrOpenPage, getPages, isAuthPage, evaluateOnPage } from './messageP
 import { recordCorrection } from './messageTriageRules.js';
 import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { ensureDir, PATHS, safeJSONParse } from '../lib/fileUtils.js';
+import { ensureDir, PATHS, safeJSONParse, UUID_RE } from '../lib/fileUtils.js';
 
 const CACHE_DIR = join(PATHS.messages, 'cache');
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const PROVIDER_URLS = {
   outlook: 'https://outlook.office.com/mail/',
@@ -247,68 +246,6 @@ async function executeOutlookAction(page, subject, action) {
   if (verify && !verify.gone) {
     throw new Error(`Message still in inbox after ${action} attempt — action may not have worked`);
   }
-}
-
-function buildOutlookActionScript(subject, action) {
-  // Use the same listbox/option approach proven by the sync scraper,
-  // then use keyboard shortcuts (Delete key or Backspace for archive)
-  const keyCode = action === 'delete' ? 'Delete' : 'Backspace';
-  return `(async () => {
-    const listbox = document.querySelector("[role='listbox']");
-    if (!listbox) return { error: 'No message list found — is Outlook inbox visible?' };
-
-    const targetSubject = ${JSON.stringify(subject)}.toLowerCase();
-    const scrollContainer = listbox.closest('[role="region"]') || listbox.parentElement;
-
-    function findMatch() {
-      const rows = listbox.querySelectorAll('[role="option"]');
-      for (const row of rows) {
-        const label = (row.getAttribute('aria-label') || '').toLowerCase();
-        const text = (row.innerText || '').toLowerCase();
-        if (label.includes(targetSubject) || text.includes(targetSubject)) return row;
-      }
-      return null;
-    }
-
-    // Search visible rows, then scroll to find
-    let matched = findMatch();
-    if (!matched && scrollContainer) {
-      for (let i = 0; i < 15; i++) {
-        scrollContainer.scrollBy(0, 600);
-        await new Promise(r => setTimeout(r, 300));
-        matched = findMatch();
-        if (matched) break;
-      }
-    }
-    if (!matched) return { error: 'Message not found in inbox view', notInInbox: true };
-
-    // Select the message
-    matched.scrollIntoView({ block: 'center' });
-    await new Promise(r => setTimeout(r, 200));
-    matched.click();
-    await new Promise(r => setTimeout(r, 500));
-
-    // Use keyboard shortcut — most reliable in Outlook web
-    document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: '${keyCode}', code: '${keyCode}', bubbles: true }));
-    await new Promise(r => setTimeout(r, 500));
-
-    // Fallback: try toolbar button if keyboard didn't work
-    const label = '${action === 'delete' ? 'Delete' : 'Archive'}';
-    const btn = [...document.querySelectorAll('button[aria-label]')].find(b =>
-      b.getAttribute('aria-label')?.toLowerCase().includes(label.toLowerCase()) && b.offsetParent !== null
-    );
-    if (btn) {
-      btn.click();
-      await new Promise(r => setTimeout(r, 500));
-    }
-
-    // Verify the message is gone from the list
-    await new Promise(r => setTimeout(r, 500));
-    const stillThere = findMatch();
-    if (stillThere) return { error: 'Message still in inbox after ${action} attempt — action may not have worked' };
-
-    return { success: true };
-  })()`;
 }
 
 function buildGmailActionScript(subject, action) {

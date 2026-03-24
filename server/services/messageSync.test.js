@@ -15,7 +15,19 @@ vi.mock('../lib/fileUtils.js', () => ({
     if (!content) return fallback;
     const parsed = JSON.parse(content);
     return parsed;
-  })
+  }),
+  UUID_RE: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+  safeDate: (d) => { const t = new Date(d).getTime(); return Number.isNaN(t) ? 0 : t; },
+  filterBySearch: (items, search, fields) => {
+    if (!search) return items;
+    const q = search.toLowerCase();
+    return items.filter(item =>
+      fields.some(field => {
+        const val = field.includes('.') ? field.split('.').reduce((o, k) => o?.[k], item) : item[field];
+        return val?.toLowerCase?.().includes(q);
+      })
+    );
+  }
 }));
 
 vi.mock('./messageAccounts.js', () => ({

@@ -337,7 +337,7 @@ Return ONLY valid JSON (no markdown, no explanation):
 {"challenges":[{"rootWord":"paper","position":"prefix","examples":["paperback","paper trail","paperweight","paper clip","paper thin"],"minExpected":8}]}
 
 position is "prefix" if the root starts the compound (firehouse), "suffix" if it ends it (campfire), or "both" if common either way (light→lighthouse, flashlight).
-The examples field should contain 5 sample answers. minExpected is the target count.`;
+The examples field should contain 10-15 sample answers for reference. minExpected is the target count.`;
 
   const response = await callAI(prompt, providerId, model);
   const data = parseJsonFromAI(response);
@@ -477,70 +477,21 @@ export async function generateLlmDrill(type, config = {}, providerId, model) {
 // LLM SCORING
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function scoreLlmDrill(type, drillData, userResponses, timeLimitMs, providerId, model) {
-  const avgResponseMs = userResponses.length > 0
-    ? userResponses.reduce((sum, r) => sum + (r.responseMs || 0), 0) / userResponses.length
-    : timeLimitMs;
-  const speedBonus = Math.max(0, 1 - avgResponseMs / timeLimitMs);
+// ─────────────────────────────────────────────────────────────────────────────
+// SCORING HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 
-  let scorePrompt;
+function averageScore(scores) {
+  return scores.length > 0
+    ? Math.round(scores.reduce((s, x) => s + x.score, 0) / scores.length)
+    : 0;
+}
 
-  switch (type) {
-    case 'word-association':
-      scorePrompt = buildWordAssociationScorePrompt(drillData, userResponses);
-      break;
-    case 'story-recall':
-      scorePrompt = buildStoryRecallScorePrompt(drillData, userResponses);
-      break;
-    case 'verbal-fluency':
-      scorePrompt = buildVerbalFluencyScorePrompt(drillData, userResponses);
-      break;
-    case 'wit-comeback':
-      scorePrompt = buildWitComebackScorePrompt(drillData, userResponses);
-      break;
-    case 'pun-wordplay':
-      scorePrompt = buildPunWordplayScorePrompt(drillData, userResponses);
-      break;
-    case 'compound-chain':
-      scorePrompt = buildCompoundChainScorePrompt(drillData, userResponses);
-      break;
-    case 'bridge-word':
-      scorePrompt = buildBridgeWordScorePrompt(drillData, userResponses);
-      break;
-    case 'double-meaning':
-      scorePrompt = buildDoubleMeaningScorePrompt(drillData, userResponses);
-      break;
-    case 'idiom-twist':
-      scorePrompt = buildIdiomTwistScorePrompt(drillData, userResponses);
-      break;
-    case 'what-if':
-      scorePrompt = buildWhatIfScorePrompt(drillData, userResponses);
-      break;
-    case 'alternative-uses':
-      scorePrompt = buildAlternativeUsesScorePrompt(drillData, userResponses);
-      break;
-    case 'story-prompt':
-      scorePrompt = buildStoryPromptScorePrompt(drillData, userResponses);
-      break;
-    case 'invention-pitch':
-      scorePrompt = buildInventionPitchScorePrompt(drillData, userResponses);
-      break;
-    case 'reframe':
-      scorePrompt = buildReframeScorePrompt(drillData, userResponses);
-      break;
-    default:
-      return { score: 0, evaluation: null, questions: userResponses };
-  }
-
-  const response = await callAI(scorePrompt, providerId, model);
-  const evaluation = parseJsonFromAI(response);
-
-  // Combine LLM quality score (80%) with speed bonus (20%)
+function buildScoringResult(evaluation, userResponses, speedBonus) {
   const qualityScore = Math.min(100, Math.max(0, evaluation.overallScore || 0));
-  const finalScore = Math.round(qualityScore * 0.8 + speedBonus * 0.2 * 100);
-
+  const finalScore = Math.min(100, Math.max(0, Math.round(qualityScore * 0.8 + speedBonus * 0.2 * 100)));
   return {
-    score: Math.min(100, Math.max(0, finalScore)),
+    score: finalScore,
     evaluation,
     questions: userResponses.map((r, i) => ({
       ...r,
@@ -548,6 +499,142 @@ export async function scoreLlmDrill(type, drillData, userResponses, timeLimitMs,
       llmFeedback: evaluation.scores?.[i]?.feedback ?? ''
     }))
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOCAL (INSTANT) SCORING — no LLM call needed
+// ─────────────────────────────────────────────────────────────────────────────
+
+function scoreLocalBridgeWord(drillData, userResponses) {
+  const scores = userResponses.map((r, i) => {
+    const puzzle = drillData.puzzles?.[i];
+    if (!puzzle?.answer) return { score: 0, feedback: 'No answer available' };
+    const userAnswer = (r.response || '').trim().toLowerCase();
+    const correct = puzzle.answer.trim().toLowerCase();
+    const isCorrect = userAnswer === correct;
+    return {
+      score: isCorrect ? 100 : 0,
+      feedback: isCorrect ? 'Correct!' : `The answer was "${puzzle.answer}"`,
+    };
+  });
+  const overallScore = averageScore(scores);
+  return { overallScore, scores, summary: `${scores.filter(s => s.score === 100).length} of ${scores.length} correct` };
+}
+
+function scoreLocalCompoundChain(drillData, userResponses) {
+  const scores = userResponses.map((r, i) => {
+    const challenge = drillData.challenges?.[i];
+    if (!challenge?.rootWord) return { score: 0, feedback: 'No root word', validCount: 0, invalidItems: [], missedExamples: [] };
+    const root = challenge.rootWord.toLowerCase();
+    const seen = new Set();
+    const valid = [];
+    const invalid = [];
+    for (const item of (r.items || [])) {
+      const lower = item.toLowerCase().replace(/[\s-]/g, '');
+      if (seen.has(lower)) continue;
+      seen.add(lower);
+      if (lower.includes(root) && lower !== root) {
+        valid.push(item);
+      } else {
+        invalid.push(item);
+      }
+    }
+    const target = challenge.minExpected || 8;
+    const score = Math.round(Math.min(1, valid.length / target) * 100);
+    const fb = valid.length >= target
+      ? `${valid.length} valid compounds — great job!`
+      : `${valid.length} valid compound${valid.length !== 1 ? 's' : ''} (target: ${target})`;
+    // Show examples the user didn't find
+    const validLower = new Set(valid.map(v => v.toLowerCase().replace(/[\s-]/g, '')));
+    const missedExamples = (challenge.examples || []).filter(ex =>
+      !validLower.has(ex.toLowerCase().replace(/[\s-]/g, ''))
+    );
+    return { score, feedback: fb, validCount: valid.length, invalidItems: invalid, missedExamples };
+  });
+  const overallScore = averageScore(scores);
+  return { overallScore, scores, summary: `Average ${overallScore}% across ${scores.length} challenges` };
+}
+
+function scoreLocalVerbalFluency(drillData, userResponses) {
+  const scores = userResponses.map((r, i) => {
+    const cat = drillData.categories?.[i];
+    const seen = new Set();
+    for (const item of (r.items || [])) seen.add(item.toLowerCase().trim());
+    const uniqueCount = seen.size;
+    const target = cat?.minExpected || 15;
+    const score = Math.round(Math.min(1, uniqueCount / target) * 100);
+    const missedExamples = (cat?.examples || []).filter(ex => !seen.has(ex.toLowerCase().trim()));
+    return {
+      score,
+      feedback: `${uniqueCount} unique item${uniqueCount !== 1 ? 's' : ''} (target: ${target})`,
+      validCount: uniqueCount,
+      invalidItems: [],
+      missedExamples,
+    };
+  });
+  const overallScore = averageScore(scores);
+  return { overallScore, scores, summary: `Average ${overallScore}%` };
+}
+
+function scoreLocalStoryRecall(drillData, userResponses) {
+  const scores = userResponses.map((r, i) => {
+    const questions = drillData.exercises?.[i]?.questions || [];
+    if (questions.length === 0) return { score: 0, feedback: 'No questions' };
+    let correct = 0;
+    for (let qi = 0; qi < questions.length; qi++) {
+      const expected = (questions[qi].answer || '').toLowerCase().trim();
+      const given = (r.answers?.[qi] || '').toLowerCase().trim();
+      if (given && (given === expected || expected.includes(given) || given.includes(expected))) {
+        correct++;
+      }
+    }
+    const score = Math.round((correct / questions.length) * 100);
+    return { score, feedback: `${correct} of ${questions.length} correct` };
+  });
+  const overallScore = averageScore(scores);
+  return { overallScore, scores, summary: `${overallScore}% recall accuracy` };
+}
+
+const LOCAL_SCORERS = {
+  'bridge-word': scoreLocalBridgeWord,
+  'compound-chain': scoreLocalCompoundChain,
+  'verbal-fluency': scoreLocalVerbalFluency,
+  'story-recall': scoreLocalStoryRecall,
+};
+
+const LLM_SCORE_BUILDERS = {
+  'word-association': buildWordAssociationScorePrompt,
+  'wit-comeback': buildWitComebackScorePrompt,
+  'pun-wordplay': buildPunWordplayScorePrompt,
+  'double-meaning': buildDoubleMeaningScorePrompt,
+  'idiom-twist': buildIdiomTwistScorePrompt,
+  'what-if': buildWhatIfScorePrompt,
+  'alternative-uses': buildAlternativeUsesScorePrompt,
+  'story-prompt': buildStoryPromptScorePrompt,
+  'invention-pitch': buildInventionPitchScorePrompt,
+  'reframe': buildReframeScorePrompt,
+};
+
+export async function scoreLlmDrill(type, drillData, userResponses, timeLimitMs, providerId, model) {
+  const avgResponseMs = userResponses.length > 0
+    ? userResponses.reduce((sum, r) => sum + (r.responseMs || 0), 0) / userResponses.length
+    : timeLimitMs;
+  const speedBonus = Math.max(0, 1 - avgResponseMs / timeLimitMs);
+
+  // Fast path: score locally for drill types with deterministic answers
+  const localScorer = LOCAL_SCORERS[type];
+  if (localScorer) {
+    console.log(`⚡ POST local scoring: ${type}`);
+    return buildScoringResult(localScorer(drillData, userResponses), userResponses, speedBonus);
+  }
+
+  // Slow path: LLM scoring for creative/subjective drills
+  const builder = LLM_SCORE_BUILDERS[type];
+  if (!builder) return { score: 0, evaluation: null, questions: userResponses };
+
+  console.log(`🧪 POST LLM scoring: ${type}`);
+  const response = await callAI(builder(drillData, userResponses), providerId, model);
+  return buildScoringResult(parseJsonFromAI(response), userResponses, speedBonus);
 }
 
 function buildWordAssociationScorePrompt(drillData, responses) {

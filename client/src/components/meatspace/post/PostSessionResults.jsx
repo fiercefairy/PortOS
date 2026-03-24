@@ -1,27 +1,6 @@
 import { useState } from 'react';
 import { CheckCircle, Save, ArrowLeft, ChevronDown, ChevronUp, Dumbbell } from 'lucide-react';
-import { LLM_DRILL_TYPES, DRILL_TO_DOMAIN, DOMAINS } from './constants';
-
-const DRILL_LABELS = {
-  'doubling-chain': 'Doubling Chain',
-  'serial-subtraction': 'Serial Subtraction',
-  'multiplication': 'Multiplication',
-  'powers': 'Powers',
-  'estimation': 'Estimation',
-  'word-association': 'Word Association',
-  'story-recall': 'Story Recall',
-  'verbal-fluency': 'Verbal Fluency',
-  'wit-comeback': 'Wit & Comeback',
-  'pun-wordplay': 'Pun & Wordplay',
-  'memory-fill-blank': 'Memory Fill Blank',
-  'memory-sequence': 'Memory Sequence',
-  'memory-element-flash': 'Element Flash',
-  'what-if': 'What If?',
-  'alternative-uses': 'Alternative Uses',
-  'story-prompt': 'Story Prompt',
-  'invention-pitch': 'Invention Pitch',
-  'reframe': 'Reframe',
-};
+import { LLM_DRILL_TYPES, DRILL_TO_DOMAIN, DOMAINS, DRILL_LABELS } from './constants';
 
 export default function PostSessionResults({ session, tags = {}, onSaved, onBack }) {
   const { drillResults, sessionScore, state, saveSession, isTraining } = session;

@@ -4,7 +4,8 @@
  * Shared utilities for file operations used across services.
  */
 
-import { mkdir, readFile } from 'fs/promises';
+import { mkdir, readFile, writeFile } from 'fs/promises';
+import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -92,20 +93,6 @@ export async function ensureDirs(dirs) {
  */
 export function dataPath(...segments) {
   return join(PATHS.data, ...segments);
-}
-
-/**
- * Get a path relative to the project root.
- *
- * @param {...string} segments - Path segments to join
- * @returns {string} Full path under project root
- *
- * @example
- * const filePath = rootPath('data', 'TASKS.md');
- * // Returns: /path/to/project/data/TASKS.md
- */
-export function rootPath(...segments) {
-  return join(PATHS.root, ...segments);
 }
 
 /**
@@ -299,7 +286,56 @@ export async function readJSONLFile(filePath, { logErrors = false } = {}) {
  * Time constants in milliseconds.
  * Single source of truth — import these instead of declaring inline.
  */
-export const HOUR = 60 * 60 * 1000;
+/**
+ * Create a cached JSON file store with TTL-based invalidation.
+ * Eliminates the repeated cache/load/save/invalidate pattern across services.
+ *
+ * @param {string} filePath - Path to the JSON file
+ * @param {*} defaultValue - Default value when file doesn't exist
+ * @param {Object} options
+ * @param {number} [options.ttl=2000] - Cache TTL in milliseconds
+ * @param {string} [options.context=''] - Context label for error logging
+ * @returns {{ load, save, invalidateCache }}
+ */
+export function createCachedStore(filePath, defaultValue, { ttl = 2000, context = '' } = {}) {
+  let cache = null;
+  let cacheTimestamp = 0;
+  const dir = dirname(filePath);
+  // Safe clone for plain JSON defaults (structuredClone requires Node 17+)
+  const cloneDefault = () => JSON.parse(JSON.stringify(defaultValue));
+
+  const load = async () => {
+    const now = Date.now();
+    if (cache && (now - cacheTimestamp) < ttl) return cache;
+    await ensureDir(dir);
+    if (!existsSync(filePath)) {
+      cache = cloneDefault();
+      cacheTimestamp = now;
+      return cache;
+    }
+    const content = await readFile(filePath, 'utf-8');
+    cache = safeJSONParse(content, cloneDefault(), { context });
+    cacheTimestamp = now;
+    return cache;
+  };
+
+  const save = async (data) => {
+    await ensureDir(dir);
+    await writeFile(filePath, JSON.stringify(data, null, 2));
+    cache = data;
+    cacheTimestamp = Date.now();
+  };
+
+  const invalidateCache = () => {
+    cache = null;
+    cacheTimestamp = 0;
+  };
+
+  return { load, save, invalidateCache };
+}
+
+export const MINUTE = 60 * 1000;
+export const HOUR = 60 * MINUTE;
 export const DAY = 24 * HOUR;
 
 /**
@@ -309,7 +345,7 @@ export const DAY = 24 * HOUR;
  * @returns {string} ISO date string (e.g., "2026-03-05")
  */
 export function getDateString(date = new Date()) {
-  return date.toISOString().split('T')[0];
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 /**
@@ -325,6 +361,43 @@ export function getDateString(date = new Date()) {
  * formatDuration(7200000)  // "2h 0m"
  * formatDuration(90000000) // "1d 1h"
  */
+/**
+ * UUID v4 regex pattern for validating account/entity IDs.
+ */
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Safely parse a date value to epoch milliseconds.
+ * Returns 0 for invalid/missing dates instead of NaN.
+ *
+ * @param {string|Date|number} d - Date value to parse
+ * @returns {number} Epoch milliseconds, or 0 if invalid
+ */
+export function safeDate(d) {
+  const t = new Date(d).getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
+
+/**
+ * Generic search filter — returns items where any of the specified fields
+ * contain the search string (case-insensitive).
+ *
+ * @param {Array<Object>} items - Items to filter
+ * @param {string} search - Search query
+ * @param {Array<string>} fields - Dot-notation field paths to search (e.g., 'from.name')
+ * @returns {Array<Object>} Filtered items
+ */
+export function filterBySearch(items, search, fields) {
+  if (!search) return items;
+  const q = search.toLowerCase();
+  return items.filter(item =>
+    fields.some(field => {
+      const val = field.includes('.') ? field.split('.').reduce((o, k) => o?.[k], item) : item[field];
+      return val?.toLowerCase?.().includes(q);
+    })
+  );
+}
+
 export function formatDuration(ms) {
   if (!ms) return '0m';
   const mins = Math.floor(ms / 60000);

@@ -229,12 +229,34 @@ export async function getBriefing() {
  * Bridge CoS events into review items
  */
 cosEvents.on('memory:approval-needed', (data) => {
-  createItem({
-    type: 'alert',
-    title: `Memory approval: ${data?.title ?? 'New memory entry'}`,
-    description: data?.content ?? '',
-    metadata: { referenceId: data?.id, category: 'memory-approval' }
-  }).catch(err => console.error(`❌ Failed to create review alert: ${err.message}`));
+  const memories = data?.memories ?? [];
+  for (const mem of memories) {
+    createItem({
+      type: 'alert',
+      title: `Memory approval: ${mem.content?.slice(0, 80) || 'New memory entry'}`,
+      description: `Type: ${mem.type ?? 'unknown'} | Confidence: ${mem.confidence ?? 'N/A'}`,
+      metadata: { referenceId: mem.id, category: 'memory-approval', agentId: data?.agentId, taskId: data?.taskId }
+    }).catch(err => console.error(`❌ Failed to create review alert: ${err.message}`));
+  }
+});
+
+async function dismissByReferenceId(referenceId) {
+  const items = await loadItems();
+  const matching = items.filter(i => i.metadata?.referenceId === referenceId && i.status === 'pending');
+  for (const item of matching) {
+    item.status = 'dismissed';
+    item.updatedAt = new Date().toISOString();
+    reviewEvents.emit('item:updated', item);
+  }
+  if (matching.length > 0) await saveItems(items);
+}
+
+cosEvents.on('memory:approved', (data) => {
+  if (data?.id) dismissByReferenceId(data.id).catch(err => console.error(`❌ Failed to dismiss approved memory review item: ${err.message}`));
+});
+
+cosEvents.on('memory:rejected', (data) => {
+  if (data?.id) dismissByReferenceId(data.id).catch(err => console.error(`❌ Failed to dismiss rejected memory review item: ${err.message}`));
 });
 
 cosEvents.on('task:ready', (data) => {

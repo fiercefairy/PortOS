@@ -357,10 +357,9 @@ router.put('/:id/task-types/:taskType', asyncHandler(async (req, res) => {
         throw new ServerError('interval must be one of rotation|daily|weekly|once|on-demand, a cron expression, or null', { status: 400, code: 'VALIDATION_ERROR' });
       }
       if (isCron) {
-        const nextRun = parseCronToNextRun(interval, new Date(), 'UTC');
-        if (!nextRun) {
-          throw new ServerError('Invalid cron expression: unable to compute next run time', { status: 400, code: 'VALIDATION_ERROR' });
-        }
+        // Validate syntax and field ranges (parseCronToNextRun throws on invalid expressions)
+        // Note: null return means no match within search window (e.g. leap day) -- not invalid
+        parseCronToNextRun(interval, new Date(), 'UTC');
       }
     } else if (interval !== null) {
       throw new ServerError('interval must be a string or null', { status: 400, code: 'VALIDATION_ERROR' });

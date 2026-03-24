@@ -38,7 +38,17 @@ function getFormatter(timezone) {
  */
 export async function getUserTimezone() {
   const settings = await getSettings()
-  return settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+  const tz = settings.timezone
+  if (tz) {
+    // Validate the configured timezone; fall back to system timezone if invalid
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: tz })
+      return tz
+    } catch {
+      console.error(`❌ Invalid configured timezone "${tz}", falling back to system default`)
+    }
+  }
+  return Intl.DateTimeFormat().resolvedOptions().timeZone
 }
 
 /**

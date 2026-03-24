@@ -1350,7 +1350,8 @@ export async function shouldRunTask(taskType, appId = null) {
         result = { shouldRun: false, reason: 'invalid-cron' };
         break;
       }
-      const fromDate = lastRun ? new Date(lastRun) : new Date(now);
+      // For never-run tasks, use 1 minute ago so the first scheduled occurrence can match
+      const fromDate = lastRun ? new Date(lastRun) : new Date(now - 60_000);
       const nextRun = parseCronToNextRun(cronExpr, fromDate, timezone);
       if (!nextRun) {
         result = { shouldRun: false, reason: 'invalid-cron', cronExpression: cronExpr };

@@ -489,6 +489,10 @@ export default function JobsTab() {
       toast.error('Prompt template is required for AI jobs');
       return;
     }
+    if (newJob.scheduleMode === 'cron' && (!newJob.cronExpression?.trim() || newJob.cronExpression.trim().split(/\s+/).length !== 5)) {
+      toast.error('A valid 5-field cron expression is required for cron scheduling');
+      return;
+    }
 
     const created = await api.createCosJob(normalizeJobPayload(newJob)).catch(err => {
       toast.error(err.message);

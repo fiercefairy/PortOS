@@ -117,9 +117,14 @@ function parseCronToNextRun(cronExpr, from = new Date(), timezone = 'UTC') {
       hour = next.getHours(); minute = next.getMinutes()
     }
 
+    // Normalize DOW: cron allows 7 for Sunday, but JS getDay() returns 0
+    // Match both 0 and 7 representations for Sunday
+    const dowMatches = matchesCronField(dow, dayOfWeekExpr, 0) ||
+      (dow === 0 && matchesCronField(7, dayOfWeekExpr, 0))
+
     if (matchesCronField(month, monthExpr, 1) &&
         matchesCronField(day, dayOfMonthExpr, 1) &&
-        matchesCronField(dow, dayOfWeekExpr, 0) &&
+        dowMatches &&
         matchesCronField(hour, hourExpr, 0) &&
         matchesCronField(minute, minuteExpr, 0)) {
       return next

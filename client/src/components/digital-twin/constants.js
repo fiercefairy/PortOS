@@ -24,7 +24,8 @@ import {
   Fingerprint,
   Globe,
   PenLine,
-  Target
+  Target,
+  Archive
 } from 'lucide-react';
 
 // Main navigation tabs
@@ -40,7 +41,8 @@ export const TABS = [
   { id: 'interview', label: 'Interview', icon: MessageSquare },
   { id: 'autobiography', label: 'Autobiography', icon: PenLine },
   { id: 'import', label: 'Import', icon: Upload },
-  { id: 'export', label: 'Export', icon: Download }
+  { id: 'export', label: 'Export', icon: Download },
+  { id: 'time-capsule', label: 'Time Capsule', icon: Archive }
 ];
 
 // Document category configurations

@@ -445,3 +445,17 @@ export const feedbackInputSchema = z.object({
   model: z.string().min(1).optional(),
   documentsUsed: z.array(z.string()).optional()
 });
+
+// =============================================================================
+// TIME CAPSULE SCHEMAS
+// =============================================================================
+
+export const createSnapshotInputSchema = z.object({
+  label: z.string().min(1).max(200),
+  description: z.string().max(1000).optional().default('')
+});
+
+export const compareSnapshotsInputSchema = z.object({
+  id1: z.string().uuid(),
+  id2: z.string().uuid()
+});

@@ -1312,6 +1312,21 @@ export const deleteSocialAccount = (id) => request(`/digital-twin/social-account
   method: 'DELETE'
 });
 
+// Digital Twin - Time Capsule Snapshots
+export const listTimeCapsuleSnapshots = () => request('/digital-twin/snapshots');
+export const createTimeCapsuleSnapshot = (label, description = '') => request('/digital-twin/snapshots', {
+  method: 'POST',
+  body: JSON.stringify({ label, description })
+});
+export const getTimeCapsuleSnapshot = (id) => request(`/digital-twin/snapshots/${id}`);
+export const deleteTimeCapsuleSnapshot = (id) => request(`/digital-twin/snapshots/${id}`, {
+  method: 'DELETE'
+});
+export const compareTimeCapsuleSnapshots = (id1, id2) => request('/digital-twin/snapshots/compare', {
+  method: 'POST',
+  body: JSON.stringify({ id1, id2 })
+});
+
 // MeatSpace - Genome
 export const getGenomeSummary = () => request('/meatspace/genome');
 export const uploadGenomeFile = (content, filename) => request('/meatspace/genome/upload', {

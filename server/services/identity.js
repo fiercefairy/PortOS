@@ -1239,22 +1239,35 @@ export async function applyGoalOrganization(organization) {
     const goal = goalMap.get(item.id);
     if (!goal) continue;
 
+    let goalChanged = false;
+
     if (item.goalType && goalTypeEnum.options.includes(item.goalType)) {
-      goal.goalType = item.goalType;
+      if (goal.goalType !== item.goalType) {
+        goal.goalType = item.goalType;
+        goalChanged = true;
+      }
     }
     if (item.suggestedParentId !== undefined) {
-      if (item.suggestedParentId === null || goalMap.has(item.suggestedParentId)) {
-        if (!item.suggestedParentId || !hasAncestorCycle(goals.goals, goal.id, item.suggestedParentId)) {
-          goal.parentId = item.suggestedParentId;
+      const newParentId = item.suggestedParentId;
+      if (newParentId === null || goalMap.has(newParentId)) {
+        if (!newParentId || !hasAncestorCycle(goals.goals, goal.id, newParentId)) {
+          if (goal.parentId !== newParentId) {
+            goal.parentId = newParentId;
+            goalChanged = true;
+          }
         }
       }
     }
-    goal.updatedAt = now;
-    changed++;
+    if (goalChanged) {
+      goal.updatedAt = now;
+      changed++;
+    }
   }
 
-  goals.updatedAt = now;
-  await saveJSON(GOALS_FILE, goals);
+  if (changed > 0) {
+    goals.updatedAt = now;
+    await saveJSON(GOALS_FILE, goals);
+  }
   console.log(`🎯 Applied organization to ${changed} goals`);
   return { applied: changed };
 }

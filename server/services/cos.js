@@ -628,7 +628,7 @@ export async function start() {
   await runHealthCheck();
 
   cosEvents.emit('status', { running: true });
-  emitLog('success', 'CoS daemon started successfully');
+  emitLog('success', 'CoS daemon started');
 
   // Queue due improvement tasks shortly after startup (not during initial eval
   // to avoid overwhelming fresh installs, but soon enough to not stall)

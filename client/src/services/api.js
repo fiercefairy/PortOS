@@ -87,6 +87,9 @@ export const uploadAppleHealthXml = (file) => {
   });
 };
 
+// Alerts
+export const getAlertsSummary = (options) => request('/alerts/summary', options);
+
 // Health
 export const checkHealth = () => request('/system/health');
 export const getSystemHealth = (options) => request('/system/health/details', options);
@@ -359,6 +362,10 @@ export const deleteBranch = (path, branch, { local = false, remote = false } = {
     method: 'POST',
     body: JSON.stringify({ path, branch, local, remote })
   });
+export const cleanupMergedBranches = (path) => request('/git/cleanup-merged', {
+  method: 'POST',
+  body: JSON.stringify({ path })
+});
 export const mergeBranch = (path, branch) => request('/git/merge', {
   method: 'POST',
   body: JSON.stringify({ path, branch })
@@ -1305,6 +1312,21 @@ export const deleteSocialAccount = (id) => request(`/digital-twin/social-account
   method: 'DELETE'
 });
 
+// Digital Twin - Time Capsule Snapshots
+export const listTimeCapsuleSnapshots = () => request('/digital-twin/snapshots');
+export const createTimeCapsuleSnapshot = (label, description = '') => request('/digital-twin/snapshots', {
+  method: 'POST',
+  body: JSON.stringify({ label, description })
+});
+export const getTimeCapsuleSnapshot = (id) => request(`/digital-twin/snapshots/${id}`);
+export const deleteTimeCapsuleSnapshot = (id) => request(`/digital-twin/snapshots/${id}`, {
+  method: 'DELETE'
+});
+export const compareTimeCapsuleSnapshots = (id1, id2) => request('/digital-twin/snapshots/compare', {
+  method: 'POST',
+  body: JSON.stringify({ id1, id2 })
+});
+
 // MeatSpace - Genome
 export const getGenomeSummary = () => request('/meatspace/genome');
 export const uploadGenomeFile = (content, filename) => request('/meatspace/genome/upload', {
@@ -1852,6 +1874,8 @@ export const deleteGoalTodo = (goalId, todoId) => request(`/digital-twin/identit
 // Goal AI Planning & Scheduling
 export const generateGoalPhases = (goalId, options = {}) => request(`/digital-twin/identity/goals/${goalId}/generate-phases`, { method: 'POST', body: JSON.stringify(options) });
 export const acceptGoalPhases = (goalId, phases) => request(`/digital-twin/identity/goals/${goalId}/accept-phases`, { method: 'POST', body: JSON.stringify({ phases }) });
+export const organizeGoals = (options = {}) => request('/digital-twin/identity/goals/organize', { method: 'POST', body: JSON.stringify(options) });
+export const applyGoalOrganization = (organization) => request('/digital-twin/identity/goals/organize/apply', { method: 'POST', body: JSON.stringify({ organization }) });
 export const scheduleGoalTimeBlocks = (goalId) => request(`/digital-twin/identity/goals/${goalId}/schedule`, { method: 'POST' });
 export const removeGoalSchedule = (goalId) => request(`/digital-twin/identity/goals/${goalId}/schedule`, { method: 'DELETE' });
 export const rescheduleGoalTimeBlocks = (goalId) => request(`/digital-twin/identity/goals/${goalId}/reschedule`, { method: 'POST' });

@@ -6,6 +6,7 @@ import AppIcon from '../../AppIcon';
 import CronInput from '../../CronInput';
 import { AGENT_OPTIONS, toggleAppMetadataOverride } from '../constants';
 import { isCronExpression, describeCron } from '../../../utils/cronHelpers';
+import ToggleSwitch from '../../ToggleSwitch';
 
 const INTERVAL_LABELS = {
   rotation: 'Rotation',
@@ -25,6 +26,26 @@ const INTERVAL_DESCRIPTIONS = {
   'on-demand': 'Only runs when manually triggered',
   custom: 'Custom interval',
   cron: 'Cron expression schedule'
+};
+
+const BADGE_COLORS = {
+  accent: 'bg-port-accent/15 text-port-accent border-port-accent/30',
+  purple: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
+  warning: 'bg-port-warning/15 text-port-warning border-port-warning/30',
+  gray: 'bg-gray-600/30 text-gray-400 border-gray-500/30',
+  cyan: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',
+  success: 'bg-port-success/15 text-port-success border-port-success/30',
+  error: 'bg-port-error/15 text-port-error border-port-error/30',
+};
+
+const badge = (variant) => `text-xs font-medium px-2.5 py-1 rounded-full border ${BADGE_COLORS[variant] || BADGE_COLORS.gray}`;
+
+const INTERVAL_BADGE_VARIANT = {
+  daily: 'accent',
+  weekly: 'purple',
+  once: 'warning',
+  'on-demand': 'gray',
+  cron: 'cyan',
 };
 
 // Toggle a global taskMetadata field, enforcing the openPR→useWorktree invariant.
@@ -50,14 +71,7 @@ function IntervalBadge({ type, cronExpression }) {
     ? describeCron(cronExpression) || cronExpression
     : INTERVAL_LABELS[type] || type;
   return (
-    <span className={`text-xs px-2 py-0.5 rounded ${
-      type === 'daily' ? 'bg-port-accent/20 text-port-accent' :
-      type === 'weekly' ? 'bg-purple-500/20 text-purple-400' :
-      type === 'once' ? 'bg-port-warning/20 text-port-warning' :
-      type === 'on-demand' ? 'bg-gray-500/20 text-gray-400' :
-      type === 'cron' ? 'bg-cyan-500/20 text-cyan-400' :
-      'bg-port-success/20 text-port-success'
-    }`} title={type === 'cron' && cronExpression ? cronExpression : undefined}>
+    <span className={badge(INTERVAL_BADGE_VARIANT[type] || 'success')} title={type === 'cron' && cronExpression ? cronExpression : undefined}>
       {label}
     </span>
   );
@@ -167,18 +181,12 @@ function GlobalConfigControls({ taskType, config, onUpdate, onTrigger, onReset, 
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <label className="text-sm text-gray-400">Enabled</label>
-        <button
-          onClick={handleToggleEnabled}
+        <ToggleSwitch
+          enabled={config.enabled}
+          onChange={handleToggleEnabled}
           disabled={updating}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            config.enabled ? 'bg-port-accent' : 'bg-gray-600'
-          }`}
-          aria-label={config.enabled ? 'Disable task' : 'Enable task'}
-        >
-          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-            config.enabled ? 'translate-x-6' : 'translate-x-1'
-          }`} />
-        </button>
+          ariaLabel={config.enabled ? 'Disable task' : 'Enable task'}
+        />
       </div>
 
       <div>
@@ -299,23 +307,17 @@ function GlobalConfigControls({ taskType, config, onUpdate, onTrigger, onReset, 
           {AGENT_OPTIONS.map(({ field, label, description }) => {
             const enabled = config.taskMetadata?.[field] ?? false;
             return (
-              <div key={field} className="flex items-center justify-between">
-                <div>
+              <div key={field} className="flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
                   <span className="text-sm text-white">{label}</span>
                   <p className="text-xs text-gray-500">{description}</p>
                 </div>
-                <button
-                  onClick={() => onUpdate(taskType, { taskMetadata: toggleMetadataField(config.taskMetadata, field) })}
+                <ToggleSwitch
+                  enabled={enabled}
+                  onChange={() => onUpdate(taskType, { taskMetadata: toggleMetadataField(config.taskMetadata, field) })}
                   disabled={updating}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    enabled ? 'bg-port-accent' : 'bg-gray-600'
-                  }`}
-                  aria-label={`${enabled ? 'Disable' : 'Enable'} ${label.toLowerCase()}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    enabled ? 'translate-x-6' : 'translate-x-1'
-                  }`} />
-                </button>
+                  ariaLabel={`${enabled ? 'Disable' : 'Enable'} ${label.toLowerCase()}`}
+                />
               </div>
             );
           })}
@@ -460,7 +462,7 @@ function AppOverrideRow({ app, taskType, globalIntervalType, globalTaskMetadata,
   };
 
   return (
-    <div className="flex items-center gap-3 py-2 px-3 rounded hover:bg-port-card/30">
+    <div className="flex flex-wrap items-center gap-3 py-2 px-3 rounded hover:bg-port-card/30">
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <AppIcon icon={app.icon || 'package'} appId={app.id} hasAppIcon={!!app.appIconPath} size={16} className="text-gray-400 shrink-0" />
         <span className="text-sm text-white truncate">{app.name}</span>
@@ -471,7 +473,7 @@ function AppOverrideRow({ app, taskType, globalIntervalType, globalTaskMetadata,
           value={cronEditing || hasCron ? 'cron' : (currentInterval || '')}
           onChange={(e) => handleIntervalChange(e.target.value)}
           disabled={updating}
-          className="bg-port-card border border-port-border rounded px-2 py-1 text-xs text-white min-w-[120px]"
+          className="bg-port-card border border-port-border rounded px-2 py-1.5 text-xs text-white min-w-[120px] min-h-[40px]"
         >
           <option value="">Inherit ({INTERVAL_LABELS[globalIntervalType] || globalIntervalType})</option>
           <option value="rotation">Rotation</option>
@@ -508,7 +510,7 @@ function AppOverrideRow({ app, taskType, globalIntervalType, globalTaskMetadata,
             disabled={updating}
             aria-pressed={effective}
             aria-label={`${label}: ${effective ? 'on' : 'off'}${hasOverride ? ' (app override)' : ' (inherited)'}`}
-            className={`text-xs px-1.5 py-0.5 rounded transition-colors shrink-0 ${
+            className={`text-xs px-2 py-1.5 rounded transition-colors shrink-0 min-h-[40px] min-w-[40px] ${
               effective
                 ? hasOverride ? 'bg-port-accent/30 text-port-accent' : 'bg-port-accent/15 text-port-accent/60'
                 : hasOverride ? 'bg-gray-600/50 text-gray-400' : 'bg-gray-600/25 text-gray-500'
@@ -520,18 +522,13 @@ function AppOverrideRow({ app, taskType, globalIntervalType, globalTaskMetadata,
         );
       })}
 
-      <button
-        onClick={handleToggle}
+      <ToggleSwitch
+        enabled={isEnabled}
+        onChange={handleToggle}
         disabled={updating}
-        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 ${
-          isEnabled ? 'bg-port-accent' : 'bg-gray-600'
-        } ${updating ? 'opacity-50' : ''}`}
-        aria-label={`${isEnabled ? 'Disable' : 'Enable'} ${taskType} for ${app.name}`}
-      >
-        <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-          isEnabled ? 'translate-x-5' : 'translate-x-1'
-        }`} />
-      </button>
+        size="sm"
+        ariaLabel={`${isEnabled ? 'Disable' : 'Enable'} ${taskType} for ${app.name}`}
+      />
     </div>
   );
 }
@@ -615,10 +612,10 @@ function AppTaskTypeRow({ taskType, config, onUpdate, onTrigger, onReset, provid
           <div className="flex items-center gap-2">
             <span className="font-mono text-sm text-white">{taskType}</span>
             {!config.enabled && (
-              <span className="text-xs px-2 py-0.5 bg-gray-600/50 text-gray-400 rounded">Disabled</span>
+              <span className={badge('gray')}>Disabled</span>
             )}
             {config.status?.reason === 'waiting-on-dependencies' && (
-              <span className="text-xs px-2 py-0.5 bg-port-warning/20 text-port-warning rounded" title={`Waiting for: ${config.status.pendingDeps?.join(', ')}`}>
+              <span className={badge('warning')} title={`Waiting for: ${config.status.pendingDeps?.join(', ')}`}>
                 Waiting on deps
               </span>
             )}
@@ -633,13 +630,12 @@ function AppTaskTypeRow({ taskType, config, onUpdate, onTrigger, onReset, provid
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {totalCount > 0 && (
-            <span className={`text-xs px-2 py-0.5 rounded ${
-              enabledCount === totalCount ? 'bg-port-success/20 text-port-success' :
-              enabledCount === 0 ? 'bg-port-error/20 text-port-error' :
-              'bg-port-warning/20 text-port-warning'
-            }`}>
+            <span className={badge(
+              enabledCount === totalCount ? 'success' :
+              enabledCount === 0 ? 'error' : 'warning'
+            )}>
               {enabledCount}/{totalCount} apps
             </span>
           )}

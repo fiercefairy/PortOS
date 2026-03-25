@@ -28,7 +28,7 @@ For project goals, see [GOALS.md](./GOALS.md). For completed work, see [DONE.md]
 - **Proactive Insight Alerts** — Brain connections, success drops, goal stalls, cost spikes
 - **Goal Decomposition Engine** — Auto-decompose goals into task sequences
 - **Knowledge Graph Visualization** — Extend BrainGraph 3D to full knowledge graph
-- **Time Capsule Snapshots** — Periodic versioned digital twin archives
+- [x] **Time Capsule Snapshots** — Periodic versioned digital twin archives
 - **Autobiography Prompt Chains** — LLM follow-ups building on prior answers
 - **Legacy Export Format** — Identity as portable Markdown/PDF
 - **Dashboard Customization** — Drag-and-drop widgets, named layouts

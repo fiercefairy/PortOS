@@ -1,7 +1,22 @@
 import { Router } from 'express';
 import * as git from '../services/git.js';
 import * as appsService from '../services/apps.js';
+import { getAgents } from '../services/cos.js';
 import { asyncHandler, ServerError } from '../lib/errorHandler.js';
+
+/**
+ * Collect branch names actively used by running CoS agents.
+ * Includes worktree branches and workspace branches from agent metadata.
+ */
+async function getActiveAgentBranches() {
+  const agents = await getAgents().catch(() => []);
+  const branches = new Set();
+  for (const agent of agents) {
+    if (agent.status !== 'running') continue;
+    if (agent.metadata?.worktreeBranch) branches.add(agent.metadata.worktreeBranch);
+  }
+  return branches;
+}
 
 const router = Router();
 
@@ -235,6 +250,19 @@ router.post('/checkout-remote', asyncHandler(async (req, res) => {
   res.json(result);
 }));
 
+// POST /api/git/cleanup-merged - Delete all merged branches (local + remote)
+router.post('/cleanup-merged', asyncHandler(async (req, res) => {
+  const { path } = req.body;
+
+  if (!path) {
+    throw new ServerError('path is required', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+
+  const excludeBranches = await getActiveAgentBranches();
+  const result = await git.deleteMergedBranches(path, { excludeBranches });
+  res.json(result);
+}));
+
 // POST /api/git/delete-branch - Delete a branch locally and/or remotely
 router.post('/delete-branch', asyncHandler(async (req, res) => {
   const { path, branch, local, remote } = req.body;
@@ -247,7 +275,8 @@ router.post('/delete-branch', asyncHandler(async (req, res) => {
     throw new ServerError('at least one of local or remote must be true', { status: 400, code: 'VALIDATION_ERROR' });
   }
 
-  const result = await git.deleteBranch(path, branch, { local, remote });
+  const excludeBranches = await getActiveAgentBranches();
+  const result = await git.deleteBranch(path, branch, { local, remote, excludeBranches });
   res.json(result);
 }));
 

@@ -1,7 +1,8 @@
 /**
  * Sync Orchestrator
  *
- * Unified coordinator for brain + memory sync between PortOS peer instances.
+ * Unified coordinator for all data sync between PortOS peer instances.
+ * Supports per-category sync: brain, memory, goals, character, digitalTwin, meatspace.
  * Maintains per-peer cursors and triggers sync on peer connect + interval.
  */
 
@@ -9,10 +10,11 @@ import { writeFile, rename } from 'fs/promises';
 import { readJSONFile, ensureDir, PATHS, dataPath } from '../lib/fileUtils.js';
 import { createMutex } from '../lib/asyncMutex.js';
 import { instanceEvents } from './instanceEvents.js';
-import { getPeers } from './instances.js';
+import { getPeers, DEFAULT_SYNC_CATEGORIES } from './instances.js';
 import * as brainSync from './brainSync.js';
 import * as brainSyncLog from './brainSyncLog.js';
 import * as memorySync from './memorySync.js';
+import * as dataSync from './dataSync.js';
 import { getBackendName } from './memoryBackend.js';
 
 const CURSORS_FILE = dataPath('instances_sync_cursors.json');
@@ -197,6 +199,43 @@ function detectCursorReset(cursor, peer) {
 }
 
 /**
+ * Resolve effective sync categories for a peer.
+ * Returns object with boolean flags for each category.
+ * Falls back to legacy behavior: if syncCategories is absent but syncEnabled is true,
+ * enable brain + memory for backward compatibility with older peers.
+ */
+function getEffectiveCategories(peer) {
+  if (peer.syncCategories) return peer.syncCategories;
+  // Legacy fallback: peers without syncCategories but with syncEnabled get brain+memory
+  if (peer.syncEnabled !== false) {
+    return { ...DEFAULT_SYNC_CATEGORIES, brain: true, memory: true };
+  }
+  return { ...DEFAULT_SYNC_CATEGORIES };
+}
+
+/**
+ * Sync a snapshot-based data category from a peer.
+ * Fetches checksum first to avoid full data transfer when unchanged.
+ */
+async function syncDataCategoryFromPeer(peer, peerId, category, cachedChecksums) {
+  // Lightweight checksum check first
+  const checksumRes = await fetchPeer(peer, `/api/sync/${category}/checksum`);
+  if (!checksumRes?.checksum) return { totalApplied: 0, checksum: null };
+
+  const lastChecksum = cachedChecksums?.[category] ?? null;
+  if (lastChecksum && lastChecksum === checksumRes.checksum) {
+    return { totalApplied: 0, checksum: checksumRes.checksum };
+  }
+
+  // Checksum changed — fetch full snapshot
+  const snapshot = await fetchPeer(peer, `/api/sync/${category}/snapshot`);
+  if (!snapshot?.data) return { totalApplied: 0, checksum: null };
+
+  const result = await dataSync.applyRemote(category, snapshot.data);
+  return { totalApplied: result.applied ? result.count : 0, checksum: snapshot.checksum };
+}
+
+/**
  * Sync all data from a single peer
  */
 export async function syncWithPeer(peer) {
@@ -208,6 +247,8 @@ export async function syncWithPeer(peer) {
   if (syncingPeers.has(peerId)) return { brain: { totalApplied: 0 }, memory: { totalApplied: 0 } };
   syncingPeers.add(peerId);
 
+  const categories = getEffectiveCategories(peer);
+
   // Read cursor snapshot outside lock so network I/O doesn't block other peers
   // Also detect and reset stale cursors (e.g. peer DB was rebuilt)
   const cursor = await readCursors((cursors) => {
@@ -216,35 +257,78 @@ export async function syncWithPeer(peer) {
   });
 
   try {
-    const brainResult = await syncBrainFromPeer(peer, cursor);
-
-    // Save brain cursor immediately so progress is preserved if memory sync fails
-    await withCursors(async (cursors) => {
-      if (!cursors[peerId]) cursors[peerId] = {};
-      cursors[peerId].brainSeq = brainResult.brainSeq;
-      cursors[peerId].lastSyncAt = new Date().toISOString();
-    });
-
-    const isPostgres = getBackendName() === 'postgres';
-    const memoryResult = isPostgres
-      ? await syncMemoryFromPeer(peer, cursor)
-      : { memorySeq: cursor.memorySeq ?? '0', totalApplied: 0 };
-
-    await withCursors(async (cursors) => {
-      if (!cursors[peerId]) cursors[peerId] = {};
-      if (isPostgres) cursors[peerId].memorySeq = memoryResult.memorySeq;
-      cursors[peerId].lastSyncAt = new Date().toISOString();
-    });
-
-    const total = brainResult.totalApplied + memoryResult.totalApplied;
-    if (total > 0) {
-      console.log(`🔄 Synced with ${peer.name}: ${brainResult.totalApplied} brain, ${memoryResult.totalApplied} memory changes`);
+    // --- Brain sync (delta-based) ---
+    let brainResult = { brainSeq: cursor.brainSeq ?? 0, totalApplied: 0 };
+    if (categories.brain) {
+      brainResult = await syncBrainFromPeer(peer, cursor);
     }
 
-    return { brain: brainResult, memory: memoryResult };
+    // --- Memory sync (delta-based, PostgreSQL only) ---
+    let memoryResult = { memorySeq: cursor.memorySeq ?? '0', totalApplied: 0 };
+    if (categories.memory) {
+      const isPostgres = getBackendName() === 'postgres';
+      if (isPostgres) {
+        memoryResult = await syncMemoryFromPeer(peer, cursor);
+      }
+    }
+
+    // --- Snapshot-based category syncs (parallel) ---
+    const dataCategoryResults = {};
+    const enabledDataCats = dataSync.getSupportedCategories().filter(cat => categories[cat]);
+    const cachedChecksums = cursor.checksums || {};
+
+    if (enabledDataCats.length > 0) {
+      const settled = await Promise.allSettled(
+        enabledDataCats.map(cat =>
+          syncDataCategoryFromPeer(peer, peerId, cat, cachedChecksums)
+            .catch(err => {
+              console.error(`⚠️ ${cat} sync with ${peer.name} failed: ${err.message}`);
+              return { totalApplied: 0, checksum: null };
+            })
+        )
+      );
+      for (let i = 0; i < enabledDataCats.length; i++) {
+        const result = settled[i].status === 'fulfilled' ? settled[i].value : { totalApplied: 0, checksum: null };
+        dataCategoryResults[enabledDataCats[i]] = result;
+      }
+    }
+
+    // --- Single consolidated cursor write ---
+    await withCursors(async (cursors) => {
+      if (!cursors[peerId]) cursors[peerId] = {};
+      if (categories.brain) cursors[peerId].brainSeq = brainResult.brainSeq;
+      if (memoryResult.memorySeq !== (cursor.memorySeq ?? '0')) cursors[peerId].memorySeq = memoryResult.memorySeq;
+      if (!cursors[peerId].checksums) cursors[peerId].checksums = {};
+      for (const [cat, result] of Object.entries(dataCategoryResults)) {
+        if (result.checksum) cursors[peerId].checksums[cat] = result.checksum;
+      }
+      cursors[peerId].lastSyncAt = new Date().toISOString();
+    });
+
+    // Log summary
+    const parts = [];
+    if (brainResult.totalApplied > 0) parts.push(`${brainResult.totalApplied} brain`);
+    if (memoryResult.totalApplied > 0) parts.push(`${memoryResult.totalApplied} memory`);
+    for (const [cat, result] of Object.entries(dataCategoryResults)) {
+      if (result.totalApplied > 0) parts.push(`${result.totalApplied} ${cat}`);
+    }
+    if (parts.length > 0) {
+      console.log(`🔄 Synced with ${peer.name}: ${parts.join(', ')} changes`);
+    }
+
+    return { brain: brainResult, memory: memoryResult, ...dataCategoryResults };
   } finally {
     syncingPeers.delete(peerId);
   }
+}
+
+/**
+ * Check if a peer has any sync category enabled
+ */
+function hasAnySyncEnabled(peer) {
+  if (peer.syncEnabled === false) return false;
+  const cats = getEffectiveCategories(peer);
+  return Object.values(cats).some(Boolean);
 }
 
 /**
@@ -252,16 +336,20 @@ export async function syncWithPeer(peer) {
  */
 export async function syncAllPeers() {
   const peers = await getPeers();
-  const online = peers.filter(p => p.enabled && p.syncEnabled !== false && p.status === 'online' && p.instanceId);
+  const online = peers.filter(p => p.enabled && hasAnySyncEnabled(p) && p.status === 'online' && p.instanceId);
 
   await Promise.allSettled(online.map(p => syncWithPeer(p)));
 
   // Compact sync log below the minimum peer cursor to bound log growth
-  // Include all enabled peers (not just online) so offline peers don't lose unsynced entries
+  // Include all enabled peers with brain sync (not just online) so offline peers don't lose unsynced entries
   const cursors = await loadCursors();
-  const allEnabledIds = new Set(peers.filter(p => p.enabled && p.instanceId).map(p => p.instanceId));
+  const brainEnabledIds = new Set(
+    peers
+      .filter(p => p.enabled && p.instanceId && getEffectiveCategories(p).brain)
+      .map(p => p.instanceId)
+  );
   const seqs = Object.entries(cursors)
-    .filter(([id]) => allEnabledIds.has(id))
+    .filter(([id]) => brainEnabledIds.has(id))
     .map(([, c]) => c.brainSeq ?? 0);
   if (seqs.length > 0) {
     const minSeq = Math.min(...seqs);
@@ -275,7 +363,7 @@ export async function syncAllPeers() {
 export function initSyncOrchestrator() {
   // Sync immediately when a peer comes online
   peerOnlineHandler = (peer) => {
-    if (peer.syncEnabled === false) return;
+    if (!hasAnySyncEnabled(peer)) return;
     syncWithPeer(peer).catch(err => {
       console.error(`❌ Sync with ${peer.name} failed: ${err.message}`);
     });

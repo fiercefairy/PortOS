@@ -67,6 +67,7 @@ async function callAI(promptStageName, variables, providerOverride, modelOverrid
 
       const child = spawn(provider.command, args, {
         env: (() => { const e = { ...process.env, ...provider.envVars }; delete e.CLAUDECODE; return e; })(),
+        stdio: ['ignore', 'pipe', 'pipe'],
         shell: false,
         windowsHide: true
       });
@@ -83,7 +84,7 @@ async function callAI(promptStageName, variables, providerOverride, modelOverrid
         if (code === 0) {
           resolve(output);
         } else {
-          reject(new Error(`CLI exited with code ${code}`));
+          reject(new Error(`CLI exited with code ${code}${output ? ': ' + output.substring(0, 500) : ''}`));
         }
       });
 

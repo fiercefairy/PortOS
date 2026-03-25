@@ -2,6 +2,9 @@ import { spawn } from 'child_process';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { safeJSONParse } from '../lib/fileUtils.js';
+import { listWorktrees } from './worktreeManager.js';
+
+const PROTECTED_BRANCHES = ['main', 'master', 'dev', 'develop', 'release'];
 
 /**
  * Execute a git command safely using spawn (prevents shell injection)
@@ -410,6 +413,78 @@ export async function createPR(dir, { title, body, base, head }) {
 }
 
 /**
+ * Generate a rich PR description from the agent's output summary.
+ * Extracts the implementation summary from the tail of the agent output,
+ * stripping tool-call artifacts and keeping only the meaningful explanation
+ * of what was implemented (new APIs, UI elements, behaviors, etc.).
+ * Falls back to commit messages when no agent output is available.
+ * @param {string} dir - Working directory (repo root)
+ * @param {string} baseBranch - Base branch (e.g., 'main')
+ * @param {string} headBranch - Head branch (agent's branch)
+ * @param {string} agentOutput - Raw agent output text
+ * @returns {Promise<string>} Formatted PR body
+ */
+export async function generatePRDescription(dir, baseBranch, headBranch, agentOutput) {
+  const summary = extractAgentSummary(agentOutput);
+
+  if (summary) {
+    return `Automated PR created by PortOS Chief of Staff.\n\n## Summary\n\n${summary}`;
+  }
+
+  // Fallback: build from commit messages when no usable agent output
+  const comparison = await getBranchComparison(dir, baseBranch, headBranch).catch(() => null);
+  if (comparison?.commits?.length) {
+    const commitLines = comparison.commits.map(c => `- ${c.message}`).join('\n');
+    return `Automated PR created by PortOS Chief of Staff.\n\n## Changes\n\n${commitLines}`;
+  }
+
+  return 'Automated PR created by PortOS Chief of Staff.';
+}
+
+/**
+ * Extract a meaningful implementation summary from raw agent output.
+ * Agents typically end their output with a summary of what was implemented.
+ * This function finds the last tool-call artifact in the tail of the output
+ * and returns everything after it, cleaned up.
+ * @param {string} output - Raw agent output
+ * @returns {string|null} Cleaned summary text, or null if nothing usable
+ */
+export function extractAgentSummary(output) {
+  if (!output || output.length < 50) return null;
+
+  // Take the last ~4000 chars where the summary typically lives
+  const tail = output.slice(-4000);
+  const lines = tail.split('\n');
+
+  // Find the last tool-call artifact line index.
+  // Everything after it is the agent's final summary.
+  let lastToolLine = -1;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const trimmed = lines[i].trimStart();
+    if (trimmed.startsWith('→') || trimmed.startsWith('🔧') || /^\s*\$ /.test(lines[i])) {
+      lastToolLine = i;
+      break;
+    }
+  }
+
+  // Extract everything after the last tool line
+  const summaryLines = lastToolLine >= 0
+    ? lines.slice(lastToolLine + 1)
+    : lines;
+
+  // Trim leading/trailing blank lines
+  while (summaryLines.length && !summaryLines[0].trim()) summaryLines.shift();
+  while (summaryLines.length && !summaryLines[summaryLines.length - 1].trim()) summaryLines.pop();
+
+  const summary = summaryLines.join('\n').trim();
+
+  // Must have meaningful content (at least a sentence)
+  if (summary.length < 30) return null;
+
+  return summary;
+}
+
+/**
  * Detect base and dev branches from local branch list
  * @returns {{ baseBranch: string|null, devBranch: string|null }}
  */
@@ -653,19 +728,34 @@ export async function getRemoteBranches(dir) {
 }
 
 /**
+ * Get branch names that are checked out in git worktrees.
+ * Delegates to worktreeManager's listWorktrees to avoid duplicating porcelain parsing.
+ * @param {string} dir - Working directory (main repo root)
+ * @returns {Promise<Set<string>>} Set of branch names in active worktrees
+ */
+export async function getWorktreeBranches(dir) {
+  const worktrees = await listWorktrees(dir).catch(() => []);
+  return new Set(
+    worktrees
+      .filter(wt => wt.branch)
+      .map(wt => wt.branch.replace(/^refs\/heads\//, ''))
+  );
+}
+
+/**
  * Delete a branch locally, remotely, or both.
  * @param {string} dir - Working directory
  * @param {string} branchName - Branch name to delete
  * @param {object} options
  * @param {boolean} options.local - Delete local branch
  * @param {boolean} options.remote - Delete remote branch
+ * @param {Set<string>} options.excludeBranches - Additional branches to protect (e.g., active agent branches)
  */
-export async function deleteBranch(dir, branchName, { local = false, remote = false } = {}) {
-  // Safety: never delete default branches
+export async function deleteBranch(dir, branchName, { local = false, remote = false, excludeBranches } = {}) {
   const { baseBranch } = await getRepoBranches(dir);
-  const protectedBranches = ['main', 'master', 'dev', 'develop', 'release'];
-  if (baseBranch) protectedBranches.push(baseBranch);
-  if (protectedBranches.includes(branchName)) {
+  const protectedSet = new Set(PROTECTED_BRANCHES);
+  if (baseBranch) protectedSet.add(baseBranch);
+  if (protectedSet.has(branchName)) {
     throw new Error(`Cannot delete protected branch: ${branchName}`);
   }
 
@@ -673,6 +763,19 @@ export async function deleteBranch(dir, branchName, { local = false, remote = fa
   const currentBranch = await getBranch(dir);
   if (currentBranch === branchName && local) {
     throw new Error(`Cannot delete the currently checked-out branch: ${branchName}`);
+  }
+
+  // Safety: don't delete branches checked out in worktrees (active agent workspaces)
+  if (local) {
+    const worktreeBranches = await getWorktreeBranches(dir);
+    if (worktreeBranches.has(branchName)) {
+      throw new Error(`Cannot delete branch checked out in a worktree: ${branchName}`);
+    }
+  }
+
+  // Safety: don't delete branches explicitly excluded (e.g., active CoS agent branches)
+  if (excludeBranches?.has(branchName)) {
+    throw new Error(`Cannot delete branch in active use by an agent: ${branchName}`);
   }
 
   const results = {};
@@ -718,6 +821,78 @@ export async function mergeBranch(dir, branchName) {
 export async function checkoutRemoteBranch(dir, branchName) {
   await execGit(['checkout', '-b', branchName, `origin/${branchName}`], dir);
   return { success: true, branch: branchName };
+}
+
+/**
+ * Delete all merged branches (local and remote) in one operation.
+ * Skips protected branches (main, master, dev, develop, release), the current branch,
+ * branches checked out in worktrees, and any explicitly excluded branches.
+ * @param {string} dir - Working directory
+ * @param {object} options
+ * @param {Set<string>} options.excludeBranches - Additional branches to protect (e.g., active agent branches)
+ * @returns {Promise<{deleted: Array<{name: string, local: string, remote: string}>, skipped: string[], defaultBranch: string}>}
+ */
+export async function deleteMergedBranches(dir, { excludeBranches } = {}) {
+  const [{ baseBranch }, currentBranch, worktreeBranches] = await Promise.all([
+    getRepoBranches(dir),
+    getBranch(dir),
+    getWorktreeBranches(dir)
+  ]);
+  const defaultBranch = baseBranch || 'main';
+  const protectedSet = new Set(PROTECTED_BRANCHES);
+  if (baseBranch) protectedSet.add(baseBranch);
+
+  // Worktree and agent branches are only protected from local deletion
+  const localOnlyProtected = new Set([...worktreeBranches]);
+  if (excludeBranches) {
+    for (const b of excludeBranches) localOnlyProtected.add(b);
+  }
+
+  await execGit(['fetch', 'origin', '--prune'], dir, { ignoreExitCode: true });
+
+  const [localMerged, remoteMerged] = await Promise.all([
+    execGit(['branch', '--merged', defaultBranch, '--format=%(refname:short)'], dir, { ignoreExitCode: true }),
+    execGit(['branch', '-r', '--merged', `origin/${defaultBranch}`, '--format=%(refname:short)'], dir, { ignoreExitCode: true })
+  ]);
+
+  const mergedLocalNames = localMerged.stdout.trim().split('\n').filter(Boolean)
+    .filter(name => !protectedSet.has(name) && !localOnlyProtected.has(name) && name !== currentBranch);
+
+  const mergedRemoteNames = remoteMerged.stdout.trim().split('\n').filter(Boolean)
+    .filter(ref => ref.startsWith('origin/'))
+    .map(ref => ref.replace(/^origin\//, ''))
+    .filter(name => !protectedSet.has(name) && name !== 'HEAD');
+
+  const allMerged = [...new Set([...mergedLocalNames, ...mergedRemoteNames])];
+  const localSet = new Set(mergedLocalNames);
+  const remoteSet = new Set(mergedRemoteNames);
+
+  const deleted = [];
+  const skipped = [];
+
+  for (const name of allMerged) {
+    const hasLocal = localSet.has(name);
+    const hasRemote = remoteSet.has(name);
+    const result = { name, local: null, remote: null };
+
+    if (hasLocal) {
+      const r = await execGit(['branch', '-d', name], dir, { ignoreExitCode: true });
+      result.local = r.exitCode === 0 ? 'deleted' : 'failed';
+      if (r.exitCode !== 0) skipped.push(`${name} (local: ${r.stderr?.trim()})`);
+    }
+
+    if (hasRemote) {
+      const r = await execGit(['push', 'origin', '--delete', name], dir, { ignoreExitCode: true });
+      result.remote = r.exitCode === 0 ? 'deleted' : 'failed';
+      if (r.exitCode !== 0) skipped.push(`${name} (remote: ${r.stderr?.trim()})`);
+    }
+
+    if (result.local === 'deleted' || result.remote === 'deleted') {
+      deleted.push(result);
+    }
+  }
+
+  return { deleted, skipped, defaultBranch };
 }
 
 /**

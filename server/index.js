@@ -8,6 +8,7 @@ import { PATHS } from './lib/fileUtils.js';
 import { existsSync } from 'fs';
 import { readFile, unlink } from 'fs/promises';
 
+import alertsRoutes from './routes/alerts.js';
 import appleHealthRoutes from './routes/appleHealth.js';
 import systemHealthRoutes from './routes/systemHealth.js';
 import appsRoutes from './routes/apps.js';
@@ -52,6 +53,7 @@ import autobiographyRoutes from './routes/autobiography.js';
 import backupRoutes from './routes/backup.js';
 import databaseRoutes from './routes/database.js';
 import searchRoutes from './routes/search.js';
+import dataSyncRoutes from './routes/dataSync.js';
 import identityRoutes from './routes/identity.js';
 import instancesRoutes from './routes/instances.js';
 import meatspaceRoutes from './routes/meatspace.js';
@@ -200,6 +202,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.set('io', io);
 
 // API Routes
+app.use('/api/alerts', alertsRoutes);
 app.use('/api/system', systemHealthRoutes);
 app.use('/api/apps', appsRoutes);
 app.use('/api/ports', portsRoutes);
@@ -254,6 +257,7 @@ app.use('/api/jira', jiraRoutes);
 app.use('/api/health', appleHealthRoutes);
 app.use('/api/insights', insightsRoutes);
 app.use('/api/instances', instancesRoutes);
+app.use('/api/sync', dataSyncRoutes);
 app.use('/api/meatspace', meatspaceRoutes);
 app.use('/api/review', reviewRoutes);
 app.use('/api/github', githubRoutes);

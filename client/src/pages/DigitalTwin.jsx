@@ -17,6 +17,7 @@ import GoalsTab from '../components/digital-twin/tabs/GoalsTab';
 import AutobiographyTab from '../components/digital-twin/tabs/AutobiographyTab';
 import ImportTab from '../components/digital-twin/tabs/ImportTab';
 import ExportTab from '../components/digital-twin/tabs/ExportTab';
+import TimeCapsuleTab from '../components/digital-twin/tabs/TimeCapsuleTab';
 
 export default function DigitalTwin() {
   const { tab } = useParams();
@@ -73,6 +74,8 @@ export default function DigitalTwin() {
         return <ImportTab onRefresh={fetchData} />;
       case 'export':
         return <ExportTab onRefresh={fetchData} />;
+      case 'time-capsule':
+        return <TimeCapsuleTab onRefresh={fetchData} />;
       default:
         return <OverviewTab status={status} settings={settings} onRefresh={fetchData} />;
     }

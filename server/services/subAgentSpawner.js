@@ -75,6 +75,7 @@ async function cleanupBtwFile(workspacePath) {
 }
 
 const SKILLS_DIR = join(ROOT_DIR, 'data/prompts/skills');
+const SLASHDO_DIR = PATHS.slashdo;
 
 /**
  * Skill template keyword matchers
@@ -133,6 +134,27 @@ async function loadSkillTemplate(skillName) {
   if (!existsSync(templatePath)) return null;
   const content = await readFile(templatePath, 'utf-8');
   console.log(`🎯 Loaded skill template: ${skillName}`);
+  return content;
+}
+
+/**
+ * Load a slashdo command from the bundled submodule, resolving !`cat` lib includes inline.
+ */
+export async function loadSlashdoCommand(commandName) {
+  const cmdPath = join(SLASHDO_DIR, 'commands/do', `${commandName}.md`);
+  if (!existsSync(cmdPath)) return null;
+  let content = await readFile(cmdPath, 'utf-8');
+  // Resolve !`cat ~/.claude/lib/...` includes using the bundled lib
+  const libDir = join(SLASHDO_DIR, 'lib');
+  const matches = [...content.matchAll(/!`cat ~\/.claude\/lib\/([^`]+)`/g)];
+  const replacements = await Promise.all(matches.map(async (match) => {
+    const libContent = await readFile(join(libDir, match[1]), 'utf-8').catch(() => null);
+    return { pattern: match[0], content: libContent };
+  }));
+  for (const { pattern, content: libContent } of replacements) {
+    if (libContent) content = content.replace(pattern, libContent);
+  }
+  console.log(`📋 Loaded slashdo command: do:${commandName}`);
   return content;
 }
 
@@ -1934,9 +1956,12 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
       const { baseBranch, devBranch } = await git.getRepoBranches(workspace).catch(() => ({ baseBranch: null, devBranch: null }));
       const targetBranch = devBranch || baseBranch || 'main';
 
+      const jiraPrBody = await git.generatePRDescription(workspace, targetBranch, jiraBranch, outputBuffer);
+      const jiraPrBodyWithRef = `Resolves ${jiraTicketRef}\n\n${jiraPrBody}`;
+
       const prResult = await git.createPR(workspace, {
         title: `${jiraTicketId}: ${(task.description || 'CoS automated task').substring(0, 100)}`,
-        body: `Resolves ${jiraTicketRef}\n\nAutomated PR created by PortOS Chief of Staff.\n\n**Task:** ${task.description || ''}`,
+        body: jiraPrBodyWithRef,
         base: targetBranch,
         head: jiraBranch
       }).catch(err => {
@@ -2007,7 +2032,7 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
     const taskOpenPR = isTruthyMeta(agent.task?.metadata?.openPR);
     const taskReviewLoop = isTruthyMeta(agent.task?.metadata?.reviewLoop);
     // When reviewLoop + openPR are both enabled, the agent handles the PR during its run — skip post-exit PR creation
-    await cleanupAgentWorktree(agentId, success, { openPR: taskOpenPR && !taskReviewLoop, description: task?.description });
+    await cleanupAgentWorktree(agentId, success, { openPR: taskOpenPR && !taskReviewLoop, description: task?.description, agentOutput: outputBuffer });
   }
 
   runnerAgents.delete(agentId);
@@ -2019,7 +2044,7 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
  * When openPR is true, pushes the branch and creates a PR instead of auto-merging.
  * Otherwise, merges the worktree branch back to the source branch on success.
  */
-export async function cleanupAgentWorktree(agentId, success, { openPR = false, description = null } = {}) {
+export async function cleanupAgentWorktree(agentId, success, { openPR = false, description = null, agentOutput = null } = {}) {
   const { getAgent: getAgentState } = await import('./cos.js');
   const agentState = await getAgentState(agentId).catch(() => null);
   if (!agentState?.metadata?.isWorktree) return;
@@ -2051,9 +2076,11 @@ export async function cleanupAgentWorktree(agentId, success, { openPR = false, d
       const taskDesc = description || 'CoS automated task';
       const prTitle = taskDesc.replace(/[\r\n]+/g, ' ').trim().substring(0, 100);
 
+      const prBody = await git.generatePRDescription(worktreePath, targetBranch, worktreeBranch, agentOutput);
+
       const prResult = await git.createPR(worktreePath, {
         title: prTitle,
-        body: `Automated PR created by PortOS Chief of Staff.\n\n**Task:** ${taskDesc}`,
+        body: prBody,
         base: targetBranch,
         head: worktreeBranch
       }).catch(err => {
@@ -2315,7 +2342,8 @@ async function spawnDirectly(agentId, task, prompt, workspacePath, model, provid
     // Clean up worktree if agent was using one
     await cleanupAgentWorktree(agentId, success, {
       openPR: isTruthyMeta(task.metadata?.openPR),
-      description: task.description
+      description: task.description,
+      agentOutput: outputBuffer
     });
 
     unregisterSpawnedAgent(agentData?.pid || claudeProcess.pid);
@@ -3402,6 +3430,13 @@ export async function handleOrphanedTask(taskId, agentId, getTaskById) {
   // Never requeue tasks that were explicitly terminated by the user
   if (task.status === 'blocked' && task.metadata?.blockedCategory === 'user-terminated') {
     emitLog('info', `⏭️ Skipping orphaned task ${taskId} — user-terminated`, { taskId, agentId });
+    return;
+  }
+
+  // Skip tasks already completed — prevents race where completeAgent() finishes
+  // before updateTask() and a health check calls handleOrphanedTask in between
+  if (task.status === 'completed') {
+    emitLog('debug', `⏭️ Skipping orphaned task ${taskId} — already completed`, { taskId, agentId });
     return;
   }
 

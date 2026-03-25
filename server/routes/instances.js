@@ -22,10 +22,20 @@ const addPeerSchema = z.object({
   name: z.string().optional()
 });
 
+const syncCategoriesSchema = z.object({
+  brain: z.boolean().optional(),
+  memory: z.boolean().optional(),
+  goals: z.boolean().optional(),
+  character: z.boolean().optional(),
+  digitalTwin: z.boolean().optional(),
+  meatspace: z.boolean().optional()
+}).optional();
+
 const updatePeerSchema = z.object({
   name: z.string().optional(),
   enabled: z.boolean().optional(),
-  syncEnabled: z.boolean().optional()
+  syncEnabled: z.boolean().optional(),
+  syncCategories: syncCategoriesSchema
 });
 
 const announceSchema = z.object({

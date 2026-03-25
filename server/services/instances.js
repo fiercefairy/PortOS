@@ -115,6 +115,18 @@ function validName(name, fallback) {
   return name.trim();
 }
 
+// Default sync categories — all disabled until explicitly enabled per-peer
+const DEFAULT_SYNC_CATEGORIES = {
+  brain: false,
+  memory: false,
+  goals: false,
+  character: false,
+  digitalTwin: false,
+  meatspace: false
+};
+
+export { DEFAULT_SYNC_CATEGORIES };
+
 export async function addPeer({ address, port = DEFAULT_PEER_PORT, name }) {
   const peer = await withData(async (data) => {
     const entry = {
@@ -128,7 +140,8 @@ export async function addPeer({ address, port = DEFAULT_PEER_PORT, name }) {
       lastHealth: null,
       status: 'unknown',
       enabled: true,
-      syncEnabled: true,
+      syncEnabled: false,
+      syncCategories: { ...DEFAULT_SYNC_CATEGORIES },
       consecutiveFailures: 0,
       nextProbeAt: null,
       directions: ['outbound']
@@ -163,6 +176,9 @@ export async function updatePeer(id, updates) {
     if (updates.name !== undefined) peer.name = validName(updates.name, peer.name);
     if (updates.enabled !== undefined) peer.enabled = updates.enabled;
     if (updates.syncEnabled !== undefined) peer.syncEnabled = updates.syncEnabled;
+    if (updates.syncCategories !== undefined) {
+      peer.syncCategories = { ...(peer.syncCategories || DEFAULT_SYNC_CATEGORIES), ...updates.syncCategories };
+    }
     instanceEvents.emit('peers:updated', data.peers);
     return peer;
   });
@@ -342,7 +358,8 @@ export async function handleAnnounce({ address, port, instanceId, name }) {
       lastHealth: null,
       status: 'online',
       enabled: true,
-      syncEnabled: true,
+      syncEnabled: false,
+      syncCategories: { ...DEFAULT_SYNC_CATEGORIES },
       consecutiveFailures: 0,
       nextProbeAt: null,
       directions: ['inbound']

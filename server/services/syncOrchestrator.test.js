@@ -2,7 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock all dependencies
 vi.mock('./instances.js', () => ({
-  getPeers: vi.fn()
+  getPeers: vi.fn(),
+  DEFAULT_SYNC_CATEGORIES: {
+    brain: false, memory: false, goals: false,
+    character: false, digitalTwin: false, meatspace: false
+  }
 }));
 vi.mock('./brainSyncLog.js', () => ({
   getChangesSince: vi.fn(),
@@ -17,6 +21,11 @@ vi.mock('./memorySync.js', () => ({
 }));
 vi.mock('./memoryBackend.js', () => ({
   getBackendName: vi.fn(() => 'postgres')
+}));
+vi.mock('./dataSync.js', () => ({
+  getSnapshot: vi.fn().mockResolvedValue({ data: {}, checksum: 'abc' }),
+  applyRemote: vi.fn().mockResolvedValue({ applied: false, count: 0 }),
+  getSupportedCategories: vi.fn(() => ['goals', 'character', 'digitalTwin', 'meatspace'])
 }));
 vi.mock('./instanceEvents.js', () => ({
   instanceEvents: { on: vi.fn(), removeListener: vi.fn() }

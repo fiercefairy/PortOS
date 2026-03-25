@@ -5,7 +5,8 @@ import {
   Cpu, HardDrive, Activity, Bot, MonitorSmartphone, Tag,
   ArrowUpRight, ArrowDownLeft, ArrowLeftRight,
   Database, Brain, CheckCircle2, AlertCircle, Clock,
-  RefreshCcw, RefreshCcwDot, Timer
+  RefreshCcw, RefreshCcwDot, Timer,
+  Target, Sword, Fingerprint, HeartPulse, ChevronDown, ChevronRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import socket from '../services/socket';
@@ -276,14 +277,123 @@ function SyncStatusBadge({ label, icon: Icon, localSeq: _localSeq, peerSeq, curs
   );
 }
 
+// Sync category metadata for UI display
+const SYNC_CATEGORY_META = [
+  { key: 'brain', label: 'Brain', icon: Brain, description: 'People, projects, ideas, admin, memories, links' },
+  { key: 'memory', label: 'Memory', icon: Database, description: 'CoS agent memories (PostgreSQL)' },
+  { key: 'goals', label: 'Goals', icon: Target, description: 'Life goals, milestones, progress tracking' },
+  { key: 'character', label: 'Character', icon: Sword, description: 'XP, HP, level, events, character sheet' },
+  { key: 'digitalTwin', label: 'Digital Twin', icon: Fingerprint, description: 'Identity, chronotype, longevity, feedback' },
+  { key: 'meatspace', label: 'Meatspace', icon: HeartPulse, description: 'Daily logs, blood tests, body metrics, eyes' }
+];
+
+function SyncCategoriesPanel({ peer, onRefresh }) {
+  const [expanded, setExpanded] = useState(false);
+  const categories = peer.syncCategories || {};
+  const enabledCount = Object.values(categories).filter(Boolean).length;
+
+  const toggleCategory = async (key) => {
+    const newValue = !categories[key];
+    const anyCatEnabled = Object.values({ ...categories, [key]: newValue }).some(Boolean);
+    await updatePeer(peer.id, {
+      syncCategories: { [key]: newValue },
+      syncEnabled: anyCatEnabled
+    }).catch(() => null);
+    onRefresh();
+  };
+
+  const toggleAll = async (enable) => {
+    const updated = {};
+    for (const { key } of SYNC_CATEGORY_META) {
+      updated[key] = enable;
+    }
+    await updatePeer(peer.id, {
+      syncCategories: updated,
+      syncEnabled: enable
+    }).catch(() => null);
+    onRefresh();
+  };
+
+  return (
+    <div className="mt-2 pt-2 border-t border-port-border/50">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-1.5 w-full text-left group"
+      >
+        {expanded ? <ChevronDown size={12} className="text-gray-500" /> : <ChevronRight size={12} className="text-gray-500" />}
+        <RefreshCcw size={12} className={enabledCount > 0 ? 'text-port-accent' : 'text-gray-500'} />
+        <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium group-hover:text-gray-400 transition-colors">
+          Sync Categories
+        </span>
+        <span className={`text-[10px] ml-auto ${enabledCount > 0 ? 'text-port-accent' : 'text-gray-600'}`}>
+          {enabledCount}/{SYNC_CATEGORY_META.length}
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="mt-2 space-y-1">
+          <div className="flex justify-end gap-2 mb-1.5">
+            <button
+              onClick={() => toggleAll(true)}
+              className="text-[10px] text-port-accent hover:text-port-accent/80 transition-colors"
+            >
+              Enable all
+            </button>
+            <button
+              onClick={() => toggleAll(false)}
+              className="text-[10px] text-gray-500 hover:text-gray-400 transition-colors"
+            >
+              Disable all
+            </button>
+          </div>
+          {SYNC_CATEGORY_META.map(({ key, label, icon: Icon, description }) => (
+            <button
+              key={key}
+              onClick={() => toggleCategory(key)}
+              className="flex items-center gap-2 w-full px-2 py-1.5 rounded hover:bg-port-bg/50 transition-colors text-left"
+            >
+              <div className={`w-3 h-3 rounded-sm border flex-shrink-0 flex items-center justify-center transition-colors ${
+                categories[key]
+                  ? 'bg-port-accent border-port-accent'
+                  : 'border-gray-600 bg-transparent'
+              }`}>
+                {categories[key] && <Check size={8} className="text-white" />}
+              </div>
+              <Icon size={12} className={categories[key] ? 'text-port-accent' : 'text-gray-500'} />
+              <div className="flex-1 min-w-0">
+                <span className={`text-xs ${categories[key] ? 'text-white' : 'text-gray-400'}`}>{label}</span>
+                <p className="text-[10px] text-gray-600 truncate">{description}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SyncStatusSection({ peer, syncStatus }) {
   if (!syncStatus || !peer.instanceId) return null;
 
   const cursor = syncStatus.cursors?.[peer.instanceId];
   const remoteSyncSeqs = peer.remoteSyncSeqs;
+  const categories = peer.syncCategories || {};
 
   // No sync data available at all
   if (!cursor && !remoteSyncSeqs) return null;
+
+  // Only show delta-based status for enabled categories
+  const showBrain = categories.brain;
+  const showMemory = categories.memory;
+
+  // Show snapshot category sync status from checksums
+  const checksums = cursor?.checksums || {};
+  const syncedSnapshots = SYNC_CATEGORY_META
+    .filter(m => m.key !== 'brain' && m.key !== 'memory')
+    .map(m => m.key)
+    .filter(cat => categories[cat] && checksums[cat]);
+
+  if (!showBrain && !showMemory && syncedSnapshots.length === 0) return null;
 
   return (
     <div className="mt-2 pt-2 border-t border-port-border/50">
@@ -295,20 +405,37 @@ function SyncStatusSection({ peer, syncStatus }) {
         )}
       </div>
       <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-        <SyncStatusBadge
-          label="Brain"
-          icon={Brain}
-          localSeq={syncStatus.local?.brainSeq}
-          peerSeq={remoteSyncSeqs?.brainSeq}
-          cursorSeq={cursor?.brainSeq}
-        />
-        <SyncStatusBadge
-          label="Memory"
-          icon={Database}
-          localSeq={syncStatus.local?.memorySeq}
-          peerSeq={remoteSyncSeqs?.memorySeq}
-          cursorSeq={cursor?.memorySeq}
-        />
+        {showBrain && (
+          <SyncStatusBadge
+            label="Brain"
+            icon={Brain}
+            localSeq={syncStatus.local?.brainSeq}
+            peerSeq={remoteSyncSeqs?.brainSeq}
+            cursorSeq={cursor?.brainSeq}
+          />
+        )}
+        {showMemory && (
+          <SyncStatusBadge
+            label="Memory"
+            icon={Database}
+            localSeq={syncStatus.local?.memorySeq}
+            peerSeq={remoteSyncSeqs?.memorySeq}
+            cursorSeq={cursor?.memorySeq}
+          />
+        )}
+        {syncedSnapshots.map(cat => {
+          const meta = SYNC_CATEGORY_META.find(m => m.key === cat);
+          if (!meta) return null;
+          const CatIcon = meta.icon;
+          return (
+            <div key={cat} className="flex items-center gap-1.5 text-xs">
+              <CatIcon size={12} className="text-gray-500" />
+              <span className="text-gray-500">{meta.label}:</span>
+              <CheckCircle2 size={11} className="text-port-success" />
+              <span className="text-port-success">synced</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -349,11 +476,6 @@ function PeerCard({ peer, onRefresh, syncStatus }) {
 
   const handleToggle = async () => {
     await updatePeer(peer.id, { enabled: !peer.enabled }).catch(() => null);
-    onRefresh();
-  };
-
-  const handleSyncToggle = async () => {
-    await updatePeer(peer.id, { syncEnabled: !peer.syncEnabled }).catch(() => null);
     onRefresh();
   };
 
@@ -407,13 +529,6 @@ function PeerCard({ peer, onRefresh, syncStatus }) {
           >
             {peer.enabled ? 'ON' : 'OFF'}
           </button>
-          <button
-            onClick={handleSyncToggle}
-            className={`p-1 transition-colors ${peer.syncEnabled !== false ? 'text-port-accent hover:text-port-accent/80' : 'text-gray-600 hover:text-white'}`}
-            title={peer.syncEnabled !== false ? 'Disable sync' : 'Enable sync'}
-          >
-            {peer.syncEnabled !== false ? <RefreshCcw size={13} /> : <RefreshCcwDot size={13} />}
-          </button>
           {confirmRemove ? (
             <div className="flex items-center gap-1">
               <button onClick={handleRemove} className="text-port-error hover:text-port-error/80 text-xs">Yes</button>
@@ -463,12 +578,7 @@ function PeerCard({ peer, onRefresh, syncStatus }) {
         </div>
       )}
 
-      {peer.syncEnabled === false && (
-        <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
-          <RefreshCcwDot size={12} />
-          <span>Sync disabled</span>
-        </div>
-      )}
+      <SyncCategoriesPanel peer={peer} onRefresh={onRefresh} />
 
       <SyncStatusSection peer={peer} syncStatus={syncStatus} />
 

@@ -16,19 +16,20 @@ export async function applyOrganizationSuggestion(suggestion) {
     }).then(res => res, () => null);
     if (!apex?.id) return false;
     apexId = apex.id;
-    // Rewrite organization items that should parent under new apex
-    if (organization) {
-      for (const item of organization) {
-        if (item.suggestedParentId === '__new_apex__' || (!item.suggestedParentId && item.goalType === 'sub-apex')) {
-          item.suggestedParentId = apexId;
-        }
-      }
-    }
   }
 
   // Resolve apex ID: prefer existing, fall back to newly created
   if (!apexId && suggestion.apexGoal?.existingId) {
     apexId = suggestion.apexGoal.existingId;
+  }
+
+  // Rewrite __new_apex__ placeholders and unparented sub-apex items to resolved apex
+  if (apexId && organization) {
+    for (const item of organization) {
+      if (item.suggestedParentId === '__new_apex__' || (!item.suggestedParentId && item.goalType === 'sub-apex')) {
+        item.suggestedParentId = apexId;
+      }
+    }
   }
 
   // Create suggested sub-apex goals in parallel, parented under the apex

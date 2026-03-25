@@ -17,6 +17,9 @@ export default function ToggleSwitch({ enabled, onChange, disabled, ariaLabel, s
   const s = SIZES[size] || SIZES.md;
   return (
     <button
+      type="button"
+      role="switch"
+      aria-checked={enabled}
       onClick={onChange}
       disabled={disabled}
       className={`relative inline-flex ${s.track} items-center rounded-full transition-colors shrink-0 ${

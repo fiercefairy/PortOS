@@ -410,57 +410,75 @@ export async function createPR(dir, { title, body, base, head }) {
 }
 
 /**
- * Generate a rich PR description from branch commits and diff stats.
- * Falls back to a simple description if git data is unavailable.
+ * Generate a rich PR description from the agent's output summary.
+ * Extracts the implementation summary from the tail of the agent output,
+ * stripping tool-call artifacts and keeping only the meaningful explanation
+ * of what was implemented (new APIs, UI elements, behaviors, etc.).
+ * Falls back to commit messages when no agent output is available.
  * @param {string} dir - Working directory (repo root)
  * @param {string} baseBranch - Base branch (e.g., 'main')
  * @param {string} headBranch - Head branch (agent's branch)
- * @param {string} taskDescription - Original task prompt
+ * @param {string} agentOutput - Raw agent output text
  * @returns {Promise<string>} Formatted PR body
  */
-export async function generatePRDescription(dir, baseBranch, headBranch, taskDescription) {
-  const sections = ['Automated PR created by PortOS Chief of Staff.'];
+export async function generatePRDescription(dir, baseBranch, headBranch, agentOutput) {
+  const summary = extractAgentSummary(agentOutput);
 
-  const [comparison, changedFiles] = await Promise.all([
-    getBranchComparison(dir, baseBranch, headBranch).catch(() => null),
-    execGit(['diff', '--name-only', `${baseBranch}...${headBranch}`], dir, { ignoreExitCode: true })
-      .then(r => r.stdout.trim().split('\n').filter(Boolean)).catch(() => [])
-  ]);
+  if (summary) {
+    return `Automated PR created by PortOS Chief of Staff.\n\n## Summary\n\n${summary}`;
+  }
 
+  // Fallback: build from commit messages when no usable agent output
+  const comparison = await getBranchComparison(dir, baseBranch, headBranch).catch(() => null);
   if (comparison?.commits?.length) {
-    sections.push('\n## Changes');
-    for (const c of comparison.commits) {
-      sections.push(`- ${c.message}`);
+    const commitLines = comparison.commits.map(c => `- ${c.message}`).join('\n');
+    return `Automated PR created by PortOS Chief of Staff.\n\n## Changes\n\n${commitLines}`;
+  }
+
+  return 'Automated PR created by PortOS Chief of Staff.';
+}
+
+/**
+ * Extract a meaningful implementation summary from raw agent output.
+ * Agents typically end their output with a summary of what was implemented.
+ * This function finds the last tool-call artifact in the tail of the output
+ * and returns everything after it, cleaned up.
+ * @param {string} output - Raw agent output
+ * @returns {string|null} Cleaned summary text, or null if nothing usable
+ */
+export function extractAgentSummary(output) {
+  if (!output || output.length < 50) return null;
+
+  // Take the last ~4000 chars where the summary typically lives
+  const tail = output.slice(-4000);
+  const lines = tail.split('\n');
+
+  // Find the last tool-call artifact line index.
+  // Everything after it is the agent's final summary.
+  let lastToolLine = -1;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const trimmed = lines[i].trimStart();
+    if (trimmed.startsWith('→') || trimmed.startsWith('🔧') || /^\s*\$ /.test(lines[i])) {
+      lastToolLine = i;
+      break;
     }
   }
 
-  if (comparison?.stats) {
-    const { files, insertions, deletions } = comparison.stats;
-    if (files > 0) {
-      sections.push(`\n**${files} file${files === 1 ? '' : 's'} changed** (+${insertions} -${deletions})`);
-    }
-  }
+  // Extract everything after the last tool line
+  const summaryLines = lastToolLine >= 0
+    ? lines.slice(lastToolLine + 1)
+    : lines;
 
-  if (changedFiles.length > 0 && changedFiles.length <= 30) {
-    sections.push('\n<details><summary>Files changed</summary>\n');
-    for (const f of changedFiles) {
-      sections.push(`- \`${f}\``);
-    }
-    sections.push('\n</details>');
-  } else if (changedFiles.length > 30) {
-    sections.push(`\n<details><summary>Files changed (${changedFiles.length})</summary>\n`);
-    for (const f of changedFiles.slice(0, 30)) {
-      sections.push(`- \`${f}\``);
-    }
-    sections.push(`- ... and ${changedFiles.length - 30} more`);
-    sections.push('\n</details>');
-  }
+  // Trim leading/trailing blank lines
+  while (summaryLines.length && !summaryLines[0].trim()) summaryLines.shift();
+  while (summaryLines.length && !summaryLines[summaryLines.length - 1].trim()) summaryLines.pop();
 
-  if (taskDescription) {
-    sections.push(`\n<details><summary>Original task</summary>\n\n${taskDescription}\n\n</details>`);
-  }
+  const summary = summaryLines.join('\n').trim();
 
-  return sections.join('\n');
+  // Must have meaningful content (at least a sentence)
+  if (summary.length < 30) return null;
+
+  return summary;
 }
 
 /**

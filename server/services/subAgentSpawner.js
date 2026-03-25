@@ -1934,7 +1934,7 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
       const { baseBranch, devBranch } = await git.getRepoBranches(workspace).catch(() => ({ baseBranch: null, devBranch: null }));
       const targetBranch = devBranch || baseBranch || 'main';
 
-      const jiraPrBody = await git.generatePRDescription(workspace, targetBranch, jiraBranch, task.description);
+      const jiraPrBody = await git.generatePRDescription(workspace, targetBranch, jiraBranch, outputBuffer);
       const jiraPrBodyWithRef = `Resolves ${jiraTicketRef}\n\n${jiraPrBody}`;
 
       const prResult = await git.createPR(workspace, {
@@ -2010,7 +2010,7 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
     const taskOpenPR = isTruthyMeta(agent.task?.metadata?.openPR);
     const taskReviewLoop = isTruthyMeta(agent.task?.metadata?.reviewLoop);
     // When reviewLoop + openPR are both enabled, the agent handles the PR during its run — skip post-exit PR creation
-    await cleanupAgentWorktree(agentId, success, { openPR: taskOpenPR && !taskReviewLoop, description: task?.description });
+    await cleanupAgentWorktree(agentId, success, { openPR: taskOpenPR && !taskReviewLoop, description: task?.description, agentOutput: outputBuffer });
   }
 
   runnerAgents.delete(agentId);
@@ -2022,7 +2022,7 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
  * When openPR is true, pushes the branch and creates a PR instead of auto-merging.
  * Otherwise, merges the worktree branch back to the source branch on success.
  */
-export async function cleanupAgentWorktree(agentId, success, { openPR = false, description = null } = {}) {
+export async function cleanupAgentWorktree(agentId, success, { openPR = false, description = null, agentOutput = null } = {}) {
   const { getAgent: getAgentState } = await import('./cos.js');
   const agentState = await getAgentState(agentId).catch(() => null);
   if (!agentState?.metadata?.isWorktree) return;
@@ -2054,7 +2054,7 @@ export async function cleanupAgentWorktree(agentId, success, { openPR = false, d
       const taskDesc = description || 'CoS automated task';
       const prTitle = taskDesc.replace(/[\r\n]+/g, ' ').trim().substring(0, 100);
 
-      const prBody = await git.generatePRDescription(worktreePath, targetBranch, worktreeBranch, taskDesc);
+      const prBody = await git.generatePRDescription(worktreePath, targetBranch, worktreeBranch, agentOutput);
 
       const prResult = await git.createPR(worktreePath, {
         title: prTitle,
@@ -2320,7 +2320,8 @@ async function spawnDirectly(agentId, task, prompt, workspacePath, model, provid
     // Clean up worktree if agent was using one
     await cleanupAgentWorktree(agentId, success, {
       openPR: isTruthyMeta(task.metadata?.openPR),
-      description: task.description
+      description: task.description,
+      agentOutput: outputBuffer
     });
 
     unregisterSpawnedAgent(agentData?.pid || claudeProcess.pid);

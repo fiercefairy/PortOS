@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   ChevronRight, ChevronDown, Plus, GripVertical, Search, Tag, Link2, Crown, Star, Wand2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from '@dnd-kit/core';
 import * as api from '../../services/api';
 import GoalDetailPanel, { CATEGORY_CONFIG, HORIZON_OPTIONS, GOAL_TYPE_CONFIG, DEFAULT_NEW_GOAL } from './GoalDetailPanel';
 import { applyOrganizationSuggestion } from './applyOrganization';
@@ -17,23 +18,68 @@ function urgencyIndicator(urgency) {
   return <div className={`w-2 h-2 rounded-full ${color}`} title={`${Math.round(urgency * 100)}% urgency`} />;
 }
 
-function GoalRow({ goal, depth, expandedIds, onToggle, onSelect, selectedId, onAddChild }) {
+function GoalRowContent({ goal, isDragOverlay }) {
+  const cat = CATEGORY_CONFIG[goal.category] || CATEGORY_CONFIG.mastery;
+  const CatIcon = cat.icon;
+  return (
+    <div className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 ${
+      isDragOverlay ? 'bg-port-card border border-port-accent/50 rounded-lg shadow-lg' : ''
+    }`}>
+      <div className={`p-1 rounded ${cat.bg} shrink-0`}>
+        <CatIcon className={`w-3.5 h-3.5 ${cat.color}`} />
+      </div>
+      <span className="text-sm text-white truncate flex-1 min-w-0">{goal.title}</span>
+      {goal.goalType && goal.goalType !== 'standard' && (
+        <span className={`shrink-0 text-xs px-1.5 py-0.5 rounded ${GOAL_TYPE_CONFIG[goal.goalType]?.bg} ${GOAL_TYPE_CONFIG[goal.goalType]?.color}`}>
+          {goal.goalType === 'apex' ? <Crown className="w-3 h-3 inline mr-0.5" /> : <Star className="w-3 h-3 inline mr-0.5" />}
+          <span className="hidden sm:inline">{GOAL_TYPE_CONFIG[goal.goalType]?.label}</span>
+        </span>
+      )}
+      <span className="text-xs text-gray-500 shrink-0 px-1 sm:px-1.5 py-0.5 rounded bg-gray-800">
+        {HORIZON_OPTIONS.find(h => h.value === goal.horizon)?.label}
+      </span>
+    </div>
+  );
+}
+
+function GoalRow({ goal, depth, expandedIds, onToggle, onSelect, selectedId, onAddChild, draggedId }) {
   const cat = CATEGORY_CONFIG[goal.category] || CATEGORY_CONFIG.mastery;
   const CatIcon = cat.icon;
   const expanded = expandedIds.has(goal.id);
   const hasChildren = goal.children?.length > 0;
   const isSelected = selectedId === goal.id;
+  const isDragging = draggedId === goal.id;
+
+  const { attributes, listeners, setNodeRef: setDragRef } = useDraggable({
+    id: `drag-${goal.id}`,
+    data: { goal }
+  });
+
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: `drop-${goal.id}`,
+    data: { goal }
+  });
 
   return (
     <>
       <div
-        className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 hover:bg-port-border/30 cursor-pointer transition-colors border-b border-port-border/50 ${
+        ref={(node) => { setDragRef(node); setDropRef(node); }}
+        className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 cursor-pointer transition-colors border-b border-port-border/50 ${
           isSelected ? 'bg-port-accent/10' : ''
+        } ${isOver && !isDragging ? 'bg-port-accent/20 border-port-accent' : 'hover:bg-port-border/30'} ${
+          isDragging ? 'opacity-30' : ''
         }`}
         style={{ paddingLeft: `${depth * 20 + 8}px` }}
         onClick={() => onSelect(goal)}
       >
-        <GripVertical className="w-3.5 h-3.5 text-gray-600 shrink-0 cursor-grab hidden sm:block" />
+        <div
+          className="shrink-0 cursor-grab active:cursor-grabbing touch-none hidden sm:block"
+          {...attributes}
+          {...listeners}
+          onClick={e => e.stopPropagation()}
+        >
+          <GripVertical className="w-3.5 h-3.5 text-gray-600 hover:text-gray-400" />
+        </div>
 
         {hasChildren ? (
           <button
@@ -119,9 +165,24 @@ function GoalRow({ goal, depth, expandedIds, onToggle, onSelect, selectedId, onA
           onSelect={onSelect}
           selectedId={selectedId}
           onAddChild={onAddChild}
+          draggedId={draggedId}
         />
       ))}
     </>
+  );
+}
+
+function RootDropZone() {
+  const { setNodeRef, isOver } = useDroppable({ id: 'drop-root', data: { root: true } });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`px-4 py-2 text-xs text-center transition-colors ${
+        isOver ? 'bg-port-accent/20 text-port-accent' : 'text-gray-600'
+      }`}
+    >
+      {isOver ? 'Drop here to make root goal' : 'Drag goals to reparent them'}
+    </div>
   );
 }
 
@@ -132,10 +193,13 @@ export default function GoalsListView({ data, onRefresh }) {
   const [showNewGoal, setShowNewGoal] = useState(false);
   const [newGoal, setNewGoal] = useState({ ...DEFAULT_NEW_GOAL });
   const [organizing, setOrganizing] = useState(false);
+  const [draggedGoal, setDraggedGoal] = useState(null);
   const {
     providers, selectedProviderId, selectedModel, availableModels,
     setSelectedProviderId, setSelectedModel, loading: providersLoading
   } = useProviderModels({ filter: API_PROVIDER_FILTER });
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const toggleExpand = (id) => {
     setExpandedIds(prev => {
@@ -145,7 +209,6 @@ export default function GoalsListView({ data, onRefresh }) {
     });
   };
 
-  // Build tree from roots, filtering by search
   const filteredRoots = useMemo(() => {
     if (!data?.roots) return [];
     if (!searchQuery) return data.roots;
@@ -187,6 +250,42 @@ export default function GoalsListView({ data, onRefresh }) {
     toast.success('Goal hierarchy applied');
     onRefresh();
   };
+
+  const handleDragStart = useCallback((event) => {
+    setDraggedGoal(event.active.data.current?.goal || null);
+  }, []);
+
+  const handleDragEnd = useCallback(async (event) => {
+    const { active, over } = event;
+    setDraggedGoal(null);
+    if (!over || !active) return;
+
+    const dragGoal = active.data.current?.goal;
+    if (!dragGoal) return;
+
+    const isRoot = over.data.current?.root;
+    const dropGoal = over.data.current?.goal;
+
+    // Determine new parentId
+    let newParentId = null;
+    if (!isRoot && dropGoal) {
+      if (dropGoal.id === dragGoal.id) return; // dropped on self
+      if (dropGoal.id === dragGoal.parentId) return; // already a child of this parent
+      newParentId = dropGoal.id;
+    } else {
+      if (!dragGoal.parentId) return; // already a root goal
+    }
+
+    const result = await api.updateGoal(dragGoal.id, { parentId: newParentId }).catch(err => {
+      toast.error(err?.message || 'Failed to move goal');
+      return null;
+    });
+    if (!result) return;
+    toast.success(`Moved "${dragGoal.title}" ${newParentId ? `under "${dropGoal.title}"` : 'to root'}`);
+    onRefresh();
+  }, [onRefresh]);
+
+  const handleDragCancel = useCallback(() => setDraggedGoal(null), []);
 
   return (
     <div className="h-full flex flex-col sm:flex-row relative">
@@ -316,27 +415,39 @@ export default function GoalsListView({ data, onRefresh }) {
           </div>
         )}
 
-        {/* Tree list */}
-        <div className="flex-1 overflow-y-auto">
-          {filteredRoots.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-gray-500 text-sm">
-              {searchQuery ? 'No matching goals found.' : 'No goals yet. Add a root goal to get started.'}
-            </div>
-          ) : (
-            filteredRoots.map(root => (
-              <GoalRow
-                key={root.id}
-                goal={root}
-                depth={0}
-                expandedIds={expandedIds}
-                onToggle={toggleExpand}
-                onSelect={handleSelect}
-                selectedId={selectedGoal?.id}
-                onAddChild={handleAddChild}
-              />
-            ))
-          )}
-        </div>
+        {/* Tree list with drag-and-drop */}
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
+          <div className="flex-1 overflow-y-auto">
+            <RootDropZone />
+            {filteredRoots.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+                {searchQuery ? 'No matching goals found.' : 'No goals yet. Add a root goal to get started.'}
+              </div>
+            ) : (
+              filteredRoots.map(root => (
+                <GoalRow
+                  key={root.id}
+                  goal={root}
+                  depth={0}
+                  expandedIds={expandedIds}
+                  onToggle={toggleExpand}
+                  onSelect={handleSelect}
+                  selectedId={selectedGoal?.id}
+                  onAddChild={handleAddChild}
+                  draggedId={draggedGoal?.id}
+                />
+              ))
+            )}
+          </div>
+          <DragOverlay>
+            {draggedGoal && <GoalRowContent goal={draggedGoal} isDragOverlay />}
+          </DragOverlay>
+        </DndContext>
       </div>
 
       {/* Detail panel — full overlay on mobile, side panel on desktop */}

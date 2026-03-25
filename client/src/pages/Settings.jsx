@@ -883,9 +883,10 @@ function ImageGenTab() {
   useEffect(() => {
     Promise.all([getSettings(), getToolsList()])
       .then(([settings, tools]) => {
-        const url = settings?.imageGen?.sdapiUrl || '';
-        setSdapiUrl(url);
-        setSavedUrl(url);
+        const rawUrl = settings?.imageGen?.sdapiUrl || '';
+        const normalizedUrl = rawUrl.trim().replace(/\/+$/, '');
+        setSdapiUrl(normalizedUrl);
+        setSavedUrl(normalizedUrl);
         setToolRegistered(tools.some(t => t.id === SDAPI_TOOL_ID));
       })
       .catch(() => toast.error('Failed to load image gen settings'))

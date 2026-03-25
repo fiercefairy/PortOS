@@ -113,10 +113,14 @@ export async function removeWorktree(agentId, sourceWorkspace, branchName, optio
   }
 
   // Safety check: abort removal when uncommitted changes are detected.
-  // Auto-committing dirty state is unreliable — if merge is false the commit
-  // would be dangling (branch gets deleted), and if merge is true it could
-  // merge partial/WIP changes. Preserve the worktree so the caller can handle.
-  const dirtyFiles = (await execGit(['status', '--porcelain'], worktreePath).catch(() => '')).trim();
+  // Also fail closed if git status itself fails — treat unknown state as dirty.
+  let dirtyFiles;
+  try {
+    dirtyFiles = (await execGit(['status', '--porcelain'], worktreePath)).trim();
+  } catch (err) {
+    console.log(`⚠️ git status failed for worktree ${agentId}, preserving to avoid data loss: ${err.message}`);
+    return { merged: false, removed: false, uncommittedSaved: false };
+  }
   if (dirtyFiles) {
     console.log(`⚠️ Preserving worktree for ${agentId} — uncommitted changes detected, aborting cleanup to avoid data loss`);
     return { merged: false, removed: false, uncommittedSaved: false };

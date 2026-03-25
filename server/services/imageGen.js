@@ -40,8 +40,11 @@ async function detectModel(baseUrl) {
 }
 
 export async function checkConnection() {
-  const baseUrl = await getSdApiUrl();
-  if (!baseUrl) return { connected: false, reason: 'No SD API URL configured' };
+  const rawUrl = await getSdApiUrl();
+  if (!rawUrl) return { connected: false, reason: 'No SD API URL configured' };
+
+  let baseUrl;
+  try { baseUrl = validateSdUrl(rawUrl); } catch (err) { return { connected: false, reason: err.message }; }
 
   // Always make a live request for status checks — bypass the model cache
   const res = await fetchWithTimeout(`${baseUrl}/sdapi/v1/options`, {}, 10000).catch(() => null);
@@ -94,9 +97,18 @@ function startProgressPolling(baseUrl, generationId) {
   return () => clearInterval(interval);
 }
 
+function validateSdUrl(rawUrl) {
+  if (!rawUrl) throw new Error('No SD API URL configured — set it in Settings > Image Gen');
+  let url;
+  try { url = new URL(rawUrl); } catch { throw new Error('Invalid SD API URL — must be a valid http/https URL'); }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error('Invalid SD API URL — only http and https are allowed');
+  }
+  return url.origin;
+}
+
 export async function generateImage({ prompt, negativePrompt, width, height, steps, cfgScale, seed }) {
-  const baseUrl = await getSdApiUrl();
-  if (!baseUrl) throw new Error('No SD API URL configured — set it in Settings > Image Gen');
+  const baseUrl = validateSdUrl(await getSdApiUrl());
 
   const model = await detectModel(baseUrl);
   const isFlux = model?.toLowerCase().includes('flux');
@@ -143,27 +155,35 @@ export async function generateImage({ prompt, negativePrompt, width, height, ste
   }
   stopPolling();
 
-  if (!res.ok) {
-    const errBody = await res.text().catch(() => '');
-    imageGenEvents.emit('failed', { generationId, error: `SD API error ${res.status}` });
-    throw new Error(`SD API error ${res.status}: ${errBody.slice(0, 200)}`);
+  try {
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      imageGenEvents.emit('failed', { generationId, error: `SD API error ${res.status}` });
+      throw new Error(`SD API error ${res.status}: ${errBody.slice(0, 200)}`);
+    }
+
+    const data = await res.json();
+    if (!data.images?.length) {
+      imageGenEvents.emit('failed', { generationId, error: 'No images returned' });
+      throw new Error('SD API returned no images');
+    }
+
+    await ensureDir(PATHS.images);
+    const filename = `${randomUUID()}.png`;
+    await writeFile(join(PATHS.images, filename), Buffer.from(data.images[0], 'base64'));
+
+    const path = `/data/images/${filename}`;
+    console.log(`🖼️ Image saved: ${filename}`);
+
+    imageGenEvents.emit('completed', { generationId, path, filename });
+    return { generationId, filename, path };
+  } catch (err) {
+    // Guarantee a terminal event for every generationId
+    if (!err.message?.startsWith('SD API error') && err.message !== 'SD API returned no images') {
+      imageGenEvents.emit('failed', { generationId, error: err.message || 'Image generation failed' });
+    }
+    throw err;
   }
-
-  const data = await res.json();
-  if (!data.images?.length) {
-    imageGenEvents.emit('failed', { generationId, error: 'No images returned' });
-    throw new Error('SD API returned no images');
-  }
-
-  await ensureDir(PATHS.images);
-  const filename = `${randomUUID()}.png`;
-  await writeFile(join(PATHS.images, filename), Buffer.from(data.images[0], 'base64'));
-
-  const path = `/data/images/${filename}`;
-  console.log(`🖼️ Image saved: ${filename}`);
-
-  imageGenEvents.emit('completed', { generationId, path, filename });
-  return { generationId, filename, path };
 }
 
 export async function generateAvatar({ name, characterClass, prompt }) {

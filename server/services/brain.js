@@ -83,7 +83,7 @@ async function callAI(promptStageName, variables, providerOverride, modelOverrid
         if (code === 0) {
           resolve(output);
         } else {
-          reject(new Error(`CLI exited with code ${code}`));
+          reject(new Error(`CLI exited with code ${code}${output ? ': ' + output.substring(0, 500) : ''}`));
         }
       });
 

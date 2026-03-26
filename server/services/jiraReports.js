@@ -28,7 +28,7 @@ function mapIssue(issue, baseUrl) {
 
 async function getSprintTickets(instance, projectKey) {
   const client = createJiraClient(instance);
-  const jql = `project = "${projectKey}" AND sprint in openSprints() ORDER BY status ASC, priority DESC, updated DESC`;
+  const jql = `project = "${projectKey}" AND assignee = currentUser() AND sprint in openSprints() ORDER BY status ASC, priority DESC, updated DESC`;
 
   const response = await client.get('/rest/api/2/search', {
     params: {
@@ -47,7 +47,7 @@ async function getSprintTickets(instance, projectKey) {
 
 async function getRecentlyCompleted(instance, projectKey) {
   const client = createJiraClient(instance);
-  const jql = `project = "${projectKey}" AND status changed to Done AFTER -7d ORDER BY updated DESC`;
+  const jql = `project = "${projectKey}" AND assignee = currentUser() AND status changed to Done AFTER -7d ORDER BY updated DESC`;
 
   const response = await client.get('/rest/api/2/search', {
     params: {
@@ -101,25 +101,6 @@ export async function generateReport(appId, app) {
   const completedPoints = done.reduce((sum, t) => sum + (t.storyPoints || 0), 0);
   const inProgressPoints = inProgress.reduce((sum, t) => sum + (t.storyPoints || 0), 0);
 
-  const byAssignee = {};
-  for (const ticket of sprintTickets) {
-    const name = ticket.assignee;
-    if (!byAssignee[name]) {
-      byAssignee[name] = { todo: 0, inProgress: 0, done: 0, points: 0 };
-    }
-    if (ticket.statusCategory === 'To Do') byAssignee[name].todo++;
-    else if (ticket.statusCategory === 'In Progress') byAssignee[name].inProgress++;
-    else if (ticket.statusCategory === 'Done') byAssignee[name].done++;
-    byAssignee[name].points += ticket.storyPoints || 0;
-  }
-
-  const byPriority = {};
-  for (const ticket of sprintTickets) {
-    const priority = ticket.priority || 'None';
-    if (!byPriority[priority]) byPriority[priority] = 0;
-    byPriority[priority]++;
-  }
-
   // Build plain-text status summary for status calls/emails
   const statusLines = [];
   if (recentlyCompleted.length > 0) {
@@ -131,12 +112,12 @@ export async function generateReport(appId, app) {
   if (inProgress.length > 0) {
     statusLines.push('', '**In Progress:**');
     for (const t of inProgress) {
-      statusLines.push(`- ${t.key}: ${t.summary} (${t.assignee})`);
+      statusLines.push(`- ${t.key}: ${t.summary}`);
     }
   }
   const blocked = sprintTickets.filter(t =>
     t.status?.toLowerCase().includes('block') ||
-    t.priority === 'Highest' && t.statusCategory === 'To Do'
+    (t.priority === 'Highest' && t.statusCategory === 'To Do')
   );
   if (blocked.length > 0) {
     statusLines.push('', '**Blocked / Needs Attention:**');
@@ -175,8 +156,6 @@ export async function generateReport(appId, app) {
         : 0,
       recentlyCompletedCount: recentlyCompleted.length
     },
-    byAssignee,
-    byPriority,
     tickets: {
       todo: todo.map(t => ticketSummary(t)),
       inProgress: inProgress.map(t => ticketSummary(t)),

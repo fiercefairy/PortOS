@@ -4,98 +4,11 @@ import toast from 'react-hot-toast';
 import {
   FileText,
   RefreshCw,
-  ChevronDown,
-  ChevronRight,
-  BarChart3,
-  Users,
-  CheckCircle,
-  Clock,
-  AlertCircle,
   Loader2,
   Copy,
   Check
 } from 'lucide-react';
 import * as api from '../services/api';
-
-const PRIORITY_COLORS = {
-  Highest: 'text-red-400',
-  High: 'text-orange-400',
-  Medium: 'text-yellow-400',
-  Low: 'text-blue-400',
-  Lowest: 'text-gray-400'
-};
-
-function ProgressBar({ value, max, color = 'bg-port-accent' }) {
-  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
-  return (
-    <div className="w-full bg-port-border rounded-full h-2">
-      <div className={`${color} h-2 rounded-full transition-all`} style={{ width: `${pct}%` }} />
-    </div>
-  );
-}
-
-function StatCard({ icon: Icon, label, value, sub, color = 'text-port-accent' }) {
-  return (
-    <div className="bg-port-card border border-port-border rounded-lg p-3">
-      <div className="flex items-center gap-2 mb-1">
-        <Icon size={14} className={color} />
-        <span className="text-xs text-gray-400">{label}</span>
-      </div>
-      <div className="text-xl font-bold text-white">{value}</div>
-      {sub && <div className="text-xs text-gray-500 mt-0.5">{sub}</div>}
-    </div>
-  );
-}
-
-function TicketRow({ ticket }) {
-  return (
-    <div className="flex items-center gap-3 py-1.5 px-2 hover:bg-port-border/30 rounded text-sm">
-      <a
-        href={ticket.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-port-accent hover:underline font-mono text-xs shrink-0"
-      >
-        {ticket.key}
-      </a>
-      <span className="text-white truncate flex-1">{ticket.summary}</span>
-      {ticket.storyPoints != null && (
-        <span className="text-xs bg-port-border rounded-full px-1.5 py-0.5 text-gray-400 shrink-0">
-          {ticket.storyPoints}pt
-        </span>
-      )}
-      <span className={`text-xs shrink-0 ${PRIORITY_COLORS[ticket.priority] || 'text-gray-400'}`}>
-        {ticket.priority}
-      </span>
-      <span className="text-xs text-gray-500 shrink-0 w-24 truncate">{ticket.assignee}</span>
-    </div>
-  );
-}
-
-function TicketSection({ title, tickets, icon: Icon, iconColor, defaultOpen = false }) {
-  const [open, setOpen] = useState(defaultOpen);
-
-  if (!tickets?.length) return null;
-
-  return (
-    <div className="mb-3">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 w-full text-left py-1.5 px-2 hover:bg-port-border/30 rounded"
-      >
-        {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        <Icon size={14} className={iconColor} />
-        <span className="text-sm font-medium text-white">{title}</span>
-        <span className="text-xs text-gray-500 ml-auto">{tickets.length}</span>
-      </button>
-      {open && (
-        <div className="ml-2 border-l border-port-border pl-2 mt-1">
-          {tickets.map(t => <TicketRow key={t.key} ticket={t} />)}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function ReportCard({ report, onClick, isSelected }) {
   return (
@@ -115,61 +28,8 @@ function ReportCard({ report, onClick, isSelected }) {
         <span className="text-port-success">{report.summary.done} done</span>
         <span className="text-port-accent">{report.summary.inProgress} in progress</span>
         <span className="text-gray-500">{report.summary.todo} to do</span>
-        <span className="ml-auto">{report.summary.completionRate}%</span>
       </div>
     </button>
-  );
-}
-
-function StatusSummary({ report }) {
-  const [copied, setCopied] = useState(false);
-
-  // Build status text from report data (handles both new reports with statusSummary and older ones without)
-  const statusText = report.statusSummary || buildStatusText(report);
-
-  const handleCopy = async () => {
-    // Copy as plain text (strip markdown bold markers)
-    const plain = statusText.replace(/\*\*/g, '');
-    await navigator.clipboard.writeText(plain);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  if (!statusText.trim()) return null;
-
-  return (
-    <div className="bg-port-card border border-port-border rounded-lg p-4">
-      <div className="flex items-center justify-between mb-2">
-        <h4 className="text-sm font-medium text-gray-300">Status Summary</h4>
-        <button
-          onClick={handleCopy}
-          className="flex items-center gap-1 text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-port-border/50 transition-colors"
-        >
-          {copied ? <Check size={12} className="text-port-success" /> : <Copy size={12} />}
-          {copied ? 'Copied' : 'Copy'}
-        </button>
-      </div>
-      <div className="text-sm text-gray-300 whitespace-pre-wrap font-mono leading-relaxed">
-        {statusText.split('\n').map((line, i) => {
-          if (line.startsWith('**') && line.endsWith('**')) {
-            return <div key={i} className="text-white font-semibold mt-2 first:mt-0">{line.replace(/\*\*/g, '')}</div>;
-          }
-          if (line.startsWith('- ')) {
-            const ticketMatch = line.match(/^- ([A-Z]+-\d+): (.+)/);
-            if (ticketMatch) {
-              return (
-                <div key={i} className="ml-2">
-                  <span className="text-port-accent">{ticketMatch[1]}</span>
-                  <span className="text-gray-400">: {ticketMatch[2]}</span>
-                </div>
-              );
-            }
-            return <div key={i} className="ml-2 text-gray-400">{line.slice(2)}</div>;
-          }
-          return line ? <div key={i}>{line}</div> : <div key={i} className="h-1" />;
-        })}
-      </div>
-    </div>
   );
 }
 
@@ -182,7 +42,7 @@ function buildStatusText(report) {
   }
   if (tickets.inProgress?.length > 0) {
     lines.push('', '**In Progress:**');
-    for (const t of tickets.inProgress) lines.push(`- ${t.key}: ${t.summary} (${t.assignee})`);
+    for (const t of tickets.inProgress) lines.push(`- ${t.key}: ${t.summary}`);
   }
   if (tickets.todo?.length > 0) {
     lines.push('', '**Up Next:**');
@@ -194,6 +54,8 @@ function buildStatusText(report) {
 }
 
 function ReportDetail({ report }) {
+  const [copied, setCopied] = useState(false);
+
   if (!report) {
     return (
       <div className="flex items-center justify-center h-64 text-gray-500">
@@ -202,7 +64,14 @@ function ReportDetail({ report }) {
     );
   }
 
-  const { summary, byAssignee, tickets } = report;
+  const statusText = report.statusSummary || buildStatusText(report);
+
+  const handleCopy = async () => {
+    const plain = statusText.replace(/\*\*/g, '');
+    await navigator.clipboard.writeText(plain);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className="space-y-4">
@@ -210,55 +79,42 @@ function ReportDetail({ report }) {
         <div>
           <h3 className="text-lg font-bold text-white">{report.appName || report.appId}</h3>
           <p className="text-sm text-gray-400">
-            {report.projectKey} &middot; {report.date} &middot; Generated {new Date(report.generatedAt).toLocaleString()}
+            {report.projectKey} &middot; {report.date}
           </p>
         </div>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white px-3 py-1.5 rounded-lg border border-port-border hover:border-gray-500 transition-colors"
+        >
+          {copied ? <Check size={14} className="text-port-success" /> : <Copy size={14} />}
+          {copied ? 'Copied' : 'Copy to Clipboard'}
+        </button>
       </div>
 
-      <StatusSummary report={report} />
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <StatCard icon={BarChart3} label="Total Tickets" value={summary.totalTickets} />
-        <StatCard icon={CheckCircle} label="Done" value={summary.done} color="text-port-success" sub={`${summary.completedPoints} pts`} />
-        <StatCard icon={Clock} label="In Progress" value={summary.inProgress} color="text-port-accent" sub={`${summary.inProgressPoints} pts`} />
-        <StatCard icon={AlertCircle} label="To Do" value={summary.todo} color="text-gray-400" sub={`${summary.remainingPoints - summary.inProgressPoints} pts`} />
-      </div>
-
-      <div>
-        <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
-          <span>Sprint Progress</span>
-          <span>{summary.completionRate}% ({summary.completedPoints}/{summary.totalPoints} pts)</span>
+      {statusText.trim() ? (
+        <div className="text-sm text-gray-300 leading-relaxed">
+          {statusText.split('\n').map((line, i) => {
+            if (line.startsWith('**') && line.endsWith('**')) {
+              return <div key={i} className="text-white font-semibold mt-4 first:mt-0 mb-1">{line.replace(/\*\*/g, '')}</div>;
+            }
+            if (line.startsWith('- ')) {
+              const ticketMatch = line.match(/^- ([A-Z]+-\d+): (.+)/);
+              if (ticketMatch) {
+                return (
+                  <div key={i} className="pl-3 py-0.5">
+                    <span className="text-port-accent font-mono text-xs">{ticketMatch[1]}</span>
+                    <span className="text-gray-300 ml-1.5">{ticketMatch[2]}</span>
+                  </div>
+                );
+              }
+              return <div key={i} className="pl-3 py-0.5 text-gray-400">{line.slice(2)}</div>;
+            }
+            return line ? <div key={i}>{line}</div> : <div key={i} className="h-2" />;
+          })}
         </div>
-        <ProgressBar value={summary.completedPoints} max={summary.totalPoints} color="bg-port-success" />
-      </div>
-
-      {Object.keys(byAssignee).length > 0 && (
-        <div>
-          <h4 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-1.5">
-            <Users size={14} /> By Assignee
-          </h4>
-          <div className="space-y-1.5">
-            {Object.entries(byAssignee)
-              .sort((a, b) => (b[1].done + b[1].inProgress) - (a[1].done + a[1].inProgress))
-              .map(([name, stats]) => (
-                <div key={name} className="flex items-center gap-3 text-sm px-2 py-1 bg-port-card rounded border border-port-border">
-                  <span className="text-white w-32 truncate">{name}</span>
-                  <span className="text-port-success text-xs">{stats.done}d</span>
-                  <span className="text-port-accent text-xs">{stats.inProgress}ip</span>
-                  <span className="text-gray-500 text-xs">{stats.todo}td</span>
-                  <span className="text-xs text-gray-400 ml-auto">{stats.points} pts</span>
-                </div>
-              ))}
-          </div>
-        </div>
+      ) : (
+        <div className="text-gray-500 text-sm">No ticket activity this week.</div>
       )}
-
-      <div>
-        <TicketSection title="In Progress" tickets={tickets.inProgress} icon={Clock} iconColor="text-port-accent" defaultOpen={true} />
-        <TicketSection title="To Do" tickets={tickets.todo} icon={AlertCircle} iconColor="text-gray-400" />
-        <TicketSection title="Done (Sprint)" tickets={tickets.done} icon={CheckCircle} iconColor="text-port-success" />
-        <TicketSection title="Recently Completed (7 days)" tickets={tickets.recentlyCompleted} icon={CheckCircle} iconColor="text-green-400" />
-      </div>
     </div>
   );
 }
@@ -323,23 +179,25 @@ export default function JiraReports() {
     : reports;
 
   return (
-    <div className="p-4 max-w-7xl mx-auto">
+    <div className="p-4 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <FileText size={20} className="text-port-accent" />
-          <h1 className="text-lg font-bold text-white">JIRA Status Reports</h1>
+          <h1 className="text-lg font-bold text-white">Weekly Status Reports</h1>
         </div>
         <div className="flex items-center gap-2">
-          <select
-            value={filterAppId}
-            onChange={e => handleFilterApp(e.target.value)}
-            className="bg-port-card border border-port-border rounded px-2 py-1.5 text-sm text-white"
-          >
-            <option value="">All Apps</option>
-            {apps.map(app => (
-              <option key={app.id} value={app.id}>{app.name}</option>
-            ))}
-          </select>
+          {apps.length > 1 && (
+            <select
+              value={filterAppId}
+              onChange={e => handleFilterApp(e.target.value)}
+              className="bg-port-card border border-port-border rounded px-2 py-1.5 text-sm text-white"
+            >
+              <option value="">All Projects</option>
+              {apps.map(app => (
+                <option key={app.id} value={app.id}>{app.name}</option>
+              ))}
+            </select>
+          )}
           <button
             onClick={() => handleGenerate(filterAppId || null)}
             disabled={generating}

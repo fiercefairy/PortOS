@@ -120,6 +120,39 @@ export async function generateReport(appId, app) {
     byPriority[priority]++;
   }
 
+  // Build plain-text status summary for status calls/emails
+  const statusLines = [];
+  if (recentlyCompleted.length > 0) {
+    statusLines.push('**Completed (last 7 days):**');
+    for (const t of recentlyCompleted) {
+      statusLines.push(`- ${t.key}: ${t.summary}`);
+    }
+  }
+  if (inProgress.length > 0) {
+    statusLines.push('', '**In Progress:**');
+    for (const t of inProgress) {
+      statusLines.push(`- ${t.key}: ${t.summary} (${t.assignee})`);
+    }
+  }
+  const blocked = sprintTickets.filter(t =>
+    t.status?.toLowerCase().includes('block') ||
+    t.priority === 'Highest' && t.statusCategory === 'To Do'
+  );
+  if (blocked.length > 0) {
+    statusLines.push('', '**Blocked / Needs Attention:**');
+    for (const t of blocked) {
+      statusLines.push(`- ${t.key}: ${t.summary} [${t.status}]`);
+    }
+  }
+  if (todo.length > 0) {
+    statusLines.push('', '**Up Next:**');
+    for (const t of todo.slice(0, 10)) {
+      statusLines.push(`- ${t.key}: ${t.summary}`);
+    }
+    if (todo.length > 10) statusLines.push(`- ...and ${todo.length - 10} more`);
+  }
+  const statusSummary = statusLines.join('\n');
+
   const report = {
     appId,
     appName: app.name,
@@ -127,6 +160,7 @@ export async function generateReport(appId, app) {
     instanceId: jiraConfig.instanceId,
     generatedAt: new Date().toISOString(),
     date: new Date().toISOString().split('T')[0],
+    statusSummary,
     summary: {
       totalTickets: sprintTickets.length,
       todo: todo.length,

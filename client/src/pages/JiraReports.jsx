@@ -11,7 +11,9 @@ import {
   CheckCircle,
   Clock,
   AlertCircle,
-  Loader2
+  Loader2,
+  Copy,
+  Check
 } from 'lucide-react';
 import * as api from '../services/api';
 
@@ -119,6 +121,78 @@ function ReportCard({ report, onClick, isSelected }) {
   );
 }
 
+function StatusSummary({ report }) {
+  const [copied, setCopied] = useState(false);
+
+  // Build status text from report data (handles both new reports with statusSummary and older ones without)
+  const statusText = report.statusSummary || buildStatusText(report);
+
+  const handleCopy = async () => {
+    // Copy as plain text (strip markdown bold markers)
+    const plain = statusText.replace(/\*\*/g, '');
+    await navigator.clipboard.writeText(plain);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (!statusText.trim()) return null;
+
+  return (
+    <div className="bg-port-card border border-port-border rounded-lg p-4">
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="text-sm font-medium text-gray-300">Status Summary</h4>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-port-border/50 transition-colors"
+        >
+          {copied ? <Check size={12} className="text-port-success" /> : <Copy size={12} />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      <div className="text-sm text-gray-300 whitespace-pre-wrap font-mono leading-relaxed">
+        {statusText.split('\n').map((line, i) => {
+          if (line.startsWith('**') && line.endsWith('**')) {
+            return <div key={i} className="text-white font-semibold mt-2 first:mt-0">{line.replace(/\*\*/g, '')}</div>;
+          }
+          if (line.startsWith('- ')) {
+            const ticketMatch = line.match(/^- ([A-Z]+-\d+): (.+)/);
+            if (ticketMatch) {
+              return (
+                <div key={i} className="ml-2">
+                  <span className="text-port-accent">{ticketMatch[1]}</span>
+                  <span className="text-gray-400">: {ticketMatch[2]}</span>
+                </div>
+              );
+            }
+            return <div key={i} className="ml-2 text-gray-400">{line.slice(2)}</div>;
+          }
+          return line ? <div key={i}>{line}</div> : <div key={i} className="h-1" />;
+        })}
+      </div>
+    </div>
+  );
+}
+
+function buildStatusText(report) {
+  const lines = [];
+  const { tickets } = report;
+  if (tickets.recentlyCompleted?.length > 0) {
+    lines.push('**Completed (last 7 days):**');
+    for (const t of tickets.recentlyCompleted) lines.push(`- ${t.key}: ${t.summary}`);
+  }
+  if (tickets.inProgress?.length > 0) {
+    lines.push('', '**In Progress:**');
+    for (const t of tickets.inProgress) lines.push(`- ${t.key}: ${t.summary} (${t.assignee})`);
+  }
+  if (tickets.todo?.length > 0) {
+    lines.push('', '**Up Next:**');
+    const shown = tickets.todo.slice(0, 10);
+    for (const t of shown) lines.push(`- ${t.key}: ${t.summary}`);
+    if (tickets.todo.length > 10) lines.push(`- ...and ${tickets.todo.length - 10} more`);
+  }
+  return lines.join('\n');
+}
+
 function ReportDetail({ report }) {
   if (!report) {
     return (
@@ -140,6 +214,8 @@ function ReportDetail({ report }) {
           </p>
         </div>
       </div>
+
+      <StatusSummary report={report} />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <StatCard icon={BarChart3} label="Total Tickets" value={summary.totalTickets} />

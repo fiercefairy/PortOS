@@ -6,6 +6,7 @@
 
 ## Fixed
 
+- Agent worktree branches now cleaned up even when worktree directory is already gone (fixes lingering branches after server restarts)
 - Instance names like "null", "void", "NaN", "undefined" are now accepted as valid hostnames
 - Peer renames no longer revert when remote peer re-announces (handleAnnounce now preserves user-set names)
 - Self instance card now shows sync status for all categories (Goals, Character, Digital Twin, Meatspace), not just Brain and Memory

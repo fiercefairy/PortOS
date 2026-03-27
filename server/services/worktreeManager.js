@@ -108,7 +108,9 @@ export async function removeWorktree(agentId, sourceWorkspace, branchName, optio
   const worktreePath = join(WORKTREES_DIR, agentId);
 
   if (!existsSync(worktreePath)) {
-    console.log(`🌳 Worktree already removed for ${agentId}`);
+    console.log(`🌳 Worktree already removed for ${agentId}, cleaning up branch`);
+    // Worktree dir is gone but branch may still exist — delete it
+    await execGit(['branch', '-D', branchName], sourceWorkspace).catch(() => {});
     return { merged: false, removed: true, uncommittedSaved: false };
   }
 

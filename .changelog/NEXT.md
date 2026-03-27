@@ -32,6 +32,7 @@
 - jira-status-report task now runs in PortOS context (not the app's directory) and uses the correct PortOS API endpoint
 - jira-status-report agents no longer attempt to commit, push, or modify files (readOnly metadata flag)
 - readOnly tasks skip unnecessary git pull, JIRA branch creation, and worktree setup
+- Flaky test suite stabilized by increasing vitest timeout from 5s to 10s (parallel execution pressure caused intermittent timeouts)
 - Added `PORTOS_API_URL` constant to `ports.js` for dynamic API URL resolution in task prompts
 
 ## Removed

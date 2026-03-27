@@ -1437,6 +1437,8 @@ export async function spawnAgentForTask(task) {
   let jiraTicket = null;
   let jiraBranchName = null;
   let worktreeInfo = null;
+  const explicitOpenPR = isTruthyMeta(task.metadata?.openPR);
+  const explicitWorktree = isTruthyMeta(task.metadata?.useWorktree) || explicitOpenPR;
 
   if (!isReadOnly) {
   // Pull latest from git before starting work (scripted — no LLM needed)
@@ -1535,8 +1537,6 @@ export async function spawnAgentForTask(task) {
   // useWorktree: work in an isolated worktree branch
   // openPR: open a PR to default branch (implies useWorktree)
   // When neither is set, only create a worktree if conflict is detected with other running agents.
-  const explicitOpenPR = isTruthyMeta(task.metadata?.openPR);
-  const explicitWorktree = isTruthyMeta(task.metadata?.useWorktree) || explicitOpenPR;
 
   // Feature agent tasks: use persistent worktree instead of creating a new one
   if (task.metadata?.featureAgentRun && task.metadata?.featureAgentId) {

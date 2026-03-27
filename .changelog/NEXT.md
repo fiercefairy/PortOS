@@ -12,6 +12,8 @@
 - `getStagePrompt()` export in taskSchedule for resolving pipeline stage-specific prompts
 - Pipeline UI: collapsed row shows purple "2-stage" badge, expanded view shows stage flow visualization
 - Pipeline UI: tabbed prompt viewer shows each stage's full prompt with stage name tabs
+- MortalLoom export now includes goals, reads actual custom drink/nicotine presets, and parallelizes all I/O
+- Export to MortalLoom button in MeatSpace Import tab
 
 ## Changed
 

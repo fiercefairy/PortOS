@@ -6,7 +6,9 @@
 
 ## Fixed
 
+- Instance names like "null", "void", "NaN", "undefined" are now accepted as valid hostnames
 - Peer renames no longer revert when remote peer re-announces (handleAnnounce now preserves user-set names)
+- Self instance card now shows sync status for all categories (Goals, Character, Digital Twin, Meatspace), not just Brain and Memory
 - CoS task evaluation now blocks tasks that exceeded max spawn limit before reaching spawn logic
 - Metadata count fields (totalSpawnCount, failureCount, orphanRetryCount) use Number() coercion to prevent string comparison bugs
 - jira-status-report task now runs in PortOS context (not the app's directory) and uses the correct PortOS API endpoint

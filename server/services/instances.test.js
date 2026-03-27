@@ -205,13 +205,13 @@ describe('instances.js', () => {
       expect(peer.name).toBe('10.0.0.3');
     });
 
-    it('should use address as name when name is invalid', async () => {
+    it('should accept names like null/undefined/NaN as valid hostnames', async () => {
       readJSONFile.mockResolvedValue({ self: null, peers: [] });
       fetch.mockRejectedValue(new Error('not reachable'));
 
       const peer = await addPeer({ address: '10.0.0.4', name: 'null' });
 
-      expect(peer.name).toBe('10.0.0.4');
+      expect(peer.name).toBe('null');
     });
 
     it('should use custom port when specified', async () => {
@@ -277,13 +277,13 @@ describe('instances.js', () => {
       expect(result).toBeNull();
     });
 
-    it('should reject invalid name values and keep existing name', async () => {
+    it('should accept names like undefined as valid hostnames', async () => {
       const peers = [{ id: 'peer-1', name: 'good-name', enabled: true }];
       readJSONFile.mockResolvedValue({ self: null, peers });
 
       const result = await updatePeer('peer-1', { name: 'undefined' });
 
-      expect(result.name).toBe('good-name');
+      expect(result.name).toBe('undefined');
     });
 
     it('should not disconnect when enabling a peer', async () => {
@@ -601,7 +601,7 @@ describe('instances.js', () => {
       expect(result.peer.directions).toContain('inbound');
     });
 
-    it('should not update name when announce name is invalid', async () => {
+    it('should preserve user-set name on announce even with NaN hostname', async () => {
       const existing = {
         id: 'p1',
         address: '10.0.0.5',
@@ -620,6 +620,7 @@ describe('instances.js', () => {
         name: 'NaN'
       });
 
+      // Name preserved because 'good-name' is not an IP address
       expect(result.peer.name).toBe('good-name');
     });
 

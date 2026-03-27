@@ -110,8 +110,7 @@ export async function getPeers() {
 
 function validName(name, fallback) {
   if (!name || typeof name !== 'string') return fallback;
-  const lower = name.trim().toLowerCase();
-  if (['undefined', 'nan', 'null', ''].includes(lower)) return fallback;
+  if (!name.trim()) return fallback;
   return name.trim();
 }
 

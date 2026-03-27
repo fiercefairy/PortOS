@@ -6,6 +6,10 @@
 - PR reviewer verifies CI/CD passes and auto-merges clean PRs with squash + branch cleanup
 - Global Pause toggle with info tooltip on task schedule UI — replaces ambiguous "Enabled" toggle
 - Shared `loadSlashdoFile` utility in fileUtils.js for loading slashdo commands with `!cat` include resolution
+- Multi-stage task pipeline system — chain sequential agent stages where each stage gates the next
+- PR reviewer now runs as a 2-stage pipeline: security scan (read-only) → code review + merge
+- Pipeline stage badge on agent cards showing current stage progress
+- `getStagePrompt()` export in taskSchedule for resolving pipeline stage-specific prompts
 
 ## Changed
 

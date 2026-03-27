@@ -560,5 +560,10 @@ export function sanitizeTaskMetadata(raw) {
       hasKeys = true;
     }
   }
+  // Pass through pipeline config (validated shape: object with stages array)
+  if (raw.pipeline && typeof raw.pipeline === 'object' && Array.isArray(raw.pipeline.stages)) {
+    clean.pipeline = raw.pipeline;
+    hasKeys = true;
+  }
   return hasKeys ? { ...clean } : null;
 }

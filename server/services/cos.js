@@ -1930,6 +1930,25 @@ Use model: claude-opus-4-5-20251101 for thorough security analysis`
  * @param {Object} state - Current CoS state
  * @returns {Object} Generated task
  */
+/**
+ * Initialize pipeline runtime state on metadata if pipeline stages are configured.
+ * Mutates the metadata object in place.
+ */
+function initializePipelineMetadata(metadata) {
+  if (!metadata.pipeline?.stages?.length) return;
+  metadata.pipeline = {
+    ...metadata.pipeline,
+    id: `pipeline-${Date.now().toString(36)}`,
+    currentStage: 0,
+    stageResults: [],
+    previousStageAgentId: null,
+    status: 'running'
+  };
+  if (metadata.pipeline.stages[0].readOnly !== undefined) {
+    metadata.readOnly = metadata.pipeline.stages[0].readOnly;
+  }
+}
+
 // Apply app-level worktree/PR defaults only when not already set by task-type metadata.
 // openPR is applied first since it implies useWorktree — this prevents defaultUseWorktree: false
 // from blocking defaultOpenPR: true when both are app-level defaults.
@@ -2014,16 +2033,7 @@ async function generateManagedAppImprovementTask(app, state) {
 
   emitLog('info', `Generating improvement task for ${app.name}: ${nextType} (${selectionReason})`, { appId: app.id, analysisType: nextType });
 
-  // Get the effective prompt (custom or default template)
-  const promptTemplate = await taskSchedule.getTaskPrompt(nextType);
-
-  // Replace template variables in the prompt
-  const description = promptTemplate
-    .replace(/\{appName\}/g, app.name)
-    .replace(/\{repoPath\}/g, app.repoPath)
-    .replace(/\{appId\}/g, app.id);
-
-  // Get interval settings to determine provider/model
+  // Get interval settings to determine provider/model and pipeline config
   const interval = await taskSchedule.getTaskInterval(nextType);
 
   const metadata = {
@@ -2035,7 +2045,7 @@ async function generateManagedAppImprovementTask(app, state) {
     comprehensiveImprovement: true
   };
 
-  // Apply sanitized task-type-specific metadata from schedule config (e.g., useWorktree, simplify)
+  // Apply sanitized task-type-specific metadata from schedule config (e.g., useWorktree, simplify, pipeline)
   const sanitizedGlobalMeta = sanitizeTaskMetadata(interval.taskMetadata);
   if (sanitizedGlobalMeta) {
     Object.assign(metadata, sanitizedGlobalMeta);
@@ -2048,9 +2058,18 @@ async function generateManagedAppImprovementTask(app, state) {
     Object.assign(metadata, sanitizedAppMeta);
   }
 
+  initializePipelineMetadata(metadata);
+
+  const promptTemplate = metadata.pipeline?.stages
+    ? await taskSchedule.getStagePrompt(nextType, 0)
+    : await taskSchedule.getTaskPrompt(nextType);
+  const description = promptTemplate
+    .replace(/\{appName\}/g, app.name)
+    .replace(/\{repoPath\}/g, app.repoPath)
+    .replace(/\{appId\}/g, app.id);
+
   applyAppWorktreeDefault(metadata, app);
 
-  // Use configured model/provider if specified, otherwise use default
   if (interval.providerId) {
     metadata.providerId = interval.providerId;
   }
@@ -2094,16 +2113,7 @@ async function generateManagedAppImprovementTaskForType(taskType, app, state) {
 
   emitLog('info', `Generating improvement task for ${app.name}: ${taskType} (on-demand)`, { appId: app.id, analysisType: taskType });
 
-  // Get the effective prompt (custom or default template)
-  const promptTemplate = await taskSchedule.getTaskPrompt(taskType);
-
-  // Replace template variables in the prompt
-  const description = promptTemplate
-    .replace(/\{appName\}/g, app.name)
-    .replace(/\{repoPath\}/g, app.repoPath)
-    .replace(/\{appId\}/g, app.id);
-
-  // Get interval settings to determine provider/model
+  // Get interval settings to determine provider/model and pipeline config
   const interval = await taskSchedule.getTaskInterval(taskType);
 
   const metadata = {
@@ -2115,7 +2125,7 @@ async function generateManagedAppImprovementTaskForType(taskType, app, state) {
     comprehensiveImprovement: true
   };
 
-  // Apply sanitized task-type-specific metadata from schedule config (e.g., useWorktree, simplify)
+  // Apply sanitized task-type-specific metadata from schedule config (e.g., useWorktree, simplify, pipeline)
   const sanitizedGlobalMeta = sanitizeTaskMetadata(interval.taskMetadata);
   if (sanitizedGlobalMeta) {
     Object.assign(metadata, sanitizedGlobalMeta);
@@ -2127,6 +2137,16 @@ async function generateManagedAppImprovementTaskForType(taskType, app, state) {
   if (sanitizedAppMeta) {
     Object.assign(metadata, sanitizedAppMeta);
   }
+
+  initializePipelineMetadata(metadata);
+
+  const promptTemplate = metadata.pipeline?.stages
+    ? await taskSchedule.getStagePrompt(taskType, 0)
+    : await taskSchedule.getTaskPrompt(taskType);
+  const description = promptTemplate
+    .replace(/\{appName\}/g, app.name)
+    .replace(/\{repoPath\}/g, app.repoPath)
+    .replace(/\{appId\}/g, app.id);
 
   applyAppWorktreeDefault(metadata, app);
 

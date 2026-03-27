@@ -1789,6 +1789,70 @@ async function spawnViaRunner(agentId, task, prompt, workspacePath, model, provi
 }
 
 /**
+ * Advance a pipeline to its next stage after the current stage completes.
+ * Creates a new task for the next stage or marks the pipeline as complete/failed.
+ */
+async function handlePipelineProgression(task, agentId, success) {
+  const pipeline = task.metadata?.pipeline;
+  if (!pipeline || pipeline.status !== 'running') return;
+
+  const { currentStage, stages } = pipeline;
+  const stageResult = {
+    stage: currentStage,
+    name: stages[currentStage]?.name,
+    agentId,
+    success,
+    completedAt: new Date().toISOString()
+  };
+  const updatedResults = [...(pipeline.stageResults || []), stageResult];
+
+  if (!success) {
+    await updateTask(task.id, {
+      metadata: { ...task.metadata, pipeline: { ...pipeline, status: 'failed', stageResults: updatedResults } }
+    }, task.taskType);
+    emitLog('warn', `⛔ Pipeline ${pipeline.id} failed at stage ${currentStage}: ${stages[currentStage]?.name}`, { pipelineId: pipeline.id });
+    return;
+  }
+
+  const nextStageIndex = currentStage + 1;
+  if (nextStageIndex >= stages.length) {
+    await updateTask(task.id, {
+      metadata: { ...task.metadata, pipeline: { ...pipeline, status: 'completed', stageResults: updatedResults } }
+    }, task.taskType);
+    emitLog('info', `✅ Pipeline ${pipeline.id} completed all ${stages.length} stages`, { pipelineId: pipeline.id });
+    return;
+  }
+
+  const nextStage = stages[nextStageIndex];
+  const taskScheduleMod = await import('./taskSchedule.js');
+  let prompt = await taskScheduleMod.getStagePrompt(task.metadata.analysisType, nextStageIndex);
+  if (task.metadata.appName) prompt = prompt.replace(/\{appName\}/g, task.metadata.appName);
+  if (task.metadata.repoPath) prompt = prompt.replace(/\{repoPath\}/g, task.metadata.repoPath);
+  if (task.metadata.app) prompt = prompt.replace(/\{appId\}/g, task.metadata.app);
+
+  const nextTask = {
+    description: prompt,
+    priority: task.priority || 'MEDIUM',
+    metadata: {
+      ...task.metadata,
+      readOnly: nextStage.readOnly ?? false,
+      pipeline: {
+        ...pipeline,
+        currentStage: nextStageIndex,
+        stageResults: updatedResults,
+        previousStageAgentId: agentId,
+        status: 'running'
+      }
+    },
+    autoApproved: true
+  };
+  if (nextStage.model) nextTask.metadata.model = nextStage.model;
+
+  await addTask(nextTask, 'internal', { raw: true });
+  emitLog('info', `🔗 Pipeline ${pipeline.id} advancing to stage ${nextStageIndex}: ${nextStage.name}`, { pipelineId: pipeline.id, agentId });
+}
+
+/**
  * Handle agent completion (from runner events)
  */
 async function handleAgentCompletion(agentId, exitCode, success, duration) {
@@ -2011,6 +2075,11 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
       await rm(markerPath).catch(() => {});
       emitLog('info', `📋 Plan question notification created: ${title}`, { agentId, appId });
     }
+  }
+
+  // Advance pipeline to next stage if applicable
+  if (task?.metadata?.pipeline) {
+    await handlePipelineProgression(task, agentId, effectiveSuccess);
   }
 
   // Clean up ephemeral BTW.md before worktree removal
@@ -2780,6 +2849,19 @@ ${worktreeInfo.baseBranch ? `- **Based on**: \`${worktreeInfo.baseBranch}\` (lat
 **Important**: Commit your changes to this branch.${willOpenPR && !prHandledByAgent ? ' Your commits will be submitted as a pull request to the default branch when your task completes.' : ' Your commits will be automatically merged back to the main development branch when your task completes.'} Do NOT manually switch branches or modify the worktree configuration.
 ` : '';
 
+  // Build pipeline context section if this is a pipeline stage
+  const pipelineCtx = task.metadata?.pipeline;
+  const pipelineSection = pipelineCtx?.previousStageAgentId ? `
+## Pipeline Context
+This is stage ${pipelineCtx.currentStage + 1} of ${pipelineCtx.stages.length}: "${pipelineCtx.stages[pipelineCtx.currentStage]?.name}"
+Previous stage: "${pipelineCtx.stages[pipelineCtx.currentStage - 1]?.name}"
+
+Read the previous stage's output from:
+\`${join(AGENTS_DIR, pipelineCtx.previousStageAgentId, 'output.txt')}\`
+
+Use the findings from the previous stage to inform your work. If the previous stage produced a JSON results block, parse it to determine which items to process.
+` : '';
+
   // Build simplify section if enabled
   const simplifySection = isTruthyMeta(task.metadata?.simplify) ? `
 ## Simplify Step
@@ -2845,6 +2927,7 @@ ${task.metadata.jiraBranch ? 'Commit your changes to this branch. Do NOT switch 
     claudeMdSection,
     digitalTwinSection,
     worktreeSection,
+    pipelineSection,
     jiraSection,
     simplifySection,
     reviewLoopSection,
@@ -2878,6 +2961,7 @@ ${task.metadata?.context ? `- **Context**: ${task.metadata.context}` : ''}
 ${task.metadata?.app ? `- **Target App**: ${task.metadata.app}\n- **Target App Directory**: ${workspaceDir}` : ''}
 ${Array.isArray(task.metadata?.screenshots) && task.metadata.screenshots.length > 0 ? `- **Screenshots**: ${task.metadata.screenshots.join(', ')}` : ''}
 ${worktreeSection}
+${pipelineSection}
 ${jiraSection}
 ${simplifySection}
 ${reviewLoopSection}

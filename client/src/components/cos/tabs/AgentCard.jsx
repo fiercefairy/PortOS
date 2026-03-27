@@ -315,6 +315,11 @@ export default function AgentCard({ agent, onKill, onDelete, onResume, completed
                 {agent.metadata.taskAppName || agent.metadata.workspaceName}
               </span>
             )}
+            {agent.metadata?.pipeline?.stages?.length > 0 && (
+              <span className="px-1.5 py-0.5 text-xs bg-purple-500/20 text-purple-400 rounded shrink-0" title={agent.metadata.pipeline.stages[agent.metadata.pipeline.currentStage]?.name}>
+                Stage {(agent.metadata.pipeline.currentStage ?? 0) + 1}/{agent.metadata.pipeline.stages.length}
+              </span>
+            )}
             {isSystemAgent && (
               <span className="px-1.5 py-0.5 text-xs bg-gray-500/20 text-gray-400 rounded shrink-0">SYS</span>
             )}

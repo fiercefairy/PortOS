@@ -389,12 +389,10 @@ function SyncCategoriesPanel({ peer, onRefresh }) {
   );
 }
 
-function SnapshotSyncBadge({ label, icon: Icon, cursorChecksum, remoteChecksum, localChecksum }) {
-  // When remote reports checksums: compare cursor vs remote
-  // When remote doesn't (older version): compare cursor vs local as fallback
-  const effectiveRemote = remoteChecksum || localChecksum;
-  const synced = cursorChecksum && effectiveRemote && cursorChecksum === effectiveRemote;
-  const behind = cursorChecksum && effectiveRemote && cursorChecksum !== effectiveRemote;
+function SnapshotSyncBadge({ label, icon: Icon, cursorChecksum, remoteChecksum }) {
+  // Only compare when remote reports checksums — local fallback is misleading
+  const synced = cursorChecksum && remoteChecksum && cursorChecksum === remoteChecksum;
+  const behind = cursorChecksum && remoteChecksum && cursorChecksum !== remoteChecksum;
 
   return (
     <div className="flex items-center gap-1.5 text-xs">
@@ -437,7 +435,7 @@ function SyncStatusSection({ peer, syncStatus }) {
   // Show snapshot category sync status for all enabled snapshot categories
   const cursorChecksums = cursor?.checksums || {};
   const remoteChecksums = remoteSyncSeqs?.checksums || {};
-  const localChecksums = syncStatus.local?.checksums || {};
+
   const enabledSnapshots = SNAPSHOT_CATEGORIES
     .map(m => m.key)
     .filter(cat => categories[cat]);
@@ -482,7 +480,6 @@ function SyncStatusSection({ peer, syncStatus }) {
               icon={meta.icon}
               cursorChecksum={cursorChecksums[cat]}
               remoteChecksum={remoteChecksums[cat]}
-              localChecksum={localChecksums[cat]}
             />
           );
         })}

@@ -336,8 +336,11 @@ export async function handleAnnounce({ address, port, instanceId, name }) {
       existing.status = 'online';
       existing.instanceId = instanceId;
       existing.port = port;
+      // Only auto-update name if still an IP address (preserve user-set names)
       const sanitized = validName(name, null);
-      if (sanitized) existing.name = sanitized;
+      if (sanitized && /^\d+\.\d+\.\d+\.\d+$/.test(existing.name)) {
+        existing.name = sanitized;
+      }
       // Mark that this peer has announced to us (inbound connection)
       existing.directions = existing.directions || [];
       if (!existing.directions.includes('inbound')) existing.directions.push('inbound');

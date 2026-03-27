@@ -527,13 +527,13 @@ describe('instances.js', () => {
       expect(instanceEvents.emit).toHaveBeenCalledWith('peers:updated', expect.any(Array));
     });
 
-    it('should update existing peer matched by instanceId', async () => {
+    it('should update existing peer matched by instanceId but preserve user-set name', async () => {
       const existing = {
         id: 'p1',
         address: '10.0.0.5',
         port: 5555,
         instanceId: 'remote-instance',
-        name: 'old-name',
+        name: 'custom-name',
         status: 'offline',
         directions: ['outbound']
       };
@@ -543,14 +543,38 @@ describe('instances.js', () => {
         address: '10.0.0.5',
         port: 5555,
         instanceId: 'remote-instance',
-        name: 'new-name'
+        name: 'remote-hostname'
       });
 
       expect(result.created).toBe(false);
-      expect(result.peer.name).toBe('new-name');
+      expect(result.peer.name).toBe('custom-name'); // user-set name preserved
       expect(result.peer.status).toBe('online');
       expect(result.peer.directions).toContain('inbound');
       expect(result.peer.directions).toContain('outbound');
+    });
+
+    it('should auto-update name from announce when current name is an IP', async () => {
+      const existing = {
+        id: 'p1',
+        address: '10.0.0.5',
+        port: 5555,
+        instanceId: 'remote-instance',
+        name: '10.0.0.5',
+        status: 'offline',
+        directions: ['outbound']
+      };
+      readJSONFile.mockResolvedValue({ self: null, peers: [existing] });
+
+      const result = await handleAnnounce({
+        address: '10.0.0.5',
+        port: 5555,
+        instanceId: 'remote-instance',
+        name: 'remote-hostname'
+      });
+
+      expect(result.created).toBe(false);
+      expect(result.peer.name).toBe('remote-hostname'); // IP auto-updated to hostname
+      expect(result.peer.status).toBe('online');
     });
 
     it('should match existing peer by address+port when instanceId differs', async () => {

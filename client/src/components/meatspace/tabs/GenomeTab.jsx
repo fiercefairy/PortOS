@@ -315,7 +315,7 @@ export default function GenomeTab() {
             ref={fileInputRef}
             type="file"
             accept=".txt,.tsv,.csv,.zip"
-            className="absolute w-0 h-0 opacity-0 overflow-hidden"
+            className="sr-only"
             tabIndex={-1}
             aria-hidden="true"
             onChange={(e) => handleFileUpload(e.target.files[0])}

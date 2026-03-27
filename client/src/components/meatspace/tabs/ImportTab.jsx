@@ -124,7 +124,7 @@ export default function ImportTab({ onRefresh }) {
             type="file"
             accept=".json"
             onChange={handleJsonFileSelect}
-            className="absolute w-0 h-0 opacity-0 overflow-hidden"
+            className="sr-only"
             tabIndex={-1}
             aria-hidden="true"
           />
@@ -212,7 +212,7 @@ export default function ImportTab({ onRefresh }) {
             type="file"
             accept=".xml,.zip"
             onChange={handleXmlFileSelect}
-            className="absolute w-0 h-0 opacity-0 overflow-hidden"
+            className="sr-only"
             tabIndex={-1}
             aria-hidden="true"
           />

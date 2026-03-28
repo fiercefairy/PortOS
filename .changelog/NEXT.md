@@ -24,6 +24,7 @@
 - Genome markers: friendlier card UX with "What this means for you" framing, status-colored backgrounds, and renamed labels (Details, Your Notes, Learn More)
 - Voice capture for Brain — microphone button on inbox uses Web Speech API to transcribe speech into thoughts
 - Legacy Portrait export format — comprehensive human-readable Markdown document consolidating identity docs, traits, chronotype, taste profile, genome, longevity, goals, autobiography, and social presence
+- Autobiography prompt chains — LLM-generated follow-up questions after saving a story, enabling deeper exploration of life themes with linked story chains
 
 ## Changed
 

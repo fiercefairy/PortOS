@@ -1266,10 +1266,11 @@ export const getAutobiographyPrompt = (exclude) =>
 export const getAutobiographyPromptById = (id) => request(`/digital-twin/autobiography/prompt/${id}`);
 export const getAutobiographyStories = (theme = null) =>
   request(`/digital-twin/autobiography/stories${theme ? `?theme=${theme}` : ''}`);
-export const saveAutobiographyStory = (promptId, content) => request('/digital-twin/autobiography/stories', {
-  method: 'POST',
-  body: JSON.stringify({ promptId, content })
-});
+export const saveAutobiographyStory = (promptId, content, { parentStoryId, customPromptText } = {}) =>
+  request('/digital-twin/autobiography/stories', {
+    method: 'POST',
+    body: JSON.stringify({ promptId, content, parentStoryId, customPromptText })
+  });
 export const updateAutobiographyStory = (id, content) => request(`/digital-twin/autobiography/stories/${id}`, {
   method: 'PUT',
   body: JSON.stringify({ content })
@@ -1280,6 +1281,13 @@ export const deleteAutobiographyStory = (id) => request(`/digital-twin/autobiogr
 export const triggerAutobiographyPrompt = () => request('/digital-twin/autobiography/trigger', {
   method: 'POST'
 });
+export const generateAutobiographyFollowUps = (storyId, providerId) =>
+  request(`/digital-twin/autobiography/stories/${storyId}/follow-ups`, {
+    method: 'POST',
+    body: JSON.stringify({ providerId })
+  });
+export const getAutobiographyStoryChain = (storyId) =>
+  request(`/digital-twin/autobiography/stories/${storyId}/chain`);
 
 // Digital Twin - Assessment Analyzer
 export const analyzeAssessment = (content, providerId, model) =>

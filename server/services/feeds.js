@@ -277,10 +277,29 @@ export async function getFeedStats() {
 
 // ─── Internal Helpers ───────────────────────────────────────────────────────
 
+// Check if a hostname resolves to a private/loopback/link-local IP
+function isPrivateHost(hostname) {
+  // Block common private/loopback/link-local patterns (pre-DNS resolution)
+  const blocked = ['localhost', '127.0.0.1', '::1', '0.0.0.0', '169.254.169.254'];
+  if (blocked.includes(hostname)) return true;
+  // Block numeric private ranges: 10.x, 172.16-31.x, 192.168.x, 169.254.x
+  const parts = hostname.split('.').map(Number);
+  if (parts.length === 4 && parts.every(p => !isNaN(p))) {
+    if (parts[0] === 10) return true;
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+    if (parts[0] === 192 && parts[1] === 168) return true;
+    if (parts[0] === 169 && parts[1] === 254) return true;
+    if (parts[0] === 127) return true;
+  }
+  return false;
+}
+
 async function fetchFeedXml(url) {
   // Restrict to http/https to prevent SSRF via file://, data://, etc.
   const parsed = new URL(url);
   if (!['http:', 'https:'].includes(parsed.protocol)) return null;
+  // Block private/loopback/link-local hosts
+  if (isPrivateHost(parsed.hostname)) return null;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);

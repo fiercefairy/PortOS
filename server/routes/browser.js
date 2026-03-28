@@ -17,7 +17,10 @@ const updateConfigSchema = z.object({
   autoConnect: z.boolean().optional(),
   headless: z.boolean().optional(),
   userDataDir: z.string().optional(),
-  downloadDir: z.string().optional()
+  downloadDir: z.string().refine(
+    v => !v || !v.includes('..'),
+    { message: 'downloadDir must not contain path traversal' }
+  ).optional()
 });
 
 // GET /api/browser - Full browser status

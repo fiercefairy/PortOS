@@ -97,14 +97,16 @@ export default function FeedsTab({ onRefresh }) {
 
   const handleMarkRead = async (itemId) => {
     await api.markFeedItemRead(itemId).catch(() => null);
-    setItems(prev => prev.map(i => i.id === itemId ? { ...i, read: true } : i));
-    setFeeds(prev => prev.map(f => {
-      const item = items.find(i => i.id === itemId);
-      if (item?.feedId === f.id && !item.read) {
-        return { ...f, unreadCount: Math.max(0, f.unreadCount - 1) };
+    // Track which feed to update before modifying items state
+    setItems(prev => {
+      const item = prev.find(i => i.id === itemId);
+      if (item && !item.read) {
+        setFeeds(fPrev => fPrev.map(f =>
+          f.id === item.feedId ? { ...f, unreadCount: Math.max(0, f.unreadCount - 1) } : f
+        ));
       }
-      return f;
-    }));
+      return prev.map(i => i.id === itemId ? { ...i, read: true } : i);
+    });
   };
 
   const handleMarkAllRead = async () => {

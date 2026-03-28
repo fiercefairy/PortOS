@@ -359,12 +359,16 @@ async function cleanupExternalRepoWorktrees(activeAgentIds, alreadyHandled) {
     const gitFile = join(worktreePath, '.git');
 
     // Read .git file to find the parent repo
-    const gitContent = await readFile(gitFile, 'utf-8').catch(() => null);
+    // In a worktree, .git is a file containing "gitdir: ..."; in a normal repo it's a directory
+    const gitStat = await stat(gitFile).catch(() => null);
+    if (gitStat?.isDirectory()) {
+      // This is a normal git repo, not a worktree — skip to avoid accidental data loss
+      continue;
+    }
+    const gitContent = gitStat ? await readFile(gitFile, 'utf-8').catch(() => null) : null;
     if (!gitContent?.startsWith('gitdir:')) {
-      // Not a valid worktree — just remove the directory
-      console.log(`🌳 Removing invalid worktree directory ${agentId}`);
-      await rm(worktreePath, { recursive: true, force: true }).catch(() => {});
-      cleaned++;
+      // No .git file or unreadable — skip rather than removing potentially valuable data
+      console.log(`🌳 Skipping worktree directory ${agentId} — cannot determine parent repo`);
       continue;
     }
 

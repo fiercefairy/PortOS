@@ -78,8 +78,10 @@ async function fetchPeer(peer, path) {
  * avatarPath is like "/data/images/uuid.png"
  */
 async function syncImageFromPeer(peer, avatarPath) {
+  // Validate avatarPath is a safe relative image path under /data/images/
+  if (!avatarPath || avatarPath.includes('..') || !avatarPath.startsWith('/data/images/')) return;
   const filename = avatarPath.split('/').pop();
-  if (!filename) return;
+  if (!filename || !/\.(png|jpg|jpeg|gif|webp|svg)$/i.test(filename)) return;
   const localPath = join(PATHS.images, filename);
 
   // Skip if we already have it

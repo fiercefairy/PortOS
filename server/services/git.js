@@ -589,10 +589,11 @@ export function hasChangelogDir(dir) {
  */
 async function popStashSafely(dir) {
   const result = await execGit(['stash', 'pop'], dir, { ignoreExitCode: true });
-  if (result.stderr?.includes('CONFLICT')) {
+  const output = `${result.stdout || ''} ${result.stderr || ''}`;
+  if (output.includes('CONFLICT') || result.exitCode !== 0) {
     await execGit(['checkout', '--', '.'], dir, { ignoreExitCode: true });
     await execGit(['stash', 'drop'], dir, { ignoreExitCode: true });
-    return { conflict: true, stderr: result.stderr };
+    return { conflict: true, stderr: result.stderr || '' };
   }
   return { conflict: false, stderr: '' };
 }

@@ -131,6 +131,7 @@ export async function removeWorktree(agentId, sourceWorkspace, branchName, optio
   }
 
   let merged = false;
+  let commitsAhead = 0;
 
   if (options.merge) {
     const currentBranch = (await execGit(
@@ -138,12 +139,12 @@ export async function removeWorktree(agentId, sourceWorkspace, branchName, optio
       sourceWorkspace
     )).trim();
 
-    const aheadCount = (await execGit(
+    commitsAhead = parseInt((await execGit(
       ['rev-list', '--count', `${currentBranch}..${branchName}`],
       sourceWorkspace
-    ).catch(() => '0')).trim();
+    ).catch(() => '0')).trim(), 10) || 0;
 
-    if (parseInt(aheadCount, 10) > 0) {
+    if (commitsAhead > 0) {
       await execGit(['merge', branchName, '--no-edit'], sourceWorkspace)
         .then(() => { merged = true; })
         .catch(async (err) => {
@@ -165,14 +166,15 @@ export async function removeWorktree(agentId, sourceWorkspace, branchName, optio
       });
     });
 
-  const shouldDeleteBranch = merged || !options.merge;
-  if (shouldDeleteBranch) {
+  // Only preserve branch when merge was attempted, failed, and there were unmerged commits
+  const hasUnmergedCommits = options.merge && !merged && commitsAhead > 0;
+  if (hasUnmergedCommits) {
+    console.log(`⚠️ Preserving branch ${branchName} — merge failed, commits need manual recovery`);
+  } else {
     await execGit(['branch', '-D', branchName], sourceWorkspace)
       .catch(err => {
         console.log(`⚠️ Branch delete failed for ${branchName}: ${err.message}`);
       });
-  } else {
-    console.log(`⚠️ Preserving branch ${branchName} — merge failed, commits need manual recovery`);
   }
 
   console.log(`🌳 Removed worktree for ${agentId}${merged ? ' (merged)' : ''}`);

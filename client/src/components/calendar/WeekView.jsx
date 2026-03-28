@@ -266,7 +266,7 @@ export default function WeekView({ accounts }) {
             ))}
 
             {/* Chronotype energy zones (behind events) */}
-            <div className="absolute top-0 bottom-0 left-14 right-0 pointer-events-none">
+            <div className="absolute top-0 bottom-0 left-14 right-0">
               <ChronotypeOverlay startHour={START_HOUR} pxPerHour={PX_PER_HOUR} />
             </div>
 

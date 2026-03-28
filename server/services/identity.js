@@ -660,59 +660,76 @@ export async function getEnergySchedule() {
 
   const parseTime = (str) => {
     const [h, m] = (str || '').split(':').map(Number);
-    return h * 60 + (m || 0);
+    const mins = h * 60 + (m || 0);
+    return Number.isFinite(mins) && mins >= 0 && mins <= 1440 ? mins : NaN;
   };
+
+  const validMinutes = (...vals) => vals.every(v => Number.isFinite(v));
 
   const zones = [];
 
   // Wake-up zone
   if (rec.wakeTime) {
     const wake = parseTime(rec.wakeTime);
-    zones.push({ id: 'wake', label: 'Wake Up', startMin: wake, endMin: wake + 30, color: '#f59e0b', opacity: 0.12 });
+    if (validMinutes(wake)) {
+      zones.push({ id: 'wake', label: 'Wake Up', startMin: wake, endMin: wake + 30, color: '#f59e0b', opacity: 0.12 });
+    }
   }
 
   // Exercise window (e.g., "06:30-08:00")
   if (rec.exerciseWindow) {
     const [exStart, exEnd] = rec.exerciseWindow.split('-').map(parseTime);
-    if (!isNaN(exStart) && !isNaN(exEnd)) {
+    if (validMinutes(exStart, exEnd) && exEnd >= exStart) {
       zones.push({ id: 'exercise', label: 'Exercise', startMin: exStart, endMin: exEnd, color: '#22c55e', opacity: 0.10 });
     }
   }
 
   // Peak focus
   if (rec.peakFocusStart && rec.peakFocusEnd) {
-    zones.push({
-      id: 'peak-focus',
-      label: 'Peak Focus',
-      startMin: parseTime(rec.peakFocusStart),
-      endMin: parseTime(rec.peakFocusEnd),
-      color: '#3b82f6',
-      opacity: 0.12
-    });
+    const start = parseTime(rec.peakFocusStart);
+    const end = parseTime(rec.peakFocusEnd);
+    if (validMinutes(start, end) && end >= start) {
+      zones.push({
+        id: 'peak-focus',
+        label: 'Peak Focus',
+        startMin: start,
+        endMin: end,
+        color: '#3b82f6',
+        opacity: 0.12
+      });
+    }
   }
 
   // Caffeine cutoff (marker, not a zone)
   if (rec.caffeineCutoff) {
     const cutoff = parseTime(rec.caffeineCutoff);
-    zones.push({ id: 'caffeine-cutoff', label: 'Caffeine Cutoff', startMin: cutoff, endMin: cutoff, color: '#ef4444', opacity: 0, marker: true });
+    if (validMinutes(cutoff)) {
+      zones.push({ id: 'caffeine-cutoff', label: 'Caffeine Cutoff', startMin: cutoff, endMin: cutoff, color: '#ef4444', opacity: 0, marker: true });
+    }
   }
 
   // Last meal cutoff
   if (rec.lastMealCutoff) {
     const meal = parseTime(rec.lastMealCutoff);
-    zones.push({ id: 'meal-cutoff', label: 'Last Meal', startMin: meal, endMin: meal, color: '#f97316', opacity: 0, marker: true });
+    if (validMinutes(meal)) {
+      zones.push({ id: 'meal-cutoff', label: 'Last Meal', startMin: meal, endMin: meal, color: '#f97316', opacity: 0, marker: true });
+    }
   }
 
   // Wind-down
   if (rec.windDownStart && rec.sleepTime) {
-    zones.push({
-      id: 'wind-down',
-      label: 'Wind Down',
-      startMin: parseTime(rec.windDownStart),
-      endMin: parseTime(rec.sleepTime),
-      color: '#8b5cf6',
-      opacity: 0.10
-    });
+    const windStart = parseTime(rec.windDownStart);
+    const windEnd = parseTime(rec.sleepTime);
+    if (validMinutes(windStart, windEnd) && windEnd >= windStart) {
+      zones.push({
+        id: 'wind-down',
+        label: 'Wind Down',
+        startMin: windStart,
+        endMin: windEnd,
+        color: '#8b5cf6',
+        opacity: 0.10
+      });
+    }
   }
 
   return {
@@ -1450,6 +1467,7 @@ Respond with JSON only (no markdown fences). The response must be an object with
     createdAt: new Date().toISOString()
   };
 
+  if (!Array.isArray(goal.checkIns)) goal.checkIns = [];
   goal.checkIns.push(checkIn);
   goal.updatedAt = new Date().toISOString();
   goals.updatedAt = new Date().toISOString();

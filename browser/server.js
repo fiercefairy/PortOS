@@ -45,6 +45,11 @@ async function configureDownloadBehavior(downloadDir) {
   if (!wsUrl) return;
 
   // CDP requires explicit Browser.setDownloadBehavior — without it headless Chrome silently drops downloads
+  // WebSocket is a global in Node.js 21+ (project targets Node 22+)
+  if (typeof WebSocket === 'undefined') {
+    console.log('⚠️ WebSocket not available — download configuration skipped (requires Node.js 21+)');
+    return;
+  }
   await new Promise((resolve) => {
     const ws = new WebSocket(wsUrl);
     const timer = setTimeout(() => { ws.close(); resolve(); }, 5000);

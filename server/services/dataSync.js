@@ -102,7 +102,7 @@ function mergeDeepUnion(local, remote, timestampField = 'derivedAt') {
     // Skip timestamp fields — set after merge
     if (key === timestampField) continue;
 
-    // Nested objects (markers): union keys, remote wins per-key conflicts
+    // Nested objects (markers): union keys, local wins per-key conflicts
     if (remoteVal && typeof remoteVal === 'object' && !Array.isArray(remoteVal)
         && localVal && typeof localVal === 'object' && !Array.isArray(localVal)) {
       const mergedObj = { ...localVal };

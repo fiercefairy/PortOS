@@ -21,7 +21,7 @@ For project goals, see [GOALS.md](./GOALS.md). For completed work, see [DONE.md]
 
 ## Future Ideas
 
-- **Chronotype-Aware Scheduling** — Genome sleep markers for peak-focus task scheduling
+- [x] **Chronotype-Aware Scheduling** — Genome sleep markers for peak-focus task scheduling
 - **Identity Context Injection** — Per-task-type digital twin preamble toggle
 - **Agent Confidence & Autonomy Levels** — Dynamic tiers based on success rates
 - **Content Calendar** — Unified calendar across platforms

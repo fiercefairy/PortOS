@@ -57,6 +57,12 @@ router.put('/chronotype', asyncHandler(async (req, res) => {
   res.json(chronotype);
 }));
 
+// GET /api/digital-twin/identity/chronotype/energy-schedule — Energy zones for day view
+router.get('/chronotype/energy-schedule', asyncHandler(async (req, res) => {
+  const schedule = await identityService.getEnergySchedule();
+  res.json(schedule);
+}));
+
 // =============================================================================
 // CROSS-INSIGHTS
 // =============================================================================

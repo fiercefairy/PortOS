@@ -39,6 +39,8 @@
 
 ## Fixed
 
+- CoS orphan detection now checks if the agent completed successfully before treating a task as orphaned — prevents false orphan loops after server restarts
+- handleAgentCompletion now logs when updateTask returns an error, making silent task update failures visible in server logs
 - Digital twin sync now uses deep union merge for longevity/chronotype files, preserving genomic marker data across instances
 - Character avatar image now synced between instances alongside character metadata
 - Snapshot sync status no longer shows false "behind" when remote doesn't report checksums

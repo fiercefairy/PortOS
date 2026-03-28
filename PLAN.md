@@ -25,7 +25,7 @@ For project goals, see [GOALS.md](./GOALS.md). For completed work, see [DONE.md]
 - **Identity Context Injection** — Per-task-type digital twin preamble toggle
 - **Agent Confidence & Autonomy Levels** — Dynamic tiers based on success rates
 - **Content Calendar** — Unified calendar across platforms
-- **Proactive Insight Alerts** — Brain connections, success drops, goal stalls, cost spikes
+- [x] **Proactive Insight Alerts** — Brain connections, success drops, goal stalls, cost spikes
 - **Goal Decomposition Engine** — Auto-decompose goals into task sequences
 - **Knowledge Graph Visualization** — Extend BrainGraph 3D to full knowledge graph
 - [x] **Time Capsule Snapshots** — Periodic versioned digital twin archives

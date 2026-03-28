@@ -2,6 +2,7 @@
 
 ## Added
 
+- AI usage spike detection in proactive alerts — detects when daily token or session counts exceed 2.5x the 14-day rolling average
 - PR reviewer now scans for malicious content (prompt injection, data exfiltration, supply chain attacks) and verifies GOALS.md alignment before approving
 - PR reviewer verifies CI/CD passes and auto-merges clean PRs with squash + branch cleanup
 - Global Pause toggle with info tooltip on task schedule UI — replaces ambiguous "Enabled" toggle

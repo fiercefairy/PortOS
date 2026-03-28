@@ -251,8 +251,7 @@ export async function getDownloads() {
       files.push({
         name,
         size: info.size,
-        modified: info.mtime.toISOString(),
-        path: filePath
+        modified: info.mtime.toISOString()
       });
     }
   }

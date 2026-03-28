@@ -20,7 +20,7 @@ import { recordSession, recordMessages } from './usage.js';
 import { isProviderAvailable, markProviderUsageLimit, markProviderRateLimited, getFallbackProvider, getProviderStatus, initProviderStatus } from './providerStatus.js';
 import { buildPrompt } from './promptService.js';
 import { registerSpawnedAgent, unregisterSpawnedAgent } from './agents.js';
-import { PIPELINE_BEHAVIOR_FLAGS } from '../lib/validation.js';
+import { PIPELINE_BEHAVIOR_FLAGS, MAX_TOTAL_SPAWNS } from '../lib/validation.js';
 import { getMemorySection } from './memoryRetriever.js';
 import { extractAndStoreMemories } from './memoryExtractor.js';
 import { getDigitalTwinForPrompt } from './digital-twin.js';
@@ -3506,8 +3506,6 @@ export async function killAllAgents() {
 // Max retries before creating investigation task
 const MAX_ORPHAN_RETRIES = 3;
 const MAX_TASK_RETRIES = 3;
-// Absolute cap on total agent spawns per task (across all retry types)
-export const MAX_TOTAL_SPAWNS = 5;
 // Minimum cooldown between orphan retries (30 minutes)
 const ORPHAN_RETRY_COOLDOWN_MS = 30 * 60 * 1000;
 

@@ -23,7 +23,7 @@ import { generateProactiveTasks as generateMissionTasks, getStats as getMissionS
 import { generateTaskFromJob, recordJobExecution, recordJobGateSkip, isScriptJob, executeScriptJob, isShellJob, executeShellJob } from './autonomousJobs.js';
 import { checkJobGate, hasGate } from './jobGates.js';
 import { ensureDir, ensureDirs, formatDuration, safeJSONParse, PATHS } from '../lib/fileUtils.js';
-import { sanitizeTaskMetadata, PIPELINE_BEHAVIOR_FLAGS } from '../lib/validation.js';
+import { sanitizeTaskMetadata, PIPELINE_BEHAVIOR_FLAGS, MAX_TOTAL_SPAWNS } from '../lib/validation.js';
 import { addNotification, NOTIFICATION_TYPES } from './notifications.js';
 import { recordDecision, DECISION_TYPES } from './decisionLog.js';
 import { getUserTimezone, getLocalParts, nextLocalTime, todayInTimezone } from '../lib/timezone.js';
@@ -44,8 +44,7 @@ const REPORTS_DIR = PATHS.reports;
 const SCRIPTS_DIR = PATHS.scripts;
 const ROOT_DIR = PATHS.root;
 
-// Must match MAX_TOTAL_SPAWNS in subAgentSpawner.js (dynamic import avoids circular dep)
-const MAX_TOTAL_SPAWNS = 5;
+// MAX_TOTAL_SPAWNS imported from validation.js (shared with subAgentSpawner.js)
 
 /**
  * Block a task that has exceeded the max spawn limit. Returns true if blocked.

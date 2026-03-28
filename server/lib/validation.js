@@ -546,6 +546,9 @@ export function validateRequest(schema, data) {
 // Agent behavior flags that can be overridden per-pipeline-stage
 export const PIPELINE_BEHAVIOR_FLAGS = ['useWorktree', 'openPR', 'simplify', 'reviewLoop'];
 
+// Absolute cap on total agent spawns per task (across all retry types)
+export const MAX_TOTAL_SPAWNS = 5;
+
 const ALLOWED_TASK_METADATA_KEYS = [...PIPELINE_BEHAVIOR_FLAGS, 'readOnly'];
 
 /**

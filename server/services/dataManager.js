@@ -36,10 +36,10 @@ const SAFE_NAME = /^[a-z0-9_-]+$/;
 async function getDirSizeAndCount(dirPath) {
   if (!existsSync(dirPath)) return { size: 0, fileCount: 0 };
   const [duOut, findOut] = await Promise.all([
-    execFileAsync('du', ['-sk', dirPath], { windowsHide: true })
+    execFileAsync('du', ['-sk', dirPath], { windowsHide: true, timeout: 30000 })
       .then(r => r.stdout.trim())
       .catch(() => '0'),
-    execFileAsync('find', [dirPath, '-type', 'f'], { windowsHide: true })
+    execFileAsync('find', [dirPath, '-type', 'f'], { windowsHide: true, timeout: 30000 })
       .then(r => r.stdout.trim().split('\n').filter(Boolean).length)
       .catch(() => 0)
   ]);

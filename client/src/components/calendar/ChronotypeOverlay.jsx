@@ -33,15 +33,15 @@ export default function ChronotypeOverlay({ startHour, pxPerHour }) {
           return (
             <div
               key={zone.id}
-              className="absolute left-0 right-0 flex items-center pointer-events-none z-0 group/marker"
+              className="absolute left-0 right-0 flex items-center pointer-events-none z-0"
+              style={{ top }}
             >
-              <style>{`.group\\/marker:hover .chrono-label { opacity: 1; }`}</style>
               <div
                 className="flex-1 border-t border-dashed"
-                style={{ top, borderColor: zone.color }}
+                style={{ borderColor: zone.color }}
               />
               <span
-                className="chrono-label absolute right-1 -top-4 text-[10px] font-medium px-1.5 py-0.5 rounded opacity-0 transition-opacity"
+                className="absolute right-1 -top-4 text-[10px] font-medium px-1.5 py-0.5 rounded"
                 style={{ color: zone.color, backgroundColor: `${zone.color}20` }}
               >
                 {zone.label}

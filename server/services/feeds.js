@@ -278,10 +278,15 @@ export async function getFeedStats() {
 // ─── Internal Helpers ───────────────────────────────────────────────────────
 
 async function fetchFeedXml(url) {
+  // Restrict to http/https to prevent SSRF via file://, data://, etc.
+  const parsed = new URL(url);
+  if (!['http:', 'https:'].includes(parsed.protocol)) return null;
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   const res = await fetch(url, {
     signal: controller.signal,
+    redirect: 'follow',
     headers: { 'User-Agent': 'PortOS Feed Reader/1.0', Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml' }
   }).catch(() => null);
   clearTimeout(timeout);

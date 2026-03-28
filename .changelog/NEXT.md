@@ -27,6 +27,7 @@
 - Legacy Portrait export format — comprehensive human-readable Markdown document consolidating identity docs, traits, chronotype, taste profile, genome, longevity, goals, autobiography, and social presence
 - Autobiography prompt chains — LLM-generated follow-up questions after saving a story, enabling deeper exploration of life themes with linked story chains
 - RSS/Atom feed ingestion — subscribe to feeds, fetch/parse articles, read/mark-read from Brain > Feeds tab
+- AI-powered goal check-ins — "Run Check-In" button on goal detail panel generates LLM assessment of goal health (on-track/behind/at-risk), actionable recommendations, and motivational encouragement based on progress, velocity, milestones, and activity attendance
 
 ## Changed
 

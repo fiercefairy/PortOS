@@ -1924,6 +1924,7 @@ export const generateGoalPhases = (goalId, options = {}) => request(`/digital-tw
 export const acceptGoalPhases = (goalId, phases) => request(`/digital-twin/identity/goals/${goalId}/accept-phases`, { method: 'POST', body: JSON.stringify({ phases }) });
 export const organizeGoals = (options = {}) => request('/digital-twin/identity/goals/organize', { method: 'POST', body: JSON.stringify(options) });
 export const applyGoalOrganization = (organization) => request('/digital-twin/identity/goals/organize/apply', { method: 'POST', body: JSON.stringify({ organization }) });
+export const checkInGoal = (goalId, options = {}) => request(`/digital-twin/identity/goals/${goalId}/check-in`, { method: 'POST', body: JSON.stringify(options) });
 export const scheduleGoalTimeBlocks = (goalId) => request(`/digital-twin/identity/goals/${goalId}/schedule`, { method: 'POST' });
 export const removeGoalSchedule = (goalId) => request(`/digital-twin/identity/goals/${goalId}/schedule`, { method: 'DELETE' });
 export const rescheduleGoalTimeBlocks = (goalId) => request(`/digital-twin/identity/goals/${goalId}/reschedule`, { method: 'POST' });

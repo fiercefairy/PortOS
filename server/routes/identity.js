@@ -17,7 +17,8 @@ import {
   generatePhasesInputSchema,
   acceptPhasesInputSchema,
   organizeGoalsInputSchema,
-  applyOrganizationInputSchema
+  applyOrganizationInputSchema,
+  checkInGoalInputSchema
 } from '../lib/identityValidation.js';
 import * as goalCalendarScheduler from '../services/goalCalendarScheduler.js';
 
@@ -279,6 +280,13 @@ router.post('/goals/organize/apply', asyncHandler(async (req, res) => {
   const { organization } = validateRequest(applyOrganizationInputSchema, req.body);
   const result = await identityService.applyGoalOrganization(organization);
   res.json(result);
+}));
+
+// POST /api/digital-twin/identity/goals/:id/check-in — AI-powered goal check-in
+router.post('/goals/:id/check-in', asyncHandler(async (req, res) => {
+  const data = validateRequest(checkInGoalInputSchema, req.body);
+  const checkIn = await identityService.checkInGoal(req.params.id, data);
+  res.status(201).json(checkIn);
 }));
 
 // POST /api/digital-twin/identity/goals/:id/schedule — Create time blocks

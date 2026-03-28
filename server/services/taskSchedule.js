@@ -1749,6 +1749,11 @@ export async function getNextTaskType(appId = null, lastType = '') {
     return { taskType: onceDue[0].taskType, reason: 'once-first-run' };
   }
 
+  const cronDue = dueTasks.filter(t => t.interval.type === INTERVAL_TYPES.CRON || t.interval.type === INTERVAL_TYPES.CUSTOM);
+  if (cronDue.length > 0) {
+    return { taskType: cronDue[0].taskType, reason: `${cronDue[0].interval.type}-due` };
+  }
+
   // Fall back to rotation among enabled rotation tasks
   const rotationTasks = taskTypes.filter(t =>
     schedule.tasks[t].enabled &&

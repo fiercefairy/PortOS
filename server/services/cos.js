@@ -1312,7 +1312,7 @@ async function generateIdleReviewTask(state) {
  * Tasks are queued to COS-TASKS.md and will be picked up in Priority 2
  */
 async function queueEligibleImprovementTasks(state, cosTaskData) {
-  const { getDueTasks, shouldRunTask, getNextTaskType } = await import('./taskSchedule.js');
+  const { getDueTasks, shouldRunTask, getNextTaskType, recordExecution } = await import('./taskSchedule.js');
 
   // Check unified improvement flag (with backward compat)
   const improvementEnabled = state.config.improvementEnabled ??
@@ -1371,6 +1371,8 @@ async function queueEligibleImprovementTasks(state, cosTaskData) {
       context: `Auto-generated improvement task for ${app.name}. Type: ${nextType}`,
       approvalRequired: false
     }, 'internal');
+
+    await recordExecution(`task:${nextType}`, app.id);
 
     emitLog('info', `Queued improvement task: ${nextType} for ${app.name}`, { taskId: newTask.id, appId: app.id });
     existingTaskTypes.add(taskKey);

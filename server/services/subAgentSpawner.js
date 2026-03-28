@@ -1413,8 +1413,9 @@ export async function spawnAgentForTask(task) {
 
   // Determine workspace path and resolve app name
   const isReadOnly = isTruthyMeta(task.metadata?.readOnly);
-  // Read-only tasks run in PortOS context since they call PortOS API endpoints
-  let workspacePath = task.metadata?.app && !isReadOnly
+  // App tasks always run in the app workspace, even when read-only (e.g., code review).
+  // readOnly gates git/worktree operations below, not workspace selection.
+  let workspacePath = task.metadata?.app
     ? await getAppWorkspace(task.metadata.app)
     : ROOT_DIR;
   const resolvedAppName = task.metadata?.app

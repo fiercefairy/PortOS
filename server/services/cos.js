@@ -846,6 +846,16 @@ async function resetOrphanedTasks() {
       .map(a => a.taskId)
   );
 
+  // Track tasks whose agents completed successfully — if handleAgentCompletion's
+  // updateTask call failed silently (e.g., file write race after server restart),
+  // we should complete the task here rather than treating it as orphaned.
+  const successfullyCompletedTaskIds = new Map();
+  for (const agent of Object.values(state.agents)) {
+    if (agent.status === 'completed' && agent.result?.success) {
+      successfullyCompletedTaskIds.set(agent.taskId, agent.id);
+    }
+  }
+
   emitLog('debug', `Running agents: ${runningAgentTaskIds.length}, recently completed: ${recentlyCompletedTaskIds.size}`, { taskIds: runningAgentTaskIds });
 
   // Route orphaned tasks through handleOrphanedTask for consistent retry counting,
@@ -859,6 +869,14 @@ async function resetOrphanedTasks() {
       // completed shortly; treating them as orphaned causes spurious retries
       if (recentlyCompletedTaskIds.has(task.id)) {
         emitLog('debug', `Skipping task ${task.id} — agent recently completed, awaiting task status update`, { taskId: task.id });
+        continue;
+      }
+      // If the agent completed successfully but task wasn't updated (silent updateTask failure),
+      // complete the task now instead of treating it as orphaned
+      const successAgentId = successfullyCompletedTaskIds.get(task.id);
+      if (successAgentId) {
+        emitLog('warn', `🔧 Task ${task.id} still in_progress but agent ${successAgentId} completed successfully — completing task now (missed update)`, { taskId: task.id, agentId: successAgentId });
+        await updateTask(task.id, { status: 'completed' }, task.taskType || (task.id.startsWith('sys-') ? 'internal' : 'user'));
         continue;
       }
       emitLog('info', `Found orphaned in_progress task ${task.id}, routing through retry handler`, { taskId: task.id });
@@ -3686,6 +3704,7 @@ export async function updateTask(taskId, updates, taskType = 'user') {
     : join(ROOT_DIR, state.config.cosTasksFile);
 
   if (!existsSync(filePath)) {
+    console.log(`⚠️ updateTask: file not found for ${taskId} (taskType=${taskType}, path=${filePath})`);
     return { error: 'Task file not found' };
   }
 
@@ -3694,6 +3713,7 @@ export async function updateTask(taskId, updates, taskType = 'user') {
 
   const taskIndex = tasks.findIndex(t => t.id === taskId);
   if (taskIndex === -1) {
+    console.log(`⚠️ updateTask: task ${taskId} not found in ${filePath} (taskType=${taskType}, parsed ${tasks.length} tasks, status update: ${updates.status || 'none'})`);
     return { error: 'Task not found' };
   }
 

@@ -1987,10 +1987,16 @@ async function handleAgentCompletion(agentId, exitCode, success, duration) {
 
   // Update task status with retry tracking
   if (effectiveSuccess) {
-    await updateTask(task.id, { status: 'completed' }, task.taskType || 'user');
+    const result = await updateTask(task.id, { status: 'completed' }, task.taskType || 'user');
+    if (result?.error) {
+      emitLog('warn', `⚠️ Failed to mark task ${task.id} completed: ${result.error} (taskType=${task.taskType})`, { taskId: task.id, agentId, error: result.error });
+    }
   } else {
     const failedUpdate = await resolveFailedTaskUpdate(task, errorAnalysis, agentId);
-    await updateTask(task.id, failedUpdate, task.taskType || 'user');
+    const result = await updateTask(task.id, failedUpdate, task.taskType || 'user');
+    if (result?.error) {
+      emitLog('warn', `⚠️ Failed to update failed task ${task.id}: ${result.error} (taskType=${task.taskType})`, { taskId: task.id, agentId, error: result.error });
+    }
 
     // Handle provider status updates on failure
     if (errorAnalysis) {

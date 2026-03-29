@@ -2407,16 +2407,13 @@ async function spawnDirectly(agentId, task, prompt, workspacePath, model, provid
 
   claudeProcess.stderr.on('data', async (data) => {
     const text = data.toString();
-    // Codex dumps its entire prompt/config to stderr — filter to only useful lines
+    // Codex dumps its entire prompt/config to stderr — filter to useful lines only
     if (provider.id === 'codex') {
-      const lines = text.split('\n');
-      for (const line of lines) {
+      for (const line of text.split('\n')) {
         const trimmed = line.trim();
         if (!trimmed) continue;
-        // Skip initialization noise (prompt dump, config, session info)
         if (trimmed.startsWith('Reading prompt from stdin')) continue;
         if (trimmed.startsWith('OpenAI Codex v')) continue;
-        // Keep exec lines (tool calls) and everything else (errors, progress)
         outputBuffer += `[stderr] ${trimmed}\n`;
         await appendAgentOutput(agentId, `[stderr] ${trimmed}`);
       }

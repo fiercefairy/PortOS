@@ -593,23 +593,6 @@ async function getEnabledJobs() {
 }
 
 /**
- * Check if the current time has passed a job's scheduledTime today.
- * scheduledTime is "HH:MM" in the user's configured timezone.
- * Returns true if no scheduledTime is set, or if current local time >= scheduledTime.
- * @param {string|null} scheduledTime - "HH:MM" or null/undefined
- * @param {string} timezone - IANA timezone string
- * @returns {boolean}
- */
-function isScheduledTimeMet(scheduledTime, timezone) {
-  if (!scheduledTime) return true
-  const [hours, minutes] = scheduledTime.split(':').map(Number)
-  const local = getLocalParts(new Date(), timezone)
-  const nowMinutes = local.hour * 60 + local.minute
-  const targetMinutes = hours * 60 + minutes
-  return nowMinutes >= targetMinutes
-}
-
-/**
  * Check if today is a weekday (Monday-Friday) in the user's timezone.
  * @param {string} timezone - IANA timezone string
  * @returns {boolean}
@@ -649,13 +632,10 @@ async function getDueJobs() {
     const timeSinceLastRun = now - lastRun
 
     if (timeSinceLastRun >= job.intervalMs) {
-      // If job has a scheduledTime, compute exact UTC target in user's timezone
       if (job.scheduledTime) {
         const [hours, minutes] = job.scheduledTime.split(':').map(Number)
         const targetUtc = nextLocalTime(now - DAY, hours, minutes, timezone)
-        // Not due if today's scheduled time hasn't arrived yet
         if (now < targetUtc) continue
-        // Already ran since this scheduled occurrence
         if (lastRun >= targetUtc) continue
       }
 
@@ -1317,7 +1297,6 @@ export {
   generateTaskFromJob,
   getJobStats,
   getNextDueJob,
-  isScheduledTimeMet,
   isWeekday,
   INTERVAL_OPTIONS,
   loadJobSkillTemplate,

@@ -3,6 +3,7 @@ import { RefreshCw, Play } from 'lucide-react';
 import toast from 'react-hot-toast';
 import BrailleSpinner from '../../BrailleSpinner';
 import CronInput from '../../CronInput';
+import ToggleSwitch from '../../ToggleSwitch';
 import * as api from '../../../services/api';
 import { AGENT_OPTIONS, toggleAppMetadataOverride } from '../../cos/constants';
 import { isCronExpression, describeCron } from '../../../utils/cronHelpers';
@@ -114,10 +115,11 @@ export default function AutomationTab({ appId, appName }) {
 
   const handleToggleAll = async () => {
     const newEnabled = !allEnabled;
-    await api.toggleAllAppTaskTypes(appId, newEnabled).catch(err => {
+    const result = await api.toggleAllAppTaskTypes(appId, newEnabled).catch(err => {
       toast.error(err.message);
       return null;
     });
+    if (!result) return;
     setOverrides(prev => {
       const updated = { ...prev };
       for (const t of taskTypes) {
@@ -135,17 +137,7 @@ export default function AutomationTab({ appId, appName }) {
             <h3 className="text-lg font-semibold text-white">Task Type Overrides</h3>
             <p className="text-sm text-gray-500">Per-app automation preferences for CoS task scheduling</p>
           </div>
-          <button
-            onClick={handleToggleAll}
-            className={`w-10 h-5 rounded-full transition-colors relative shrink-0 ${
-              allEnabled ? 'bg-port-success' : 'bg-gray-600'
-            }`}
-            title={allEnabled ? 'Disable all automations' : 'Enable all automations'}
-          >
-            <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-              allEnabled ? 'left-5' : 'left-0.5'
-            }`} />
-          </button>
+          <ToggleSwitch enabled={allEnabled} onChange={handleToggleAll} size="sm" activeColor="bg-port-success" ariaLabel={allEnabled ? 'Disable all automations' : 'Enable all automations'} />
         </div>
         <button
           onClick={fetchData}
@@ -175,16 +167,7 @@ export default function AutomationTab({ appId, appName }) {
               <div key={taskType} className="bg-port-card border border-port-border rounded-lg p-3 space-y-2">
                 {/* Row 1: name + toggle + run now */}
                 <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => handleToggle(taskType, isEnabled)}
-                    className={`w-10 h-5 rounded-full transition-colors relative shrink-0 ${
-                      isEnabled ? 'bg-port-success' : 'bg-gray-600'
-                    }`}
-                  >
-                    <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                      isEnabled ? 'left-5' : 'left-0.5'
-                    }`} />
-                  </button>
+                  <ToggleSwitch enabled={isEnabled} onChange={() => handleToggle(taskType, isEnabled)} size="sm" activeColor="bg-port-success" />
                   <div className="flex-1 min-w-0">
                     <span className="text-white font-mono text-xs">{taskType}</span>
                     <div className="text-xs text-gray-500">{effectiveLabel}{intervalSuffix}</div>

@@ -210,6 +210,11 @@ router.get('/:id/icon', loadApp, asyncHandler(async (req, res) => {
   res.set('Content-Type', contentType);
   res.set('Cache-Control', 'public, max-age=3600');
   res.set('ETag', etag);
+  res.set('X-Content-Type-Options', 'nosniff');
+  if (contentType === 'image/svg+xml') {
+    res.set('Content-Disposition', 'inline; filename="icon.svg"');
+    res.set('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'");
+  }
 
   const ifNoneMatch = req.headers['if-none-match'];
   if (ifNoneMatch) {

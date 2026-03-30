@@ -637,11 +637,11 @@ async function getDueJobs() {
         if (!match) continue // skip jobs with invalid scheduledTime format
         const hours = Number(match[1])
         const minutes = Number(match[2])
-        // Compute today's scheduled UTC time from local midnight to avoid firing before scheduled time
-        const nowFloored = now - (now % 60_000) // floor to nearest minute to avoid second/millisecond drift
-        const local = getLocalParts(new Date(nowFloored), timezone)
-        const midnightUtc = nowFloored - ((local.hour * 60 + local.minute) * 60_000)
-        const targetUtc = nextLocalTime(midnightUtc, hours, minutes, timezone)
+        // Compute today's scheduled UTC time in a DST-safe way using nextLocalTime.
+        // Search from the later of (lastRun, now - 24h) to find the most recent scheduled occurrence.
+        const nowFloored = now - (now % 60_000)
+        const searchFrom = Math.max(lastRun, nowFloored - DAY)
+        const targetUtc = nextLocalTime(searchFrom, hours, minutes, timezone)
         if (now < targetUtc) continue
         if (lastRun >= targetUtc) continue
       }

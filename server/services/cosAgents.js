@@ -363,7 +363,7 @@ export async function appendAgentOutput(agentId, line) {
   return result
 }
 
-// Get running agents from state (completed agents loaded on-demand via getAgentsByDate)
+// Get all agents from in-memory state (includes running and recently completed; archived agents loaded via getAgentsByDate)
 export async function getAgents() {
   const state = await loadState()
   return Object.values(state.agents)

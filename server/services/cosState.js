@@ -142,7 +142,8 @@ export async function loadState() {
     ...DEFAULT_STATE,
     ...state,
     config: { ...DEFAULT_CONFIG, ...state.config },
-    stats: { ...DEFAULT_STATE.stats, ...state.stats }
+    stats: { ...DEFAULT_STATE.stats, ...state.stats },
+    agents: state.agents ?? {}
   }
   return stateCache
 }

@@ -59,7 +59,7 @@ export async function getReport(date) {
 
 export async function getTodayReport() {
   const today = new Date().toISOString().split('T')[0]
-  return getReport(today) || generateReport(today)
+  return (await getReport(today)) ?? generateReport(today)
 }
 
 export async function listReports() {

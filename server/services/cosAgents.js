@@ -54,11 +54,14 @@ async function saveAgentIndex() {
   if (!agentIndex) return
   const obj = Object.fromEntries(agentIndex)
   const tmpFile = `${INDEX_FILE}.tmp`
-  await writeFile(tmpFile, JSON.stringify(obj)).catch(err => {
+  const written = await writeFile(tmpFile, JSON.stringify(obj)).then(() => true).catch(err => {
     console.error(`❌ Failed to save agent index: ${err.message}`)
+    return false
   })
+  if (!written) return
   await rename(tmpFile, INDEX_FILE).catch(err => {
     console.error(`❌ Failed to rename agent index: ${err.message}`)
+    rm(tmpFile, { force: true }).catch(() => {})
   })
 }
 
@@ -208,13 +211,15 @@ export async function pruneOldAgentArchives(retentionDays = 90) {
 
   if (oldDates.length === 0) return
 
-  let pruned = 0
   for (const dateStr of oldDates) {
     await rm(join(AGENTS_DIR, dateStr), { recursive: true }).catch(() => {})
-    // Remove index entries for this date
-    for (const [agentId, date] of idx.entries()) {
-      if (date === dateStr) { idx.delete(agentId); pruned++ }
-    }
+  }
+
+  // Remove index entries for all old dates in a single pass
+  const oldDateSet = new Set(oldDates)
+  let pruned = 0
+  for (const [agentId, date] of idx.entries()) {
+    if (oldDateSet.has(date)) { idx.delete(agentId); pruned++ }
   }
 
   await saveAgentIndex()

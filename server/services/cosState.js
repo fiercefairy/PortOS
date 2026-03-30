@@ -103,7 +103,7 @@ export async function loadState() {
   await ensureDirectories()
 
   if (!existsSync(STATE_FILE)) {
-    stateCache = { ...DEFAULT_STATE }
+    stateCache = structuredClone(DEFAULT_STATE)
     return stateCache
   }
 
@@ -127,13 +127,13 @@ export async function loadState() {
     if (corrupted.length > 3) {
       console.log(`🗑️ Cleaned up ${corrupted.length - 3} old corrupted state backups`)
     }
-    stateCache = { ...DEFAULT_STATE }
+    stateCache = structuredClone(DEFAULT_STATE)
     return stateCache
   }
 
   const state = safeJSONParse(content, null, { logError: true, context: 'CoS state' })
   if (!state) {
-    stateCache = { ...DEFAULT_STATE }
+    stateCache = structuredClone(DEFAULT_STATE)
     return stateCache
   }
 

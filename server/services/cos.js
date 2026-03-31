@@ -17,7 +17,7 @@ import { join } from 'path';
 import { exec, execFile } from 'child_process';
 import { execPm2 } from './pm2.js';
 import { promisify } from 'util';
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from '../lib/uuid.js';
 import { getActiveProvider } from './providers.js';
 import { parseTasksMarkdown, groupTasksByStatus, getNextTask, getAutoApprovedTasks, getAwaitingApprovalTasks, updateTaskStatus, generateTasksMarkdown } from '../lib/taskParser.js';
 import { isAppOnCooldown, getNextAppForReview, markAppReviewStarted, markIdleReviewStarted } from './appActivity.js';

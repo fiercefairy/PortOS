@@ -12,7 +12,7 @@
 import { readFile, writeFile, unlink, readdir, stat } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, basename } from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from '../lib/uuid.js';
 import EventEmitter from 'events';
 import { getActiveProvider, getProviderById } from './providers.js';
 import { buildPrompt } from './promptService.js';

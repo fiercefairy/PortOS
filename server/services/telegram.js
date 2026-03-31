@@ -8,7 +8,7 @@
 import TelegramBot from 'node-telegram-bot-api';
 import { writeFile, rename } from 'fs/promises';
 import { join } from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from '../lib/uuid.js';
 import { getSettings } from './settings.js';
 import { notificationEvents, NOTIFICATION_TYPES, getNotifications } from './notifications.js';
 import { approveMemory, rejectMemory } from './memory.js';

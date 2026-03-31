@@ -11,7 +11,7 @@ import { join, relative, resolve, sep } from 'path';
 import { writeFile, mkdir, readFile, readdir, rm, stat, unlink } from 'fs/promises'; // mkdir kept for non-recursive use
 import { existsSync } from 'fs';
 import { homedir } from 'os';
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from '../lib/uuid.js';
 import { cosEvents, emitLog } from './cosEvents.js';
 import { registerAgent, updateAgent, completeAgent, appendAgentOutput } from './cosAgents.js';
 import { getConfig, updateTask, addTask, getTaskById, checkStagePrecondition } from './cos.js';

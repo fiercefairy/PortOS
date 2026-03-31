@@ -3,8 +3,9 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { getActiveProvider, getProviderById } from './providers.js';
 import { buildPrompt } from './promptService.js';
+import { safeJSONParse } from '../lib/fileUtils.js';
 import { ENRICHMENT_CATEGORIES, SCALE_QUESTIONS, SCALE_WEIGHT, CONFIDENCE_BOOST } from './digital-twin-constants.js';
-import { DIGITAL_TWIN_DIR, generateId, now, ensureSoulDir, callProviderAI } from './digital-twin-helpers.js';
+import { DIGITAL_TWIN_DIR, generateId, now, ensureSoulDir, callProviderAI, ensureDocumentInMeta } from './digital-twin-helpers.js';
 import { loadMeta, saveMeta, digitalTwinEvents } from './digital-twin-meta.js';
 import { getDigitalTwinForPrompt } from './digital-twin-context.js';
 import { generateGapRecommendations } from './digital-twin-analysis.js';
@@ -222,18 +223,7 @@ async function processScaleAnswer(data) {
     meta.enrichment.completedCategories.push(category);
   }
 
-  // Ensure document is in meta
-  const existingDoc = meta.documents.find(d => d.filename === config.targetDoc);
-  if (!existingDoc) {
-    meta.documents.push({
-      id: generateId(),
-      filename: config.targetDoc,
-      title: config.label,
-      category: config.targetCategory || 'enrichment',
-      enabled: true,
-      priority: 30
-    });
-  }
+  ensureDocumentInMeta(meta, config.targetDoc, config.label, config.targetCategory || 'enrichment');
 
   await saveMeta(meta);
 
@@ -279,7 +269,7 @@ export async function processEnrichmentAnswer(data) {
     }).catch(() => null);
 
     if (prompt) {
-      const result = await callProviderAI(provider, providerOverride || provider.defaultModel, prompt, { temperature: 0.3, max_tokens: 500 });
+      const result = await callProviderAI(provider, modelOverride || provider.defaultModel, prompt, { temperature: 0.3, max_tokens: 500 });
       if (!result.error && result.text) {
         formattedContent = result.text.trim() || formattedContent;
       }
@@ -313,18 +303,7 @@ export async function processEnrichmentAnswer(data) {
     meta.enrichment.completedCategories.push(category);
   }
 
-  // Ensure document is in meta
-  const existingDoc = meta.documents.find(d => d.filename === config.targetDoc);
-  if (!existingDoc) {
-    meta.documents.push({
-      id: generateId(),
-      filename: config.targetDoc,
-      title: config.label,
-      category: config.targetCategory || 'enrichment',
-      enabled: true,
-      priority: 30
-    });
-  }
+  ensureDocumentInMeta(meta, config.targetDoc, config.label, config.targetCategory || 'enrichment');
 
   // Boost confidence for the dimension this category maps to
   const categoryToDimension = {
@@ -480,22 +459,18 @@ Respond in JSON format:
   const responseText = result.text || '';
 
   // Parse the JSON response
-  const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
-  if (jsonMatch) {
-    const { safeJSONParse } = await import('../lib/fileUtils.js');
-    const parsed = safeJSONParse(jsonMatch[1], null, { logError: true, context: 'enrichment analysis' });
-    if (parsed) {
-      return {
-        category,
-        items,
-        itemAnalysis: parsed.itemAnalysis || [],
-        patterns: parsed.patterns || [],
-        personalityInsights: parsed.personalityInsights || {},
-        suggestedDocument: parsed.suggestedDocument || '',
-        targetDoc: config.targetDoc,
-        targetCategory: config.targetCategory
-      };
-    }
+  const parsed = safeJSONParse(responseText.match(/```json\s*([\s\S]*?)\s*```/)?.[1] || '', null, { logError: true, context: 'enrichment analysis' });
+  if (parsed) {
+    return {
+      category,
+      items,
+      itemAnalysis: parsed.itemAnalysis || [],
+      patterns: parsed.patterns || [],
+      personalityInsights: parsed.personalityInsights || {},
+      suggestedDocument: parsed.suggestedDocument || '',
+      targetDoc: config.targetDoc,
+      targetCategory: config.targetCategory
+    };
   }
 
   // Fallback if JSON parsing fails
@@ -543,18 +518,7 @@ export async function saveEnrichmentListDocument(category, content, items) {
 
   meta.enrichment.lastSession = now();
 
-  // Ensure document is in meta
-  const existingDoc = meta.documents.find(d => d.filename === config.targetDoc);
-  if (!existingDoc) {
-    meta.documents.push({
-      id: generateId(),
-      filename: config.targetDoc,
-      title: config.label,
-      category: config.targetCategory || 'enrichment',
-      enabled: true,
-      priority: 30
-    });
-  }
+  ensureDocumentInMeta(meta, config.targetDoc, config.label, config.targetCategory || 'enrichment');
 
   await saveMeta(meta);
 

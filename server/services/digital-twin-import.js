@@ -538,10 +538,11 @@ export async function analyzeAssessment(content, providerId, model) {
   // 5. Create/update documents from suggestions
   const docsCreated = [];
   const docsUpdated = [];
+  const metaBeforeDocs = await loadMeta();
+  const existingFilenames = new Set(metaBeforeDocs.documents.map(d => d.filename));
   for (const doc of (parsed.suggestedDocuments || [])) {
     if (!doc.filename || !doc.content) continue;
-    const currentMeta = await loadMeta();
-    const existsBefore = currentMeta.documents.some(d => d.filename === doc.filename);
+    const existsBefore = existingFilenames.has(doc.filename);
     const result = await saveImportAsDocument('interview', {
       filename: doc.filename,
       title: doc.title || doc.filename.replace('.md', ''),

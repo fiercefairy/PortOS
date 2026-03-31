@@ -7,23 +7,13 @@ import { extractVersion } from './digital-twin-meta.js';
 
 export async function getDocuments() {
   const meta = await loadMeta();
-  const documents = [];
-
-  for (const doc of meta.documents) {
-    const filePath = join(DIGITAL_TWIN_DIR, doc.filename);
-    const exists = existsSync(filePath);
-
-    if (exists) {
-      const stats = await stat(filePath);
-      documents.push({
-        ...doc,
-        lastModified: stats.mtime.toISOString(),
-        size: stats.size
-      });
-    }
-  }
-
-  return documents;
+  const existing = meta.documents.filter(doc => existsSync(join(DIGITAL_TWIN_DIR, doc.filename)));
+  const stats = await Promise.all(existing.map(doc => stat(join(DIGITAL_TWIN_DIR, doc.filename))));
+  return existing.map((doc, i) => ({
+    ...doc,
+    lastModified: stats[i].mtime.toISOString(),
+    size: stats[i].size
+  }));
 }
 
 export async function getDocumentById(id) {

@@ -275,16 +275,16 @@ function parseWritingAnalysis(response) {
  */
 export async function getAllTwinContent() {
   const meta = await loadMeta();
-  const enabledDocs = meta.documents.filter(d => d.enabled && d.category !== 'behavioral');
+  const enabledDocs = meta.documents
+    .filter(d => d.enabled && d.category !== 'behavioral')
+    .filter(d => existsSync(join(DIGITAL_TWIN_DIR, d.filename)));
 
-  const contents = [];
-  for (const doc of enabledDocs) {
-    const filePath = join(DIGITAL_TWIN_DIR, doc.filename);
-    if (existsSync(filePath)) {
-      const content = await readFile(filePath, 'utf-8');
-      contents.push(`## ${doc.title} (${doc.filename})\n\n${content}`);
-    }
-  }
+  const contents = await Promise.all(
+    enabledDocs.map(async doc => {
+      const content = await readFile(join(DIGITAL_TWIN_DIR, doc.filename), 'utf-8');
+      return `## ${doc.title} (${doc.filename})\n\n${content}`;
+    })
+  );
 
   return contents.join('\n\n---\n\n');
 }

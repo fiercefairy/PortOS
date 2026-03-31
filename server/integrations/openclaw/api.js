@@ -134,7 +134,8 @@ async function loadConfig() {
   const fileConfig = await readJSONFile(CONFIG_FILE, {}, { logError: false });
   const envEnabled = parseBoolean(process.env.OPENCLAW_ENABLED);
   const enabled = pickFirst(envEnabled, fileConfig.enabled, true);
-  const baseUrl = pickFirst(process.env.OPENCLAW_BASE_URL, fileConfig.baseUrl, '').trim();
+  const baseUrlRaw = pickFirst(process.env.OPENCLAW_BASE_URL, fileConfig.baseUrl, '');
+  const baseUrl = typeof baseUrlRaw === 'string' ? baseUrlRaw.trim() : '';
   const configured = enabled !== false && Boolean(baseUrl);
 
   return {

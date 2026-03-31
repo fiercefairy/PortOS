@@ -295,12 +295,17 @@ async function scaffoldApp(req, res) {
       await ensureDir(serverDir);
 
       await writeFile(join(serverDir, 'index.js'), `import express from 'express';
-import cors from 'cors';
 
 const app = express();
 const PORT = process.env.PORT || ${apiPort || 3001};
 
-app.use(cors());
+app.use((req, res, next) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
 app.use(express.json());
 
 app.get('/api/health', (req, res) => {
@@ -318,7 +323,6 @@ app.listen(PORT, '0.0.0.0', () => {
       const pkg = safeJSONParse(pkgContent, { dependencies: {}, devDependencies: {}, scripts: {} });
       pkg.dependencies = pkg.dependencies || {};
       pkg.dependencies.express = '^4.21.2';
-      pkg.dependencies.cors = '^2.8.5';
       pkg.scripts['server'] = 'node server/index.js';
       pkg.scripts['dev:all'] = 'concurrently "npm run dev" "npm run server"';
       pkg.devDependencies = pkg.devDependencies || {};
@@ -338,19 +342,23 @@ app.listen(PORT, '0.0.0.0', () => {
         start: 'node index.js'
       },
       dependencies: {
-        express: '^4.21.2',
-        cors: '^2.8.5'
+        express: '^4.21.2'
       }
     };
     await writeFile(join(repoPath, 'package.json'), JSON.stringify(pkg, null, 2));
 
     await writeFile(join(repoPath, 'index.js'), `import express from 'express';
-import cors from 'cors';
 
 const app = express();
 const PORT = process.env.PORT || ${apiPort || 3000};
 
-app.use(cors());
+app.use((req, res, next) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
 app.use(express.json());
 
 app.get('/api/health', (req, res) => {
@@ -976,7 +984,6 @@ export default function AIProvidersPage() {
         'test:watch': 'vitest'
       },
       dependencies: {
-        'cors': '^2.8.5',
         'express': '^4.21.2',
         'portos-ai-toolkit': '^0.1.0',
         'socket.io': '^4.8.3',
@@ -990,7 +997,6 @@ export default function AIProvidersPage() {
 
     // === Server index.js ===
     await writeFile(join(serverDir, 'index.js'), `import express from 'express';
-import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { createAIToolkit } from 'portos-ai-toolkit/server';
@@ -1003,7 +1009,13 @@ const io = new Server(httpServer, {
 
 const PORT = process.env.PORT || ${apiPort || 3001};
 
-app.use(cors());
+app.use((req, res, next) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
 app.use(express.json());
 
 // Initialize AI Toolkit with routes for providers, runs, and prompts

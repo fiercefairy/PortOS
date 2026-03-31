@@ -83,7 +83,7 @@ For project goals, see [GOALS.md](./GOALS.md). For completed work, see [DONE.md]
 
 - [ ] **PREREQ: Sync lock files** — Run `npm install` in root, `server/`, and `client/` after pinning exact versions to eliminate `invalid` warnings in `npm ls`
 - [ ] **`uuid`** — Add `server/lib/uuid.js` (`export const uuidv4 = () => crypto.randomUUID()`), update 40 import paths. Trivial. ~5 lines.
-- [ ] **`cors`** — Replace `cors({ origin: true, credentials: true })` in `server/index.js` and 3x `cors()` in `server/routes/scaffold.js` with inline `setCorsHeaders` middleware (~15 lines). Remove direct dep. Note: package remains in lock file via socket.io.
+- [x] **`cors`** — Replaced `cors()` in scaffold.js generated templates with inline CORS middleware; removed `cors` from generated package.json deps. PortOS itself already used inline headers. Note: package remains in lock file via socket.io.
 - [ ] **`axios`** — Write `server/lib/httpClient.js` (fetch-based client factory with `AbortSignal.timeout`, query param serialization). Update `services/jira.js`, `services/datadog.js`, and `services/datadog.test.js`. Inline token-expiry interceptor logic in jira.js. ~60 lines.
 - [ ] **`multer`** — Write `server/lib/multipart.js` (stream multipart to disk, size limit, MIME filter, req.file compatible). Update `routes/appleHealth.js`. ~65 lines.
 - [ ] **`node-telegram-bot-api`** — Write `server/lib/telegramClient.js` (fetch-based Telegram Bot API wrapper: polling loop with offset, `getMe`, `sendMessage`, `editMessageText`, `answerCallbackQuery`, `stopPolling`, regex handler dispatch). Update `services/telegram.js`. ~110 lines.

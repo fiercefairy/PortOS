@@ -16,5 +16,13 @@
 - Replace `unzipper` with owned `server/lib/zipStream.js` (streaming ZIP parser via zlib.createInflateRaw, DEFLATE + stored entries)
 - Remove `cors` package from scaffold-generated project templates; generated code now uses inline CORS middleware
 
+## Changed
+- Replace `node-telegram-bot-api` with owned `server/lib/telegramClient.js` (fetch-based polling loop, all bot methods)
+- Replace `supertest` with owned `server/lib/testHelper.js` (HTTP server lifecycle + fetch-based request wrapper; 9 test files updated)
+- Replace `react-hot-toast` with owned `client/src/components/ui/Toast.jsx` (module-level store, Toaster component; 101 import sites updated)
+- Replace `react-markdown` with inline regex block/inline parser in `MarkdownOutput.jsx` (h1–h6, bold, italic, code, tables, lists, links)
+- Replace `react-diff-viewer-continued` with inline Myers LCS diff in `CrossDomainTab.jsx`; `InlineDiff` wrapped with `React.memo`
+- Replace `fflate` direct usage with native `DecompressionStream` + inline EOCD ZIP parser in `GenomeTab.jsx`
+
 ## Fixed
 - JIRA report provider discovery now tries all available API providers instead of failing on first unreachable one

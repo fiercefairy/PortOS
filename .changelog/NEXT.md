@@ -24,5 +24,12 @@
 - Replace `react-diff-viewer-continued` with inline Myers LCS diff in `CrossDomainTab.jsx`; `InlineDiff` wrapped with `React.memo`
 - Replace `fflate` direct usage with native `DecompressionStream` + inline EOCD ZIP parser in `GenomeTab.jsx`
 
+## Changed
+- God file decomposition: split `server/routes/cos.js` (1,464 lines) into 9 focused sub-modules (`cosStatusRoutes`, `cosTaskRoutes`, `cosAgentRoutes`, `cosReportRoutes`, `cosLearningRoutes`, `cosScheduleRoutes`, `cosJobRoutes`, `cosTemplateRoutes`, `cosInsightRoutes`)
+- God file decomposition: split `server/routes/scaffold.js` (1,667 lines) into 4 template generators (`scaffoldVite`, `scaffoldExpress`, `scaffoldIOS`, `scaffoldPortOS`)
+- God file decomposition: split `client/src/services/api.js` (2,016 lines) into 27 domain sub-modules with barrel re-export; no consumer imports changed
+- Block npm postinstall scripts by default via `.npmrc` `ignore-scripts=true`; `install:all` explicitly rebuilds trusted packages (`esbuild`, `node-pty`)
+- Move Digital Twin work to backlog; promote god file decomposition to Next Up in PLAN.md
+
 ## Fixed
 - JIRA report provider discovery now tries all available API providers instead of failing on first unreachable one

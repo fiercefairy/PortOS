@@ -6,14 +6,14 @@ For project goals, see [GOALS.md](./GOALS.md). For completed work, see [DONE.md]
 
 ## Next Up
 
-1. **M34 P5-P7**: Digital Twin — Multi-modal capture, advanced testing, personas
+1. **God file decomposition** — routes/cos.js ✅, routes/scaffold.js ✅, client/api.js ✅. Remaining: services/digital-twin.js (2,970 lines), services/subAgentSpawner.js (3,820 lines)
 
 ## Backlog
 
-- [ ] **God file decomposition** — cos.js done (→ cosState.js, cosAgents.js, cosReports.js, cosEvents.js; 31% reduction). Remaining: subAgentSpawner.js, digital-twin.js, routes/scaffold.js, routes/cos.js, client/api.js
 - [ ] **Test coverage** — Critical gaps: cos.js, cosRunnerClient.js, agentActionExecutor.js (~29% service, ~12% route coverage)
 - [ ] **M50 P9**: CoS Automation & Rules — Automated email classification, rule-based pre-filtering, email-to-task pipeline
 - [ ] **M50 P10**: Auto-Send with AI Review Gate — Per-account trust level, second LLM reviews drafts. See [Messages Security](./docs/features/messages-security.md)
+- [ ] **M34 P5-P7**: Digital Twin — Multi-modal capture, advanced testing, personas
 
 **Known low-severity:** pm2 ReDoS (GHSA-x5gf-qvw8-r2rm) — no upstream fix, not exploitable via PortOS routes.
 

@@ -17,7 +17,7 @@ import { join } from 'path';
 import { exec, execFile } from 'child_process';
 import { execPm2 } from './pm2.js';
 import { promisify } from 'util';
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from '../lib/uuid.js';
 import { getActiveProvider } from './providers.js';
 import { parseTasksMarkdown, groupTasksByStatus, getNextTask, getAutoApprovedTasks, getAwaitingApprovalTasks, updateTaskStatus, generateTasksMarkdown } from '../lib/taskParser.js';
 import { isAppOnCooldown, getNextAppForReview, markAppReviewStarted, markIdleReviewStarted } from './appActivity.js';
@@ -2251,6 +2251,7 @@ async function dequeueNextTask() {
 
   // Priority 0: On-demand task requests
   const taskScheduleMod = await import('./taskSchedule.js');
+  const taskSchedule = await taskScheduleMod.loadSchedule();
   const onDemandRequests = await taskScheduleMod.getOnDemandRequests();
 
   for (const request of onDemandRequests) {
@@ -2260,6 +2261,13 @@ async function dequeueNextTask() {
     const improvEnabled = state.config.improvementEnabled ??
       (state.config.selfImprovementEnabled || state.config.appImprovementEnabled);
     if (!improvEnabled) {
+      await taskScheduleMod.clearOnDemandRequest(request.id);
+      continue;
+    }
+
+    // Skip if the task type was disabled after queuing
+    if (!taskSchedule.tasks[request.taskType]?.enabled) {
+      emitLog('info', `On-demand request skipped — task type '${request.taskType}' is disabled`, { requestId: request.id });
       await taskScheduleMod.clearOnDemandRequest(request.id);
       continue;
     }
@@ -2325,6 +2333,12 @@ async function dequeueNextTask() {
   for (const task of autoApproved) {
     if (spawned >= availableSlots) break;
     if (await blockIfExceedsMaxSpawns(task, 'internal')) continue;
+    // Skip improvement tasks whose type was disabled after queuing
+    const analysisType = task.metadata?.analysisType || task.metadata?.selfImprovementType;
+    if (analysisType && !taskSchedule.tasks[analysisType]?.enabled) {
+      emitLog('info', `System task skipped — task type '${analysisType}' is disabled`, { taskId: task.id });
+      continue;
+    }
     const appId = task.metadata?.app;
     if (appId) {
       const onCooldown = await isAppOnCooldown(appId, state.config.appReviewCooldownMs);

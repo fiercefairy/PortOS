@@ -408,8 +408,12 @@ export default function OpenClaw() {
         s.id === selectedSessionId ? { ...s, lastMessageAt: now } : s
       ));
     } catch (err) {
-      setMessages(current => current.filter(item => item.id !== assistantMessageId));
-      setMessagesError(err.message || 'Failed to send message');
+      if (err?.name === 'AbortError') {
+        updateAssistant(item => ({ status: 'completed', content: item.content || '[Stopped]' }));
+      } else {
+        setMessages(current => current.filter(item => item.id !== assistantMessageId));
+        setMessagesError(err.message || 'Failed to send message');
+      }
     } finally {
       abortControllerRef.current = null;
       setSending(false);

@@ -23,7 +23,10 @@ export async function streamOpenClawMessage(sessionId, { message, context, attac
     },
     body: JSON.stringify({ message, context, attachments }),
     signal
-  }).catch(() => null);
+  }).catch((err) => {
+    if (err?.name === 'AbortError') throw err;
+    return null;
+  });
 
   if (!response) {
     throw new Error('Server unreachable — check your connection and try again');

@@ -165,21 +165,23 @@ router.post('/sessions/:id/messages/stream', asyncHandler(async (req, res) => {
 
   const reader = upstream.getReader();
   const decoder = new TextDecoder();
+  let clientDisconnected = false;
 
   req.on('close', async () => {
+    clientDisconnected = true;
     try { await reader.cancel(); } catch { /* no-op */ }
   });
 
   try {
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
+      if (done || clientDisconnected || res.writableEnded || res.destroyed) break;
       if (value) res.write(decoder.decode(value, { stream: true }));
     }
     const tail = decoder.decode();
-    if (tail) res.write(tail);
+    if (tail && !res.writableEnded && !res.destroyed) res.write(tail);
   } catch (err) {
-    if (err?.name !== 'AbortError') {
+    if (err?.name !== 'AbortError' && !res.writableEnded && !res.destroyed) {
       const errorPayload = {
         error: 'Upstream stream error',
         message: err instanceof Error ? err.message : String(err)
@@ -188,7 +190,7 @@ router.post('/sessions/:id/messages/stream', asyncHandler(async (req, res) => {
       console.error(`❌ OpenClaw stream error: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
-  res.end();
+  if (!res.writableEnded && !res.destroyed) res.end();
 }));
 
 export default router;

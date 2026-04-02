@@ -122,7 +122,7 @@ async function filesToAttachments(files) {
       kind,
       size: file.size,
       data: base64,
-      previewUrl: kind === 'image' ? `data:${mediaType};base64,${base64}` : ''
+      previewUrl: kind === 'image' ? URL.createObjectURL(file) : ''
     };
   }));
 }
@@ -288,15 +288,26 @@ export default function OpenClaw() {
       const existingBase64Chars = attachments.reduce((sum, a) => sum + (typeof a.data === 'string' ? a.data.length : 0), 0);
       const newBase64Chars = next.reduce((sum, a) => sum + (typeof a.data === 'string' ? a.data.length : 0), 0);
       if (existingBase64Chars + newBase64Chars > MAX_ATTACHMENTS_TOTAL_BASE64_CHARS) {
+        next.forEach(a => { if (a.previewUrl) URL.revokeObjectURL(a.previewUrl); });
         const totalMB = Math.round((existingBase64Chars + newBase64Chars) * 0.75 / (1024 * 1024));
         setMessagesError(`Combined attachments (~${totalMB}MB) exceed the 50MB total limit.`);
         return;
       }
 
       setAttachments(current => {
+        // Re-check limits against actual current state to prevent race conditions if
+        // appendFiles is called concurrently before the previous async read resolves.
+        const currentBase64Chars = current.reduce((sum, a) => sum + (typeof a.data === 'string' ? a.data.length : 0), 0);
+        if (currentBase64Chars + newBase64Chars > MAX_ATTACHMENTS_TOTAL_BASE64_CHARS) {
+          next.forEach(a => { if (a.previewUrl) URL.revokeObjectURL(a.previewUrl); });
+          return current;
+        }
         const currentCount = Array.isArray(current) ? current.length : 0;
         const remaining = MAX_ATTACHMENTS - currentCount;
-        if (remaining <= 0) return current;
+        if (remaining <= 0) {
+          next.forEach(a => { if (a.previewUrl) URL.revokeObjectURL(a.previewUrl); });
+          return current;
+        }
         return [...current, ...next.slice(0, remaining)];
       });
       setMessagesError('');
@@ -353,7 +364,11 @@ export default function OpenClaw() {
   };
 
   const removeAttachment = (attachmentId) => {
-    setAttachments(current => current.filter(item => item.id !== attachmentId));
+    setAttachments(current => {
+      const toRemove = current.find(a => a.id === attachmentId);
+      if (toRemove?.previewUrl) URL.revokeObjectURL(toRemove.previewUrl);
+      return current.filter(item => item.id !== attachmentId);
+    });
   };
 
   const handleSend = async (event) => {
@@ -459,6 +474,7 @@ export default function OpenClaw() {
       });
 
       setComposer('');
+      attachments.forEach(a => { if (a.previewUrl) URL.revokeObjectURL(a.previewUrl); });
       setAttachments([]);
       updateAssistant(item => ({ status: 'completed', content: item.content || '[No text response]' }));
       const now = new Date().toISOString();

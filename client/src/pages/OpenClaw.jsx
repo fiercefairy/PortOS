@@ -900,9 +900,11 @@ export default function OpenClaw() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => removeAttachment(attachment.id)}
-                        className="text-gray-400 hover:text-white"
-                        aria-label={`Remove ${attachment.name}`}
+                        onClick={() => { if (!sending) removeAttachment(attachment.id); }}
+                        disabled={sending}
+                        className="text-gray-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-gray-400"
+                        aria-label={sending ? `${attachment.name} is locked while sending` : `Remove ${attachment.name}`}
+                        title={sending ? 'Attachments are locked while sending' : `Remove ${attachment.name}`}
                       >
                         <X size={14} />
                       </button>

@@ -25,6 +25,7 @@ export function useOpenClawStream({ selectedSessionId, attachments, setAttachmen
   const abortControllerRef = useRef(null);
   const scrollAnimationFrameRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const loadingSessionRef = useRef(null);
 
   useEffect(() => {
     if (!messagesEndRef.current) return;
@@ -47,22 +48,27 @@ export function useOpenClawStream({ selectedSessionId, attachments, setAttachmen
 
   const loadMessages = useCallback(async (sessionId) => {
     if (!sessionId) {
+      loadingSessionRef.current = null;
       setMessages([]);
+      setMessagesLoading(false);
       onError('');
       return;
     }
 
+    loadingSessionRef.current = sessionId;
     setMessagesLoading(true);
     onError('');
 
     try {
       const data = await api.getOpenClawMessages(sessionId, { limit: 50 });
+      if (loadingSessionRef.current !== sessionId) return;
       setMessages(data?.messages || []);
     } catch (err) {
+      if (loadingSessionRef.current !== sessionId) return;
       setMessages([]);
       onError(err.message || 'Failed to load messages');
     } finally {
-      setMessagesLoading(false);
+      if (loadingSessionRef.current === sessionId) setMessagesLoading(false);
     }
   }, [onError]);
 

@@ -38,8 +38,8 @@ describe('OpenClaw Routes', () => {
 
   beforeEach(() => {
     app = express();
-    // Match the 50mb body limit used in production (server/index.js)
-    app.use(express.json({ limit: '50mb' }));
+    // Match the 55mb body limit used in production (server/index.js)
+    app.use(express.json({ limit: '55mb' }));
     app.use('/api/openclaw', openclawRoutes);
     vi.clearAllMocks();
   });

@@ -202,8 +202,10 @@ app.use((req, res, next) => {
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+// Body limit is set slightly above the 50MB combined base64 cap enforced by sendMessageSchema
+// so the Zod validation (not the body parser) is the binding constraint for attachment payloads.
+app.use(express.json({ limit: '55mb' }));
+app.use(express.urlencoded({ limit: '55mb', extended: true }));
 
 // Make io available to routes
 app.set('io', io);

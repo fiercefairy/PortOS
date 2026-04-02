@@ -416,7 +416,7 @@ export default function OpenClaw() {
     const userMessage = {
       id: userMessageId,
       role: 'user',
-      content: message || `[Sent ${attachments.length} attachment${attachments.length === 1 ? '' : 's'}]`,
+      content: message || 'Please inspect the attached context and respond.',
       createdAt: new Date().toISOString(),
       status: 'completed',
       attachments: attachments.map(({ id, data, previewUrl, ...attachment }) => ({ id, ...attachment }))

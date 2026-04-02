@@ -6,14 +6,34 @@ import {
   getRuntimeStatus,
   listSessions,
   getSessionMessages,
-  sendSessionMessage
+  sendSessionMessage,
+  streamSessionMessage
 } from '../integrations/openclaw/api.js';
 
 const router = express.Router();
 
+const attachmentSchema = z.object({
+  kind: z.enum(['image', 'file']).optional(),
+  sourceType: z.enum(['base64', 'url']).optional(),
+  name: z.string().trim().min(1).optional(),
+  filename: z.string().trim().min(1).optional(),
+  mediaType: z.string().trim().min(1).optional(),
+  mimeType: z.string().trim().min(1).optional(),
+  data: z.string().trim().min(1).optional(),
+  url: z.string().trim().url().optional()
+});
+
+const contextSchema = z.object({
+  appName: z.string().trim().min(1).optional(),
+  repoPath: z.string().trim().min(1).optional(),
+  directoryPath: z.string().trim().min(1).optional(),
+  extraInstructions: z.string().trim().min(1).optional()
+}).optional();
+
 const sendMessageSchema = z.object({
   message: z.string().trim().min(1),
-  context: z.unknown().optional()
+  context: contextSchema,
+  attachments: z.array(attachmentSchema).max(8).optional()
 });
 
 router.get('/status', asyncHandler(async (req, res) => {
@@ -78,6 +98,58 @@ router.post('/sessions/:id/messages', asyncHandler(async (req, res) => {
 
   const result = await sendSessionMessage(sessionId, payload);
   res.json(result);
+}));
+
+router.post('/sessions/:id/messages/stream', asyncHandler(async (req, res) => {
+  const sessionId = req.params.id?.trim();
+  if (!sessionId) {
+    throw new ServerError('Session ID is required', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+
+  const payload = validateRequest(sendMessageSchema, req.body);
+  const status = await getRuntimeStatus();
+  if (!status.configured) {
+    throw new ServerError('OpenClaw is not configured for this PortOS instance', {
+      status: 503,
+      code: 'OPENCLAW_UNCONFIGURED'
+    });
+  }
+
+  const { response } = await streamSessionMessage(sessionId, payload);
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  const upstream = response.body;
+  if (!upstream) {
+    res.write('event: error\ndata: {"error":"No upstream stream body"}\n\n');
+    return res.end();
+  }
+
+  const reader = upstream.getReader();
+  const decoder = new TextDecoder();
+
+  req.on('close', async () => {
+    try { await reader.cancel(); } catch { /* no-op */ }
+  });
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) res.write(decoder.decode(value, { stream: true }));
+    }
+    const tail = decoder.decode();
+    if (tail) res.write(tail);
+  } catch (err) {
+    if (err?.name !== 'AbortError') {
+      console.error(`❌ OpenClaw stream error: ${err.message}`);
+    }
+  }
+  res.end();
 }));
 
 export default router;

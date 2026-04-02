@@ -1,18 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bot, RefreshCw, Send, AlertCircle, MessageSquareText, PlugZap } from 'lucide-react';
-import * as api from '../services/api';
-
-function formatTimestamp(value) {
-  if (!value) return 'Unknown time';
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(date);
-}
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Bot,
+  RefreshCw,
+  Send,
+  Square,
+  AlertCircle,
+  MessageSquareText,
+  PlugZap,
+  Paperclip,
+  Image as ImageIcon,
+  X,
+  Upload,
+  ClipboardPaste
+} from 'lucide-react';
+import AppContextPicker from '../components/AppContextPicker';
+import * as api from '../services/apiOpenClaw';
+import * as coreApi from '../services/api';
+import { formatDateTime } from '../utils/formatters';
+import { readFileAsBase64 } from '../utils/fileUpload';
 
 function getRuntimeState(status) {
   if (!status?.configured) {
@@ -35,20 +40,124 @@ function getRuntimeState(status) {
   };
 }
 
+function ensureDefaultSession(sessions, status) {
+  const nextSessions = Array.isArray(sessions) ? [...sessions] : [];
+  const defaultSessionId = status?.defaultSession;
+  if (!defaultSessionId) return nextSessions;
+  if (nextSessions.some(session => session.id === defaultSessionId)) return nextSessions;
+
+  return [
+    {
+      id: defaultSessionId,
+      title: status?.label ? `${status.label} (default)` : 'Default PortOS session',
+      label: 'Default PortOS session',
+      status: 'default',
+      messageCount: null,
+      lastMessageAt: null,
+      synthetic: true
+    },
+    ...nextSessions
+  ];
+}
+
+function getSessionSortTime(session) {
+  const value = session?.lastMessageAt;
+  const timestamp = value ? new Date(value).getTime() : 0;
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function isSessionEmpty(session) {
+  return !session?.synthetic && !session?.lastMessageAt && Number(session?.messageCount || 0) === 0;
+}
+
+function partitionSessions(sessions = [], selectedSessionId = '', defaultSessionId = '') {
+  const sorted = [...sessions].sort((left, right) => {
+    const leftPinned = left.id === selectedSessionId || left.id === defaultSessionId;
+    const rightPinned = right.id === selectedSessionId || right.id === defaultSessionId;
+    if (leftPinned !== rightPinned) return leftPinned ? -1 : 1;
+    return getSessionSortTime(right) - getSessionSortTime(left);
+  });
+
+  const primary = [];
+  const older = [];
+
+  for (const session of sorted) {
+    const pinned = session.id === selectedSessionId || session.id === defaultSessionId;
+    const empty = isSessionEmpty(session);
+    if (pinned || (!empty && primary.length < 6)) {
+      primary.push(session);
+    } else {
+      older.push(session);
+    }
+  }
+
+  return { primary, older };
+}
+
+function getAttachmentKind(file) {
+  return file.type.startsWith('image/') ? 'image' : 'file';
+}
+
+function normalizeContent(content) {
+  if (typeof content === 'string') return content;
+  if (!content) return '';
+  if (Array.isArray(content)) return content.map(normalizeContent).filter(Boolean).join('\n\n');
+  if (typeof content === 'object') {
+    if (typeof content.text === 'string') return content.text;
+    if (typeof content.content === 'string') return content.content;
+  }
+  return '';
+}
+
+async function filesToAttachments(files) {
+  return Promise.all(files.map(async (file) => {
+    const kind = getAttachmentKind(file);
+    const mediaType = file.type || 'application/octet-stream';
+    const base64 = await readFileAsBase64(file);
+    return {
+      id: `attachment-${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`,
+      name: file.name,
+      filename: file.name,
+      mediaType,
+      kind,
+      size: file.size,
+      data: base64,
+      previewUrl: kind === 'image' ? `data:${mediaType};base64,${base64}` : ''
+    };
+  }));
+}
+
 export default function OpenClaw() {
   const [status, setStatus] = useState(null);
   const [sessions, setSessions] = useState([]);
+  const [apps, setApps] = useState([]);
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [messages, setMessages] = useState([]);
   const [composer, setComposer] = useState('');
+  const [context, setContext] = useState({
+    appId: '',
+    directoryPath: '',
+    extraInstructions: ''
+  });
+  const [attachments, setAttachments] = useState([]);
   const [statusLoading, setStatusLoading] = useState(true);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [activityLabel, setActivityLabel] = useState('');
   const [pageError, setPageError] = useState('');
   const [messagesError, setMessagesError] = useState('');
-
+  const [isDragActive, setIsDragActive] = useState(false);
+  const [showOlderChats, setShowOlderChats] = useState(false);
+  const fileInputRef = useRef(null);
+  const messagesEndRef = useRef(null);
+  const abortControllerRef = useRef(null);
+  const selectedSessionIdRef = useRef(selectedSessionId);
   const runtimeState = useMemo(() => getRuntimeState(status), [status]);
+  const visibleSessions = useMemo(
+    () => partitionSessions(sessions, selectedSessionId, status?.defaultSession),
+    [sessions, selectedSessionId, status?.defaultSession]
+  );
 
   const loadMessages = useCallback(async (sessionId) => {
     if (!sessionId) {
@@ -89,18 +198,17 @@ export default function OpenClaw() {
       }
 
       const sessionsData = await api.getOpenClawSessions();
-      const nextSessions = sessionsData?.sessions || [];
+      const nextSessions = ensureDefaultSession(sessionsData?.sessions || [], statusData);
       setSessions(nextSessions);
 
       const validIds = new Set(nextSessions.map(session => session.id).filter(Boolean));
       const preferredSessionId = [
-        selectedSessionId,
+        selectedSessionIdRef.current,
         statusData.defaultSession,
         nextSessions[0]?.id
       ].find(id => id && (validIds.size === 0 || validIds.has(id)));
 
-      const fallbackSessionId = preferredSessionId || statusData.defaultSession || '';
-      setSelectedSessionId(fallbackSessionId);
+      setSelectedSessionId(preferredSessionId || statusData.defaultSession || '');
     } catch (err) {
       setStatus(null);
       setSessions([]);
@@ -111,11 +219,16 @@ export default function OpenClaw() {
       setStatusLoading(false);
       setSessionsLoading(false);
     }
-  }, [selectedSessionId]);
+  }, []);
 
   useEffect(() => {
     loadRuntime();
+    coreApi.getApps().then(data => setApps((data || []).filter(app => !app.archived))).catch(() => setApps([]));
   }, [loadRuntime]);
+
+  useEffect(() => {
+    selectedSessionIdRef.current = selectedSessionId;
+  }, [selectedSessionId]);
 
   useEffect(() => {
     if (!status?.configured || !selectedSessionId) {
@@ -127,24 +240,191 @@ export default function OpenClaw() {
     loadMessages(selectedSessionId);
   }, [loadMessages, selectedSessionId, status?.configured]);
 
-  const handleSend = async (event) => {
-    event.preventDefault();
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages]);
 
-    const message = composer.trim();
-    if (!message || !selectedSessionId || sending) return;
+  useEffect(() => () => abortControllerRef.current?.abort(), []);
 
-    setSending(true);
-    setMessagesError('');
+  const appendFiles = useCallback(async (files) => {
+    if (!files || files.length === 0) return;
 
     try {
-      await api.sendOpenClawMessage(selectedSessionId, message);
-      setComposer('');
-      await loadMessages(selectedSessionId);
-      await loadRuntime();
+      const next = await filesToAttachments(files);
+      setAttachments(current => [...current, ...next]);
+      setMessagesError('');
     } catch (err) {
+      setMessagesError(err.message || 'Failed to prepare attachment');
+    }
+  }, []);
+
+  const handleAttachmentSelect = async (event) => {
+    const files = Array.from(event.target.files || []);
+    await appendFiles(files);
+    event.target.value = '';
+  };
+
+  const handlePaste = async (event) => {
+    const items = Array.from(event.clipboardData?.items || []);
+    const files = items
+      .map(item => item.getAsFile())
+      .filter(Boolean);
+
+    if (files.length === 0) return;
+    event.preventDefault();
+    await appendFiles(files);
+  };
+
+  const handleDragEnter = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer?.types?.includes('Files')) setIsDragActive(true);
+  };
+
+  const handleDragOver = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+    if (event.dataTransfer?.types?.includes('Files')) setIsDragActive(true);
+  };
+
+  const handleDragLeave = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const relatedTarget = event.relatedTarget;
+    if (!event.currentTarget.contains(relatedTarget)) {
+      setIsDragActive(false);
+    }
+  };
+
+  const handleDrop = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragActive(false);
+    const files = Array.from(event.dataTransfer?.files || []);
+    await appendFiles(files);
+  };
+
+  const removeAttachment = (attachmentId) => {
+    setAttachments(current => current.filter(item => item.id !== attachmentId));
+  };
+
+  const handleSend = async (event) => {
+    event?.preventDefault();
+
+    const message = composer.trim();
+    if ((!message && attachments.length === 0) || !selectedSessionId || sending) return;
+
+    const userMessageId = `local-user-${Date.now()}`;
+    const assistantMessageId = `local-assistant-${Date.now()}`;
+    const selectedApp = apps.find(app => app.id === context.appId);
+    const payloadContext = Object.fromEntries(
+      Object.entries({
+        appName: selectedApp?.name || '',
+        repoPath: selectedApp?.repoPath || '',
+        directoryPath: context.directoryPath,
+        extraInstructions: context.extraInstructions
+      }).filter(([, value]) => String(value || '').trim())
+    );
+    const payloadAttachments = attachments.map(({ id, size, previewUrl, ...attachment }) => attachment);
+
+    setSending(true);
+    setActivityLabel('Connecting…');
+    setMessagesError('');
+
+    const userMessage = {
+      id: userMessageId,
+      role: 'user',
+      content: message || `[Sent ${attachments.length} attachment${attachments.length === 1 ? '' : 's'}]`,
+      createdAt: new Date().toISOString(),
+      status: 'completed',
+      attachments: attachments.map(({ id, data, ...attachment }) => ({ id, ...attachment }))
+    };
+
+    setMessages(current => [...current, userMessage, {
+      id: assistantMessageId,
+      role: 'assistant',
+      content: '',
+      createdAt: new Date().toISOString(),
+      status: 'streaming'
+    }]);
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    const updateAssistant = (updater) =>
+      setMessages(current => current.map(item =>
+        item.id === assistantMessageId
+          ? { ...item, ...(typeof updater === 'function' ? updater(item) : updater) }
+          : item
+      ));
+
+    try {
+      await api.streamOpenClawMessage(selectedSessionId, {
+        message: message || 'Please inspect the attached context and respond.',
+        context: payloadContext,
+        attachments: payloadAttachments,
+        signal: abortController.signal,
+        onEvent: ({ event: eventName, data }) => {
+          if (eventName === 'response.created' || eventName === 'response.in_progress') {
+            setActivityLabel('Thinking…');
+            return;
+          }
+
+          if (eventName === 'response.output_item.added' || eventName === 'response.content_part.added') {
+            setActivityLabel('Working…');
+            return;
+          }
+
+          if (eventName === 'response.output_text.delta') {
+            const delta = typeof data === 'string' ? data : (data?.delta || data?.text || '');
+            setActivityLabel('Responding…');
+            updateAssistant(item => ({ content: `${item.content || ''}${delta}`, status: 'streaming' }));
+            return;
+          }
+
+          if (eventName === 'response.output_text.done') {
+            const finalText = normalizeContent(data?.text || data?.output_text || data);
+            if (finalText) updateAssistant({ content: finalText, status: 'streaming' });
+            return;
+          }
+
+          if (eventName === 'response.failed' || eventName === 'error') {
+            throw new Error(data?.error?.message || data?.message || data?.error || 'OpenClaw stream failed');
+          }
+
+          if (eventName === 'done' || eventName === 'response.completed') {
+            setActivityLabel('');
+            updateAssistant({ status: 'completed', createdAt: new Date().toISOString() });
+          }
+        }
+      });
+
+      setComposer('');
+      setAttachments([]);
+      updateAssistant(item => ({ status: 'completed', content: item.content || '[No text response]' }));
+      const now = new Date().toISOString();
+      setSessions(prev => prev.map(s =>
+        s.id === selectedSessionId ? { ...s, lastMessageAt: now } : s
+      ));
+    } catch (err) {
+      setMessages(current => current.filter(item => item.id !== assistantMessageId));
       setMessagesError(err.message || 'Failed to send message');
     } finally {
+      abortControllerRef.current = null;
       setSending(false);
+      setActivityLabel('');
+    }
+  };
+
+  const handleStop = () => {
+    abortControllerRef.current?.abort();
+  };
+
+  const handleComposerKeyDown = (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+      event.preventDefault();
+      handleSend();
     }
   };
 
@@ -157,7 +437,7 @@ export default function OpenClaw() {
           <Bot className="h-8 w-8 text-port-accent" />
           <div>
             <h1 className="text-xl font-bold text-white">OpenClaw</h1>
-            <p className="text-sm text-gray-500">Operator chat surface for an optional runtime.</p>
+            <p className="text-sm text-gray-500">Operator chat surface with streaming, context, and attachments.</p>
           </div>
         </div>
 
@@ -241,25 +521,60 @@ export default function OpenClaw() {
                   No sessions available.
                 </div>
               ) : (
-                sessions.map((session) => {
-                  const isActive = session.id === selectedSessionId;
-                  return (
-                    <button
-                      key={session.id}
-                      type="button"
-                      onClick={() => setSelectedSessionId(session.id)}
-                      className={`block w-full border-b border-port-border px-4 py-3 text-left transition-colors last:border-b-0 ${
-                        isActive ? 'bg-port-accent/10 text-white' : 'text-gray-300 hover:bg-port-border/20 hover:text-white'
-                      }`}
-                    >
-                      <div className="truncate text-sm font-medium">{session.title || session.label || session.id}</div>
-                      <div className="mt-1 flex items-center justify-between gap-3 text-xs text-gray-500">
-                        <span className="truncate">{session.id}</span>
-                        <span>{session.messageCount ?? 0} msgs</span>
-                      </div>
-                    </button>
-                  );
-                })
+                <>
+                  {visibleSessions.primary.map((session) => {
+                    const isActive = session.id === selectedSessionId;
+                    return (
+                      <button
+                        key={session.id}
+                        type="button"
+                        onClick={() => setSelectedSessionId(session.id)}
+                        className={`block w-full border-b border-port-border px-4 py-3 text-left transition-colors last:border-b-0 ${
+                          isActive ? 'bg-port-accent/10 text-white' : 'text-gray-300 hover:bg-port-border/20 hover:text-white'
+                        }`}
+                      >
+                        <div className="truncate text-sm font-medium">{session.title || session.label || session.id}</div>
+                        <div className="mt-1 flex items-center justify-between gap-3 text-xs text-gray-500">
+                          <span className="truncate">{session.id}</span>
+                          <span>{session.messageCount ?? 0} msgs</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+
+                  {visibleSessions.older.length > 0 && (
+                    <div className="border-t border-port-border">
+                      <button
+                        type="button"
+                        onClick={() => setShowOlderChats(current => !current)}
+                        className="flex w-full items-center justify-between px-4 py-3 text-left text-sm text-gray-400 transition-colors hover:bg-port-border/20 hover:text-white"
+                      >
+                        <span>{showOlderChats ? 'Hide older chats' : `Show older chats (${visibleSessions.older.length})`}</span>
+                        <span className="text-xs text-gray-500">{showOlderChats ? 'expanded' : 'collapsed'}</span>
+                      </button>
+
+                      {showOlderChats && visibleSessions.older.map((session) => {
+                        const isActive = session.id === selectedSessionId;
+                        return (
+                          <button
+                            key={session.id}
+                            type="button"
+                            onClick={() => setSelectedSessionId(session.id)}
+                            className={`block w-full border-t border-port-border/60 px-4 py-3 text-left transition-colors ${
+                              isActive ? 'bg-port-accent/10 text-white' : 'text-gray-400 hover:bg-port-border/20 hover:text-white'
+                            }`}
+                          >
+                            <div className="truncate text-sm font-medium">{session.title || session.label || session.id}</div>
+                            <div className="mt-1 flex items-center justify-between gap-3 text-xs text-gray-500">
+                              <span className="truncate">{session.id}</span>
+                              <span>{session.messageCount ?? 0} msgs</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </section>
@@ -276,11 +591,10 @@ export default function OpenClaw() {
                   {selectedSessionId ? `Session ID: ${selectedSessionId}` : 'Choose a session to load recent messages.'}
                 </p>
               </div>
-              {selectedSession?.lastMessageAt && (
-                <div className="text-xs text-gray-500">
-                  Last activity {formatTimestamp(selectedSession.lastMessageAt)}
-                </div>
-              )}
+              <div className="text-right text-xs text-gray-500">
+                {selectedSession?.lastMessageAt && <div>Last activity {formatDateTime(selectedSession.lastMessageAt)}</div>}
+                {activityLabel && <div className="mt-1 text-port-accent">{activityLabel}</div>}
+              </div>
             </div>
           </div>
 
@@ -322,6 +636,7 @@ export default function OpenClaw() {
                   const role = message.role || 'assistant';
                   const isUser = role === 'user';
                   const key = message.id || `${message.createdAt || 'message'}-${index}`;
+                  const messageAttachments = Array.isArray(message.attachments) ? message.attachments : [];
 
                   return (
                     <div
@@ -334,44 +649,182 @@ export default function OpenClaw() {
                     >
                       <div className="mb-2 flex items-center justify-between gap-3 text-xs uppercase tracking-wide">
                         <span className={isUser ? 'text-port-accent' : 'text-gray-400'}>{role}</span>
-                        <span className="text-gray-500">{formatTimestamp(message.createdAt)}</span>
+                        <span className="text-gray-500">{formatDateTime(message.createdAt)}</span>
                       </div>
                       <div className="whitespace-pre-wrap text-sm leading-6 text-gray-100">
-                        {message.content || '[Empty message]'}
+                        {message.content || (message.status === 'streaming' ? '…' : '[Empty message]')}
                       </div>
+                      {messageAttachments.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {messageAttachments.map((attachment) => (
+                            <div key={attachment.id || attachment.name} className="rounded-lg border border-port-border bg-port-card px-3 py-2 text-xs text-gray-300">
+                              {attachment.kind === 'image' ? <ImageIcon size={12} className="mr-1 inline" /> : <Paperclip size={12} className="mr-1 inline" />}
+                              {attachment.name || attachment.filename}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
+                <div ref={messagesEndRef} />
               </div>
             )}
           </div>
 
           <form onSubmit={handleSend} className="border-t border-port-border p-4">
-            <label className="mb-2 block text-sm font-medium text-white" htmlFor="openclaw-composer">
-              Send message
-            </label>
-            <textarea
-              id="openclaw-composer"
-              value={composer}
-              onChange={(event) => setComposer(event.target.value)}
-              rows={4}
-              placeholder={status?.configured ? 'Send a message to the selected session…' : 'OpenClaw is not configured'}
-              disabled={!status?.configured || !selectedSessionId || sending}
-              className="w-full resize-none rounded-lg border border-port-border bg-port-bg px-3 py-3 text-sm text-white focus:border-port-accent focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-60"
-            />
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <span className="text-xs text-gray-500">
-                {status?.configured && selectedSessionId ? 'Messages are proxied through PortOS.' : 'Select a configured session to send.'}
-              </span>
-              <button
-                type="submit"
-                disabled={!composer.trim() || !status?.configured || !selectedSessionId || sending}
-                className="inline-flex items-center gap-2 rounded-lg bg-port-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-port-accent/80 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {sending ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
-                {sending ? 'Sending…' : 'Send'}
-              </button>
+            <div className="mb-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <AppContextPicker
+                apps={apps}
+                value={context.appId}
+                onChange={(appId) => setContext(current => ({ ...current, appId }))}
+                label="App context"
+                placeholder="PortOS (default)"
+                showRepoPath
+              />
+              <label className="block text-xs text-gray-400">
+                Directory context
+                <input
+                  value={context.directoryPath}
+                  onChange={(event) => setContext(current => ({ ...current, directoryPath: event.target.value }))}
+                  placeholder="client/src/pages"
+                  className="mt-1 w-full rounded-lg border border-port-border bg-port-bg px-3 py-2 text-sm text-white focus:border-port-accent focus:outline-hidden"
+                />
+              </label>
+              <label className="block text-xs text-gray-400">
+                Extra context
+                <input
+                  value={context.extraInstructions}
+                  onChange={(event) => setContext(current => ({ ...current, extraInstructions: event.target.value }))}
+                  placeholder="What to pay attention to"
+                  className="mt-1 w-full rounded-lg border border-port-border bg-port-bg px-3 py-2 text-sm text-white focus:border-port-accent focus:outline-hidden"
+                />
+              </label>
             </div>
+
+            <div
+              onDragEnter={handleDragEnter}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`rounded-xl border p-3 transition-colors ${
+                isDragActive
+                  ? 'border-port-accent bg-port-accent/10'
+                  : 'border-port-border bg-port-bg/20'
+              }`}
+            >
+              <label className="mb-2 block text-sm font-medium text-white" htmlFor="openclaw-composer">
+                Send message
+              </label>
+              <textarea
+                id="openclaw-composer"
+                value={composer}
+                onChange={(event) => setComposer(event.target.value)}
+                onPaste={handlePaste}
+                onKeyDown={handleComposerKeyDown}
+                rows={4}
+                placeholder={status?.configured ? 'Send a message, paste an image, or drop files here…' : 'OpenClaw is not configured'}
+                disabled={!status?.configured || !selectedSessionId || sending}
+                className="w-full resize-none rounded-lg border border-port-border bg-port-bg px-3 py-3 text-sm text-white focus:border-port-accent focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-60"
+              />
+
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-400">
+                <span className="inline-flex items-center gap-1">
+                  <Upload size={12} />
+                  drag & drop
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <ClipboardPaste size={12} />
+                  paste screenshots
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Paperclip size={12} />
+                  files + images
+                </span>
+              </div>
+            </div>
+
+            {attachments.length > 0 && (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {attachments.map((attachment) => (
+                  <div key={attachment.id} className="rounded-xl border border-port-border bg-port-bg/40 p-3">
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                      <div className="min-w-0 text-xs text-gray-300">
+                        <div className="truncate font-medium text-white">{attachment.name}</div>
+                        <div className="truncate text-gray-500">{attachment.mediaType}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(attachment.id)}
+                        className="text-gray-400 hover:text-white"
+                        aria-label={`Remove ${attachment.name}`}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+
+                    {attachment.kind === 'image' && attachment.previewUrl ? (
+                      <img
+                        src={attachment.previewUrl}
+                        alt={attachment.name}
+                        className="h-32 w-full rounded-lg border border-port-border object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-32 items-center justify-center rounded-lg border border-port-border bg-port-card text-xs text-gray-400">
+                        <Paperclip size={16} className="mr-2" />
+                        File attached
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                <span>
+                  {status?.configured && selectedSessionId ? 'Stream via PortOS · ⌘↵ to send' : 'Select a configured session to send.'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={!status?.configured || !selectedSessionId || sending}
+                  className="inline-flex items-center gap-2 rounded-lg border border-port-border bg-port-card px-3 py-2 text-xs text-gray-200 hover:border-gray-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Paperclip size={14} />
+                  Add file/image
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                {sending && (
+                  <button
+                    type="button"
+                    onClick={handleStop}
+                    className="inline-flex items-center gap-2 rounded-lg border border-port-border bg-port-card px-4 py-2 text-sm font-medium text-gray-200 transition-colors hover:border-red-500/50 hover:text-red-300"
+                  >
+                    <Square size={14} />
+                    Stop
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  disabled={(!composer.trim() && attachments.length === 0) || !status?.configured || !selectedSessionId || sending}
+                  className="inline-flex items-center gap-2 rounded-lg bg-port-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-port-accent/80 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {sending ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
+                  {sending ? (activityLabel || 'Working…') : 'Send'}
+                </button>
+              </div>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*,.txt,.md,.json,.csv,.pdf"
+              className="hidden"
+              onChange={handleAttachmentSelect}
+            />
           </form>
         </section>
       </div>

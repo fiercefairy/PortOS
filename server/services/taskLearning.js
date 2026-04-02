@@ -90,7 +90,7 @@ async function loadLearningData() {
     await ensureDir(DATA_DIR);
   }
 
-  const data = await readJSONFile(LEARNING_FILE, { ...DEFAULT_LEARNING_DATA });
+  const data = await readJSONFile(LEARNING_FILE, structuredClone(DEFAULT_LEARNING_DATA));
   _learningCache = data;
   _learningCacheTime = Date.now();
   return data;
@@ -100,7 +100,6 @@ async function loadLearningData() {
  * Save learning data to file
  */
 async function saveLearningData(data) {
-  _learningCache = null;
   data.lastUpdated = new Date().toISOString();
 
   // Prune task types with fewer than 2 completions and last seen > 30 days ago
@@ -116,6 +115,8 @@ async function saveLearningData(data) {
   const tmp = `${LEARNING_FILE}.tmp`;
   await writeFile(tmp, JSON.stringify(data, null, 2));
   await rename(tmp, LEARNING_FILE);
+  _learningCache = data;
+  _learningCacheTime = Date.now();
 }
 
 /**

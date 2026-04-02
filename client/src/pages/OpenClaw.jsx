@@ -367,7 +367,9 @@ export default function OpenClaw() {
           next.forEach(a => { if (a.previewUrl) URL.revokeObjectURL(a.previewUrl); });
           return current;
         }
-        return [...current, ...next.slice(0, remaining)];
+        const accepted = next.slice(0, remaining);
+        next.slice(remaining).forEach(a => { if (a.previewUrl) URL.revokeObjectURL(a.previewUrl); });
+        return [...current, ...accepted];
       });
       setMessagesError('');
     } catch (err) {

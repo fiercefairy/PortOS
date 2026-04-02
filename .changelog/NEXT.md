@@ -57,6 +57,12 @@
 - OpenClaw stream route now calls `res.flushHeaders()` before proxying SSE so headers reach the client immediately
 - OpenClaw stream reader loop wrapped in try/catch to handle AbortError on client disconnect without unhandled rejection
 - Orphaned `htmlFor="compact-task-app"` sr-only label in `TaskAddForm` compact mode removed (referenced select id that no longer exists after AppContextPicker refactor)
+- XSS: `MarkdownOutput.jsx` links now validate `href` protocol (allow `http://`, `https://`, `/` only); unsafe URIs render as plain text
+- Toast notifications missing background color — added `bg-port-card` with border
+- `InlineDiff` word diff used `Set` which collapsed duplicate common words; replaced with sequential LCS pointer matching
+- `httpClient.js` now auto-sets `Content-Type: application/json` when sending JSON body
+- `zipStream.js` sanitizes ZIP entry paths (normalizes separators, strips `..` and `.` components)
+- `multipart.js` sanitizes file extension to alphanumeric characters only
 
 ## Added
 - `AppContextPicker` component — reusable app selector with repo path display; replaces inline `<select>` in `TaskAddForm` (compact and full modes)

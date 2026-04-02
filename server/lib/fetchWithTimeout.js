@@ -30,7 +30,7 @@ export async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
     const response = await fetch(url, { ...options, signal });
     return response;
   } finally {
-    if (timeoutId) clearTimeout(timeoutId);
+    if (timeoutId !== null) clearTimeout(timeoutId);
     if (options.signal && abortHandler) {
       options.signal.removeEventListener('abort', abortHandler);
     }

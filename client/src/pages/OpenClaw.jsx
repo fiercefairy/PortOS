@@ -888,7 +888,7 @@ export default function OpenClaw() {
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
                 <span>
-                  {status?.configured && selectedSessionId ? 'Stream via PortOS · ⌘↵ to send' : 'Select a configured session to send.'}
+                  {status?.configured && selectedSessionId ? 'Stream via PortOS · ⌘↵ / Ctrl↵ to send' : 'Select a configured session to send.'}
                 </span>
                 <button
                   type="button"

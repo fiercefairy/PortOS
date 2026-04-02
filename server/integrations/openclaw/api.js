@@ -124,10 +124,13 @@ async function loadConfig() {
 
   if (configured && finalBaseUrl) {
     try {
-      // Validate that baseUrl is a well-formed URL; invalid values should not mark the integration as configured.
-      // This avoids later failures in URL-joining logic that would otherwise surface as generic "unreachable" errors.
-      // eslint-disable-next-line no-new
-      new URL(finalBaseUrl);
+      // Validate that baseUrl is a well-formed HTTP(S) URL. Non-HTTP schemes (e.g. file:, ws:)
+      // are rejected because the integration assumes fetch() HTTP semantics throughout.
+      const parsed = new URL(finalBaseUrl);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        configured = false;
+        finalBaseUrl = '';
+      }
     } catch {
       configured = false;
       finalBaseUrl = '';
@@ -355,7 +358,7 @@ export async function getRuntimeStatus() {
       sessionsCount: Array.isArray(sessions?.sessions) ? sessions.sessions.length : null
     }, config, true, null);
   } catch (err) {
-    return normalizeStatusPayload(null, config, false, err.message);
+    return normalizeStatusPayload(null, config, false, err instanceof Error ? err.message : String(err));
   }
 }
 

@@ -34,7 +34,14 @@ export async function streamOpenClawMessage(sessionId, { message, context, attac
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
-    throw new Error(error.error || `HTTP ${response.status}`);
+    const detailMessage = Array.isArray(error?.context?.details)
+      ? error.context.details
+          .map((d) => d?.message)
+          .filter((m) => typeof m === 'string' && m.trim())
+          .slice(0, 3)
+          .join('; ')
+      : '';
+    throw new Error(detailMessage || error.error || `HTTP ${response.status}`);
   }
 
   if (!response.body) {

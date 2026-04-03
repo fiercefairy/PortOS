@@ -137,13 +137,11 @@ if (-not (Test-Path "client/node_modules/vite/bin/vite.js")) {
 Step "npm-install" "done" "Dependencies installed"
 
 # Run setup (data dirs + browser deps)
-Write-SafeHost "Ensuring data & browser setup..." -ForegroundColor Yellow
+Step "setup" "running" "Running setup..."
 Invoke-Logged npm run setup
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-Write-SafeHost ""
-
-# Ghostty sync (if installed)
 Invoke-Logged node scripts/setup-ghostty.js
+Step "setup" "done" "Setup complete"
 Write-SafeHost ""
 
 # Run data migrations

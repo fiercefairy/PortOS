@@ -11,6 +11,7 @@ const STEP_LABELS = {
   'git-pull': 'Pulling latest changes',
   'pm2-stop': 'Stopping apps',
   'npm-install': 'Installing dependencies',
+  setup: 'Running setup',
   migrations: 'Running migrations',
   build: 'Building client',
   restart: 'Restarting PortOS',

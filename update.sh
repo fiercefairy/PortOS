@@ -99,12 +99,10 @@ fi
 step "npm-install" "done" "Dependencies installed"
 
 # Run setup (data dirs + browser deps)
-log "Ensuring data & browser setup..."
+step "setup" "running" "Running setup..."
 run npm run setup
-log ""
-
-# Ghostty sync (if installed)
 run node scripts/setup-ghostty.js || true
+step "setup" "done" "Setup complete"
 log ""
 
 # Run data migrations

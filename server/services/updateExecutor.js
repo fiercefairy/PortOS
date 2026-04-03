@@ -95,15 +95,23 @@ export async function executeUpdate(tag, emit) {
           actualVersion = marker.version || actualVersion;
           completedAt = marker.completedAt || completedAt;
         } catch { /* marker may not be readable yet — fall back to triggering tag */ }
-        await recordUpdateResult({
-          version: actualVersion,
-          success: true,
-          completedAt,
-          log: ''
-        }).catch(e => console.error(`❌ Failed to record update result: ${e.message}`));
+        let recorded = false;
+        try {
+          await recordUpdateResult({
+            version: actualVersion,
+            success: true,
+            completedAt,
+            log: ''
+          });
+          recorded = true;
+        } catch (e) {
+          console.error(`❌ Failed to record update result: ${e.message}`);
+        }
         // Remove marker only after result is persisted so boot-time processing
         // can still recover if this process is killed before recordUpdateResult
-        await unlink(join(PATHS.data, 'update-complete.json')).catch(() => {});
+        if (recorded) {
+          await unlink(markerPath).catch(() => {});
+        }
         emit('complete', 'done', 'Update complete — restarting');
         resolve({ success: true, version: actualVersion });
       } else {

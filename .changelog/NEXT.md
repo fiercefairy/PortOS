@@ -33,6 +33,7 @@
 - God file decomposition: split `server/services/digital-twin.js` (2,970 lines) into 10 focused modules (`digital-twin-constants`, `digital-twin-helpers`, `digital-twin-meta`, `digital-twin-documents`, `digital-twin-testing`, `digital-twin-enrichment`, `digital-twin-export`, `digital-twin-context`, `digital-twin-analysis`, `digital-twin-import`, `digital-twin-status`); `digital-twin.js` is now a thin barrel re-export
 
 ## Fixed
+- Scheduled AI jobs (e.g. Daily Briefing) could get permanently stuck as "Due" if agent spawn failed — `task:ready` handler now catches errors and emits `job:spawn-failed` to re-register the timer; 5-minute spawning timeout also re-registers as safety net
 - Bug: `providerOverride` was incorrectly passed as model argument in `processEnrichmentAnswer`; corrected to `modelOverride`
 - Dynamic `import()` of `safeJSONParse` inside `analyzeEnrichmentList` replaced with static top-level import
 - `loadMeta()` was called inside per-document loop in `analyzeAssessment`; hoisted out to load once

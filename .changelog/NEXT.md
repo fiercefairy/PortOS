@@ -8,6 +8,8 @@
 
 ## Changed
 
+- Triggering agent operations (do:push, do:review, etc.) from the app overview page now navigates to the CoS agents page so the user can watch the agent run
+
 ## Fixed
 
 - Agent error handling in AgentsTab — API failures no longer trigger success toasts or state refreshes

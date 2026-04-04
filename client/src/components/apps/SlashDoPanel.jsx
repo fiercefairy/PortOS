@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Terminal, Loader2 } from 'lucide-react';
 import toast from '../ui/Toast';
 import { NON_PM2_TYPES } from './constants';
@@ -14,6 +15,7 @@ const SLASHDO_COMMANDS = [
 
 export default function SlashDoPanel({ appId, appType }) {
   const [loading, setLoading] = useState(null);
+  const navigate = useNavigate();
   const isXcodeApp = NON_PM2_TYPES.has(appType);
 
   const commands = SLASHDO_COMMANDS.filter(cmd => {
@@ -31,6 +33,7 @@ export default function SlashDoPanel({ appId, appType }) {
     setLoading(null);
     if (result) {
       toast.success(`Queued ${command.label} agent task`);
+      navigate('/cos/agents');
     }
   };
 

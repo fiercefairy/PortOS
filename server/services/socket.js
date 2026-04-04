@@ -393,7 +393,13 @@ export function initSocket(io) {
       const data = validateSocketData(appDeploySchema, rawData, socket, 'app:deploy');
       if (!data) return;
 
-      const app = await appsService.getAppById(data.appId);
+      let app;
+      try {
+        app = await appsService.getAppById(data.appId);
+      } catch (err) {
+        socket.emit('app:deploy:error', { message: `Failed to look up app: ${err.message}` });
+        return;
+      }
       if (!app) {
         socket.emit('app:deploy:error', { message: 'App not found' });
         return;
@@ -409,7 +415,14 @@ export function initSocket(io) {
         socket.emit(`app:deploy:${type}`, { ...payload, timestamp: Date.now() });
       };
 
-      const result = await appDeployer.deployApp(app, data.flags, emit);
+      let result;
+      try {
+        result = await appDeployer.deployApp(app, data.flags, emit);
+      } catch (err) {
+        console.error(`❌ Deploy error for ${app.name}: ${err.message}`);
+        socket.emit('app:deploy:error', { message: err.message });
+        return;
+      }
       socket.emit('app:deploy:complete', { success: result.success, code: result.code });
       console.log(`${result.success ? '✅' : '❌'} Deploy ${result.success ? 'complete' : 'failed'} for ${app.name}`);
     });

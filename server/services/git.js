@@ -962,9 +962,25 @@ export async function getSubmodules() {
 async function fetchRemoteInfo(fullPath, currentCommit) {
   await execGitSafe(['fetch', 'origin'], fullPath, { timeout: 15000 });
 
+  // Resolve the remote default branch — origin/HEAD may not exist in all clones
+  let remoteRef = 'origin/HEAD';
+  const headCheck = await execGitSafe(['rev-parse', 'origin/HEAD'], fullPath);
+  if (headCheck.exitCode !== 0) {
+    // Fallback: try origin/main then origin/master
+    const mainCheck = await execGitSafe(['rev-parse', 'origin/main'], fullPath);
+    if (mainCheck.exitCode === 0) {
+      remoteRef = 'origin/main';
+    } else {
+      const masterCheck = await execGitSafe(['rev-parse', 'origin/master'], fullPath);
+      if (masterCheck.exitCode === 0) {
+        remoteRef = 'origin/master';
+      }
+    }
+  }
+
   const [latestResult, msgResult] = await Promise.all([
-    execGitSafe(['rev-parse', 'origin/HEAD'], fullPath),
-    execGitSafe(['log', '-1', '--format=%s', 'origin/HEAD'], fullPath)
+    execGitSafe(['rev-parse', remoteRef], fullPath),
+    execGitSafe(['log', '-1', '--format=%s', remoteRef], fullPath)
   ]);
 
   let latestCommit = null;
@@ -972,7 +988,7 @@ async function fetchRemoteInfo(fullPath, currentCommit) {
   if (latestResult.exitCode === 0) {
     latestCommit = latestResult.stdout.trim().substring(0, 7);
     const countResult = await execGitSafe(
-      ['rev-list', '--count', `${currentCommit}..origin/HEAD`],
+      ['rev-list', '--count', `${currentCommit}..${remoteRef}`],
       fullPath
     );
     behind = parseInt(countResult.stdout.trim(), 10) || 0;

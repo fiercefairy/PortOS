@@ -321,7 +321,7 @@ export async function createGitBackup(repoPath) {
   // Refuse to overwrite uncommitted changes
   const { stdout: statusOut } = await execAsync('git status --porcelain', { cwd: repoPath, windowsHide: true });
   if (statusOut.trim()) {
-    return { success: false, reason: 'Working tree has uncommitted changes — commit or discard them before standardizing' };
+    return { success: false, code: 'DIRTY_WORKTREE', reason: 'Working tree has uncommitted changes — commit or discard them before standardizing' };
   }
 
   const timestamp = Date.now();
@@ -422,7 +422,7 @@ export async function applyStandardization(repoPath, plan) {
       console.log(`📦 Created backup branch: ${backup.branch}`);
     } else {
       console.log(`⚠️ Could not create backup: ${backup.reason}`);
-      if (backup.reason?.includes('uncommitted changes')) {
+      if (backup.code === 'DIRTY_WORKTREE') {
         return { success: false, error: backup.reason, filesModified: [], errors: [backup.reason] };
       }
     }

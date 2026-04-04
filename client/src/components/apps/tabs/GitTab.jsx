@@ -170,11 +170,10 @@ export default function GitTab({ appId: _appId, appName, repoPath }) {
     if (result) {
       const parts = [];
       for (const [key, val] of Object.entries(result)) {
-        if (key !== 'stashed' && key !== 'stashRestored' && key !== 'currentBranch' && val) {
+        if (key !== 'currentBranch' && val) {
           parts.push(`${key}: ${val}`);
         }
       }
-      if (result.stashed) parts.push(result.stashRestored ? 'stash restored' : 'stash conflict');
       toast.success(`Branches updated — ${parts.join(', ')}`);
     }
     await loadGitInfo();

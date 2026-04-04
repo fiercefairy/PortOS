@@ -320,25 +320,10 @@ export async function createGitBackup(repoPath) {
   const timestamp = Date.now();
   const branch = `portos-backup-${timestamp}`;
 
-  // Check for uncommitted changes
-  const { stdout: status } = await execAsync('git status --porcelain', { cwd: repoPath, windowsHide: true });
-  const hasChanges = status.trim().length > 0;
-
-  if (hasChanges) {
-    // Stash changes
-    await execAsync('git stash push -m "PortOS standardization backup"', { cwd: repoPath, windowsHide: true })
-      .catch(() => null); // Ignore if nothing to stash
-  }
-
-  // Create backup branch
+  // Create backup branch from current HEAD (captures committed state without stashing)
   await execAsync(`git branch ${branch}`, { cwd: repoPath, windowsHide: true });
 
-  if (hasChanges) {
-    // Pop stash
-    await execAsync('git stash pop', { cwd: repoPath, windowsHide: true }).catch(() => null);
-  }
-
-  return { success: true, branch, hadChanges: hasChanges };
+  return { success: true, branch };
 }
 
 /**

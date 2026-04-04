@@ -639,7 +639,7 @@ For each comment, read the referenced file and critically evaluate the suggestio
 Either way, resolve every thread — the goal is zero unresolved threads before merge.
 
 After evaluating all threads:
-- If any code changes were made: run the project's test suite to verify, then commit and push following the project's push conventions (e.g., \`git pull --rebase --autostash && git push\`)
+- If any code changes were made: run the project's test suite to verify, then commit and push using \`/do:push\` (or manually: stage specific files, conventional commit prefix, \`git pull --rebase && git push\`)
 
 ### 5d. Resolve ALL threads via GraphQL mutation (both fixed and dismissed):
 

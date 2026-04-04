@@ -12,6 +12,7 @@
 
 ## Fixed
 
+- Branch actions on mobile — delete/merge confirmations now wrap to a separate row instead of overlapping, added 40px touch targets to all buttons, header controls wrap gracefully, commit dates hidden on small screens
 - Agent error handling in AgentsTab — API failures no longer trigger success toasts or state refreshes
 - Resume agent modal now prevents double-submission with loading state and disabled button
 - Slash-do quick actions (`/do:push`, `/do:review`, etc.) no longer run in a worktree — they now execute on the app's active branch where they have the correct context

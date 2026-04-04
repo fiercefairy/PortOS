@@ -461,11 +461,8 @@ function GlobalConfigControls({ taskType, config, onUpdate, onTrigger, onReset, 
             return (
               <div
                 key={field}
-                role="button"
-                tabIndex={0}
                 className="flex items-center justify-between gap-3 min-h-[44px] cursor-pointer rounded px-2 -mx-2 hover:bg-port-card/30 active:bg-port-card/50"
                 onClick={handleToggle}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleToggle(); } }}
               >
                 <div className="min-w-0 flex-1">
                   <span className="text-sm text-white">{label}</span>

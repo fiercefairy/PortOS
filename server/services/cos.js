@@ -2629,13 +2629,13 @@ export async function approveTask(taskId) {
 function computeNextJobFireTime(job, timezone) {
   // Convert scheduledTime (HH:MM) + interval to a cron expression so parseCronToNextRun
   // handles all "next occurrence after lastRun" logic without drift issues.
-  // Only synthesize a cron for daily/weekday jobs (intervalMs <= 1 day).
-  // Weekly+ jobs with scheduledTime fall through to the interval path, which correctly
-  // computes lastRun + intervalMs and avoids scheduling them every day.
+  // Only synthesize a daily/weekday cron for strictly daily or weekdaysOnly jobs.
+  // Weekly/biweekly/sub-daily interval jobs fall through to the interval path below,
+  // which correctly computes lastRun + intervalMs without scheduling them every day.
   // e.g. { interval: 'daily', scheduledTime: '04:30' } → '30 4 * * *'
-  const DAY_MS = 24 * 60 * 60 * 1000;
   let cronExpr = job.cronExpression;
-  if (!cronExpr && job.scheduledTime && (!job.intervalMs || job.intervalMs <= DAY_MS)) {
+  const isDailyCronCandidate = job.interval === 'daily' || job.weekdaysOnly;
+  if (!cronExpr && job.scheduledTime && isDailyCronCandidate) {
     const match = String(job.scheduledTime).match(/^([01]\d|2[0-3]):([0-5]\d)$/);
     if (match) {
       const dayField = job.weekdaysOnly ? '1-5' : '*';
@@ -2881,7 +2881,11 @@ async function scheduleNextImprovementCheck() {
 
   if (upcoming.length > 0 && upcoming[0].status === 'scheduled' && upcoming[0].eligibleIn > 0) {
     delayMs = Math.min(upcoming[0].eligibleIn, MAX_CHECK_INTERVAL);
-    description = `Next improvement: ${upcoming[0].taskType} in ${upcoming[0].eligibleInFormatted}`;
+    const effectiveFormatted = formatDuration(delayMs);
+    const capNote = upcoming[0].eligibleIn > MAX_CHECK_INTERVAL
+      ? ` (capped from ${upcoming[0].eligibleInFormatted})`
+      : '';
+    description = `Next improvement: ${upcoming[0].taskType} in ${effectiveFormatted}${capNote}`;
   }
 
   scheduleEvent({

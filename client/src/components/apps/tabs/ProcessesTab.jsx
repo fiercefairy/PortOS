@@ -201,10 +201,12 @@ export default function ProcessesTab({ pm2ProcessNames, filterFn }) {
                       <span className="font-medium text-white">{proc.name}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-2 px-2 py-1 rounded text-xs ${getStatusClasses(proc.status).badge}`}>
-                        <span className={`w-2 h-2 rounded-full ${getStatusClasses(proc.status).dot}`} />
-                        {proc.status}
-                      </span>
+                      {(() => { const sc = getStatusClasses(proc.status); return (
+                        <span className={`inline-flex items-center gap-2 px-2 py-1 rounded text-xs ${sc.badge}`}>
+                          <span className={`w-2 h-2 rounded-full ${sc.dot}`} />
+                          {proc.status}
+                        </span>
+                      ); })()}
                     </td>
                     <td className="px-4 py-3 text-gray-400 font-mono text-sm">{proc.pid || '-'}</td>
                     <td className="px-4 py-3 text-gray-400">{proc.cpu ? `${proc.cpu}%` : '-'}</td>

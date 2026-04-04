@@ -111,6 +111,7 @@ Write-SafeHost ""
 # Update submodules (slash-do and any others)
 Step "submodules" "running" "Updating submodules..."
 Invoke-Logged git submodule update --init --recursive --remote
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Step "submodules" "done" "Submodules updated"
 Write-SafeHost ""
 

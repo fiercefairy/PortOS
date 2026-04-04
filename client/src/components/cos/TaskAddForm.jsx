@@ -201,17 +201,20 @@ export default function TaskAddForm({ providers, apps, onTaskAdded, compact = fa
         mimeType: a.mimeType
       })) : undefined,
       position: addToTop ? 'top' : 'bottom'
-    }).catch(() => null);
+    }).catch(err => {
+      toast.error(err.message || 'Failed to add task');
+      return null;
+    });
 
     setIsSubmitting(false);
     setIsEnhancing(false);
 
-    // Always clear form inputs after submission attempt
+    if (!result) return;
+
+    // Only clear form inputs after successful submission
     setNewTask(t => ({ ...t, description: '' }));
     setScreenshots([]);
     setAttachments([]);
-
-    if (!result) return;
 
     toast.success('Task added');
     onTaskAdded?.();

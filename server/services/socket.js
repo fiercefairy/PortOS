@@ -131,11 +131,11 @@ export function initSocket(io) {
         filesModified: result.filesModified
       });
 
-      // Complete
+      // Complete — use backup branch from step 2 since step 3 skips backup
       socket.emit('standardize:complete', {
         success: true,
         result: {
-          backupBranch: result.backupBranch,
+          backupBranch: backup.branch || null,
           filesModified: result.filesModified,
           processes: analysis.proposedChanges.processes
         }

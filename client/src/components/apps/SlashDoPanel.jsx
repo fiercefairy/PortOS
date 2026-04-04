@@ -16,11 +16,11 @@ const SLASHDO_COMMANDS = [
 export default function SlashDoPanel({ appId, appType }) {
   const [loading, setLoading] = useState(null);
   const navigate = useNavigate();
-  const isXcodeApp = NON_PM2_TYPES.has(appType);
+  const isSwiftApp = NON_PM2_TYPES.has(appType);
 
   const commands = SLASHDO_COMMANDS.filter(cmd => {
-    if (cmd.swiftOnly && !isXcodeApp) return false;
-    if (cmd.hideForSwift && isXcodeApp) return false;
+    if (cmd.swiftOnly && !isSwiftApp) return false;
+    if (cmd.hideForSwift && isSwiftApp) return false;
     return true;
   });
 

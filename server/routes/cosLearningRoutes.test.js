@@ -368,7 +368,23 @@ describe('CoS Learning Routes', () => {
     });
   });
 
-  // Note: GET /api/cos/digest/compare is unreachable because /digest/:weekId
-  // is defined before it in the route file. "compare" matches :weekId and fails
-  // the YYYY-WXX validation, returning 400. This is a known route ordering issue.
+  describe('GET /api/cos/digest/compare', () => {
+    it('should return 400 when week params are missing', async () => {
+      const response = await request(app).get('/api/cos/digest/compare');
+      expect(response.status).toBe(400);
+    });
+
+    it('should return comparison for two weeks', async () => {
+      weeklyDigest.compareWeeks.mockResolvedValue({ week1: '2026-W01', week2: '2026-W02', changes: [] });
+      const response = await request(app).get('/api/cos/digest/compare?week1=2026-W01&week2=2026-W02');
+      expect(response.status).toBe(200);
+      expect(weeklyDigest.compareWeeks).toHaveBeenCalledWith('2026-W01', '2026-W02');
+    });
+
+    it('should return 404 when weeks not found', async () => {
+      weeklyDigest.compareWeeks.mockResolvedValue(null);
+      const response = await request(app).get('/api/cos/digest/compare?week1=2026-W01&week2=2026-W02');
+      expect(response.status).toBe(404);
+    });
+  });
 });

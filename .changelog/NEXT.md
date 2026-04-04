@@ -2,6 +2,9 @@
 
 ## Added
 
+- Slash-do agent operations panel on app detail Overview tab — buttons for `/do:push`, `/do:review`, `/do:release`, `/do:better`, and `/do:better-swift` that queue CoS agent tasks with the full command instructions
+- Multi-line task context now renders as a dedicated `### Task Context` section in agent prompts instead of inline
+
 ## Changed
 
 ## Fixed

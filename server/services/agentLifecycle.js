@@ -16,6 +16,7 @@ import { spawnAgentViaRunner, getActiveAgentsFromRunner, getRunnerHealth } from 
 import { getActiveProvider, getAllProviders, getProviderById } from './providers.js';
 import { isProviderAvailable, markProviderUsageLimit, markProviderRateLimited, getFallbackProvider, getProviderStatus } from './providerStatus.js';
 import { PIPELINE_BEHAVIOR_FLAGS, MAX_TOTAL_SPAWNS } from '../lib/validation.js';
+import { isInternalTaskId } from '../lib/taskParser.js';
 import { ensureDir, PATHS } from '../lib/fileUtils.js';
 import { getAppById } from './apps.js';
 import { createToolExecution, startExecution, completeExecution, errorExecution } from './toolStateMachine.js';
@@ -87,8 +88,7 @@ export async function syncRunnerAgents() {
     if (!runnerAgents.has(agent.id)) {
       const task = taskMap.get(agent.taskId);
 
-      // Infer taskType for fallback: sys- and app-improve- prefix tasks are internal (CoS-generated)
-      const inferredType = (agent.taskId?.startsWith('sys-') || agent.taskId?.startsWith('app-improve-')) ? 'internal' : 'user';
+      const inferredType = isInternalTaskId(agent.taskId) ? 'internal' : 'user';
       runnerAgents.set(agent.id, {
         taskId: agent.taskId,
         task: task || { id: agent.taskId, taskType: inferredType, description: 'Recovered from runner' },
@@ -829,7 +829,7 @@ export async function handleAgentCompletion(agentId, exitCode, success, duration
   // Ensure taskType is set — recovered agents may lack it
   if (task && !task.taskType) {
     const id = task.id || '';
-    task.taskType = (id.startsWith('sys-') || id.startsWith('app-improve-')) ? 'internal' : 'user';
+    task.taskType = isInternalTaskId(id) ? 'internal' : 'user';
   }
 
   // Release execution lane

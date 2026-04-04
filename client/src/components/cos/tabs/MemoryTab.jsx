@@ -74,17 +74,21 @@ export default function MemoryTab({ apps = [] }) {
     setLoading(false);
   }, [filters, sourceFilter]);
 
-  const handleApprove = async (id) => {
-    await api.approveMemory(id);
-    toast.success('Memory approved');
-    fetchData();
+  const [actionInFlight, setActionInFlight] = useState(null);
+
+  const handleMemoryAction = async (id, action, label, updateStats) => {
+    if (actionInFlight) return;
+    setActionInFlight(id);
+    const result = await action(id).catch(() => null);
+    setActionInFlight(null);
+    if (!result) return;
+    toast.success(`Memory ${label}`);
+    setPendingMemories(prev => prev.filter(m => m.id !== id));
+    setStats(prev => prev ? { ...prev, pendingApproval: Math.max(0, (prev.pendingApproval || 0) - 1), ...updateStats } : prev);
   };
 
-  const handleReject = async (id) => {
-    await api.rejectMemory(id);
-    toast.success('Memory rejected');
-    fetchData();
-  };
+  const handleApprove = (id) => handleMemoryAction(id, api.approveMemory, 'approved', { active: (stats?.active || 0) + 1 });
+  const handleReject = (id) => handleMemoryAction(id, api.rejectMemory, 'rejected', {});
 
   useEffect(() => {
     fetchData();
@@ -272,24 +276,27 @@ export default function MemoryTab({ apps = [] }) {
                 <div className="flex gap-2 sm:flex-col md:flex-row">
                   <button
                     onClick={() => setEditingMemory(memory)}
-                    className="flex-1 sm:flex-none p-3 min-h-[44px] min-w-[44px] flex items-center justify-center bg-port-accent/20 text-port-accent hover:bg-port-accent/30 rounded-lg transition-colors"
+                    disabled={actionInFlight === memory.id}
+                    className="flex-1 sm:flex-none p-3 min-h-[44px] min-w-[44px] flex items-center justify-center bg-port-accent/20 text-port-accent hover:bg-port-accent/30 active:bg-port-accent/40 rounded-lg transition-colors disabled:opacity-50"
                     title="Edit before approving"
                   >
                     <Pencil size={20} />
                   </button>
                   <button
                     onClick={() => handleApprove(memory.id)}
-                    className="flex-1 sm:flex-none p-3 min-h-[44px] min-w-[44px] flex items-center justify-center bg-green-500/20 text-green-400 hover:bg-green-500/30 rounded-lg transition-colors"
+                    disabled={!!actionInFlight}
+                    className="flex-1 sm:flex-none p-3 min-h-[44px] min-w-[44px] flex items-center justify-center bg-green-500/20 text-green-400 hover:bg-green-500/30 active:bg-green-500/40 rounded-lg transition-colors disabled:opacity-50"
                     title="Approve"
                   >
-                    <Check size={20} />
+                    {actionInFlight === memory.id ? <RefreshCw className="animate-spin" size={20} /> : <Check size={20} />}
                   </button>
                   <button
                     onClick={() => handleReject(memory.id)}
-                    className="flex-1 sm:flex-none p-3 min-h-[44px] min-w-[44px] flex items-center justify-center bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-lg transition-colors"
+                    disabled={!!actionInFlight}
+                    className="flex-1 sm:flex-none p-3 min-h-[44px] min-w-[44px] flex items-center justify-center bg-red-500/20 text-red-400 hover:bg-red-500/30 active:bg-red-500/40 rounded-lg transition-colors disabled:opacity-50"
                     title="Reject"
                   >
-                    <XCircle size={20} />
+                    {actionInFlight === memory.id ? <RefreshCw className="animate-spin" size={20} /> : <XCircle size={20} />}
                   </button>
                 </div>
               </div>

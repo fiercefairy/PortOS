@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { Play, RotateCcw, ChevronDown, ChevronRight, AlertCircle, RefreshCw, Package, Info, GitMerge } from 'lucide-react';
 import toast from '../../ui/Toast';
 import * as api from '../../../services/api';
 import AppIcon from '../../AppIcon';
 import CronInput from '../../CronInput';
-import { AGENT_OPTIONS, toggleAppMetadataOverride } from '../constants';
+import { AGENT_OPTIONS, toggleAppMetadataOverride, agentOptionButtonClass } from '../constants';
 import { isCronExpression, describeCron } from '../../../utils/cronHelpers';
 import ToggleSwitch from '../../ToggleSwitch';
 
@@ -578,7 +578,7 @@ function GlobalConfigControls({ taskType, config, onUpdate, onTrigger, onReset, 
   );
 }
 
-function AppOverrideRow({ app, taskType, globalIntervalType, globalTaskMetadata, override, onUpdate }) {
+const AppOverrideRow = memo(function AppOverrideRow({ app, taskType, globalIntervalType, globalTaskMetadata, override, onUpdate }) {
   const [updating, setUpdating] = useState(false);
   const [cronEditing, setCronEditing] = useState(false);
   const isEnabled = override?.enabled === true;
@@ -677,11 +677,7 @@ function AppOverrideRow({ app, taskType, globalIntervalType, globalTaskMetadata,
                 disabled={updating}
                 aria-pressed={effective}
                 aria-label={`${label}: ${effective ? 'on' : 'off'}${hasOverride ? ' (app override)' : ' (inherited)'}`}
-                className={`text-xs px-2 py-1.5 rounded transition-colors shrink-0 min-h-[40px] min-w-[40px] ${
-                  effective
-                    ? hasOverride ? 'bg-port-accent/30 text-port-accent' : 'bg-port-accent/15 text-port-accent/60'
-                    : hasOverride ? 'bg-gray-600/50 text-gray-400' : 'bg-gray-600/25 text-gray-500'
-                }`}
+                className={`text-xs px-2 py-1.5 rounded transition-colors shrink-0 min-h-[40px] min-w-[40px] border ${agentOptionButtonClass(effective, hasOverride)}`}
                 title={`${label}: ${effective ? 'on' : 'off'}${hasOverride ? ' (app override)' : ' (inherited)'}`}
               >
                 {shortLabel}
@@ -702,7 +698,7 @@ function AppOverrideRow({ app, taskType, globalIntervalType, globalTaskMetadata,
       </div>
     </div>
   );
-}
+});
 
 function PerAppOverrideList({ taskType, config, apps, onUpdateOverride, onBulkToggleOverride }) {
   const [bulkUpdating, setBulkUpdating] = useState(false);

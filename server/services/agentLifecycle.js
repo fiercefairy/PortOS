@@ -1126,10 +1126,13 @@ export async function cleanupAgentWorktree(agentId, success, { openPR = false, d
           emitLog('info', `🌳 No commits on ${worktreeBranch} vs ${targetBranch} — agent made no changes, cleaning up`, { agentId });
           await git.deleteBranch(sourceWorkspace, worktreeBranch, { remote: true }).catch(err => {
             emitLog('warn', `🌳 Remote branch delete failed for ${worktreeBranch}: ${err.message}`, { agentId });
+            warnings.push(`Remote branch delete failed for ${worktreeBranch}: ${err.message}`);
           });
-          await removeWorktree(agentId, sourceWorkspace, worktreeBranch, { merge: false }).catch(err => {
+          const result = await removeWorktree(agentId, sourceWorkspace, worktreeBranch, { merge: false }).catch(err => {
             emitLog('warn', `🌳 Worktree cleanup failed for ${agentId}: ${err.message}`, { agentId });
+            return { warnings: [`Worktree cleanup failed for ${agentId}: ${err.message}`] };
           });
+          warnings.push(...(result?.warnings || []));
           return warnings;
         }
 

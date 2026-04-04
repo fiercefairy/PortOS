@@ -459,16 +459,14 @@ function GlobalConfigControls({ taskType, config, onUpdate, onTrigger, onReset, 
               if (!updating) onUpdate(taskType, { taskMetadata: toggleMetadataField(config.taskMetadata, field) });
             };
             return (
-              <div
+              <button
                 key={field}
-                role="button"
-                tabIndex={updating ? -1 : 0}
-                aria-disabled={updating}
+                type="button"
+                disabled={updating}
                 aria-pressed={enabled}
                 aria-label={`${enabled ? 'Disable' : 'Enable'} ${label.toLowerCase()}`}
-                className={`flex items-center justify-between gap-3 min-h-[44px] rounded px-2 -mx-2 ${updating ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-port-card/30 active:bg-port-card/50'}`}
+                className={`w-full flex items-center justify-between gap-3 min-h-[44px] rounded px-2 -mx-2 text-left ${updating ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-port-card/30 active:bg-port-card/50'}`}
                 onClick={handleToggle}
-                onKeyDown={(e) => { if (!updating && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleToggle(); } }}
               >
                 <div className="min-w-0 flex-1">
                   <span className="text-sm text-white">{label}</span>
@@ -481,7 +479,7 @@ function GlobalConfigControls({ taskType, config, onUpdate, onTrigger, onReset, 
                   tabIndex={-1}
                   ariaLabel={undefined}
                 />
-              </div>
+              </button>
             );
           })}
         </div>

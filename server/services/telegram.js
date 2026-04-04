@@ -11,7 +11,7 @@ import { join } from 'path';
 import { v4 as uuidv4 } from '../lib/uuid.js';
 import { getSettings } from './settings.js';
 import { notificationEvents, NOTIFICATION_TYPES, getNotifications } from './notifications.js';
-import { approveMemory, rejectMemory } from './memory.js';
+import { approveMemory, rejectMemory, peekMemory } from './memory.js';
 import { ensureDir, PATHS, readJSONFile, formatDuration } from '../lib/fileUtils.js';
 import { getActiveAgents } from './subAgentSpawner.js';
 import { getGoals } from './identity.js';
@@ -377,19 +377,24 @@ async function forwardNotification(notification) {
   const emoji = NOTIFICATION_EMOJI[notification.type] || '🔔';
   const priorityEmoji = PRIORITY_EMOJI[notification.priority] || '';
   const lines = [`${emoji} <b>${escapeHtml(notification.title)}</b>`];
-  if (notification.description) lines.push(escapeHtml(notification.description));
-  if (notification.priority) lines.push(`Priority: ${priorityEmoji} ${notification.priority}`);
-
   const opts = { parse_mode: 'HTML' };
-  if (notification.type === NOTIFICATION_TYPES.MEMORY_APPROVAL && notification.metadata?.memoryId) {
+  const isMemoryApproval = notification.type === NOTIFICATION_TYPES.MEMORY_APPROVAL && notification.metadata?.memoryId;
+
+  if (isMemoryApproval) {
+    const memory = await peekMemory(notification.metadata.memoryId);
+    const fullContent = memory?.summary || memory?.content || notification.description || '';
+    if (fullContent) lines.push(escapeHtml(fullContent));
     opts.reply_markup = JSON.stringify({
       inline_keyboard: [[
         { text: '✅ Approve', callback_data: `${CALLBACK_APPROVE}:${notification.metadata.memoryId}` },
         { text: '❌ Reject', callback_data: `${CALLBACK_REJECT}:${notification.metadata.memoryId}` }
       ]]
     });
+  } else if (notification.description) {
+    lines.push(escapeHtml(notification.description));
   }
 
+  if (notification.priority) lines.push(`Priority: ${priorityEmoji} ${notification.priority}`);
   await sendMessage(lines.join('\n'), opts);
 }
 

@@ -98,7 +98,19 @@ export default function Submodules() {
                   <div className="flex items-center gap-2 mb-1">
                     <GitBranch size={16} className="text-port-accent shrink-0" />
                     <h3 className="text-lg font-semibold text-white truncate">{sub.name}</h3>
-                    {sub.behind > 0 ? (
+                    {!sub.initialized ? (
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-gray-500/20 text-gray-400 shrink-0">
+                        not initialized
+                      </span>
+                    ) : sub.conflicted ? (
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-port-error/20 text-port-error shrink-0">
+                        merge conflict
+                      </span>
+                    ) : sub.outOfSync ? (
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-port-warning/20 text-port-warning shrink-0">
+                        out of sync
+                      </span>
+                    ) : sub.behind > 0 ? (
                       <span className="px-2 py-0.5 text-xs rounded-full bg-port-warning/20 text-port-warning shrink-0">
                         {sub.behind} behind
                       </span>
@@ -131,7 +143,7 @@ export default function Submodules() {
                 </div>
                 <button
                   onClick={() => handleUpdate(sub.path)}
-                  disabled={!!updating || sub.behind === 0}
+                  disabled={!!updating || (!sub.behind && !sub.outOfSync && sub.initialized && !sub.conflicted)}
                   className="px-3 py-2 bg-port-accent hover:bg-port-accent/80 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 text-sm shrink-0 min-h-[40px]"
                 >
                   {updating === sub.path ? (

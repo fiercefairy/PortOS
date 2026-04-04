@@ -59,11 +59,11 @@ export const appStandardizeSchema = z.object({
 });
 
 // app:deploy — app ID and optional flags for Xcode deploy
-const appDeployFlagSchema = z.string()
-  .trim()
-  .min(1, 'flag cannot be empty')
-  .max(64, 'flag must be 64 characters or fewer')
-  .regex(/^--?[A-Za-z0-9][A-Za-z0-9-]*$/, 'flag must be a valid CLI flag (e.g. -f or --force)');
+// Must match VALID_FLAGS in appDeployer.js
+const ALLOWED_DEPLOY_FLAGS = ['--ios', '--macos', '--all', '--skip-tests'];
+const appDeployFlagSchema = z.enum(ALLOWED_DEPLOY_FLAGS, {
+  errorMap: () => ({ message: `flag must be one of: ${ALLOWED_DEPLOY_FLAGS.join(', ')}` })
+});
 
 export const appDeploySchema = z.object({
   appId: z.string().min(1, 'appId is required'),

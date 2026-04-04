@@ -13,6 +13,7 @@ const deployingApps = new Set();
  * Check whether an app has a deploy.sh script
  */
 export function hasDeployScript(app) {
+  if (process.platform === 'win32') return false;
   if (!app?.repoPath) return false;
   if (!NON_PM2_TYPES.has(app.type)) return false;
   return existsSync(join(app.repoPath, 'deploy.sh'));

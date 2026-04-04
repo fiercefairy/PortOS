@@ -28,9 +28,18 @@ router.get('/submodules/status', asyncHandler(async (req, res) => {
 
 // POST /api/git/submodules/update - Update a specific submodule
 router.post('/submodules/update', asyncHandler(async (req, res) => {
-  const { path } = req.body;
-  if (!path || typeof path !== 'string') {
+  const rawPath = req.body?.path;
+  if (!rawPath || typeof rawPath !== 'string') {
     throw new ServerError('path must be a non-empty string', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+  const path = rawPath.trim();
+  if (!path) {
+    throw new ServerError('path must be a non-empty string', { status: 400, code: 'VALIDATION_ERROR' });
+  }
+  // Validate that this is a known submodule path
+  const submodules = await git.getSubmodules();
+  if (!submodules.some(s => s.path === path)) {
+    throw new ServerError(`Unknown submodule path: ${path}`, { status: 400, code: 'VALIDATION_ERROR' });
   }
   const newCommit = await git.updateSubmodule(path);
   res.json({ success: true, newCommit });

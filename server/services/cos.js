@@ -2627,35 +2627,35 @@ export async function approveTask(taskId) {
  * @returns {number} Timestamp (ms) of next fire time
  */
 function computeNextJobFireTime(job, timezone) {
-  if (job.cronExpression) {
+  // Convert scheduledTime (HH:MM) + interval to a cron expression so parseCronToNextRun
+  // handles all "next occurrence after lastRun" logic without drift issues.
+  // e.g. { interval: 'daily', scheduledTime: '04:30' } → '30 4 * * *'
+  let cronExpr = job.cronExpression;
+  if (!cronExpr && job.scheduledTime) {
+    const match = String(job.scheduledTime).match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+    if (match) {
+      const dayField = job.weekdaysOnly ? '1-5' : '*';
+      cronExpr = `${Number(match[2])} ${Number(match[1])} * * ${dayField}`;
+    }
+  }
+
+  if (cronExpr) {
     const from = job.lastRun ? new Date(job.lastRun) : new Date();
-    const next = parseCronToNextRun(job.cronExpression, from, timezone);
+    const next = parseCronToNextRun(cronExpr, from, timezone);
     if (!next) {
       throw new Error(
         `Invalid cron expression for autonomous job` +
         (job.id ? ` "${job.id}"` : '') +
-        `: ${job.cronExpression}`
+        `: ${cronExpr}`
       );
     }
     return next.getTime();
   }
 
+  // Pure interval fallback (no scheduledTime, no cronExpression)
   const lastRun = job.lastRun ? new Date(job.lastRun).getTime() : 0;
   let nextDue = lastRun + job.intervalMs;
 
-  if (job.scheduledTime) {
-    const match = String(job.scheduledTime).match(/^([01]\d|2[0-3]):([0-5]\d)$/);
-    if (match) {
-      // Subtract a tolerance window before searching so that execution drift
-      // (job ran a few minutes after the scheduled time) doesn't cause
-      // nextLocalTime to skip past today's window and land on the next day.
-      // Tolerance: 10% of interval, capped at 2 hours.
-      const tolerance = Math.min(job.intervalMs * 0.1, 2 * 60 * 60_000);
-      nextDue = nextLocalTime(nextDue - tolerance, Number(match[1]), Number(match[2]), timezone);
-    }
-  }
-
-  // If weekdaysOnly, skip to next weekday (using local day-of-week)
   if (job.weekdaysOnly) {
     const { dayOfWeek } = getLocalParts(new Date(nextDue), timezone);
     if (dayOfWeek === 0) nextDue += 24 * 60 * 60 * 1000; // Sunday → Monday

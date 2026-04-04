@@ -31,10 +31,12 @@ import {
   shellSessionIdSchema,
   shellStopSchema,
   appUpdateSchema,
-  appStandardizeSchema
+  appStandardizeSchema,
+  appDeploySchema
 } from '../lib/socketValidation.js';
 import * as appsService from './apps.js';
 import * as appUpdater from './appUpdater.js';
+import * as appDeployer from './appDeployer.js';
 
 // Store active log streams per socket
 const activeStreams = new Map();
@@ -384,6 +386,32 @@ export function initSocket(io) {
         }
       });
       console.log(`✅ Socket standardize complete for ${app.name}`);
+    });
+
+    // App deploy handler — streams real-time output from deploy.sh
+    socket.on('app:deploy', async (rawData) => {
+      const data = validateSocketData(appDeploySchema, rawData, socket, 'app:deploy');
+      if (!data) return;
+
+      const app = await appsService.getAppById(data.appId);
+      if (!app) {
+        socket.emit('app:deploy:error', { message: 'App not found' });
+        return;
+      }
+
+      if (!appDeployer.hasDeployScript(app)) {
+        socket.emit('app:deploy:error', { message: 'No deploy.sh found for this app' });
+        return;
+      }
+
+      console.log(`🚀 Deploy started for ${app.name} [${data.flags.join(', ') || 'default'}]`);
+      const emit = (type, payload) => {
+        socket.emit(`app:deploy:${type}`, { ...payload, timestamp: Date.now() });
+      };
+
+      const result = await appDeployer.deployApp(app, data.flags, emit);
+      socket.emit('app:deploy:complete', { success: result.success, code: result.code });
+      console.log(`${result.success ? '✅' : '❌'} Deploy ${result.success ? 'complete' : 'failed'} for ${app.name}`);
     });
 
     // Shell session handlers

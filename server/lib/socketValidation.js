@@ -58,6 +58,12 @@ export const appStandardizeSchema = z.object({
   appId: z.string().min(1, 'appId is required')
 });
 
+// app:deploy — app ID and optional flags for Xcode deploy
+export const appDeploySchema = z.object({
+  appId: z.string().min(1, 'appId is required'),
+  flags: z.array(z.string()).default([])
+});
+
 // =============================================================================
 // VALIDATION HELPER
 // =============================================================================

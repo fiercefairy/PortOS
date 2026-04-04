@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Play, Square, RotateCcw, ExternalLink, Hammer } from 'lucide-react';
+import DeployPanel from './DeployPanel';
 import toast from '../ui/Toast';
 import BrailleSpinner from '../BrailleSpinner';
 import StatusBadge from '../StatusBadge';
@@ -222,6 +223,9 @@ export default function AppDetailView() {
                 <Hammer size={14} className={buildLoading ? 'animate-bounce' : ''} />
                 <span className="text-xs">{buildLoading ? 'Building...' : 'Build'}</span>
               </button>
+            )}
+            {app.hasDeployScript && (
+              <DeployPanel appId={appId} appName={app.name} />
             )}
           </div>
         </div>

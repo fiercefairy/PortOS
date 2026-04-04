@@ -2629,9 +2629,13 @@ export async function approveTask(taskId) {
 function computeNextJobFireTime(job, timezone) {
   // Convert scheduledTime (HH:MM) + interval to a cron expression so parseCronToNextRun
   // handles all "next occurrence after lastRun" logic without drift issues.
+  // Only synthesize a cron for daily/weekday jobs (intervalMs <= 1 day).
+  // Weekly+ jobs with scheduledTime fall through to the interval path, which correctly
+  // computes lastRun + intervalMs and avoids scheduling them every day.
   // e.g. { interval: 'daily', scheduledTime: '04:30' } → '30 4 * * *'
+  const DAY_MS = 24 * 60 * 60 * 1000;
   let cronExpr = job.cronExpression;
-  if (!cronExpr && job.scheduledTime) {
+  if (!cronExpr && job.scheduledTime && (!job.intervalMs || job.intervalMs <= DAY_MS)) {
     const match = String(job.scheduledTime).match(/^([01]\d|2[0-3]):([0-5]\d)$/);
     if (match) {
       const dayField = job.weekdaysOnly ? '1-5' : '*';

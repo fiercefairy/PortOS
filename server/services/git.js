@@ -930,12 +930,17 @@ export async function getSubmodules() {
   const submodules = await Promise.all(parsed.map(async ({ statusChar, commit, path: subPath }) => {
     const name = subPath.split('/').pop();
     const fullPath = join(root, subPath);
+    const initialized = statusChar !== '-';
+    const conflicted = statusChar === 'U';
     const exists = existsSync(fullPath);
+
+    // Skip remote-info fetch when submodule is uninitialized or has merge conflicts
+    const canFetchRemote = exists && initialized && !conflicted;
 
     // Run independent git queries concurrently
     const [urlResult, remoteInfo] = await Promise.all([
       execGitSafe(['config', `submodule.${subPath}.url`], root),
-      exists ? fetchRemoteInfo(fullPath, commit) : Promise.resolve({ latestCommit: null, behind: 0, latestMessage: null })
+      canFetchRemote ? fetchRemoteInfo(fullPath, commit) : Promise.resolve({ latestCommit: null, behind: 0, latestMessage: null })
     ]);
 
     return {
@@ -943,6 +948,9 @@ export async function getSubmodules() {
       path: subPath,
       currentCommit: commit.substring(0, 7),
       ...remoteInfo,
+      statusChar,
+      initialized,
+      conflicted,
       outOfSync: statusChar === '+',
       url: urlResult.stdout.trim() || null
     };

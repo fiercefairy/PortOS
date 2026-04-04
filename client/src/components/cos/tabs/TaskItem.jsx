@@ -176,9 +176,8 @@ export default function TaskItem({ task, isSystem, awaitingApproval, onRefresh, 
   };
 
   const handleSave = async () => {
-    const result = await api.updateCosTask(task.id, editData).catch(err => { toast.error(err.message); return null; });
-    if (!result) return;
-    toast.success('Task updated');
+    const result = await api.updateCosTask(task.id, editData).catch(() => null);
+    if (result) toast.success('Task updated');
     setEditing(false);
     onRefresh();
   };

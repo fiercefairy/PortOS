@@ -39,7 +39,7 @@ export default function Submodules() {
   };
 
   const handleUpdateAll = async () => {
-    const outdated = submodules.filter(s => s.behind > 0);
+    const outdated = submodules.filter(s => s.behind > 0 || s.outOfSync || !s.initialized);
     if (outdated.length === 0) {
       toast.success('All submodules are up to date');
       return;

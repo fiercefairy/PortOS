@@ -383,11 +383,12 @@ async function forwardNotification(notification) {
   if (isMemoryApproval) {
     const memory = await peekMemory(notification.metadata.memoryId).catch(() => null);
     const raw = memory?.summary || memory?.content || notification.description || '';
-    // Telegram messages are capped at 4096 chars; escape first since escaping can expand text
-    const escaped = escapeHtml(raw);
-    const MAX_CONTENT = 3500;
-    const fullContent = escaped.length > MAX_CONTENT ? escaped.slice(0, MAX_CONTENT) + '...' : escaped;
-    if (fullContent) lines.push(fullContent);
+    // Telegram messages are capped at 4096 chars; truncate raw text first to avoid
+    // slicing mid-entity after escaping (e.g. &amp; → &am). Use conservative limit
+    // since escaping can expand characters (& → &amp;, < → &lt;, etc.)
+    const MAX_RAW = 3000;
+    const truncated = raw.length > MAX_RAW ? raw.slice(0, MAX_RAW) + '...' : raw;
+    if (truncated) lines.push(escapeHtml(truncated));
     opts.reply_markup = JSON.stringify({
       inline_keyboard: [[
         { text: '✅ Approve', callback_data: `${CALLBACK_APPROVE}:${notification.metadata.memoryId}` },

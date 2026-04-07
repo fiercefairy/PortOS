@@ -16,6 +16,7 @@
 
 ## Fixed
 
+- **Xcode `deploy.sh` template — altool upload check false-positive** — generated deploy scripts grepped altool output for plain `ERROR: ` to detect upload failures, but altool's multipart uploader logs every transient retry as `ERROR: [ContentDelivery.Uploader.X] WILL RETRY PART N. Checksums do not match.` On flaky/slow networks the script killed deploys mid-recovery. Switched to Apple's definitive failure markers only: `UPLOAD FAILED|Validation failed \(|ERROR ITMS-|product-errors`. Affects iOS, macOS, and watchOS upload sections in `xcodeScripts.js`.
 - Submodule status API (`/api/git/submodules/status`) always returned empty array — `stdout.trim()` was stripping the leading space status character from `git submodule status` output, causing the regex parser to fail
 - CoS agents page crash: pipe characters (`|`) in task descriptions triggered infinite loop in markdown parser — non-table pipes now treated as normal text with safety fallback
 - CoS agents API returned full output arrays (600KB+) for all agents in listing — output now stripped from listing response and loaded on demand

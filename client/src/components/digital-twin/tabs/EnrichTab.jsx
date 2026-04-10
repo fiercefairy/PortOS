@@ -114,22 +114,26 @@ export default function EnrichTab({ onRefresh }) {
     }
 
     setSavingWritingStyle(true);
-    await api.createSoulDocument({
-      filename: 'WRITING_STYLE.md',
-      title: 'Writing Style',
-      category: 'core',
-      content: writingAnalysis.suggestedContent
-    }).catch(async () => {
-      // Document might exist, try to update by fetching ID
-      const docs = await api.getDigitalTwinDocuments();
-      const existing = docs.find(d => d.filename === 'WRITING_STYLE.md');
-      if (existing) {
-        return api.updateSoulDocument(existing.id, {
-          content: writingAnalysis.suggestedContent
-        });
-      }
-    });
-    toast.success('Writing style saved');
+    try {
+      await api.createSoulDocument({
+        filename: 'WRITING_STYLE.md',
+        title: 'Writing Style',
+        category: 'core',
+        content: writingAnalysis.suggestedContent
+      }).catch(async () => {
+        // Document might exist, try to update by fetching ID
+        const docs = await api.getDigitalTwinDocuments();
+        const existing = docs.find(d => d.filename === 'WRITING_STYLE.md');
+        if (existing) {
+          return api.updateSoulDocument(existing.id, {
+            content: writingAnalysis.suggestedContent
+          });
+        }
+      });
+      toast.success('Writing style saved');
+    } catch (err) {
+      toast.error(`Failed to save writing style: ${err.message}`);
+    }
     setSavingWritingStyle(false);
     onRefresh();
   };

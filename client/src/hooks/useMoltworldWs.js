@@ -74,7 +74,7 @@ export default function useMoltworldWs() {
 
     // Fetch initial WS status
     const abortCtrl = new AbortController();
-    api.moltworldWsStatus({ signal: abortCtrl.signal }).then(data => {
+    api.moltworldWsStatus({ signal: abortCtrl.signal, silent: true }).then(data => {
       if (data?.status) setConnectionStatus(data.status);
     }).catch(() => {});
 

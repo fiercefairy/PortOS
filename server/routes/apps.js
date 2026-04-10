@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { spawn } from 'child_process';
-import { existsSync } from 'fs';
 import { readFile, writeFile, stat, access } from 'fs/promises';
 import { join, resolve } from 'path';
 import * as appsService from '../services/apps.js';
@@ -199,7 +198,7 @@ const installScriptsSchema = z.object({
 });
 router.post('/:id/xcode-scripts/install', loadApp, asyncHandler(async (req, res) => {
   const { scripts } = validateRequest(installScriptsSchema, req.body);
-  if (!req.loadedApp.repoPath || !existsSync(req.loadedApp.repoPath)) {
+  if (!req.loadedApp.repoPath || !await pathExists(req.loadedApp.repoPath)) {
     throw new ServerError('App repository path not found', { status: 400, code: 'PATH_NOT_FOUND' });
   }
   const result = await installScripts(req.loadedApp, scripts);
@@ -215,7 +214,7 @@ router.get('/:id/icon', loadApp, asyncHandler(async (req, res) => {
 
   // Use stored appIconPath, or detect on-the-fly
   let iconPath = app.appIconPath;
-  if (!iconPath || !existsSync(iconPath)) {
+  if (!iconPath || !await pathExists(iconPath)) {
     iconPath = await detectAppIcon(app.repoPath, app.type);
     // Persist the detected path for future requests
     if (iconPath && iconPath !== app.appIconPath) {
@@ -223,7 +222,7 @@ router.get('/:id/icon', loadApp, asyncHandler(async (req, res) => {
     }
   }
 
-  if (!iconPath || !existsSync(iconPath)) {
+  if (!iconPath || !await pathExists(iconPath)) {
     return res.status(404).json({ error: 'No app icon found' });
   }
 
@@ -343,9 +342,9 @@ router.post('/detect-icons', asyncHandler(async (req, res) => {
   let detected = 0;
 
   for (const app of apps) {
-    if (!app.repoPath || !existsSync(app.repoPath)) continue;
+    if (!app.repoPath || !await pathExists(app.repoPath)) continue;
     // Skip apps that already have a valid icon path
-    if (app.appIconPath && existsSync(app.appIconPath)) continue;
+    if (app.appIconPath && await pathExists(app.appIconPath)) continue;
 
     const iconPath = await detectAppIcon(app.repoPath, app.type);
     if (iconPath) {
@@ -446,8 +445,10 @@ router.post('/:id/start', loadApp, asyncHandler(async (req, res) => {
   const processNames = app.pm2ProcessNames || [app.name.toLowerCase().replace(/\s+/g, '-')];
 
   // Check if ecosystem config exists - prefer using it for proper env var handling
-  const hasEcosystem = ['ecosystem.config.cjs', 'ecosystem.config.js']
-    .some(f => existsSync(`${app.repoPath}/${f}`));
+  const ecosystemChecks = await Promise.all(
+    ['ecosystem.config.cjs', 'ecosystem.config.js'].map(f => pathExists(`${app.repoPath}/${f}`))
+  );
+  const hasEcosystem = ecosystemChecks.some(Boolean);
 
   let results = {};
 
@@ -544,7 +545,7 @@ router.post('/:id/restart', loadApp, asyncHandler(async (req, res) => {
 router.post('/:id/update', loadApp, asyncHandler(async (req, res) => {
   const app = req.loadedApp;
 
-  if (!app.repoPath || !existsSync(app.repoPath)) {
+  if (!app.repoPath || !await pathExists(app.repoPath)) {
     throw new ServerError('App repo path does not exist', { status: 400, code: 'PATH_NOT_FOUND' });
   }
 
@@ -567,7 +568,7 @@ router.post('/:id/update', loadApp, asyncHandler(async (req, res) => {
 router.post('/:id/build', loadApp, asyncHandler(async (req, res) => {
   const app = req.loadedApp;
 
-  if (!existsSync(app.repoPath)) {
+  if (!await pathExists(app.repoPath)) {
     throw new ServerError('App repo path does not exist', { status: 400, code: 'PATH_NOT_FOUND' });
   }
 
@@ -587,7 +588,7 @@ router.post('/:id/build', loadApp, asyncHandler(async (req, res) => {
   const installDirs = isNodeApp ? ['', 'client', ...(isSelfBuild ? [] : ['server']), 'admin'] : [];
   for (const sub of installDirs) {
     const subDir = sub ? join(app.repoPath, sub) : app.repoPath;
-    if (existsSync(join(subDir, 'package.json'))) {
+    if (await pathExists(join(subDir, 'package.json'))) {
       const label = sub || 'root';
       console.log(`📦 Installing ${label} dependencies for ${app.name}`);
       const INSTALL_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
@@ -740,7 +741,7 @@ const ALLOWED_EDITORS = new Set([
 router.post('/:id/open-editor', loadApp, asyncHandler(async (req, res) => {
   const app = req.loadedApp;
 
-  if (!existsSync(app.repoPath)) {
+  if (!await pathExists(app.repoPath)) {
     throw new ServerError('App path does not exist', { status: 400, code: 'PATH_NOT_FOUND' });
   }
 
@@ -785,7 +786,7 @@ router.post('/:id/open-editor', loadApp, asyncHandler(async (req, res) => {
 router.post('/:id/open-claude', loadApp, asyncHandler(async (req, res) => {
   const app = req.loadedApp;
 
-  if (!existsSync(app.repoPath)) {
+  if (!await pathExists(app.repoPath)) {
     throw new ServerError('App path does not exist', { status: 400, code: 'PATH_NOT_FOUND' });
   }
 
@@ -806,7 +807,7 @@ router.post('/:id/open-claude', loadApp, asyncHandler(async (req, res) => {
 router.post('/:id/open-folder', loadApp, asyncHandler(async (req, res) => {
   const app = req.loadedApp;
 
-  if (!existsSync(app.repoPath)) {
+  if (!await pathExists(app.repoPath)) {
     throw new ServerError('App path does not exist', { status: 400, code: 'PATH_NOT_FOUND' });
   }
 
@@ -843,7 +844,7 @@ router.post('/:id/refresh-config', loadApp, asyncHandler(async (req, res) => {
     return res.json({ success: true, updated: false, app, processes: [] });
   }
 
-  if (!existsSync(app.repoPath)) {
+  if (!await pathExists(app.repoPath)) {
     throw new ServerError('App path does not exist', { status: 400, code: 'PATH_NOT_FOUND' });
   }
 
@@ -886,7 +887,7 @@ router.post('/:id/refresh-config', loadApp, asyncHandler(async (req, res) => {
   }
 
   // Detect app icon if not already set
-  if (!app.appIconPath || !existsSync(app.appIconPath)) {
+  if (!app.appIconPath || !await pathExists(app.appIconPath)) {
     const detectedIcon = await detectAppIcon(app.repoPath, app.type);
     if (detectedIcon) updates.appIconPath = detectedIcon;
   }
@@ -950,7 +951,7 @@ router.get('/:id/documents/:filename', loadApp, asyncHandler(async (req, res) =>
     throw new ServerError('Document not in allowlist', { status: 400, code: 'INVALID_DOCUMENT' });
   }
 
-  if (!app.repoPath || !existsSync(app.repoPath)) {
+  if (!app.repoPath || !await pathExists(app.repoPath)) {
     throw new ServerError('App repo path does not exist', { status: 400, code: 'PATH_NOT_FOUND' });
   }
 
@@ -962,7 +963,7 @@ router.get('/:id/documents/:filename', loadApp, asyncHandler(async (req, res) =>
     throw new ServerError('Invalid document path', { status: 400, code: 'PATH_TRAVERSAL' });
   }
 
-  if (!existsSync(resolved)) {
+  if (!await pathExists(resolved)) {
     throw new ServerError('Document not found', { status: 404, code: 'NOT_FOUND' });
   }
 
@@ -979,7 +980,7 @@ router.put('/:id/documents/:filename', loadApp, asyncHandler(async (req, res) =>
     throw new ServerError('Document not in allowlist', { status: 400, code: 'INVALID_DOCUMENT' });
   }
 
-  if (!app.repoPath || !existsSync(app.repoPath)) {
+  if (!app.repoPath || !await pathExists(app.repoPath)) {
     throw new ServerError('App repo path does not exist', { status: 400, code: 'PATH_NOT_FOUND' });
   }
 
@@ -991,7 +992,7 @@ router.put('/:id/documents/:filename', loadApp, asyncHandler(async (req, res) =>
   }
 
   const { content, commitMessage } = documentUpdateSchema.parse(req.body);
-  const created = !existsSync(resolved);
+  const created = !await pathExists(resolved);
 
   await writeFile(resolved, content, 'utf-8');
   await git.stageFiles(app.repoPath, [filename]);

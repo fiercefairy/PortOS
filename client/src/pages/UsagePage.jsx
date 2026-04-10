@@ -19,6 +19,7 @@ export function UsagePage() {
   };
 
   const formatNumber = (num) => {
+    if (num == null) return '—';
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
     return String(num);
@@ -53,11 +54,11 @@ export function UsagePage() {
           <div className="text-xs sm:text-sm text-gray-400">Tool Calls</div>
         </div>
         <div className="bg-port-card border border-port-border rounded-xl p-3 sm:p-4 text-center">
-          <div className="text-xl sm:text-2xl font-bold text-white">{formatNumber(usage.totalTokens?.input + usage.totalTokens?.output)}</div>
+          <div className="text-xl sm:text-2xl font-bold text-white">{formatNumber((usage.totalTokens?.input ?? 0) + (usage.totalTokens?.output ?? 0))}</div>
           <div className="text-xs sm:text-sm text-gray-400">Tokens</div>
         </div>
         <div className="bg-port-card border border-port-border rounded-xl p-3 sm:p-4 text-center col-span-2 sm:col-span-1">
-          <div className="text-xl sm:text-2xl font-bold text-port-success">${usage.estimatedCost?.toFixed(2)}</div>
+          <div className="text-xl sm:text-2xl font-bold text-port-success">${(usage.estimatedCost ?? 0).toFixed(2)}</div>
           <div className="text-xs sm:text-sm text-gray-400">Est. Cost</div>
         </div>
       </div>

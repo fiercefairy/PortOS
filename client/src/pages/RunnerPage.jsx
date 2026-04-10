@@ -268,6 +268,7 @@ ${prompt.trim()}`;
               onClick={() => setContinueContext(null)}
               className="p-1 text-gray-400 hover:text-white"
               title="Dismiss context"
+              aria-label="Dismiss context"
             >
               <X size={16} />
             </button>
@@ -423,8 +424,9 @@ ${prompt.trim()}`;
                 className="w-20 h-20 object-cover rounded-lg border border-port-border"
               />
               <button
+                aria-label="Remove screenshot"
                 onClick={() => removeScreenshot(s.id)}
-                className="absolute -top-2 -right-2 w-5 h-5 bg-port-error rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute -top-2 -right-2 w-5 h-5 bg-port-error rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
               >
                 <X size={12} />
               </button>

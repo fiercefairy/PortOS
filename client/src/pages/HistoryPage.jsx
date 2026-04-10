@@ -163,7 +163,12 @@ export function HistoryPage() {
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <button
+                        type="button"
                         className="text-gray-400 hover:text-white shrink-0 focus:outline-hidden focus:ring-2 focus:ring-port-accent rounded"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggleExpand(entry.id);
+                        }}
                         aria-expanded={expandedId === entry.id}
                         aria-label={`${expandedId === entry.id ? 'Collapse' : 'Expand'} ${entry.action} details`}
                       >

@@ -218,7 +218,15 @@ export function RunsHistoryPage() {
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <button className="text-gray-400 hover:text-white shrink-0">
+                      <button
+                        type="button"
+                        className="text-gray-400 hover:text-white shrink-0"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggleExpand(run.id);
+                        }}
+                        aria-label={expandedId === run.id ? 'Collapse run details' : 'Expand run details'}
+                      >
                         <span className={`inline-block transition-transform ${expandedId === run.id ? 'rotate-90' : ''}`}>▶</span>
                       </button>
                       <span className="text-xl shrink-0">🤖</span>
